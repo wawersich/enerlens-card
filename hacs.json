@@ -1,0 +1,6 @@
+{
+  "name": "EnerLens Card",
+  "render_readme": true,
+  "filename": "enerlens-card.js",
+  "homeassistant": "2024.11.0"
+}

@@ -1,0 +1,305 @@
+<title>EnerLens Mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --page: #fafafa; --card: #ffffff;
+    --text: #212121; --text-2: #727272;
+    --divider: rgba(0,0,0,.12); --line: #cfcfcf;
+    --shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+    --pv: #ff9800; --house: #03a9f4; --good: #43a047; --bad: #e53935; --rest: #9e9e9e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #111111; --card: #1c1c1c;
+      --text: #e1e1e1; --text-2: #9b9b9b;
+      --divider: rgba(255,255,255,.12); --line: #3a3a3a;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #111111; --card: #1c1c1c;
+    --text: #e1e1e1; --text-2: #9b9b9b;
+    --divider: rgba(255,255,255,.12); --line: #3a3a3a;
+    --shadow: none;
+  }
+
+  body { background: var(--page); color: var(--text); font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.45; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 20px 56px; }
+
+  header .eyebrow { margin: 0 0 6px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); }
+  header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 500; letter-spacing: -.01em; text-wrap: balance; }
+  header .lede { margin: 0 0 28px; max-width: 65ch; color: var(--text-2); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 28px 24px; }
+  figure { margin: 0; }
+  figcaption { margin-top: 10px; font-size: 13px; color: var(--text-2); }
+  figcaption b { color: var(--text); font-weight: 500; }
+
+  /* --- Home Assistant card look ------------------------------------------------ */
+  .ha-card { background: var(--card); border: 1px solid var(--divider); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 4px; font-size: 20px; font-weight: 400; letter-spacing: -.012em; }
+  .modes { display: flex; gap: 4px; flex: none; }
+  .mode { font-size: 12px; line-height: 1; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--divider); color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .mode.on { border-color: var(--house); color: var(--house); font-weight: 500; }
+  .card-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 4px 16px 14px; }
+  svg.cross { flex: 1 1 300px; max-width: 440px; min-width: 260px; height: auto; font-family: inherit; overflow: visible; }
+
+  /* nodes & flows */
+  .node-bg { fill: var(--card); stroke-width: 2.5; }
+  .val { font-size: 13px; font-weight: 500; text-anchor: middle; fill: var(--text); font-variant-numeric: tabular-nums; }
+  .soc { font-size: 14px; font-weight: 700; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .lbl { font-size: 11px; text-anchor: middle; fill: var(--text-2); letter-spacing: .02em; }
+  .line { fill: none; stroke: var(--line); stroke-width: 2; }
+  .line.active { opacity: .5; }
+  .seg { fill: none; stroke-width: 7; transition: stroke-dasharray .6s cubic-bezier(.4,0,.2,1), stroke-dashoffset .6s cubic-bezier(.4,0,.2,1); }
+
+  /* consumer list */
+  .list { flex: 1 1 180px; min-width: 180px; align-self: center; }
+  .list-title { margin: 0 0 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+  .rows { position: relative; }
+  .row { display: flex; align-items: center; gap: 10px; height: 32px; box-sizing: border-box;
+         border-bottom: 1px solid var(--divider); overflow: hidden; font-variant-numeric: tabular-nums;
+         transition: transform .6s cubic-bezier(.4,0,.2,1), opacity .35s, height .4s, border-bottom-width .4s; }
+  .row:last-child { border-bottom-color: transparent; }
+  .row .sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .row .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .v { font-weight: 500; }
+  .row.rest { color: var(--text-2); }
+  .row.entering, .row.leaving { height: 0; opacity: 0; border-bottom-width: 0; }
+
+  /* notes */
+  .notes { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--divider);
+           display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 18px 36px; }
+  .notes dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); margin-bottom: 4px; }
+  .notes dd { margin: 0; max-width: 60ch; }
+  .notes dl { margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) { .row, .seg { transition: none; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Karten-Entwurf · Home Assistant</p>
+    <h1>EnerLens</h1>
+    <p class="lede">Zwei Zustände derselben Karte. Die Werte sind Beispielwerte aus deiner Anlage (5. 9. 2026); Liste und Ring sind optionale Elemente, hier eingeschaltet.</p>
+  </header>
+
+  <section class="cards">
+    <figure>
+      <div class="ha-card" id="day">
+        <div class="card-header"><span>EnerLens</span>
+          <div class="modes" aria-label="Ansicht"><span class="mode on">Jetzt</span><span class="mode">Ø 5 min</span><span class="mode">Ø 15 min</span></div></div>
+        <div class="card-body">
+          <svg class="cross" viewBox="0 0 440 452" aria-label="Energiefluss am Tag"></svg>
+          <div class="list"><p class="list-title">Verbraucher · Top 4</p><div class="rows"></div></div>
+        </div>
+      </div>
+      <figcaption><b>Tag.</b> PV speist ein, die Batterie lädt — beides grün. Die Liste wechselt alle 5 Sekunden zwischen zwei Messständen und sortiert sich mit Bewegung um; der Ring folgt synchron. Limit 4: im zweiten Stand fällt „Klima" trotz bekanntem Wert aus der Liste und steckt im Rest.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="ha-card" id="night">
+        <div class="card-header"><span>EnerLens</span>
+          <div class="modes" aria-label="Ansicht"><span class="mode">Jetzt</span><span class="mode">Ø 5 min</span><span class="mode on">Ø 15 min</span></div></div>
+        <div class="card-body">
+          <svg class="cross" viewBox="0 0 440 452" aria-label="Energiefluss in der Nacht"></svg>
+          <div class="list"><p class="list-title">Verbraucher</p><div class="rows"></div></div>
+        </div>
+      </div>
+      <figcaption><b>Nacht.</b> Netzbezug und Batterie-Entladung — beides rot. Der Ladezustand von 23 % liegt im Verlauf zwischen Rot und Gelb, die PV ist ausgegraut. Hier ist die Ansicht „Ø 15 min" gewählt: alle Leistungswerte sind 15-Minuten-Mittel, nur der Ladezustand bleibt aktuell.</figcaption>
+    </figure>
+  </section>
+
+  <section class="notes">
+    <dl><dt>Farben</dt><dd>Grün = gut (Einspeisung, Laden), Rot = schlecht (Bezug, Entladen). Ladezustand als Verlauf Rot → Gelb → Grün mit drei Stützstellen. Jede Farbe einzeln konfigurierbar, auch als HA-Theme-Variable.</dd></dl>
+    <dl><dt>Liste und Ring</dt><dd>Beide optional. Nach Leistung sortiert, Umsortierung alle 5 Sekunden mit Bewegung auf die neue Stelle. Der Ring zeigt Anteile am Hauswert und skaliert auf 100 %, falls die Einzelwerte den Hauswert übersteigen.</dd></dl>
+    <dl><dt>Rest</dt><dd>Hauswert minus Summe der gezeigten Verbraucher, Bezeichnung frei wählbar. Folgt derselben Regel wie alle Einträge: unter 10 W verschwindet er — also auch, wenn die Summe den Hauswert übersteigt.</dd></dl>
+    <dl><dt>Punkte</dt><dd>Zwei Schwellen, global für alle Linien konfiguriert: unter der ersten ein Punkt, langsam; bis zur zweiten wird er schneller; darüber kommen Punkte hinzu. Hier 0,5 kW und 2 kW, maximal fünf Punkte.</dd></dl>
+    <dl><dt>Limit</dt><dd>Höchstens N Verbraucher erscheinen in Liste und Ring — die stärksten. Alle weiteren gehen in den Rest, auch wenn ihre Werte bekannt sind. Hier N = 4 in der Tag-Karte, ohne Limit in der Nacht-Karte.</dd></dl>
+    <dl><dt>Klick</dt><dd>Knoten, Zahlen und Listeneinträge öffnen den HA-Verlaufsdialog der Entität. Batterie: obere Knotenhälfte mit Prozentzahl und Icon zeigt den Ladezustand, untere Hälfte mit kW die Leistung — zwei große Trefferflächen für den Daumen. Im Entwurf ohne Funktion.</dd></dl>
+    <dl><dt>Ansicht</dt><dd>Drei Modi im Kartenkopf: „Jetzt" (rohe Messwerte), „Ø 5 min" und „Ø 15 min" (zeitgewichtete gleitende Mittel; beide Fenster konfigurierbar). Der aktive Modus ist immer sichtbar. Ladezustand wird nie gemittelt. Klick öffnet weiterhin den HA-Dialog mit der rohen Historie.</dd></dl>
+    <dl><dt>Messwerte</dt><dd>Werden im Modus „Jetzt" nie verändert. Was ein Sensor liefert, steht so da — auch wenn Einzelwerte und Hauswert für ein paar Sekunden nicht zusammenpassen. Die Mittelwert-Modi sind als solche gekennzeichnet.</dd></dl>
+  </section>
+</main>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg", XL = "http://www.w3.org/1999/xlink";
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const el = (tag, attrs = {}, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) { if (k === "text") e.textContent = v; else e.setAttribute(k, v); }
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const fmtKW = v => v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kW";
+
+  // Material icons (Apache 2.0) – what HA renders through mdi:
+  const ICONS = {
+    sun: "M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z",
+    home: "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z",
+    bolt: "M7 2v11h3v9l7-12h-4l4-8z",
+    battery: "M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z",
+  };
+  const COLORS = { "Wärmepumpe": "#7e57c2", "Klima": "#26a69a", "Kühlschränke": "#ec407a", "Speicher": "#8d6e63",
+                   "Trockner": "#5c6bc0", "Waschmaschine": "#ffca28", "Spülmaschine": "#66bb6a", "Klima Speicher": "#78909c" };
+
+  // State-of-charge gradient: stops are the configurable part.
+  const SOC_STOPS = [[0, "#e53935"], [50, "#fdd835"], [100, "#43a047"]];
+  const rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  const socColor = p => {
+    let a = SOC_STOPS[0], b = SOC_STOPS[SOC_STOPS.length - 1];
+    for (let i = 0; i < SOC_STOPS.length - 1; i++) if (p >= SOC_STOPS[i][0] && p <= SOC_STOPS[i + 1][0]) { a = SOC_STOPS[i]; b = SOC_STOPS[i + 1]; break; }
+    const t = b[0] === a[0] ? 0 : (p - a[0]) / (b[0] - a[0]), A = rgb(a[1]), B = rgb(b[1]);
+    return `rgb(${A.map((c, i) => Math.round(c + (B[i] - c) * t)).join(",")})`;
+  };
+
+  // Global card options – the same thresholds apply to every flow line.
+  const CFG = {
+    min_w: 10,              // consumers below this are ignored (list, ring and rest alike)
+    flow_slow_below_kw: 0.5, // one slow dot up to here …
+    flow_more_above_kw: 2.0, // … one dot getting faster up to here, more dots beyond
+    flow_max_dots: 5,
+  };
+  const dotPlan = kw => {
+    const lo = CFG.flow_slow_below_kw, hi = CFG.flow_more_above_kw;
+    if (kw < lo) return { n: 1, dur: 5 };
+    if (kw < hi) return { n: 1, dur: 5 - (kw - lo) / (hi - lo) * 3.2 };
+    return { n: Math.min(CFG.flow_max_dots, 2 + Math.floor(kw - hi)), dur: 1.8 };
+  };
+
+  // Geometry: the classic cross – PV top, grid left, house right, battery bottom.
+  const R = 44, RING_R = 56, C = 2 * Math.PI * RING_R;
+  const POS = { pv: [220, 68], grid: [64, 220], house: [376, 220], bat: [220, 380] };
+  const PATHS = {
+    pv_house:   "M220,112 C220,182 262,220 316,220",
+    pv_grid:    "M220,112 C220,182 178,220 108,220",
+    pv_bat:     "M220,112 L220,336",
+    grid_house: "M108,220 L316,220",
+    grid_bat:   "M108,220 C180,220 220,262 220,336",
+    bat_house:  "M220,336 C220,262 262,220 316,220",
+  };
+
+  const scenes = {
+    day: { el: "#day", pv: 9.33, house: 3.80, grid: -3.93, battery: 1.60, soc: 72, restLabel: "Rest", maxConsumers: 4,
+      states: [
+        { "Wärmepumpe": 1.85, "Klima": 0.62, "Kühlschränke": 0.17, "Speicher": 0.15, "Trockner": 0.003, "Klima Speicher": 0.001 },
+        { "Wärmepumpe": 1.85, "Klima": 0.05, "Kühlschränke": 0.85, "Speicher": 0.15, "Trockner": 0.65, "Klima Speicher": 0.001 },
+      ] },
+    night: { el: "#night", pv: 0, house: 1.52, grid: 0.42, battery: -1.10, soc: 23, restLabel: "Rest",
+      states: [ { "Wärmepumpe": 0.95, "Kühlschränke": 0.17, "Speicher": 0.15, "Trockner": 0.003 } ] },
+  };
+
+  function node(svg, [x, y], o) {
+    const g = el("g", { transform: `translate(${x},${y})` }, svg);
+    el("circle", { r: R, class: "node-bg", style: `stroke:${o.color}` }, g);
+    if (o.soc != null) {
+      const cp = el("clipPath", { id: o.id + "_clip" }, g); el("circle", { r: R - 2 }, cp);
+      const h = (R - 2) * 2 * o.soc / 100;
+      el("rect", { x: -(R - 2), y: (R - 2) - h, width: (R - 2) * 2, height: h, "clip-path": `url(#${o.id}_clip)`, style: `fill:${o.socColor};opacity:.22` }, g);
+      // Two tap targets: upper half (SOC number + icon) and lower half (power) – far enough apart for a thumb.
+      el("text", { y: -19, class: "soc", style: `fill:${o.socColor}`, text: `${o.soc} %` }, g);
+      el("path", { d: ICONS[o.icon], transform: "translate(-11,-11) scale(.92)", style: `fill:${o.iconColor}` }, g);
+      el("text", { y: 34, class: "val", style: `fill:${o.valColor}`, text: o.value }, g);
+    } else {
+      el("path", { d: ICONS[o.icon], transform: "translate(-12,-30)", style: `fill:${o.iconColor}` }, g);
+      el("text", { y: 18, class: "val", style: o.valColor ? `fill:${o.valColor}` : "", text: o.value }, g);
+    }
+    el("text", { y: o.labelY, class: "lbl", text: o.label }, g);
+  }
+
+  function dots(svg, pathId, kw, color) {
+    const plan = dotPlan(kw), path = svg.querySelector("#" + pathId);
+    for (let i = 0; i < plan.n; i++) {
+      const c = el("circle", { r: 4.5, style: `fill:${color}` }, svg);
+      if (REDUCED) { const p = path.getPointAtLength(path.getTotalLength() * (i + .5) / plan.n); c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); continue; }
+      const am = el("animateMotion", { dur: `${plan.dur.toFixed(2)}s`, repeatCount: "indefinite", begin: `${(-(i * plan.dur / plan.n)).toFixed(2)}s` }, c);
+      const mp = el("mpath", {}, am); mp.setAttribute("href", "#" + pathId); mp.setAttributeNS(XL, "xlink:href", "#" + pathId);
+    }
+  }
+
+  function buildScene(s) {
+    const root = document.querySelector(s.el), svg = root.querySelector("svg"), id = s.el.slice(1);
+    s.rows = root.querySelector(".rows"); s.rowMap = new Map(); s.segMap = new Map();
+    for (const [k, d] of Object.entries(PATHS)) el("path", { id: `${id}_${k}`, d, class: "line" }, svg);
+
+    // Split the measured values into flows (grid < 0 = export, battery > 0 = charging).
+    const exp = Math.max(0, -s.grid), imp = Math.max(0, s.grid), chg = Math.max(0, s.battery), dis = Math.max(0, -s.battery);
+    const flows = [];
+    if (s.pv > 0) { flows.push(["pv_house", s.pv - exp - chg, "var(--pv)"]); if (exp) flows.push(["pv_grid", exp, "var(--good)"]); if (chg) flows.push(["pv_bat", chg, "var(--good)"]); }
+    if (imp) flows.push(["grid_house", imp, "var(--bad)"]);
+    if (dis) flows.push(["bat_house", dis, "var(--bad)"]);
+    for (const [k, kw, color] of flows) { if (kw <= 0) continue; const p = svg.querySelector(`#${id}_${k}`); p.classList.add("active"); p.style.stroke = color; }
+
+    // Ring (drawn before the house node so the node sits on top).
+    s.ring = el("g", { transform: `translate(${POS.house[0]},${POS.house[1]}) rotate(-90)` }, svg);
+
+    const gridColor = s.grid < 0 ? "var(--good)" : s.grid > 0 ? "var(--bad)" : "var(--line)";
+    const batColor = s.battery > 0 ? "var(--good)" : s.battery < 0 ? "var(--bad)" : "var(--line)";
+    const pvOn = s.pv > 0;
+    node(svg, POS.pv, { id: id + "_pv", icon: "sun", color: pvOn ? "var(--pv)" : "var(--line)", iconColor: pvOn ? "var(--pv)" : "var(--text-2)", valColor: pvOn ? "" : "var(--text-2)", value: fmtKW(s.pv), label: "PV", labelY: -(R + 12) });
+    node(svg, POS.grid, { id: id + "_grid", icon: "bolt", color: gridColor, iconColor: gridColor, value: fmtKW(Math.abs(s.grid)), label: s.grid < 0 ? "Netz · Einspeisung" : s.grid > 0 ? "Netz · Bezug" : "Netz", labelY: R + 16 });
+    node(svg, POS.house, { id: id + "_house", icon: "home", color: "var(--house)", iconColor: "var(--house)", value: fmtKW(s.house), label: "Haus", labelY: RING_R + 20 });
+    node(svg, POS.bat, { id: id + "_bat", icon: "battery", color: batColor, iconColor: batColor, soc: s.soc, socColor: socColor(s.soc), valColor: batColor, value: fmtKW(Math.abs(s.battery)), label: s.battery > 0 ? "Batterie · lädt" : s.battery < 0 ? "Batterie · entlädt" : "Batterie", labelY: R + 16 });
+
+    for (const [k, kw, color] of flows) if (kw > 0) dots(svg, `${id}_${k}`, kw, color);
+    updateConsumers(s, s.states[0]);
+  }
+
+  function makeRow(e) {
+    const r = document.createElement("div"); r.className = "row" + (e.rest ? " rest" : ""); r.dataset.key = e.key;
+    r.innerHTML = `<span class="sw"></span><span class="nm"></span><span class="v"></span>`;
+    r.querySelector(".sw").style.background = e.color; r.querySelector(".nm").textContent = e.name;
+    return r;
+  }
+
+  function updateConsumers(s, state) {
+    // Everything below min_w is ignored; then only the strongest `maxConsumers` stay –
+    // whatever is folded away ends up in the rest entry, which follows the very same rules.
+    const shown = Object.entries(state).filter(([, v]) => v >= CFG.min_w / 1000)
+      .map(([k, v]) => ({ key: k, name: k, v, color: COLORS[k] || "#999" }))
+      .sort((a, b) => b.v - a.v).slice(0, s.maxConsumers ?? Infinity);
+    const sum = shown.reduce((a, e) => a + e.v, 0), rest = s.house - sum;
+    if (rest >= 0.01) shown.push({ key: "__rest", name: s.restLabel, v: rest, color: "var(--rest)", rest: true });
+    shown.sort((a, b) => b.v - a.v);
+
+    // --- list: FLIP so rows glide to their new place --------------------------------
+    const rows = s.rows, first = new Map();
+    for (const r of rows.children) first.set(r.dataset.key, r.getBoundingClientRect().top);
+    const oldOrder = [...rows.children].map(r => r.dataset.key), keep = new Set(shown.map(e => e.key));
+    const nodes = shown.map(e => {
+      let r = s.rowMap.get(e.key);
+      if (!r) { r = makeRow(e); r.classList.add("entering"); s.rowMap.set(e.key, r); }
+      r.querySelector(".v").textContent = fmtKW(e.v);
+      return r;
+    });
+    const leaving = [...rows.children].filter(r => !keep.has(r.dataset.key));
+    for (const r of leaving) nodes.splice(Math.min(oldOrder.indexOf(r.dataset.key), nodes.length), 0, r);
+    nodes.forEach(n => rows.appendChild(n));
+    for (const r of rows.children) {
+      if (!first.has(r.dataset.key) || leaving.includes(r)) continue;
+      const dy = first.get(r.dataset.key) - r.getBoundingClientRect().top;
+      if (!dy) continue;
+      r.style.transition = "none"; r.style.transform = `translateY(${dy}px)`; r.getBoundingClientRect();
+      r.style.transition = ""; r.style.transform = "";
+    }
+    for (const r of leaving) { r.classList.add("leaving"); s.rowMap.delete(r.dataset.key); r.addEventListener("transitionend", () => r.remove(), { once: true }); }
+    requestAnimationFrame(() => rows.querySelectorAll(".entering").forEach(r => r.classList.remove("entering")));
+
+    // --- ring: shares of the house value, scaled to 100 % when the parts exceed the whole ---
+    const total = shown.reduce((a, e) => a + e.v, 0), gap = 3, avail = C - shown.length * gap;
+    let off = 0; const seen = new Set();
+    for (const e of shown) {
+      const len = e.v / total * avail;
+      let c = s.segMap.get(e.key);
+      if (!c) { c = el("circle", { r: RING_R, class: "seg", style: `stroke:${e.color};stroke-dasharray:0 ${C};stroke-dashoffset:${-off}` }, s.ring); s.segMap.set(e.key, c); c.getBoundingClientRect(); }
+      c.style.strokeDasharray = `${len} ${C - len}`; c.style.strokeDashoffset = `${-off}`;
+      off += len + gap; seen.add(e.key);
+    }
+    for (const [k, c] of s.segMap) if (!seen.has(k)) { c.style.strokeDasharray = `0 ${C}`; }
+  }
+
+  for (const s of Object.values(scenes)) buildScene(s);
+  if (!REDUCED) { let i = 0; setInterval(() => { i = (i + 1) % scenes.day.states.length; updateConsumers(scenes.day, scenes.day.states[i]); }, 5000); }
+})();
+</script>

@@ -1,0 +1,7 @@
+node_modules
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Manual backup copies - git is the history now
+*.bak.*
