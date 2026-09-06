@@ -4,9 +4,10 @@
 import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { collectEntityIds, normalizeConfig } from "./config";
 import { CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
-import { computeFlows } from "./flow";
+import { computeFlows, planDots } from "./flow";
 import { buildModel } from "./model";
 import { renderCross } from "./render/cross";
+import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { VIEW_W } from "./render/geometry";
 import { styles } from "./styles";
 import { type Config, ConfigError, type HomeAssistant, type Model, type RawConfig } from "./types";
@@ -25,6 +26,13 @@ class EnerLensCard extends LitElement {
   private _entityIds: string[] = [];
   private _model?: Model;
   private _resizeObserver?: ResizeObserver;
+  private _intersectionObserver?: IntersectionObserver;
+  private _dots?: DotLayer;
+  private _technique: DotTechnique = "static";
+  private _motionQuery?: MediaQueryList;
+  private _visible = true;
+  private readonly _onVisibility = () => this._syncPlayState();
+  private readonly _onMotionChange = () => this.requestUpdate();
 
   set hass(hass: HomeAssistant) {
     const previous = this._hass;
@@ -64,12 +72,62 @@ class EnerLensCard extends LitElement {
       if (width > 0) this.style.setProperty("--el-scale", String(width / VIEW_W));
     });
     this._resizeObserver.observe(this);
+
+    this._technique = detectTechnique();
+
+    // Animations cost nothing while nobody is looking (REQ P-8).
+    this._intersectionObserver = new IntersectionObserver((entries) => {
+      this._visible = entries.some((e) => e.isIntersecting);
+      this._syncPlayState();
+    });
+    this._intersectionObserver.observe(this);
+    document.addEventListener("visibilitychange", this._onVisibility);
+
+    // The system setting can change while the card is open (REQ P-7).
+    this._motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    this._motionQuery?.addEventListener?.("change", this._onMotionChange);
+  }
+
+  private get _animationsWanted(): boolean {
+    const mode = this._config?.flow.animation ?? "auto";
+    if (mode === "off") return false;
+    if (mode === "on") return true;
+    return !this._motionQuery?.matches;
+  }
+
+  private _syncPlayState(): void {
+    const documentHidden = typeof document !== "undefined" && document.hidden;
+    if (this._visible && !documentHidden) this._dots?.resume();
+    else this._dots?.pause();
+  }
+
+  /**
+   * The dot layer lives outside Lit's template: letting the template own those
+   * elements would recreate them on every render and restart each animation,
+   * which is what REQ P-6 forbids.
+   */
+  protected updated(): void {
+    if (!this._hass || !this._config) return;
+    const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
+    if (!group) return;
+    if (!this._dots) this._dots = new DotLayer(group, this._technique);
+    const model = this._model ?? buildModel(this._hass, this._config);
+    const plans = planDots(computeFlows(model), this._config);
+    this._dots.update(plans, this._config, this._animationsWanted);
+    this._syncPlayState();
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
+    this._intersectionObserver?.disconnect();
+    this._intersectionObserver = undefined;
+    document.removeEventListener("visibilitychange", this._onVisibility);
+    this._motionQuery?.removeEventListener?.("change", this._onMotionChange);
+    this._motionQuery = undefined;
+    this._dots?.destroy();
+    this._dots = undefined;
   }
 
   getCardSize(): number {

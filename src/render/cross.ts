@@ -127,6 +127,9 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
   return views;
 }
 
+/** Connections that only exist when a battery node is present (REQ K-10). */
+const BATTERY_LINKS = new Set(["solar_battery", "grid_battery", "battery_house", "battery_grid"]);
+
 export function renderCross(
   model: Model,
   config: Config,
@@ -134,18 +137,23 @@ export function renderCross(
   activeConnections: ReadonlySet<string>,
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass);
+  // No battery configured: its lines go with it, the rest of the cross stays put.
+  const links = model.battery
+    ? DRAWN_CONNECTIONS
+    : DRAWN_CONNECTIONS.filter((id) => !BATTERY_LINKS.has(id));
 
   return html`
     <div class="cross">
       <div class="plot">
         <svg viewBox="0 0 ${VIEW_W} ${VIEW_H}" aria-hidden="true">
-        ${DRAWN_CONNECTIONS.map(
+        ${links.map(
           (id) =>
             svg`<path
               class="link ${activeConnections.has(id) ? "active" : ""}"
               d=${PATHS[id]}
             ></path>`,
         )}
+          <g class="dots"></g>
         </svg>
         ${views.map((v) => {
           const pos = nodePercent(v.key);

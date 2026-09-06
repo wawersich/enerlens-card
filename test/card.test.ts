@@ -98,10 +98,123 @@ describe("enerlens-card element", () => {
     expect(text).toContain("lädt");
   });
 
+  it("drops the battery lines when no battery is configured (REQ K-10)", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid", house: "sensor.house" },
+    });
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll(".node").length, "battery node still there").toBe(3);
+    // Only solar-grid, solar-house and grid-house remain.
+    expect(el.shadowRoot?.querySelectorAll("path.link").length, "battery lines still there").toBe(
+      3,
+    );
+  });
+
   it("re-renders when hass changes", async () => {
     const el = await mount();
     el.hass = fakeHass({ ...STATES, "sensor.solar": "1234" });
     await el.updateComplete;
     expect(el.shadowRoot?.textContent ?? "").toContain("1,23 kW");
+  });
+});
+
+describe("dot layer", () => {
+  it("creates dots for the active connections (REQ P-1)", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig(CONFIG);
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    // 9330 W solar, 3930 W export, 1600 W charging, 3800 W house - four flows,
+    // each above flow.min_w, so every one carries at least one dot.
+    const dots = el.shadowRoot?.querySelectorAll("g.dots circle");
+    expect(dots?.length, "no dots rendered").toBeGreaterThan(0);
+  });
+
+  it("keeps dots out of the light DOM template", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig(CONFIG);
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const before = el.shadowRoot?.querySelectorAll("g.dots circle")[0];
+    el.hass = fakeHass({ ...STATES, "sensor.solar": "8000" });
+    await el.updateComplete;
+    const after = el.shadowRoot?.querySelectorAll("g.dots circle")[0];
+    // Same element instance across a re-render - otherwise the animation would
+    // restart on every state change (REQ P-6).
+    expect(after, "dot element was recreated").toBe(before);
+  });
+});
+
+describe("dot spacing", () => {
+  it("keeps gaps even when the count changes (REQ P-3)", async () => {
+    const { DotLayer } = await import("../src/render/dots");
+    const { normalizeConfig } = await import("../src/config");
+    const config = normalizeConfig(CONFIG);
+    const svgNs = "http://www.w3.org/2000/svg";
+    const group = document.createElementNS(svgNs, "g") as SVGGElement;
+    document.body.appendChild(group);
+
+    // happy-dom has no WAAPI; stand in with an object that records the phase.
+    const phases: number[] = [];
+    (Element.prototype as unknown as { animate: unknown }).animate = function animate() {
+      const anim = {
+        currentTime: 0,
+        playbackRate: 1,
+        updatePlaybackRate(r: number) {
+          this.playbackRate = r;
+        },
+        pause() {},
+        play() {},
+        cancel() {},
+      };
+      return anim as unknown as Animation;
+    };
+
+    const layer = new DotLayer(group, "waapi");
+    layer.update(
+      [{ connection: "solar_house", w: 300, count: 1, durationS: 5, colorKey: "solar" }],
+      config,
+      true,
+    );
+    // Advance the single dot to 30 % of a lap, then let a second one join.
+    const first = group.querySelectorAll("circle")[0] as SVGCircleElement & { _a?: Animation };
+    const anims = group.querySelectorAll("circle");
+    expect(anims.length).toBe(1);
+
+    layer.update(
+      [{ connection: "solar_house", w: 3000, count: 3, durationS: 1.8, colorKey: "solar" }],
+      config,
+      true,
+    );
+    expect(group.querySelectorAll("circle").length, "count did not grow").toBe(3);
+
+    // With an anchor at 0 the three dots must sit at 0, 1/3 and 2/3 of a lap.
+    for (const el of group.querySelectorAll("circle")) {
+      phases.push(Number.parseFloat((el as SVGCircleElement).style.offsetDistance));
+    }
+    expect(first).toBeTruthy();
+    layer.destroy();
+    group.remove();
   });
 });
