@@ -107,7 +107,7 @@ Berechnet wird nur an fünf klar benannten Stellen: die **eine abgeleitete Bilan
 | L-4 | **Limit:** Höchstens `max_consumers` Verbraucher — die stärksten. Ohne Limit alle, die den Filter passieren. Das Limit zählt nur echte Verbraucher; der Rest kommt obendrauf. | MUSS |
 | L-5 | **Rest-Eintrag:** Wert = Hauswert − Σ gezeigte Verbraucher (inklusive aller weggefilterten und weggelimitierten). Bezeichnung `rest_label` (Standard lokalisiert: de „Rest", en „Other"), Farbe `colors.rest`, nicht klickbar. Der Rest unterliegt **derselben Filterregel** wie alle Einträge: liegt er unter `min_consumer_w` — also auch, wenn Σ > Hauswert und er negativ wird —, verschwindet er und kommt zurück, sobald der Hauswert nachgezogen hat. Ist der Hauswert nicht verfügbar, entfällt der Rest ebenfalls (4.4). | MUSS |
 | L-6 | Sortierung absteigend nach Wert; der Rest wird wie ein normaler Eintrag einsortiert. | MUSS |
-| L-7 | Werte **und** Reihenfolge werden gemeinsam im Takt aktualisiert (T-2). | MUSS |
+| L-7 | **Werte folgen den Sensoren sofort, die Reihenfolge nur im Takt** (T-2). Auch Auswahl (Filter, Limit) und Rest-Eintrag werden im Takt bestimmt: Ein Verbraucher, der zwischen zwei Takten unter `min_consumer_w` fällt, bleibt sichtbar und zeigt seinen aktuellen Wert, bis der nächste Takt neu auswählt. So bleibt die Zahl live, ohne dass die Liste zappelt. | MUSS |
 | L-8 | Umsortieren ist animiert: bestehende Einträge **gleiten** auf ihre neue Position (FLIP), neue blenden ein, verschwindende aus. Dauer: 600 ms Bewegung, 350 ms Deckkraft, 400 ms Höhe; Easing `cubic-bezier(.4,0,.2,1)`. Kein Neuaufbau der Liste. | MUSS |
 | L-9 | Klick/Tipp auf einen Eintrag öffnet den More-Info-Dialog der Verbraucher-Entität (I-1). Zeilenhöhe ≥ 44 px (I-3). | MUSS |
 | L-10 | Optionaler Listentitel (`list.title`); ohne Angabe kein Titel. | KANN |
@@ -417,7 +417,7 @@ Die Abnahmen L und V beruhen auf echten Messdaten der Referenzanlage. Diese Date
 | ENT-4 | Abgeleiteter Hauswert oder abgeleitete PV negativ → `0,00 kW`. | Betrifft nur berechnete Werte. Negativer Verbrauch wäre irreführend. |
 | ENT-5 | Batterie: `%` über dem Icon, `kW` darunter; Trefferflächen als Rechtecke über und unter der Icon-Unterkante. | Fingerbedienung; die sichtbare Kreisform ist für 44 px zu klein (I-3). |
 | ENT-6 | Schwellen für Punkte global, in Watt; Anzahl per `floor`. | Einheitliches Verhalten aller Linien; `floor` macht die Stufen vorhersagbar. |
-| ENT-7 | Werte in Liste und Ring ändern sich im Takt, Knoten im Modus *Aktuell* sofort. | Ruhiges Bild; Werte und Reihenfolge ändern sich gemeinsam. |
+| ENT-7 | **Werte überall sofort, nur die Reihenfolge im Takt.** | *Geändert am 07.09.2026 nach dem ersten Blick auf die laufende Liste.* Eine live springende Zahl stört nicht, eine springende Zeile schon. Ursprünglich waren beide an den Takt gebunden — das ließ die Werte unnötig alt aussehen. |
 | ENT-8 | Empfehlung: schnellen gemessenen Haus-Sensor konfigurieren. | Abgeleiteter Wert aus 60-s-Sensoren lag bis 8,7 kW daneben; 5-s-Sensor folgt Sprüngen in 4 s. |
 | ENT-9 | Dot-Parameter im Takt statt live. | Verhindert dauerndes Neuparametrieren laufender Animationen. |
 | ENT-10 | Genau eine Bilanzgröße darf abgeleitet werden. | Zwei Unbekannte sind aus einer Gleichung nicht bestimmbar — lieber ein klarer Fehler als Raten. |

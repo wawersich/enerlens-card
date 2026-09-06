@@ -67,3 +67,42 @@ export function buildBreakdown(model: Model, config: Config): Breakdown {
 function sortDescending(entries: ListEntry[]): ListEntry[] {
   return entries.sort((a, b) => b.w - a.w);
 }
+
+/**
+ * Keeps the order and the selection of an existing breakdown, but refreshes
+ * every figure from a newer model.
+ *
+ * The list therefore shows live values while rows only move on the tick
+ * (REQ L-7): a reading may change every second without the rows reshuffling,
+ * and a consumer that drops below the threshold stays visible until the next
+ * tick re-selects.
+ */
+export function refreshBreakdownValues(breakdown: Breakdown, model: Model): Breakdown {
+  const live = new Map<string, number>();
+  for (const consumer of model.consumers) {
+    if (consumer.reading.available) live.set(consumer.key, consumer.reading.w);
+  }
+
+  const entries = breakdown.entries.map((entry) =>
+    entry.isRest ? entry : { ...entry, w: live.get(entry.key) ?? entry.w },
+  );
+
+  // The rest keeps absorbing whatever the shown consumers do not account for.
+  const shown = entries.filter((e) => !e.isRest).reduce((sum, e) => sum + e.w, 0);
+  const restIndex = entries.findIndex((e) => e.isRest);
+  if (restIndex >= 0) {
+    const rest = model.house.available ? model.house.w - shown : entries[restIndex].w;
+    entries[restIndex] = { ...entries[restIndex], w: Math.max(0, rest) };
+  }
+
+  const total = entries.reduce((sum, e) => sum + e.w, 0);
+  const segments = entries.map((entry) => ({
+    key: entry.key,
+    share: total > 0 ? entry.w / total : 0,
+    color: entry.color,
+    entity: entry.entity,
+    isRest: entry.isRest,
+  }));
+
+  return { entries, segments };
+}

@@ -4,11 +4,13 @@
 import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { collectEntityIds, normalizeConfig } from "./config";
 import { CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
+import { buildBreakdown, refreshBreakdownValues } from "./consumers";
 import { computeFlows, planDots } from "./flow";
 import { buildModel } from "./model";
-import { renderCross } from "./render/cross";
+import { openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { VIEW_W } from "./render/geometry";
+import { RowAnimator, renderList } from "./render/list";
 import { styles } from "./styles";
 import { type Config, ConfigError, type HomeAssistant, type Model, type RawConfig } from "./types";
 
@@ -25,6 +27,10 @@ class EnerLensCard extends LitElement {
   private _rawConfig?: RawConfig;
   private _entityIds: string[] = [];
   private _model?: Model;
+  /** Snapshot the list, ring and dots work from - advanced on the tick. */
+  private _tickModel?: Model;
+  private _tickTimer?: ReturnType<typeof setInterval>;
+  private readonly _rows = new RowAnimator();
   private _resizeObserver?: ResizeObserver;
   private _intersectionObserver?: IntersectionObserver;
   private _dots?: DotLayer;
@@ -41,6 +47,7 @@ class EnerLensCard extends LitElement {
     // Only rebuild when one of our entities actually changed (REQ T-3).
     if (previous && !this._entitiesChanged(previous, hass)) return;
     this._model = buildModel(hass, this._config);
+    this._tickModel ??= this._model;
   }
 
   get hass(): HomeAssistant | undefined {
@@ -60,7 +67,11 @@ class EnerLensCard extends LitElement {
     this._config = normalizeConfig(config, this._hass);
     this._rawConfig = config;
     this._entityIds = collectEntityIds(this._config);
-    if (this._hass) this._model = buildModel(this._hass, this._config);
+    if (this._hass) {
+      this._model = buildModel(this._hass, this._config);
+      this._tickModel = this._model;
+    }
+    this._restartTick();
   }
 
   connectedCallback(): void {
@@ -86,6 +97,21 @@ class EnerLensCard extends LitElement {
     // The system setting can change while the card is open (REQ P-7).
     this._motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this._motionQuery?.addEventListener?.("change", this._onMotionChange);
+    this._restartTick();
+  }
+
+  /**
+   * Values and order in the list change together, on a fixed beat - otherwise
+   * every sensor update would reshuffle the rows independently (REQ T-2, L-7).
+   */
+  private _restartTick(): void {
+    if (this._tickTimer) clearInterval(this._tickTimer);
+    const seconds = this._config?.updateIntervalS ?? 5;
+    this._tickTimer = setInterval(() => {
+      if (!this._model) return;
+      this._tickModel = this._model;
+      this.requestUpdate();
+    }, seconds * 1000);
   }
 
   private get _animationsWanted(): boolean {
@@ -106,13 +132,18 @@ class EnerLensCard extends LitElement {
    * elements would recreate them on every render and restart each animation,
    * which is what REQ P-6 forbids.
    */
+  protected willUpdate(): void {
+    this._rows.capture(this.renderRoot?.querySelector(".rows") ?? null);
+  }
+
   protected updated(): void {
+    this._rows.play(this.renderRoot.querySelector(".rows"), this._animationsWanted);
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
     if (!this._dots) this._dots = new DotLayer(group, this._technique);
-    const model = this._model ?? buildModel(this._hass, this._config);
-    const plans = planDots(computeFlows(model), this._config);
+    const ticked = this._tickModel ?? this._model ?? buildModel(this._hass, this._config);
+    const plans = planDots(computeFlows(ticked), this._config);
     this._dots.update(plans, this._config, this._animationsWanted);
     this._syncPlayState();
   }
@@ -128,6 +159,8 @@ class EnerLensCard extends LitElement {
     this._motionQuery = undefined;
     this._dots?.destroy();
     this._dots = undefined;
+    if (this._tickTimer) clearInterval(this._tickTimer);
+    this._tickTimer = undefined;
   }
 
   getCardSize(): number {
@@ -160,12 +193,20 @@ class EnerLensCard extends LitElement {
   render(): TemplateResult | typeof nothing {
     if (!this._hass || !this._config) return nothing;
     const model = this._model ?? buildModel(this._hass, this._config);
-    const flows = computeFlows(model);
-    const active = new Set(Object.keys(flows));
+    const ticked = this._tickModel ?? model;
+    // Selection and order come from the tick, the figures from the live model
+    // (REQ L-7): values may move every second, rows only on the beat.
+    const breakdown = refreshBreakdownValues(buildBreakdown(ticked, this._config), model);
+    const active = new Set(Object.keys(computeFlows(ticked)));
+    const openEntry = (entity: string, ev: Event) =>
+      openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`
       <ha-card .header=${this._rawConfig?.title}>
-        <div class="body">${renderCross(model, this._config, this._hass, active)}</div>
+        <div class="body">
+          ${renderCross(model, this._config, this._hass, active)}
+          ${renderList(breakdown, this._config, this._hass, openEntry)}
+        </div>
       </ha-card>
     `;
   }

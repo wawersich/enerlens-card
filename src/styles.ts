@@ -166,6 +166,80 @@ export const styles = css`
     opacity: 0.75;
   }
 
+  /* Beside the house node on a wide card, underneath it on a narrow one.
+     The flex basis is the switch: below roughly 500 px of content the list
+     wraps to its own line (REQ L-1). */
+  .list {
+    flex: 1 1 200px;
+    min-width: 200px;
+    align-self: center;
+  }
+
+  .list-title {
+    margin: 0 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--secondary-text-color);
+  }
+
+  .row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    /* 44 px so a thumb hits a single row reliably (REQ I-3, L-9). */
+    min-height: 44px;
+    border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+    font-variant-numeric: tabular-nums;
+  }
+
+  .row:last-child {
+    border-bottom-color: transparent;
+  }
+
+  .row .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  .row .name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--primary-text-color);
+  }
+
+  .row .row-value {
+    font-weight: 500;
+    color: var(--primary-text-color);
+  }
+
+  /* The rest entry is a computed figure, not a measurement - kept quieter. */
+  .row.rest .name,
+  .row.rest .row-value {
+    color: var(--secondary-text-color);
+  }
+
+  /* Covers the whole row so the tap target is the row, not the text. */
+  .row-hit {
+    position: absolute;
+    inset: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .row-hit:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    border-radius: 4px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * {
       transition: none !important;

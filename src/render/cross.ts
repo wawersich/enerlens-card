@@ -18,7 +18,7 @@ function resolveCssColor(value: string): string {
 }
 
 /** Opens Home Assistant's own dialog with its history graph (REQ I-1, ENT-3). */
-function openMoreInfo(target: EventTarget, entityId: string): void {
+export function openMoreInfo(target: EventTarget, entityId: string): void {
   target.dispatchEvent(
     new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }),
   );

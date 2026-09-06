@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBreakdown } from "../src/consumers";
+import { buildBreakdown, refreshBreakdownValues } from "../src/consumers";
 import type { Config, ConsumerReading, Model, Reading } from "../src/types";
 import { REST_KEY } from "../src/types";
 
@@ -337,5 +337,35 @@ describe("buildBreakdown - edge cases", () => {
       w: 500,
       isRest: false,
     });
+  });
+});
+
+describe("refreshBreakdownValues (REQ L-7)", () => {
+  it("keeps order and selection while updating the figures", () => {
+    const cfg = config({ minConsumerW: 10 });
+    const tick = model(reading(1000), [consumer("a", 600), consumer("b", 300)]);
+    const breakdown = buildBreakdown(tick, cfg);
+    expect(breakdown.entries.map((e) => e.key)).toEqual(["sensor.a", "sensor.b", REST_KEY]);
+
+    // B overtakes A, but the order must hold until the next tick.
+    const live = model(reading(1000), [consumer("a", 100), consumer("b", 800)]);
+    const refreshed = refreshBreakdownValues(breakdown, live);
+    expect(refreshed.entries.map((e) => e.key)).toEqual(["sensor.a", "sensor.b", REST_KEY]);
+    expect(refreshed.entries[0].w).toBe(100);
+    expect(refreshed.entries[1].w).toBe(800);
+    // The rest still absorbs whatever the shown consumers leave over.
+    expect(refreshed.entries[2].w).toBe(100);
+    expect(refreshed.segments.reduce((sum, seg) => sum + seg.share, 0)).toBeCloseTo(1, 6);
+  });
+
+  it("keeps a consumer visible until the next tick even below the threshold", () => {
+    const cfg = config({ minConsumerW: 10 });
+    const breakdown = buildBreakdown(model(reading(500), [consumer("a", 200)]), cfg);
+    const refreshed = refreshBreakdownValues(breakdown, model(reading(500), [consumer("a", 2)]));
+    expect(
+      refreshed.entries.some((e) => e.key === "sensor.a"),
+      "row vanished mid-tick",
+    ).toBe(true);
+    expect(refreshed.entries.find((e) => e.key === "sensor.a")?.w).toBe(2);
   });
 });
