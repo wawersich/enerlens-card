@@ -37,6 +37,8 @@ class EnerLensCard extends LitElement {
   private _technique: DotTechnique = "static";
   private _motionQuery?: MediaQueryList;
   private _visible = true;
+  /** True while the list wraps below the cross - the lanes only run there. */
+  private _stacked = false;
   private readonly _onVisibility = () => this._syncPlayState();
   private readonly _onMotionChange = () => this.requestUpdate();
 
@@ -80,7 +82,16 @@ class EnerLensCard extends LitElement {
     // card stays legible on a phone (REQ K-12).
     this._resizeObserver = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
-      if (width > 0) this.style.setProperty("--el-scale", String(width / VIEW_W));
+      if (width <= 0) return;
+      this.style.setProperty("--el-scale", String(width / VIEW_W));
+      this._dots?.setScale(width / VIEW_W);
+      // Mirrors the flex bases in styles.ts (250 + 175 + gap). Kept in sync by
+      // hand because CSS cannot report whether it wrapped.
+      const stacked = width < 445;
+      if (stacked !== this._stacked) {
+        this._stacked = stacked;
+        this.requestUpdate();
+      }
     });
     this._resizeObserver.observe(this);
 
@@ -141,7 +152,11 @@ class EnerLensCard extends LitElement {
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
-    if (!this._dots) this._dots = new DotLayer(group, this._technique);
+    if (!this._dots) {
+      this._dots = new DotLayer(group, this._technique);
+      const width = this.getBoundingClientRect().width;
+      if (width > 0) this._dots.setScale(width / VIEW_W);
+    }
     const ticked = this._tickModel ?? this._model ?? buildModel(this._hass, this._config);
     const plans = planDots(computeFlows(ticked), this._config);
     this._dots.update(plans, this._config, this._animationsWanted);
@@ -197,7 +212,11 @@ class EnerLensCard extends LitElement {
     // Selection and order come from the tick, the figures from the live model
     // (REQ L-7): values may move every second, rows only on the beat.
     const breakdown = refreshBreakdownValues(buildBreakdown(ticked, this._config), model);
-    const active = new Set(Object.keys(computeFlows(ticked)));
+    // Lines carry the colour of the flow on them, dimmed by CSS (REQ P-5).
+    const plans = planDots(computeFlows(ticked), this._config);
+    const active = new Map(
+      plans.map((p) => [p.connection, this._config?.colors[p.colorKey] ?? ""]),
+    );
     const openEntry = (entity: string, ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 
@@ -205,7 +224,7 @@ class EnerLensCard extends LitElement {
       <ha-card .header=${this._rawConfig?.title}>
         <div class="body">
           ${renderCross(model, this._config, this._hass, active)}
-          ${renderList(breakdown, this._config, this._hass, openEntry)}
+          ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>
       </ha-card>
     `;

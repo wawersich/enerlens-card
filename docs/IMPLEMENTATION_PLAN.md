@@ -255,6 +255,7 @@ Umgesetzt in `/share/dev/enerlens-fixture/` — **außerhalb des Repositories** 
 **Ziel:** Alle Farben aus der Konfiguration, beide Themes messbar korrekt.
 
 - `colors.*` durchreichen (C-1, C-2, C-4); `var()`-Auflösung für den SOC-Verlauf (4.7); Zahlen in `--primary-text-color` (C-5).
+- **`flow.inactive_lines`** (P-9): `show` / `dim` / `hide` für inaktive Verbindungen — von Markus gewünscht, damit das Bild nachts ruhiger wird.
 - **Kontrast messen** (N-6): Text ≥ 4,5:1, Grafik ≥ 3:1 auf `#ffffff` und `#1c1c1c`, DevTools-Werte protokollieren.
 
 **Fertig, wenn:** Standardkonfiguration und eine Grün/Rot-Konfiguration bestehen die Kontrastmessung in beiden Themes.

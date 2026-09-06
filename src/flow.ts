@@ -66,29 +66,43 @@ export function computeFlows(model: Model): Flows {
 }
 
 /** Dot count and speed per connection (REQ 4.6). Connections below `flow.minW` are omitted. */
-export function planDots(flows: Flows, config: Config): DotPlan[] {
+/**
+ * The step rule of REQ 4.6 for a single power figure: how many dots travel a
+ * path, and how long one lap takes. Shared so the consumer rows animate by the
+ * same rule as the connections - one place to change the feel.
+ *
+ * Returns null below `flow.min_w`, where nothing moves at all.
+ */
+export function dotParams(w: number, config: Config): { count: number; durationS: number } | null {
   const { minW, slowBelowW, moreDotsAboveW, maxDotsAtW, maxDots, slowS, fastS } = config.flow;
+  if (!Number.isFinite(w) || w < minW) return null;
+
+  if (w < slowBelowW) return { count: 1, durationS: slowS };
+
+  if (w < moreDotsAboveW) {
+    const ramp = (w - slowBelowW) / (moreDotsAboveW - slowBelowW);
+    return { count: 1, durationS: slowS - ramp * (slowS - fastS) };
+  }
+
+  const grown = (w - moreDotsAboveW) / (maxDotsAtW - moreDotsAboveW);
+  return { count: Math.min(maxDots, 2 + Math.floor(grown * (maxDots - 2))), durationS: fastS };
+}
+
+export function planDots(flows: Flows, config: Config): DotPlan[] {
   const plans: DotPlan[] = [];
 
   for (const connection of CONNECTION_ORDER) {
     const w = flows[connection];
-    if (w === undefined || w < minW) continue;
-
-    let count: number;
-    let durationS: number;
-    if (w < slowBelowW) {
-      count = 1;
-      durationS = slowS;
-    } else if (w < moreDotsAboveW) {
-      count = 1;
-      durationS = slowS - ((w - slowBelowW) / (moreDotsAboveW - slowBelowW)) * (slowS - fastS);
-    } else {
-      durationS = fastS;
-      const grown = (w - moreDotsAboveW) / (maxDotsAtW - moreDotsAboveW);
-      count = Math.min(maxDots, 2 + Math.floor(grown * (maxDots - 2)));
-    }
-
-    plans.push({ connection, w, count, durationS, colorKey: CONNECTION_COLORS[connection] });
+    if (w === undefined) continue;
+    const params = dotParams(w, config);
+    if (!params) continue;
+    plans.push({
+      connection,
+      w,
+      count: params.count,
+      durationS: params.durationS,
+      colorKey: CONNECTION_COLORS[connection],
+    });
   }
 
   return plans;

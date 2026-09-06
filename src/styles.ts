@@ -55,13 +55,17 @@ export const styles = css`
   .link {
     fill: none;
     stroke: var(--el-line);
-    stroke-width: calc(2px / var(--el-scale, 1));
+    stroke-width: calc(3px / var(--el-scale, 1));
     stroke-linecap: round;
   }
 
   .link.active {
     opacity: 0.55;
   }
+
+  /* No CSS radius here: dots.ts sets the r attribute from the measured scale.
+     The CSS geometry property with calc() is unreliable in WebKit and would
+     leave the dots tiny or invisible on iOS (REQ K-12). */
 
   /* One node: icon, value, label - a fixed-size box centred on its coordinate. */
   .node {
@@ -218,6 +222,49 @@ export const styles = css`
     height: 10px;
     border-radius: 50%;
     flex: none;
+  }
+
+  /* Short run of wire per row, only in the stacked layout. Width is fixed so
+     every row reads at the same scale - the dots' speed carries the figure,
+     not the length. */
+  .lane {
+    position: relative;
+    flex: none;
+    width: 26px;
+    height: 3px;
+    border-radius: 1.5px;
+    background: var(--divider-color, rgba(127, 127, 127, 0.25));
+    overflow: visible;
+  }
+
+  .lane-dot {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    margin-top: -3.5px;
+    margin-left: -3.5px;
+    border-radius: 50%;
+    animation-name: lane-run;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes lane-run {
+    from {
+      left: 0;
+    }
+    to {
+      left: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lane-dot {
+      animation: none;
+      left: 50%;
+    }
   }
 
   .row .name {

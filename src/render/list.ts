@@ -7,6 +7,7 @@
  */
 import { type TemplateResult, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
+import { dotParams } from "../flow";
 import { formatKW } from "../format";
 import { localize } from "../localize";
 import type { Breakdown, Config, HomeAssistant, ListEntry } from "../types";
@@ -17,11 +18,42 @@ function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
   return entry.name || localize("list.rest", hass);
 }
 
+/**
+ * A short run of "wire" at the left of a row, carrying the same dots as the
+ * connections do (REQ 4.6 via `dotParams`).
+ *
+ * Only drawn when the list sits below the cross. Beside the cross the ring and
+ * the flow lines already carry the movement, and a second animation there is
+ * noise; below the cross the rows are the only thing left, and a fan of lines
+ * from the house node would have to cross every row above its target.
+ *
+ * Speed comes from the ticked value, so it changes on the beat rather than with
+ * every reading - a CSS animation restarts its phase when the duration changes,
+ * and on a 26 px run that is only tolerable a few times a minute.
+ */
+function lane(w: number, color: string, config: Config): TemplateResult | typeof nothing {
+  const params = dotParams(w, config);
+  if (!params) return nothing;
+
+  const dots = Array.from({ length: params.count }, (_, i) => i);
+  return html`<span class="lane" aria-hidden="true">
+    ${dots.map(
+      (i) => html`<span
+        class="lane-dot"
+        style="background:${color};animation-duration:${params.durationS.toFixed(2)}s;animation-delay:${(
+          (-i * params.durationS) / params.count
+        ).toFixed(2)}s"
+      ></span>`,
+    )}
+  </span>`;
+}
+
 export function renderList(
   breakdown: Breakdown,
   config: Config,
   hass: HomeAssistant,
   onEntry: (entity: string, ev: Event) => void,
+  stacked: boolean,
 ): TemplateResult | typeof nothing {
   if (!config.list.enabled) return nothing;
 
@@ -35,6 +67,7 @@ export function renderList(
           (entry) => html`
             <div class="row ${entry.isRest ? "rest" : ""}" data-key=${entry.key}>
               <span class="swatch" style="background:${entry.color}"></span>
+              ${stacked ? lane(entry.w, entry.color, config) : nothing}
               <span class="name">${rowLabel(entry, hass)}</span>
               <span class="row-value">${formatKW(entry.w, hass)}</span>
               ${

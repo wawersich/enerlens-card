@@ -38,14 +38,36 @@ interface Link {
   count: number;
 }
 
+/** Dot diameter in CSS pixels (REQ K-12). */
+const DOT_PX = 12;
+
 export class DotLayer {
   private readonly links = new Map<string, Link>();
   private paused = false;
+  /** Card width divided by the viewBox width - user units per CSS pixel. */
+  private scale = 1;
 
   constructor(
     private readonly container: SVGGElement,
     private readonly technique: DotTechnique,
   ) {}
+
+  /**
+   * The radius lives in user units and would shrink with the card. Setting it
+   * as an attribute from the measured scale keeps a constant size on screen -
+   * the CSS geometry property `r` with calc() is not reliable in WebKit.
+   */
+  setScale(scale: number): void {
+    if (!Number.isFinite(scale) || scale <= 0 || scale === this.scale) return;
+    this.scale = scale;
+    for (const link of this.links.values()) {
+      for (const dot of link.dots) dot.el.setAttribute("r", this.radius());
+    }
+  }
+
+  private radius(): string {
+    return (DOT_PX / 2 / this.scale).toFixed(2);
+  }
 
   /**
    * Reconciles the running dots with a new plan. Existing dots keep their
@@ -132,7 +154,7 @@ export class DotLayer {
   ): Dot {
     const el = document.createElementNS(SVG_NS, "circle");
     el.setAttribute("class", "dot");
-    el.setAttribute("r", "4.5");
+    el.setAttribute("r", this.radius());
     // The path lives in user units, so the dot travels in the drawing's own
     // coordinates and needs no conversion when the card resizes.
     el.style.offsetPath = `path("${PATHS[plan.connection]}")`;

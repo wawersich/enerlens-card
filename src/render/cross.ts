@@ -182,7 +182,8 @@ export function renderCross(
   model: Model,
   config: Config,
   hass: HomeAssistant,
-  activeConnections: ReadonlySet<string>,
+  /** Active connection -> CSS colour of the flow running on it (REQ P-5). */
+  activeConnections: ReadonlyMap<string, string>,
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass);
   // No battery configured: its lines go with it, the rest of the cross stays put.
@@ -198,6 +199,7 @@ export function renderCross(
           (id) =>
             svg`<path
               class="link ${activeConnections.has(id) ? "active" : ""}"
+              style=${activeConnections.has(id) ? `stroke:${activeConnections.get(id)}` : ""}
               d=${PATHS[id]}
             ></path>`,
         )}
