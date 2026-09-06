@@ -27,7 +27,7 @@
 | Sprachen | `src/translations/en.json`, `de.json`; `localize(key, hass)` mit Kette `hass?.language ?? document.documentElement.lang ?? "en"` | `setConfig` läuft, bevor `hass` gesetzt ist — ohne die Kette wären Strukturfehler unübersetzt (E-1). |
 | Tests | **Vitest** für die reine Logik, Fixtures aus der echten Historie | Vorzeichen, Einheiten, Rest, Limit, Skalierung, Mittelwerte sind reine Funktionen. Rendering wird manuell in HA geprüft. |
 | Lint/Format | **Biome** | Eine Abhängigkeit statt ESLint + Prettier + Plugins. |
-| Ablage | Repo `/homeassistant/prj/enerlens-card`, `node_modules` → Symlink nach `/share/dev/enerlens-card-node_modules` | Repo im täglichen HA-Backup, Abhängigkeiten nicht. |
+| Ablage | Repo `/homeassistant/prj/enerlens-card`, `node_modules` → Symlink nach **`/share/dev/enerlens-card/node_modules`** | Repo im täglichen HA-Backup, die 92 MB Abhängigkeiten nicht. Zwei Fallstricke: Das Zielverzeichnis **muss selbst `node_modules` heißen**, weil Node Modulpfade über den realen Pfad auflöst; und `npm install` ersetzt den Symlink jedes Mal durch ein echtes Verzeichnis — `scripts/setup.sh` stellt ihn danach wieder her. |
 
 ---
 
@@ -111,7 +111,7 @@ interface DotPlan { connection: ConnectionId; count: number; durationS: number; 
 - `setConfig(config)` → `normalize()`; wirft nur bei Strukturfehlern (E-1).
 - `set hass(hass)` → Puffer füllen, Model aktualisieren; Re-Render nach T-3.
 - `getCardSize()` (Masonry, aus der gerenderten Höhe, ≈ 7–10) und `getGridOptions()` (Sections): `columns: 12`, `min_columns: 12`, `rows: "auto"`. **Kein** `getLayoutOptions()` — deprecated, und N-3 fordert ≥ 2025.7.
-- `static getConfigElement()` async, Editor per `await import("./editor")` nachladen; `static getStubConfig(hass, entities, entitiesFallback)` (E-5).
+- `static getConfigElement()` async mit `await import("./editor")`; Rollup bündelt den Editor per `inlineDynamicImports` mit ein, weil HACS genau eine Datei ausliefert — der Import strukturiert also den Code, lädt aber nichts nach. `static getStubConfig(hass, entities, entitiesFallback)` (E-5).
 - `window.customCards.push({ type: "enerlens-card", name, description, preview: true, documentationURL })` — idempotent, ohne `custom:`-Präfix (AL-4).
 - More-Info: `fireEvent(this, "hass-more-info", { entityId })` mit `bubbles: true, composed: true`.
 - `render()` gibt `nothing` zurück, solange `hass` oder `config` fehlen (HA setzt sie in beliebiger Reihenfolge).
@@ -149,6 +149,8 @@ Umgesetzt in `/share/dev/enerlens-fixture/` — **außerhalb des Repositories** 
 - `scripts/deploy.sh`; Test-Dashboard „EnerLens Test" und Lovelace-Ressource anlegen (Abschnitt 5).
 
 **Fertig, wenn:** Karte erscheint im Test-Dashboard, `npm run build && npm test && npm run lint` grün, `build.yml` grün. *HACS-Validierung ist hier ausdrücklich noch nicht Kriterium — sie gehört zu M11.*
+
+**Stand 6. 9. 2026:** erledigt bis auf die Prüfung im Browser. Gerüst steht, Bundle 16 kB (6 kB gzip), Test-Dashboard `/enerlens-test` mit den Ansichten Live, Szenarien und Stress angelegt, Ressource `/local/enerlens-card.js?v=<hash>` registriert. `scripts/deploy.sh` baut, kopiert und zählt die Ressourcen-Version hoch.
 
 ### M2a — Test-Helfer · S
 

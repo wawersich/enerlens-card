@@ -1,0 +1,12 @@
+# Changelog
+
+All notable changes to this project are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+- Scaffold: build (Rollup, single ES module), tests (Vitest), linting (Biome),
+  CI workflows, shared types and module signatures.
+- Requirements and implementation plan under `docs/`.

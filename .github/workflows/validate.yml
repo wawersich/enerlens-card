@@ -1,0 +1,22 @@
+# HACS validation. Deliberately not on every push: before the first release
+# there is no built file in the tree, so the structure check would fail
+# (REQ AL-3). Must pass without `ignore` from the first release on.
+name: HACS
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions: {}
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: plugin

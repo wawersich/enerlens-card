@@ -10,6 +10,9 @@ export default {
     file: "dist/enerlens-card.js",
     format: "es",
     sourcemap: dev,
+    // HACS ships exactly one file, so the editor's dynamic import is inlined
+    // rather than split into a second chunk (REQ G-4, AL-2).
+    inlineDynamicImports: true,
   },
   plugins: [
     resolve(),
