@@ -28,10 +28,14 @@ export const styles = css`
     padding: 4px 16px 16px;
   }
 
+  /* Flex bases decide when the list wraps below the cross. Home Assistant caps
+     a section column at roughly 500 px, leaving ~460 px of content - so the two
+     bases plus the gap have to stay under that, or the list never sits beside
+     the cross in a sections view (REQ L-1). */
   .cross {
-    flex: 1 1 300px;
-    min-width: 240px;
-    max-width: 440px;
+    flex: 1 1 250px;
+    min-width: 210px;
+    max-width: 400px;
     /* Room for the labels, which reach beyond the drawing. */
     padding: 18px 8px 22px;
   }
@@ -170,8 +174,8 @@ export const styles = css`
      The flex basis is the switch: below roughly 500 px of content the list
      wraps to its own line (REQ L-1). */
   .list {
-    flex: 1 1 200px;
-    min-width: 200px;
+    flex: 1 1 175px;
+    min-width: 165px;
     align-self: center;
   }
 

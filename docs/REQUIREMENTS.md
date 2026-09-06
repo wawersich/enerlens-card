@@ -101,7 +101,7 @@ Berechnet wird nur an fünf klar benannten Stellen: die **eine abgeleitete Bilan
 
 | ID | Anforderung | Prio |
 |---|---|---|
-| L-1 | Optional (`list.enabled`, Standard: an, sobald `consumers` konfiguriert ist). Rechts vom Haus-Knoten, vertikal auf dessen Höhe, wenn die Inhaltsbreite ≥ 500 px ist; darunter unter dem Kreuz. | MUSS |
+| L-1 | Optional (`list.enabled`, Standard: an, sobald `consumers` konfiguriert ist). Rechts vom Haus-Knoten, vertikal auf dessen Höhe, wenn die Inhaltsbreite ≥ **445 px** ist; darunter unter dem Kreuz. **Der Wert ist kein Geschmacksurteil:** Home Assistant begrenzt eine Spalte der Sections-Ansicht auf rund 500 px, sodass etwa 460 px Inhalt bleiben — eine höhere Schwelle bedeutet, dass die Liste dort *nie* neben dem Kreuz steht. | MUSS |
 | L-2 | Ein Eintrag besteht aus Farbmarke, Name und Wert `x,xx kW` (K-7). Name aus der Konfiguration, sonst `friendly_name`. Zu lange Namen mit Ellipse gekürzt; der Wert wird nie gekürzt. | MUSS |
 | L-3 | **Filter:** Verbraucher mit Wert < `min_consumer_w` (Standard 10 W) werden nicht gezeigt; nicht verfügbare gelten als nicht gezeigt. | MUSS |
 | L-4 | **Limit:** Höchstens `max_consumers` Verbraucher — die stärksten. Ohne Limit alle, die den Filter passieren. Das Limit zählt nur echte Verbraucher; der Rest kommt obendrauf. | MUSS |

@@ -1,40 +1,54 @@
 /**
  * The cross: PV top, grid left, house right, battery bottom (REQ K-1).
- * Coordinates are viewBox units; the SVG scales, the HTML nodes on top of it
- * do not (REQ K-12, ENT-20).
+ *
+ * Coordinates are viewBox units. The SVG scales with the card; the HTML nodes
+ * on top of it keep their size in CSS pixels (REQ K-12, ENT-20), so `SPREAD`
+ * only moves the circles apart, it does not resize them.
  */
 import type { ConnectionId, NodeKey } from "../types";
 
-export const VIEW_W = 440;
-export const VIEW_H = 452;
-/** Node radius - also the reference for the HTML node boxes. */
+export const VIEW_W = 400;
+export const VIEW_H = 400;
+const CX = VIEW_W / 2;
+const CY = VIEW_H / 2;
+/** Distance from the centre to each node - the knob for how tight the cross sits. */
+const SPREAD = 128;
+/** Node radius in viewBox units; the drawn size comes from CSS. */
 export const NODE_R = 44;
 /** Ring radius around the house node (REQ R-2). */
 export const RING_R = 56;
 
 export const NODE_POS: Record<NodeKey, { x: number; y: number }> = {
-  solar: { x: 220, y: 68 },
-  grid: { x: 64, y: 220 },
-  house: { x: 376, y: 220 },
-  battery: { x: 220, y: 380 },
+  solar: { x: CX, y: CY - SPREAD },
+  grid: { x: CX - SPREAD, y: CY },
+  house: { x: CX + SPREAD, y: CY },
+  battery: { x: CX, y: CY + SPREAD },
 };
+
+// Where a connection meets a node: at the circle's edge, not its centre.
+const TOP = CY - SPREAD + NODE_R;
+const BOTTOM = CY + SPREAD - NODE_R;
+const LEFT = CX - SPREAD + NODE_R;
+const RIGHT = CX + SPREAD - NODE_R;
+/** Control point offset - larger values bow the curves further out. */
+const BOW = 54;
 
 /**
- * Path per connection. Curves through the middle for the diagonal pairs, straight
- * lines for grid-house and solar-battery, matching the approved mockup.
- * `battery_grid` reuses the grid_battery path; direction is expressed by the dots.
+ * Path per connection. Curves through the middle for the diagonals, straight
+ * lines for grid-house and solar-battery. `battery_grid` shares the
+ * grid-battery path; direction is carried by the dots, not the geometry.
  */
 export const PATHS: Record<ConnectionId, string> = {
-  solar_house: "M220,112 C220,182 262,220 316,220",
-  solar_grid: "M220,112 C220,182 178,220 108,220",
-  solar_battery: "M220,112 L220,336",
-  grid_house: "M108,220 L316,220",
-  grid_battery: "M108,220 C180,220 220,262 220,336",
-  battery_grid: "M108,220 C180,220 220,262 220,336",
-  battery_house: "M220,336 C220,262 262,220 316,220",
+  solar_house: `M${CX},${TOP} C${CX},${TOP + BOW} ${RIGHT - BOW},${CY} ${RIGHT},${CY}`,
+  solar_grid: `M${CX},${TOP} C${CX},${TOP + BOW} ${LEFT + BOW},${CY} ${LEFT},${CY}`,
+  solar_battery: `M${CX},${TOP} L${CX},${BOTTOM}`,
+  grid_house: `M${LEFT},${CY} L${RIGHT},${CY}`,
+  grid_battery: `M${LEFT},${CY} C${LEFT + BOW},${CY} ${CX},${BOTTOM - BOW} ${CX},${BOTTOM}`,
+  battery_grid: `M${LEFT},${CY} C${LEFT + BOW},${CY} ${CX},${BOTTOM - BOW} ${CX},${BOTTOM}`,
+  battery_house: `M${CX},${BOTTOM} C${CX},${BOTTOM - BOW} ${RIGHT - BOW},${CY} ${RIGHT},${CY}`,
 };
 
-/** Which connections exist as drawn lines - `battery_grid` shares a path with `grid_battery`. */
+/** Which connections exist as drawn lines - battery_grid shares a path. */
 export const DRAWN_CONNECTIONS: ConnectionId[] = [
   "solar_house",
   "solar_grid",
