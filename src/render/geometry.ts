@@ -12,7 +12,7 @@ export const VIEW_H = 400;
 const CX = VIEW_W / 2;
 const CY = VIEW_H / 2;
 /** Distance from the centre to each node - the knob for how tight the cross sits. */
-const SPREAD = 128;
+const SPREAD = 142;
 /** Node radius in viewBox units; the drawn size comes from CSS. */
 export const NODE_R = 44;
 /** Ring radius around the house node (REQ R-2). */

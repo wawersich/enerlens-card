@@ -147,15 +147,29 @@ export const styles = css`
   }
 
   /* Label sits outside the circle: above for solar, below for the others. */
+  /* Two lines instead of one long one, and never wider than about one and a
+     half circles - otherwise the text reaches into the neighbouring node. */
   .label {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     font-size: var(--el-label-size);
-    line-height: 1.2;
+    line-height: 1.25;
     color: var(--secondary-text-color);
-    white-space: nowrap;
     text-align: center;
+    max-width: calc(var(--el-node-size) * 1.55);
+    overflow-wrap: anywhere;
+  }
+
+  .label-name {
+    white-space: nowrap;
+  }
+
+  .label-state {
+    opacity: 0.85;
   }
 
   .node.solar .label {
@@ -167,7 +181,7 @@ export const styles = css`
   }
 
   .label .derived {
-    opacity: 0.75;
+    opacity: 0.7;
   }
 
   /* Beside the house node on a wide card, underneath it on a narrow one.
@@ -180,26 +194,23 @@ export const styles = css`
   }
 
   .list-title {
-    margin: 0 0 4px;
+    margin: 0 0 2px;
     font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--secondary-text-color);
   }
 
+  /* No rules between rows: the swatches group the list well enough and
+     separators only add height. Rows are 34 px, but the tap target below
+     stretches past them to keep 44 px of reachable height (REQ I-3, L-9). */
   .row {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
-    /* 44 px so a thumb hits a single row reliably (REQ I-3, L-9). */
-    min-height: 44px;
-    border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+    gap: 9px;
+    min-height: 34px;
     font-variant-numeric: tabular-nums;
-  }
-
-  .row:last-child {
-    border-bottom-color: transparent;
   }
 
   .row .swatch {
@@ -228,10 +239,12 @@ export const styles = css`
     color: var(--secondary-text-color);
   }
 
-  /* Covers the whole row so the tap target is the row, not the text. */
+  /* Covers the row and reaches 5 px beyond it top and bottom, so a 34 px row
+     still offers a 44 px target. Neighbouring targets touch rather than
+     overlap, so a tap never hits the wrong row. */
   .row-hit {
     position: absolute;
-    inset: 0;
+    inset: -5px 0;
     background: none;
     border: 0;
     padding: 0;

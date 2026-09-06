@@ -74,9 +74,17 @@ function readingValue(r: Reading, hass: HomeAssistant): string {
   return r.available ? formatKW(r.w, hass) : localize("state.unavailable", hass);
 }
 
+/**
+ * Splits "Netz · Einspeisung" onto two lines. A single long line reaches into
+ * the neighbouring circle once the nodes sit close together.
+ */
 function label(base: string, derived: boolean, hass: HomeAssistant): TemplateResult {
+  const [name, ...rest] = base.split(" · ");
+  const state = rest.join(" · ");
   const suffix = derived ? localize("node.derived_suffix", hass) : "";
-  return html`${base}${suffix ? html`<span class="derived"> ${suffix}</span>` : ""}`;
+  return html`<span class="label-name">${name}</span>${
+    state ? html`<span class="label-state">${state}</span>` : ""
+  }${suffix ? html`<span class="label-state derived">${suffix}</span>` : ""}`;
 }
 
 export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant): NodeView[] {

@@ -109,7 +109,7 @@ Berechnet wird nur an fünf klar benannten Stellen: die **eine abgeleitete Bilan
 | L-6 | Sortierung absteigend nach Wert; der Rest wird wie ein normaler Eintrag einsortiert. | MUSS |
 | L-7 | **Werte folgen den Sensoren sofort, die Reihenfolge nur im Takt** (T-2). Auch Auswahl (Filter, Limit) und Rest-Eintrag werden im Takt bestimmt: Ein Verbraucher, der zwischen zwei Takten unter `min_consumer_w` fällt, bleibt sichtbar und zeigt seinen aktuellen Wert, bis der nächste Takt neu auswählt. So bleibt die Zahl live, ohne dass die Liste zappelt. | MUSS |
 | L-8 | Umsortieren ist animiert: bestehende Einträge **gleiten** auf ihre neue Position (FLIP), neue blenden ein, verschwindende aus. Dauer: 600 ms Bewegung, 350 ms Deckkraft, 400 ms Höhe; Easing `cubic-bezier(.4,0,.2,1)`. Kein Neuaufbau der Liste. | MUSS |
-| L-9 | Klick/Tipp auf einen Eintrag öffnet den More-Info-Dialog der Verbraucher-Entität (I-1). Zeilenhöhe ≥ 44 px (I-3). | MUSS |
+| L-9 | Klick/Tipp auf einen Eintrag öffnet den More-Info-Dialog der Verbraucher-Entität (I-1). Die **sichtbare** Zeile darf kompakter sein (34 px), die **Trefferfläche** reicht über sie hinaus und bleibt ≥ 44 px (I-3); benachbarte Flächen stoßen aneinander, ohne sich zu überlappen. | MUSS |
 | L-10 | Optionaler Listentitel (`list.title`); ohne Angabe kein Titel. | KANN |
 | L-11 | Auch mit 100 konfigurierten Verbrauchern bleibt die Karte flüssig (N-1); nur gezeigte Einträge existieren im DOM. | SOLL |
 
