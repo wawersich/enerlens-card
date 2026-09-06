@@ -1,3 +1,4 @@
+import json from "@rollup/plugin-json";
 import resolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import terser from "@rollup/plugin-terser";
@@ -16,6 +17,8 @@ export default {
   },
   plugins: [
     resolve(),
+    // The translation files are imported as JSON modules (src/translations/*.json).
+    json({ compact: true }),
     typescript({ tsconfig: "./tsconfig.json", declaration: false, sourceMap: dev }),
     !dev && terser({ format: { comments: false } }),
   ],

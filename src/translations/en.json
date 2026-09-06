@@ -1,0 +1,51 @@
+{
+  "node": {
+    "solar": "Solar",
+    "grid": "Grid",
+    "house": "House",
+    "battery": "Battery",
+    "grid_import": "Grid · import",
+    "grid_export": "Grid · export",
+    "battery_charging": "Battery · charging",
+    "battery_discharging": "Battery · discharging",
+    "derived_suffix": "· calculated"
+  },
+  "list": {
+    "rest": "Other",
+    "title": "Consumers"
+  },
+  "view": {
+    "now": "Now",
+    "average": "Ø {minutes} min",
+    "since": "since {time}"
+  },
+  "state": {
+    "unavailable": "—"
+  },
+  "error": {
+    "config": {
+      "object": "{field} must be a mapping.",
+      "string": "{field} must be a non-empty text.",
+      "boolean": "{field} must be true or false.",
+      "number": "{field} must be a number.",
+      "integer": "{field} must be a whole number.",
+      "list": "{field} must be a list.",
+      "non_empty": "{field} must not be empty.",
+      "enum": "{field} must be one of: {allowed}.",
+      "min": "{field} must be at least {min}.",
+      "range": "{field} must be between {min} and {max}.",
+      "positive": "{field} must be greater than 0.",
+      "order": "{first} must be smaller than {second}.",
+      "order_le": "{first} must not be greater than {second}.",
+      "missing_entities": "{field} is missing: at least three of the four balance quantities must be configured as sensors.",
+      "mixed_form": "{field}: use either an entity id, the entity/invert form, the two-entity form or derived - not a mixture.",
+      "two_derived": "Only one balance quantity may be derived; {field} would be the second one.",
+      "soc_without_battery": "{field} requires entities.battery.",
+      "soc_stops": "{field} needs at least two stops in ascending order, the first at 0 and the last at 100.",
+      "soc_stop_entry": "{field} needs a numeric at value and a colour.",
+      "consumer_entity": "{field} needs an entity.",
+      "duplicate_consumer": "{field}: the entity {entity} is listed more than once.",
+      "unknown_key": "Unknown option {field} - ignored."
+    }
+  }
+}

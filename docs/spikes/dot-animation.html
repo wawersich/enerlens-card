@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EnerLens Spike M3 — Punkte-Animation</title>
+<style>
+/* ---- Theme tokens: light is the base, dark overrides only the values ---- */
+:root {
+  color-scheme: light dark;
+  --bg: #f2f3f5;
+  --card: #ffffff;
+  --card-2: #f7f8fa;
+  --fg: #16181d;
+  --fg-dim: #5a6068;
+  --line: #d8dce2;
+  --accent: #2f6feb;
+  --ok-bg: #d8f3de; --ok-fg: #0f5124;
+  --bad-bg: #fbdcdc; --bad-fg: #7a1220;
+  --warn-bg: #fdefd0; --warn-fg: #6b4a06;
+  --neutral-bg: #e6e9ee; --neutral-fg: #3a4048;
+  --track: #c9ced6;
+  --c-solar: #f0a30a;
+  --c-import: #d24b4b;
+  --c-export: #38a169;
+  --c-charge: #38a169;
+  --c-discharge: #4b8bd2;
+  --c-grid-house: #d24b4b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --card: #1c1f25;
+    --card-2: #23272e;
+    --fg: #e8eaee;
+    --fg-dim: #a0a7b2;
+    --line: #363b44;
+    --accent: #6fa0ff;
+    --ok-bg: #143b22; --ok-fg: #8fe3a8;
+    --bad-bg: #4a1620; --bad-fg: #ffabb2;
+    --warn-bg: #45350c; --warn-fg: #ffd98a;
+    --neutral-bg: #2c313a; --neutral-fg: #c3c9d3;
+    --track: #3d434d;
+    --c-solar: #ffc14d;
+    --c-import: #ff7b7b;
+    --c-export: #5fd08a;
+    --c-charge: #5fd08a;
+    --c-discharge: #7db4f5;
+    --c-grid-house: #ff7b7b;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: 12px;
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 19px; margin: 4px 0 6px; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+p { margin: 0 0 8px; }
+.muted { color: var(--fg-dim); font-size: 13px; }
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.todo { border-left: 4px solid var(--accent); }
+.todo ol { margin: 6px 0 0; padding-left: 20px; }
+.todo li { margin-bottom: 3px; }
+
+/* ---- controls ---- */
+.ctrl-row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-bottom: 10px; }
+.ctrl-row:last-child { margin-bottom: 0; }
+label.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+input[type=checkbox], input[type=radio] { width: 18px; height: 18px; accent-color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); height: 32px; }
+button {
+  font: inherit; font-size: 14px;
+  background: var(--card-2); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; min-height: 40px; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button[aria-pressed=true] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--line); border-radius: 0; }
+.seg button:last-child { border-right: 0; }
+
+.power-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; }
+.power-val { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.plan { font-size: 14px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { padding: 6px 9px; min-height: 36px; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* ---- global readouts ---- */
+.stats { display: flex; flex-wrap: wrap; gap: 10px; }
+.stat {
+  background: var(--card-2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 12px; min-width: 132px;
+}
+.stat .k { font-size: 12px; color: var(--fg-dim); }
+.stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- lanes ---- */
+.lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.lane {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.lane-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.lane-head .name { font-size: 16px; font-weight: 700; }
+.lane-head .sub { font-size: 12px; color: var(--fg-dim); }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  font-size: 12px; padding: 3px 8px; border-radius: 999px;
+  background: var(--neutral-bg); color: var(--neutral-fg); white-space: nowrap;
+}
+.badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.badge.bad { background: var(--bad-bg); color: var(--bad-fg); }
+.badge.warn { background: var(--warn-bg); color: var(--warn-fg); }
+
+.jump-box {
+  border-radius: 10px; padding: 10px 12px;
+  background: var(--neutral-bg); color: var(--neutral-fg);
+}
+.jump-box.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.jump-box.bad { background: var(--bad-bg); color: var(--bad-fg); }
+.jump-box .caption { font-size: 12px; opacity: .85; }
+.jump-big { font-size: 40px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.jump-big small { font-size: 18px; font-weight: 700; }
+.jump-sub { font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.verdict { font-size: 14px; font-weight: 700; margin-top: 4px; }
+
+/* ---- stage: 1 SVG user unit == 1 px before the CSS scale transform ---- */
+.viewport {
+  position: relative; overflow: hidden;
+  height: 250px; border-radius: 10px;
+  background: var(--card-2); border: 1px solid var(--line);
+}
+.stage { position: absolute; left: 0; top: 0; width: 440px; height: 452px; transform-origin: 0 0; }
+.stage svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.track-path { fill: none; stroke: var(--track); stroke-width: 3; stroke-linecap: round; }
+
+/* HTML dots for the CSS and WAAPI lanes */
+.dot {
+  position: absolute; left: 0; top: 0;
+  width: 12px; height: 12px; border-radius: 50%;
+  offset-rotate: 0deg;
+  transition: opacity .3s linear;
+  will-change: transform;
+}
+.dot.css-anim { animation-name: dot-run; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes dot-run { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+
+table.res { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
+table.res th { color: var(--fg-dim); font-weight: 600; }
+code { background: var(--card-2); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+.footnote { font-size: 12px; color: var(--fg-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>EnerLens · Spike M3 — Punkte-Animation</h1>
+
+  <div class="panel todo">
+    <strong>Was du tun sollst</strong>
+    <ol>
+      <li><strong>Regler „Leistung“ bewegen</strong> (oder die Voreinstellungen antippen). Bei jeder Änderung wird gemessen.</li>
+      <li><strong>Sprungwerte ablesen:</strong> die große Prozentzahl je Technik. Grenzwert REQ P-6: <strong>≤ 5 %</strong> der Pfadlänge. Grün = erfüllt, rot = verfehlt.</li>
+      <li><strong>„Messreihe (12 Wechsel)“</strong> starten — sie liefert Median und Maximum über viele Wechsel. Das ist der belastbare Wert.</li>
+      <li><strong>Bildrate prüfen:</strong> „6 Linien à 5 Punkte“ einschalten, je Technik einzeln anzeigen und die fps ablesen. Grenzwert REQ N-1: <strong>≥ 30 fps</strong>.</li>
+      <li><strong>Pause prüfen:</strong> Knopf „Pausieren“ — alle drei Punkte müssen stehen. Zusätzlich einmal den Tab wechseln und zurückkommen: „Frames im Hintergrund“ muss 0 bleiben.</li>
+      <li><strong>Auf dem Handy wiederholen</strong> (iPhone-Safari bzw. HA-App, Android-WebView). Die Zahlen dort sind die entscheidenden.</li>
+    </ol>
+  </div>
+
+  <div class="panel">
+    <div class="ctrl-row power-line">
+      <div><span class="muted">Leistung</span> <span class="power-val" id="powerVal">3000 W</span></div>
+      <div class="plan" id="planVal"></div>
+    </div>
+    <input type="range" id="power" min="0" max="9000" step="10" value="3000" aria-label="Leistung in Watt">
+    <div class="ctrl-row presets" id="presets"></div>
+    <div class="ctrl-row">
+      <button class="primary" id="sweep">Messreihe (12 Wechsel)</button>
+      <button id="reset">Messwerte zurücksetzen</button>
+      <button id="pause" aria-pressed="false">Pausieren</button>
+      <label class="chk"><input type="checkbox" id="stress"> 6 Linien à 5 Punkte (REQ N-1)</label>
+      <label class="chk"><input type="checkbox" id="rmSim"> reduced-motion simulieren</label>
+    </div>
+    <div class="ctrl-row">
+      <span class="muted">Nur diese Technik zeigen:</span>
+      <span class="seg" id="isolate">
+        <button data-iso="all" aria-pressed="true">alle</button>
+        <button data-iso="smil" aria-pressed="false">SMIL</button>
+        <button data-iso="css" aria-pressed="false">CSS</button>
+        <button data-iso="waapi" aria-pressed="false">WAAPI</button>
+      </span>
+      <span class="muted">(für eine saubere fps-Messung immer nur eine Technik anzeigen)</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="stats">
+      <div class="stat"><div class="k">Bildrate (Ø 1 s)</div><div class="v" id="fps">–</div></div>
+      <div class="stat"><div class="k">Punkte gesamt</div><div class="v" id="dotCount">–</div></div>
+      <div class="stat"><div class="k">Messungen</div><div class="v" id="measCount">0</div></div>
+      <div class="stat"><div class="k">Frames im Hintergrund</div><div class="v" id="hiddenFrames">0</div></div>
+      <div class="stat"><div class="k">prefers-reduced-motion</div><div class="v" id="rmState" style="font-size:16px">–</div></div>
+    </div>
+    <p class="muted" id="rmNote" style="margin-top:8px"></p>
+  </div>
+
+  <div class="lanes" id="lanes"></div>
+
+  <div class="panel">
+    <h2>Zum Ablesen: so entstehen die Zahlen</h2>
+    <p class="muted">
+      Gemessen wird der <strong>erste Punkt der Kurve PV→Haus</strong> (<code>M220,112 C220,182 262,220 316,220</code> aus <code>docs/mockup.html</code>).
+      Im Bild vor dem Parameterwechsel wird seine Position bestimmt, im nächsten Bild erneut. Vom zweiten Wert wird die
+      Strecke abgezogen, die er in der verstrichenen Zeit mit der <em>neuen</em> Geschwindigkeit ohnehin zurückgelegt hätte.
+      Was übrig bleibt, ist der Sprung — angegeben in Prozent der Pfadlänge.
+      Positionen kommen aus <code>getBoundingClientRect()</code>, umgerechnet auf die Bogenlänge über eine Stützstellen-Tabelle
+      aus <code>getPointAtLength()</code>.
+    </p>
+    <p class="muted">
+      <strong>Messrauschen:</strong> Zwischen den beiden Bildern liegt etwa ein Bild (~16 ms). Bei der schnellsten Umlaufzeit
+      (1,8 s) entspricht das rund 1 % der Pfadlänge. Werte unter etwa 2 % sind daher „kein Sprung“; ein echter Phasensprung
+      liegt typischerweise bei zweistelligen Prozentwerten. Deshalb zählt der <strong>Median</strong> über viele Wechsel,
+      nicht ein Einzelwert.
+    </p>
+    <p class="muted">
+      <strong>„läuft“</strong> zeigt an, ob sich der Punkt in den letzten ~2 s überhaupt bewegt hat. Steht dort „steht“,
+      obwohl nicht pausiert ist, wird die Technik in diesem Browser nicht unterstützt — der Sprungwert wäre dann bedeutungslos.
+    </p>
+    <h2 style="margin-top:12px">Umrechnung Leistung → Punkte (REQ 4.6, Standardwerte)</h2>
+    <table class="res">
+      <tr><th>Bedingung</th><th>Ergebnis</th></tr>
+      <tr><td>P &lt; 10 W</td><td>0 Punkte, Linie inaktiv</td></tr>
+      <tr><td>P &lt; 500 W</td><td>1 Punkt, Umlaufzeit 5,00 s</td></tr>
+      <tr><td>P &lt; 2000 W</td><td>1 Punkt, Umlaufzeit 5,00 − (P−500)/1500 × 3,2 s</td></tr>
+      <tr><td>sonst</td><td>Umlaufzeit 1,80 s, n = min(5, 2 + ⌊(P−2000)/4000 × 3⌋)</td></tr>
+    </table>
+    <p class="footnote" style="margin-top:8px">
+      Diese Seite ist eigenständig: kein CDN, keine externen Dateien. Sie funktioniert offline.
+    </p>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+(function () {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // ---- geometry taken verbatim from docs/mockup.html (viewBox 0 0 440 452) ----
+  const LINES = [
+    { key: "pv_house",   d: "M220,112 C220,182 262,220 316,220", color: "--c-solar" },
+    { key: "pv_grid",    d: "M220,112 C220,182 178,220 108,220", color: "--c-export" },
+    { key: "pv_bat",     d: "M220,112 L220,336",                 color: "--c-charge" },
+    { key: "grid_house", d: "M108,220 L316,220",                 color: "--c-grid-house" },
+    { key: "grid_bat",   d: "M108,220 C180,220 220,262 220,336", color: "--c-import" },
+    { key: "bat_house",  d: "M220,336 C220,262 262,220 316,220", color: "--c-discharge" }
+  ];
+
+  // ---- flow defaults, REQ P-3 / 4.6 ----
+  const FLOW = { min_w: 10, S1: 500, S2: 2000, S3: 6000, max_dots: 5, slow_s: 5, fast_s: 1.8 };
+  const BASE_DUR_MS = 5000;          // fixed timeline length for the WAAPI lane
+  const JUMP_LIMIT_PCT = 5;          // REQ P-6
+  const FPS_LIMIT = 30;              // REQ N-1
+
+  function planForPower(p) {
+    if (p < FLOW.min_w) return { n: 0, dur: FLOW.slow_s };
+    if (p < FLOW.S1) return { n: 1, dur: FLOW.slow_s };
+    if (p < FLOW.S2) return { n: 1, dur: FLOW.slow_s - (p - FLOW.S1) / (FLOW.S2 - FLOW.S1) * (FLOW.slow_s - FLOW.fast_s) };
+    const n = Math.min(FLOW.max_dots, 2 + Math.floor((p - FLOW.S2) / (FLOW.S3 - FLOW.S2) * (FLOW.max_dots - 2)));
+    return { n: Math.max(2, n), dur: FLOW.fast_s };
+  }
+
+  // ---- feature detection (the fallback chain of decision 003) ----
+  const SUPPORT = {
+    offsetPath: !!(window.CSS && CSS.supports && CSS.supports("offset-path", 'path("M0 0")')),
+    waapi: typeof document.createElement("div").animate === "function",
+    updateRate: typeof Animation !== "undefined" && typeof Animation.prototype.updatePlaybackRate === "function",
+    smil: typeof document.createElementNS(SVG_NS, "animateMotion").beginElement === "function"
+  };
+
+  // ---- small helpers ----
+  const $ = (s) => document.querySelector(s);
+  const de = (x, d) => Number(x).toFixed(d).replace(".", ",");
+  function el(tag, attrs, parent) {
+    const n = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function wrapDist(a, b, L) { let d = Math.abs(a - b) % L; return Math.min(d, L - d); }
+  function median(arr) {
+    if (!arr.length) return null;
+    const s = arr.slice().sort((x, y) => x - y), m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  // ---- arc-length lookup table so a screen position becomes "% of path" ----
+  function buildSamples(pathEl, steps) {
+    steps = steps || 1200;
+    const L = pathEl.getTotalLength();
+    const xs = new Float64Array(steps + 1), ys = new Float64Array(steps + 1);
+    for (let i = 0; i <= steps; i++) { const p = pathEl.getPointAtLength(L * i / steps); xs[i] = p.x; ys[i] = p.y; }
+    return { L: L, xs: xs, ys: ys, steps: steps };
+  }
+  function lengthAt(s, x, y) {
+    let best = 0, bd = Infinity;
+    for (let i = 0; i <= s.steps; i++) {
+      const dx = s.xs[i] - x, dy = s.ys[i] - y, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return s.L * best / s.steps;
+  }
+
+  // =====================================================================
+  //  Lane — one technique on the same geometry
+  // =====================================================================
+  let uidCounter = 0;
+
+  function Lane(tech, title, subtitle) {
+    this.tech = tech;                 // "smil" | "css" | "waapi"
+    this.uid = "el" + (++uidCounter); // unique SVG ids per instance (REQ N-8)
+    this.lines = [];
+    this.plan = { n: 0, dur: 5 };
+    this.jumps = [];
+    this.travelSamples = [];
+    this.freezeAt = null;
+    this.moving = null;
+    this.buildDom(title, subtitle);
+  }
+
+  Lane.prototype.buildDom = function (title, subtitle) {
+    const root = document.createElement("div");
+    root.className = "lane";
+    root.innerHTML =
+      '<div class="lane-head"><span class="name"></span><span class="sub"></span></div>' +
+      '<div class="badges"></div>' +
+      '<div class="jump-box">' +
+        '<div class="caption">Positionssprung beim Parameterwechsel (REQ P-6, Grenze 5 %)</div>' +
+        '<div class="jump-big">–</div>' +
+        '<div class="jump-sub"></div>' +
+        '<div class="verdict"></div>' +
+      '</div>' +
+      '<div class="viewport"><div class="stage"></div></div>' +
+      '<div class="lane-note muted"></div>';
+    root.querySelector(".name").textContent = title;
+    root.querySelector(".sub").textContent = subtitle;
+    this.root = root;
+    this.badgeBox = root.querySelector(".badges");
+    this.jumpBox = root.querySelector(".jump-box");
+    this.jumpBig = root.querySelector(".jump-big");
+    this.jumpSub = root.querySelector(".jump-sub");
+    this.verdict = root.querySelector(".verdict");
+    this.viewport = root.querySelector(".viewport");
+    this.stage = root.querySelector(".stage");
+    this.note = root.querySelector(".lane-note");
+  };
+
+  /** Build (or rebuild) the SVG, the tracks and the dot containers. */
+  Lane.prototype.build = function (lineCount) {
+    this.destroy();
+    const svg = el("svg", { width: 440, height: 452, viewBox: "0 0 440 452" });
+    svg.setAttribute("aria-hidden", "true");
+    this.svg = svg;
+    this.stage.appendChild(svg);
+
+    const defs = el("defs", {}, svg);
+    for (let i = 0; i < lineCount; i++) {
+      const cfg = LINES[i];
+      const id = this.uid + "_" + cfg.key;                       // REQ N-8: unique per instance
+      const track = el("path", { d: cfg.d, class: "track-path" }, svg);
+      const ref = el("path", { id: id, d: cfg.d, fill: "none" }, defs); // referenced by <mpath>
+      this.lines.push({
+        cfg: cfg, id: id, track: track, ref: ref,
+        samples: buildSamples(track), dots: [], color: cssVar(cfg.color) || "#888"
+      });
+    }
+    this.fitStage(lineCount);
+    this.applyPlan(this.plan, true);
+  };
+
+  /** Scale the 440x452 stage into the viewport, framing the paths in use. */
+  Lane.prototype.fitStage = function (lineCount) {
+    const box = lineCount > 1
+      ? { x: 100, y: 104, w: 224, h: 240 }   // whole cross
+      : { x: 214, y: 106, w: 108, h: 120 };  // zoom on pv_house
+    const vw = this.viewport.clientWidth || 300, vh = this.viewport.clientHeight || 250;
+    const pad = 16;
+    const k = Math.min((vw - 2 * pad) / box.w, (vh - 2 * pad) / box.h);
+    const tx = (vw - box.w * k) / 2 - box.x * k;
+    const ty = (vh - box.h * k) / 2 - box.y * k;
+    this.stage.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + k + ")";
+  };
+
+  Lane.prototype.destroy = function () {
+    for (const line of this.lines) for (const dot of line.dots) this.killDot(dot);
+    this.lines = [];
+    this.stage.innerHTML = "";
+    this.svg = null;
+  };
+
+  Lane.prototype.killDot = function (dot) {
+    if (dot.anim && dot.anim.cancel) { try { dot.anim.cancel(); } catch (e) {} }
+    if (dot.el && dot.el.parentNode) dot.el.parentNode.removeChild(dot.el);
+  };
+
+  /** Current phase (0..1) of a dot, from the analytic model — cheap and exact. */
+  Lane.prototype.phaseOf = function (dot, nowArg) {
+    const now = this.freezeAt != null ? this.freezeAt : nowArg;
+    if (this.tech === "waapi" && dot.anim) {
+      const t = dot.anim.currentTime;
+      if (t == null) return dot.model ? dot.model.offset : 0;
+      return ((t / BASE_DUR_MS) % 1 + 1) % 1;
+    }
+    const m = dot.model;
+    if (!m) return 0;
+    const f = m.offset + (now - m.t0) / (m.dur * 1000);
+    return ((f % 1) + 1) % 1;
+  };
+
+  // ---------------- dot creation per technique ----------------
+  Lane.prototype.makeDot = function (line, index, plan, phase) {
+    const now = performance.now();
+    const dot = { model: { t0: now, dur: plan.dur, offset: phase }, index: index };
+
+    if (STATE.static) {                                   // REQ P-7: evenly spaced, motionless
+      const p = line.track.getPointAtLength(line.samples.L * phase);
+      const d = document.createElement("div");
+      d.className = "dot";
+      d.style.background = line.color;
+      d.style.transform = "translate(" + (p.x - 6) + "px," + (p.y - 6) + "px)";
+      this.stage.appendChild(d);
+      dot.el = d;
+      return dot;
+    }
+
+    if (this.tech === "smil") {
+      const g = el("g", {}, this.svg);
+      el("circle", { r: 6, cx: 0, cy: 0, fill: line.color }, g);
+      const am = el("animateMotion", {
+        dur: plan.dur + "s",
+        repeatCount: "indefinite",
+        calcMode: "linear",
+        fill: "freeze",
+        begin: (-phase * plan.dur) + "s"
+      }, g);
+      const mp = el("mpath", { href: "#" + line.id }, am);
+      mp.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#" + line.id); // older WebKit
+      dot.el = g; dot.anim = null; dot.smil = am;
+      return dot;
+    }
+
+    // css + waapi share the HTML dot with offset-path
+    const d = document.createElement("div");
+    d.className = "dot";
+    d.style.background = line.color;
+    // never url(#id) — that form arrived only with Safari 17 / Firefox 122
+    d.style.setProperty("offset-path", 'path("' + line.cfg.d + '")');
+    d.style.setProperty("offset-distance", "0%");
+    d.style.opacity = "0";
+    this.stage.appendChild(d);
+    dot.el = d;
+    requestAnimationFrame(function () { d.style.opacity = "1"; });
+
+    if (this.tech === "css") {
+      d.classList.add("css-anim");
+      d.style.animationDuration = plan.dur + "s";
+      d.style.animationDelay = (-phase * plan.dur) + "s";
+      if (STATE.paused) d.style.animationPlayState = "paused";
+    } else {
+      const anim = d.animate(
+        [{ offsetDistance: "0%" }, { offsetDistance: "100%" }],
+        { duration: BASE_DUR_MS, iterations: Infinity, easing: "linear" }
+      );
+      if (SUPPORT.updateRate) anim.updatePlaybackRate(BASE_DUR_MS / 1000 / plan.dur);
+      else anim.playbackRate = BASE_DUR_MS / 1000 / plan.dur;
+      try { anim.currentTime = BASE_DUR_MS * phase; } catch (e) {}
+      if (STATE.paused) anim.pause();
+      dot.anim = anim;
+    }
+    return dot;
+  };
+
+  Lane.prototype.fadeOut = function (dot) {
+    const self = this;
+    if (dot.el && dot.el.style) dot.el.style.opacity = "0";
+    setTimeout(function () { self.killDot(dot); }, 320);
+  };
+
+  /**
+   * Apply a new {n, dur}. Existing dots keep their identity; only the technique's
+   * re-parametrisation differs — that is exactly what P-6 measures.
+   */
+  Lane.prototype.applyPlan = function (plan, rebuild) {
+    const now = performance.now();
+    this.plan = plan;
+
+    if (STATE.static) {                       // REQ P-7: motionless, evenly spaced
+      for (const line of this.lines) {
+        for (const dot of line.dots) this.killDot(dot);
+        line.dots.length = 0;
+        for (let i = 0; i < plan.n; i++) line.dots.push(this.makeDot(line, i, plan, i / Math.max(1, plan.n)));
+      }
+      return;
+    }
+
+    for (const line of this.lines) {
+      // 1. phase of every existing dot, before anything is touched
+      const phases = line.dots.map((d) => this.phaseOf(d, now));
+
+      // 2. re-parametrise the dots that stay
+      const keep = Math.min(line.dots.length, plan.n);
+      for (let i = 0; i < keep; i++) {
+        const dot = line.dots[i], ph = phases[i];
+        if (this.tech === "waapi") {
+          const rate = BASE_DUR_MS / 1000 / plan.dur;
+          if (dot.anim) {
+            if (SUPPORT.updateRate) dot.anim.updatePlaybackRate(rate);
+            else dot.anim.playbackRate = rate;                 // also keeps currentTime
+          }
+          dot.model = { t0: now, dur: plan.dur, offset: ph };
+        } else if (this.tech === "css") {
+          // The spec re-computes the position as if the animation always had the
+          // new duration -> the phase jumps. Deliberately naive here.
+          dot.el.style.animationDuration = plan.dur + "s";
+          dot.el.style.animationDelay = (-(i / Math.max(1, plan.n)) * plan.dur) + "s";
+          dot.model = { t0: now, dur: plan.dur, offset: (i / Math.max(1, plan.n)) };
+        } else { // smil
+          dot.smil.setAttribute("dur", plan.dur + "s");
+          if (STATE.smilResync) {
+            try { dot.smil.beginElementAt(-ph * plan.dur); }
+            catch (e) { dot.smil.setAttribute("begin", (-ph * plan.dur) + "s"); }
+            dot.model = { t0: now, dur: plan.dur, offset: ph };
+          } else {
+            // Blink/Gecko/WebKit keep the original begin time -> the phase jumps.
+            dot.model = { t0: now, dur: plan.dur, offset: (i / Math.max(1, plan.n)) };
+          }
+        }
+      }
+
+      // 3. remove surplus dots (fade out, REQ P-6)
+      for (let i = plan.n; i < line.dots.length; i++) this.fadeOut(line.dots[i]);
+      line.dots.length = Math.min(line.dots.length, plan.n);
+
+      // 4. add missing dots into the gaps, phased off dot 0 (fade in, REQ P-6)
+      const ph0 = phases.length ? phases[0] : 0;
+      for (let i = line.dots.length; i < plan.n; i++) {
+        const phase = (((ph0 + i / plan.n) % 1) + 1) % 1;
+        line.dots.push(this.makeDot(line, i, plan, phase));
+      }
+    }
+  };
+
+  Lane.prototype.setPaused = function (paused) {
+    const now = performance.now();
+    if (paused) {
+      // freeze the analytic phase model so a later resync starts from the right place
+      for (const line of this.lines) for (const dot of line.dots) {
+        if (dot.model) { dot.model.offset = this.phaseOf(dot, now); dot.model.t0 = now; }
+      }
+      this.freezeAt = now;
+    } else {
+      this.freezeAt = null;
+      for (const line of this.lines) for (const dot of line.dots) if (dot.model) dot.model.t0 = performance.now();
+    }
+    if (this.tech === "smil" && this.svg) {
+      if (paused) this.svg.pauseAnimations(); else this.svg.unpauseAnimations();
+    }
+    for (const line of this.lines) for (const dot of line.dots) {
+      if (this.tech === "css" && dot.el) dot.el.style.animationPlayState = paused ? "paused" : "running";
+      if (this.tech === "waapi" && dot.anim) { try { paused ? dot.anim.pause() : dot.anim.play(); } catch (e) {} }
+    }
+  };
+
+  /** Position of the measured dot, in arc length along its path. */
+  Lane.prototype.measureLen = function (lineIdx, dotIdx) {
+    const line = this.lines[lineIdx || 0];
+    if (!line) return null;
+    const dot = line.dots[dotIdx || 0];
+    if (!dot || !dot.el || !dot.el.isConnected) return null;
+    const sr = this.stage.getBoundingClientRect();
+    const k = sr.width / 440;
+    if (!k) return null;
+    const r = dot.el.getBoundingClientRect();
+    const x = (r.left + r.width / 2 - sr.left) / k;
+    const y = (r.top + r.height / 2 - sr.top) / k;
+    return { len: lengthAt(line.samples, x, y), L: line.samples.L };
+  };
+
+  Lane.prototype.dotCount = function () {
+    let c = 0; for (const line of this.lines) c += line.dots.length; return c;
+  };
+
+  Lane.prototype.pushJump = function (pct) {
+    this.jumps.push(pct);
+    if (this.jumps.length > 200) this.jumps.shift();
+    this.renderJump(pct);
+  };
+
+  Lane.prototype.renderJump = function (last) {
+    const med = median(this.jumps), max = this.jumps.length ? Math.max.apply(null, this.jumps) : null;
+    this.jumpBig.innerHTML = (last == null ? "–" : de(last, 1)) + ' <small>%</small>';
+    this.jumpSub.textContent = this.jumps.length
+      ? "Median " + de(med, 1) + " %  ·  Maximum " + de(max, 1) + " %  ·  " + this.jumps.length + " Messungen"
+      : "noch keine Messung";
+    const cls = med == null ? "" : (med <= JUMP_LIMIT_PCT ? "ok" : "bad");
+    this.jumpBox.className = "jump-box " + cls;
+    this.verdict.textContent = med == null ? ""
+      : (med <= JUMP_LIMIT_PCT ? "P-6 erfüllt (Median ≤ 5 %)" : "P-6 verfehlt (Median > 5 %)");
+  };
+
+  Lane.prototype.reset = function () { this.jumps = []; this.renderJump(null); };
+
+  Lane.prototype.setBadges = function (list) {
+    this.badgeBox.innerHTML = "";
+    for (const b of list) {
+      const s = document.createElement("span");
+      s.className = "badge " + (b.kind || "");
+      s.textContent = b.text;
+      this.badgeBox.appendChild(s);
+    }
+  };
+
+  // =====================================================================
+  //  Page state and wiring
+  // =====================================================================
+  const STATE = {
+    power: 3000, stress: false, paused: false, static: false,
+    isolate: "all", smilResync: false, rmSim: false
+  };
+
+  const LANE_DEFS = [
+    { tech: "smil",  title: "SMIL",  sub: "<animateMotion> + <mpath>" },
+    { tech: "css",   title: "CSS",   sub: 'offset-path: path("…") + @keyframes' },
+    { tech: "waapi", title: "WAAPI", sub: "element.animate + updatePlaybackRate" }
+  ];
+  let lanes = [];
+
+  function buildLanes() {
+    const host = $("#lanes");
+    const prev = {};
+    for (const l of lanes) { prev[l.tech] = l.jumps; l.destroy(); }
+    host.innerHTML = "";
+    lanes = [];
+    for (const def of LANE_DEFS) {
+      if (STATE.isolate !== "all" && STATE.isolate !== def.tech) continue;
+      const lane = new Lane(def.tech, def.title, def.sub);
+      lane.jumps = prev[def.tech] || [];
+      host.appendChild(lane.root);
+      lane.build(STATE.stress ? 6 : 1);
+      lane.renderJump(lane.jumps.length ? lane.jumps[lane.jumps.length - 1] : null);
+      lanes.push(lane);
+    }
+    addLaneNotes();
+    updateBadges();
+    applyPlanToAll(currentPlan(), true);
+    if (STATE.paused) for (const l of lanes) l.setPaused(true);
+    updateDotCount();
+  }
+
+  function addLaneNotes() {
+    for (const lane of lanes) {
+      if (lane.tech === "smil") {
+        lane.note.innerHTML = "";
+        const label = document.createElement("label");
+        label.className = "chk";
+        const cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = STATE.smilResync;
+        cb.addEventListener("change", function () { STATE.smilResync = cb.checked; lane.reset(); });
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(" Phasen-Resync (begin neu setzen)"));
+        lane.note.appendChild(label);
+        const hint = document.createElement("div");
+        hint.className = "muted";
+        hint.style.marginTop = "4px";
+        hint.textContent = "Ohne Resync behalten alle Engines den Startzeitpunkt bei — die Phase springt.";
+        lane.note.appendChild(hint);
+      } else if (lane.tech === "css") {
+        lane.note.textContent = 'Nur path("…"), nie url(#id) — url() gibt es erst ab Safari 17 / Firefox 122.';
+      } else {
+        lane.note.textContent = "Geschwindigkeit ausschließlich über updatePlaybackRate — currentTime bleibt erhalten.";
+      }
+    }
+  }
+
+  function updateBadges() {
+    for (const lane of lanes) {
+      const b = [];
+      if (lane.tech === "smil") {
+        b.push({ text: SUPPORT.smil ? "SMIL unterstützt" : "SMIL fehlt", kind: SUPPORT.smil ? "ok" : "bad" });
+      } else if (lane.tech === "css") {
+        b.push({ text: SUPPORT.offsetPath ? "offset-path unterstützt" : "offset-path fehlt", kind: SUPPORT.offsetPath ? "ok" : "bad" });
+      } else {
+        b.push({ text: SUPPORT.waapi ? "element.animate da" : "element.animate fehlt", kind: SUPPORT.waapi ? "ok" : "bad" });
+        b.push({ text: SUPPORT.updateRate ? "updatePlaybackRate da" : "updatePlaybackRate fehlt (Rückfall playbackRate)", kind: SUPPORT.updateRate ? "ok" : "warn" });
+        b.push({ text: SUPPORT.offsetPath ? "offset-path unterstützt" : "offset-path fehlt", kind: SUPPORT.offsetPath ? "ok" : "bad" });
+      }
+      lane.setBadges(b);
+      const mb = document.createElement("span");
+      mb.className = "badge";
+      mb.textContent = "…";
+      lane.badgeBox.appendChild(mb);
+      lane.movingBadge = mb;
+    }
+    updateMovingBadges();
+  }
+
+  function updateMovingBadges() {
+    for (const lane of lanes) {
+      if (!lane.movingBadge) continue;
+      const m = lane.moving;
+      lane.movingBadge.textContent = m == null ? "…" : (m ? "läuft" : "steht");
+      lane.movingBadge.className = "badge " + (m == null ? "" : (m ? "ok" : "warn"));
+    }
+  }
+
+  function currentPlan() {
+    const p = planForPower(STATE.power);
+    // The stress switch is the N-1 upper bound: 6 lines with max_dots each.
+    return STATE.stress ? { n: FLOW.max_dots, dur: p.dur } : p;
+  }
+
+  function applyPlanToAll(plan, rebuild) {
+    for (const lane of lanes) lane.applyPlan(plan, rebuild);
+    updateDotCount();
+  }
+
+  function updateDotCount() {
+    let c = 0; for (const lane of lanes) c += lane.dotCount();
+    $("#dotCount").textContent = String(c);
+  }
+
+  function renderPlanText() {
+    const plan = currentPlan();
+    $("#powerVal").textContent = STATE.power + " W";
+    $("#planVal").textContent = plan.n === 0
+      ? "→ 0 Punkte · Linie inaktiv (P < flow.min_w)"
+      : "→ " + plan.n + " Punkt" + (plan.n > 1 ? "e" : "") + " · Umlaufzeit " + de(plan.dur, 2) + " s";
+  }
+
+  // ---- the core measurement: position before vs. after a parameter change ----
+  let measCount = 0;
+  function measuredChange(newPlan) {
+    if (STATE.static) { applyPlanToAll(newPlan); return; }
+    const active = lanes.slice();
+    requestAnimationFrame(function (t0) {
+      const before = active.map(function (l) { return l.measureLen(0, 0); });
+      for (const l of active) l.applyPlan(newPlan);
+      updateDotCount();
+      requestAnimationFrame(function (t1) {
+        const dt = Math.max(0, (t1 - t0) / 1000);
+        let counted = false;
+        active.forEach(function (lane, i) {
+          const b = before[i];
+          if (!b) return;
+          const a = lane.measureLen(0, 0);
+          if (!a) return;
+          // where the dot would be without a jump: it travelled dt at the new speed
+          const expected = b.len + dt * (b.L / newPlan.dur);
+          const jump = wrapDist(a.len, expected, b.L) / b.L * 100;
+          lane.pushJump(jump);
+          counted = true;
+        });
+        if (counted) { measCount++; $("#measCount").textContent = String(measCount); }
+      });
+    });
+  }
+
+  // ---- movement / pause watchdog: is the dot actually travelling? ----
+  const travel = new Map();
+  setInterval(function () {
+    for (const lane of lanes) {
+      const m = lane.measureLen(0, 0);
+      const prev = travel.get(lane.tech);
+      if (m && prev != null) {
+        const step = wrapDist(m.len, prev, m.L) / m.L * 100;
+        lane.travelSamples.push(step);
+        if (lane.travelSamples.length > 8) lane.travelSamples.shift();
+        const sum = lane.travelSamples.reduce(function (x, y) { return x + y; }, 0);
+        lane.moving = sum > 0.6;
+      }
+      travel.set(lane.tech, m ? m.len : null);
+    }
+    updateMovingBadges();
+  }, 250);
+
+  // ---- fps, sliding 1 s window ----
+  const frames = [];
+  let hiddenFrames = 0;
+  function tick(t) {
+    frames.push(t);
+    while (frames.length && frames[0] < t - 1000) frames.shift();
+    if (document.hidden) {
+      hiddenFrames++;
+      const hf = $("#hiddenFrames");
+      hf.textContent = String(hiddenFrames);
+      hf.style.color = "var(--bad-fg)";
+    }
+    const fps = frames.length;
+    const box = $("#fps");
+    box.textContent = frames.length > 5 ? String(fps) : "–";
+    box.style.color = frames.length > 5 ? (fps >= FPS_LIMIT ? "" : "var(--bad-fg)") : "";
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    const hf = $("#hiddenFrames");
+    hf.textContent = String(hiddenFrames);
+    hf.style.color = hiddenFrames === 0 ? "var(--ok-fg)" : "var(--bad-fg)";
+  });
+
+  // ---- prefers-reduced-motion, REQ P-7 (incl. the change event) ----
+  const mq = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  function renderReducedMotion() {
+    const os = mq ? mq.matches : false;
+    STATE.static = os || STATE.rmSim;
+    $("#rmState").textContent = os ? "aktiv" : "inaktiv";
+    $("#rmNote").textContent = STATE.static
+      ? "Animation stillgelegt (REQ P-7): die Punkte stehen gleichmäßig über den Pfad verteilt. " +
+        (os ? "Grund: Systemeinstellung." : "Grund: Simulationsschalter.") +
+        " Sprungmessung ist in diesem Zustand ausgesetzt."
+      : "Animation läuft. Der Schalter „reduced-motion simulieren“ zeigt den stillgelegten Zustand ohne Systemeinstellung.";
+  }
+  if (mq && mq.addEventListener) mq.addEventListener("change", function () { renderReducedMotion(); buildLanes(); });
+  else if (mq && mq.addListener) mq.addListener(function () { renderReducedMotion(); buildLanes(); });
+
+  // ---- controls ----
+  const powerInput = $("#power");
+  let debounce = null;
+  powerInput.addEventListener("input", function () {
+    STATE.power = Number(powerInput.value);
+    renderPlanText();
+    clearTimeout(debounce);
+    debounce = setTimeout(function () { measuredChange(currentPlan()); }, 180);
+  });
+
+  const PRESETS = [5, 10, 300, 500, 1200, 2000, 4000, 6000, 9000];
+  const presetHost = $("#presets");
+  PRESETS.forEach(function (w) {
+    const b = document.createElement("button");
+    b.textContent = w + " W";
+    b.addEventListener("click", function () {
+      STATE.power = w; powerInput.value = String(w); renderPlanText(); measuredChange(currentPlan());
+    });
+    presetHost.appendChild(b);
+  });
+
+  $("#stress").addEventListener("change", function (e) { STATE.stress = e.target.checked; buildLanes(); });
+  $("#rmSim").addEventListener("change", function (e) { STATE.rmSim = e.target.checked; renderReducedMotion(); buildLanes(); });
+  $("#reset").addEventListener("click", function () {
+    measCount = 0; $("#measCount").textContent = "0"; hiddenFrames = 0; $("#hiddenFrames").textContent = "0";
+    for (const l of lanes) l.reset();
+  });
+  $("#pause").addEventListener("click", function (e) {
+    STATE.paused = !STATE.paused;
+    e.currentTarget.setAttribute("aria-pressed", String(STATE.paused));
+    e.currentTarget.textContent = STATE.paused ? "Weiterlaufen" : "Pausieren";
+    for (const l of lanes) l.setPaused(STATE.paused);
+  });
+  $("#isolate").addEventListener("click", function (e) {
+    const b = e.target.closest("button[data-iso]");
+    if (!b) return;
+    STATE.isolate = b.dataset.iso;
+    for (const x of this.querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+    buildLanes();
+  });
+
+  // ---- automatic sweep: many changes, so median and maximum become meaningful ----
+  const SWEEP = [300, 1500, 2400, 5000, 8000, 800, 3000, 600, 9000, 1000, 4000, 2000];
+  let sweeping = false;
+  $("#sweep").addEventListener("click", function () {
+    if (sweeping) return;
+    sweeping = true;
+    const btn = this;
+    let i = 0;
+    btn.disabled = true;
+    (function step() {
+      if (i >= SWEEP.length) {
+        sweeping = false; btn.disabled = false; btn.textContent = "Messreihe (12 Wechsel)";
+        return;
+      }
+      const w = SWEEP[i++];
+      btn.textContent = "Messreihe … " + i + "/" + SWEEP.length;
+      STATE.power = w; powerInput.value = String(w); renderPlanText();
+      measuredChange(currentPlan());
+      setTimeout(step, 1100);
+    })();
+  });
+
+  window.addEventListener("resize", function () {
+    for (const lane of lanes) lane.fitStage(STATE.stress ? 6 : 1);
+  });
+
+  // ---- boot ----
+  renderReducedMotion();
+  renderPlanText();
+  buildLanes();
+})();
+</script>
+</body>
+</html>
