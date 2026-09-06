@@ -113,15 +113,15 @@ Berechnet wird nur an fünf klar benannten Stellen: die **eine abgeleitete Bilan
 | L-10 | Optionaler Listentitel (`list.title`); ohne Angabe kein Titel. | KANN |
 | L-11 | Auch mit 100 konfigurierten Verbrauchern bleibt die Karte flüssig (N-1); nur gezeigte Einträge existieren im DOM. | SOLL |
 
-**Abnahme L** — Fixture `test/fixtures/history-2026-09-05.json`, Hauswert `sensor.house_power`, `min_consumer_w: 10`, `max_consumers: 4`, Modus *Aktuell*, Werte exakt in W:
+**Abnahme L** — Referenzdaten `history-2026-09-05.json` (lokal, siehe 5.1), Hauswert `sensor.house_power`, `min_consumer_w: 10`, `max_consumers: 4`, Modus *Aktuell*, Werte exakt in W:
 
 | Zeitpunkt (ISO) | Hauswert | Verbraucher (W) | Erwartete Liste |
 |---|---|---|---|
-| `2026-09-05T12:46:04+02:00` | 3 800 | WP 1 850, Klima 620, Kühl 170, Speicher 150, Trockner 3, Klima-Sp. 1 | WP 1,85 · **Rest 1,01** · Klima 0,62 · Kühl 0,17 · Speicher 0,15 |
-| `2026-09-05T12:51:00+02:00` | 3 800 | WP 1 850, Kühl 850, Trockner 650, Speicher 150, Klima 50 | WP 1,85 · Kühl 0,85 · Trockner 0,65 · **Rest 0,30** · Speicher 0,15 — *Klima fällt durchs Limit, steckt im Rest* |
-| `2026-09-05T15:40:18+02:00` | 3 020 | Waschm. 2 149, Trockner 1 525, Kühl 173, Speicher 132, WP 25 | Waschm. 2,15 · Trockner 1,53 · Kühl 0,17 · Speicher 0,13 — **kein Rest** (Σ gezeigte 3 979 > 3 020) |
+| `2026-09-05T12:46:04+02:00` | 2 340 | Trockner 1 475, Kühl 230, Speicher 128, Waschm. 74, Spülm. 53, WP 25, Klima-Sp. 1 | Trockner 1,48 · **Rest 0,43** · Kühl 0,23 · Speicher 0,13 · Waschm. 0,07 — *Spülm., WP und Klima-Sp. fallen durchs Limit bzw. den Filter und stecken im Rest* |
+| `2026-09-05T12:51:00+02:00` | 1 200 | Kühl 232, Trockner 211, Speicher 134, Waschm. 105, Spülm. 53, WP 25, Klima-Sp. 1 | **Rest 0,52** · Kühl 0,23 · Trockner 0,21 · Speicher 0,13 · Waschm. 0,11 — *der Rest ist der größte Posten und steht deshalb oben* |
+| `2026-09-05T15:40:18+02:00` | 3 020 | Waschm. 2 149, Trockner 1 525, Kühl 173, Speicher 132, WP 25, Klima-Sp. 1 | Waschm. 2,15 · Trockner 1,53 · Kühl 0,17 · Speicher 0,13 — **kein Rest** (Σ gezeigte 3 979 > 3 020) |
 
-Die Sollwerte erzeugt `scripts/reference-values.mjs` aus der Fixture; das Ergebnis wird als `test/fixtures/expected.json` mitversioniert.
+Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein vom Kartencode unabhängiger Rechenweg.
 
 ### 2.4 Ring (R)
 
@@ -190,6 +190,7 @@ Die Sollwerte erzeugt `scripts/reference-values.mjs` aus der Fixture; das Ergebn
 | N-6 | Barrierefreiheit: `aria-label` an Knoten und Einträgen, `prefers-reduced-motion` (P-7), **messbarer Kontrast**: Text ≥ 4,5:1, Grafik ≥ 3:1 auf `#ffffff` und `#1c1c1c`. | MUSS |
 | N-7 | **Mehrsprachig:** alle sichtbaren Texte von Karte und Editor in Übersetzungsdateien; Deutsch und Englisch vollständig, Auswahl nach `hass.language`, Rückfall auf Englisch. Weitere Sprachen durch eine zusätzliche Datei ohne Codeänderung. Konfigurierte Texte werden nicht übersetzt. | MUSS |
 | N-8 | Eindeutige SVG-IDs je Karteninstanz (Pfade, Verläufe, Clip-Pfade) — sonst greifen mehrere Karten auf demselben Dashboard auf fremde Referenzen zu (WebKit-Fehler vor Safari 17). | MUSS |
+| N-9 | **Keine personenbezogenen Daten im Repository.** Weder Messdaten noch Entitäts-IDs, Seriennummern oder Screenshots mit erkennbaren Gerätenamen der Referenzanlage. Screenshots für das README werden mit neutralen Beispielnamen erzeugt. Die CI läuft ohne Referenzdaten grün. | MUSS |
 
 ### 2.10 Auslieferung (AL)
 
@@ -235,12 +236,12 @@ Die Energiebilanz `pv + bezug − einspeisung + entladen − laden = haus` verkn
 
 | Zeitpunkt (ISO) | Modus | Haus | Σ Verbraucher | Rest |
 |---|---|---|---|---|
-| `2026-09-05T15:40:18+02:00` | Aktuell | 3 020 W | 4 004 W | **kein Rest**, Ring 100 % |
-| `2026-09-05T15:40:18+02:00` | Ø 5 min | 1 525 W | 1 188 W | 337 W |
-| `2026-09-05T15:40:18+02:00` | Ø 15 min | 1 618 W | 1 246 W | 372 W |
-| `2026-09-05T15:10:42+02:00` | Aktuell | 2 820 W | 5 262 W | **kein Rest**, Ring 100 % |
-| `2026-09-05T15:10:42+02:00` | Ø 5 min | 3 539 W | 3 190 W | 349 W |
-| `2026-09-05T15:10:42+02:00` | Ø 15 min | 2 947 W | 2 557 W | 390 W |
+| `2026-09-05T15:40:18+02:00` | Aktuell | 3 020 W | 4 005 W | **kein Rest**, Ring 100 % |
+| `2026-09-05T15:40:18+02:00` | Ø 5 min | 1 525 W | 1 189 W | 338 W |
+| `2026-09-05T15:40:18+02:00` | Ø 15 min | 1 618 W | 1 247 W | 372 W |
+| `2026-09-05T15:10:42+02:00` | Aktuell | 2 820 W | 5 263 W | **kein Rest**, Ring 100 % |
+| `2026-09-05T15:10:42+02:00` | Ø 5 min | 3 539 W | 3 192 W | 349 W |
+| `2026-09-05T15:10:42+02:00` | Ø 15 min | 2 947 W | 2 558 W | 390 W |
 
 „Σ Verbraucher" ist hier die Summe **aller** konfigurierten Verbraucher mit verfügbarem Wert (vor Filter und Limit). Beide Ø-Modi lassen den Rest positiv — der Ausreißer verschwindet, ohne dass ein Messwert verändert würde.
 
@@ -374,10 +375,25 @@ Beispiel: 4 000 W → `2 + floor(0,5 × 3) = 3` Punkte.
 
 ---
 
-## 5. Abnahme 0.1.0 — Checkliste
+## 5. Referenzdaten und Abnahme
+
+### 5.1 Referenzdaten — bewusst außerhalb des Repositories
+
+Die Abnahmen L und V beruhen auf echten Messdaten der Referenzanlage. Diese Daten **kommen nicht ins Repository** (ENT-21): Die Entitätsnamen enthalten Geräte-Seriennummern, und aus 24 Stunden Verbrauchskurve lässt sich der Tagesablauf des Haushalts ablesen. Ein öffentliches Repository macht so etwas dauerhaft und unwiderruflich einsehbar.
+
+| | |
+|---|---|
+| Ablage | `/share/dev/enerlens-fixture/` — persistent, außerhalb von Git und des Config-Backups |
+| Inhalt | `history-YYYY-MM-DD.json` für den 29. 8. bis 6. 9. 2026 (neun Tage, 22 MB), Referenztag ist der **5. 9. 2026** |
+| Werkzeuge | `export-history.mjs` (Export aus dem Recorder), `reference-values.mjs` (Sollwerte, unabhängiger Rechenweg) |
+| Rollen statt Namen | Die Exportdatei bildet Entitäten auf Rollen ab (`solar`, `grid`, `house_5s`, `heatpump`, `washer` …), sodass Auswertungen ohne die echten IDs auskommen |
+
+**Folge für die Tests:** Die Abnahmen L und V laufen nur lokal, wo die Daten liegen; fehlen sie, überspringt die Testsuite diese Fälle mit deutlicher Meldung. Alle übrigen Tests — Formeln, Rundung, Vorzeichen, Filter, Limit, Flussverteilung, Punkteregel — arbeiten mit kleinen, handgeschriebenen Fällen im Repository und laufen überall, auch in der CI (N-9).
+
+### 5.2 Checkliste 0.1.0
 
 - [ ] Alle MUSS-Anforderungen erfüllt; SOLL-Abweichungen im CHANGELOG benannt.
-- [ ] Unit-Tests grün, inklusive der Abnahmen K, P, L, R und V gegen `test/fixtures/history-2026-09-05.json`.
+- [ ] Unit-Tests grün: Formeln und Regeln in der CI, Abnahmen L, R und V lokal gegen die Referenzdaten (5.1).
 - [ ] Vorzeichen: `battery: derived` im Nacht-Szenario (PV 0, Netz +420 W, Haus 1 520 W) → „entlädt", 1 100 W, Fluss Batterie→Haus. Gegenprobe Tag-Szenario → „lädt".
 - [ ] Alle Entitäten nacheinander auf `unavailable` — keine Exception, kein Layoutbruch, Rest verschwindet bei fehlendem Hauswert.
 - [ ] 100 Verbraucher, `max_consumers: 5` — flüssig, DOM enthält 6 Einträge.
@@ -415,6 +431,7 @@ Beispiel: 4 000 W → `2 + floor(0,5 × 3) = 3` Punkte.
 | **ENT-18** | **Zahlen immer in `--primary-text-color`, Zustandsfarben nur für Grafik.** | *Neu in Fassung 2.* Die Standardfarben erreichen als Textfarbe den WCAG-Kontrast nicht (`#fdd835` 1,4:1). |
 | **ENT-19** | **Standardfarben aus den HA-Energie-Theme-Variablen statt eigener Grün/Rot-Palette.** | *Geändert in Fassung 2.* Die Karte sieht ohne Konfiguration aus wie das Energie-Dashboard; die Gut/Schlecht-Färbung steht als Beispiel im README. |
 | **ENT-20** | **Knoteninhalte als HTML über dem SVG, nicht im SVG.** | *Neu in Fassung 2.* `ha-icon` ist ein HTML-Element und lässt sich nicht in SVG einsetzen; außerdem skaliert SVG-Text mit der viewBox und unterschreitet auf dem Handy die Lesbarkeit (K-12). |
+| **ENT-21** | **Referenz-Messdaten bleiben außerhalb des Repositories (5.1).** | *Neu in Fassung 2.* Entitäts-IDs enthalten Geräte-Seriennummern, die Verbrauchskurve verrät den Tagesablauf. Ein öffentliches Repository wäre unwiderruflich. Abnahmen L und V laufen deshalb lokal, alles andere in der CI. |
 
 ### Offen
 

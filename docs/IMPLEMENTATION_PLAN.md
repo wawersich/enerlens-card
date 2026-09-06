@@ -64,10 +64,14 @@ src/
 └── const.ts              Name, Version, Palette
 
 scripts/
-├── export-history.mjs    Fixture aus dem Recorder ziehen (M0a)
-├── reference-values.mjs  Sollwerte der Abnahmen L und V aus der Fixture (M0a)
-├── replay.mjs            Fixture-Ausschnitte auf Szenario-Entitäten spielen (M2a)
+├── replay.mjs            Referenzdaten auf Szenario-Entitäten spielen (M2a)
 └── deploy.sh             Build → www/ → Ressourcen-Version hochzählen
+
+/share/dev/enerlens-fixture/   (außerhalb des Repos, REQ 5.1)
+├── export-history.mjs    Export aus dem Recorder
+├── reference-values.mjs  Sollwerte der Abnahmen L und V
+├── history-2026-*.json   neun Tage Messdaten, Referenztag 05.09.2026
+└── expected.json         erzeugte Sollwerte
 ```
 
 ### 2.2 Datenfluss
@@ -119,15 +123,17 @@ interface DotPlan { connection: ConnectionId; count: number; durationS: number; 
 
 Größen: **S** ≈ eine Sitzung, **M** ≈ zwei, **L** ≈ drei oder mehr. Jeder Schritt endet mit einem Build, der per `scripts/deploy.sh` nach `/homeassistant/www/` geht, und einer Prüfung in der HA-Oberfläche.
 
-### M0a — Fixture sichern · S · **vor dem 14. 9. 2026**
+### M0a — Referenzdaten sichern · **erledigt am 6. 9. 2026**
 
-**Ziel:** Die Datengrundlage aller Abnahmen liegt versioniert im Repo, bevor der Recorder sie löscht.
+**Ziel war:** Die Datengrundlage aller Abnahmen sichern, bevor der Recorder sie löscht (Standard 10 Tage).
 
-- `scripts/export-history.mjs`: WebSocket `history/history_during_period`, 2026-09-05 00:00–24:00 (Europe/Berlin), alle Entitäten aus REQ Abschnitt 3 **plus** die drei Haus-Sensoren (`house_power`, `sysloadpwr`, `housepower`) → `test/fixtures/history-2026-09-05.json`.
-- `scripts/reference-values.mjs`: rechnet Step-Hold und zeitgewichtete Mittel (REQ 4.8) und erzeugt `test/fixtures/expected.json` mit den Sollwerten der Abnahmen L und V.
-- Beides einchecken (die Fixture ist die einzige Ausnahme von „keine großen Dateien im Repo").
+Umgesetzt in `/share/dev/enerlens-fixture/` — **außerhalb des Repositories** (REQ 5.1, ENT-21):
 
-**Fertig, wenn:** Fixture und `expected.json` im Repo liegen und `reference-values.mjs` die Tabellen aus REQ 2.3 und 2.12 reproduziert.
+- `export-history.mjs` holt einen Tag aus dem Recorder und bildet die Entitäten auf Rollen ab (`solar`, `grid`, `house_5s`, `heatpump`, `washer` …), sodass Auswertungen ohne die echten IDs auskommen.
+- Gesichert: **29. 8. bis 6. 9. 2026**, neun Tage, 22 MB. Referenztag ist der **5. 9. 2026** (52 319 Zustände, 17 Serien inkl. Ladezustand).
+- `reference-values.mjs` erzeugt `expected.json` mit den Sollwerten der Abnahmen L und V — ein vom Kartencode unabhängiger Rechenweg.
+
+**Dabei aufgefallen:** Die ursprünglichen Abnahmefälle für 12:46 und 12:51 stammten aus den Beispielwerten des Mockups, nicht aus echten Messungen. REQ 2.3 ist auf die tatsächlichen Werte korrigiert.
 
 ### M0 — Gerüst, Repository, Werkzeuge · M
 
@@ -150,7 +156,7 @@ Größen: **S** ≈ eine Sitzung, **M** ≈ zwei, **L** ≈ drei oder mehr. Jede
 
 - `input_number`-Helfer für PV, Netz, Haus, Batterie, SOC plus Template-Sensoren (`device_class: power`, Einheit W) als Szenario-Entitäten.
 - 100 generierte Stress-Sensoren für L-11/N-1.
-- `scripts/replay.mjs`: spielt Fixture-Ausschnitte per REST `POST /api/states` in Echtzeit oder mit Zeitfaktor auf die Szenario-Entitäten. **Hintergrund:** HA kann Zustände nicht rückdatieren — Abnahmen mit Historie laufen deshalb über Replay plus Unit-Tests, nicht über „eingespielte Historie".
+- `scripts/replay.mjs`: spielt Ausschnitte der Referenzdaten (5.1) per REST `POST /api/states` in Echtzeit oder mit Zeitfaktor auf die Szenario-Entitäten. **Hintergrund:** HA kann Zustände nicht rückdatieren — Abnahmen mit Historie laufen deshalb über Replay plus Unit-Tests, nicht über „eingespielte Historie".
 - Test-Dashboard mit drei Ansichten: *Live*, *Szenarien*, *Stress*.
 
 **Fertig, wenn:** `replay.mjs` das Fenster 15:25–15:41 auf die Szenario-Entitäten spielt und die Werte in HA sichtbar durchlaufen.
@@ -280,6 +286,8 @@ Größen: **S** ≈ eine Sitzung, **M** ≈ zwei, **L** ≈ drei oder mehr. Jede
 - Tag `v0.1.0` → CI baut und **erzeugt ein GitHub-Release** mit genau einem Asset (HACS wertet nur echte Releases aus, keine Tags, keine Drafts).
 - `validate.yml` per `workflow_dispatch` starten → muss **ohne `ignore` grün** sein (AL-3).
 - HACS-Installation als Custom Repository auf der eigenen Instanz; Ressource von `/local/…` auf `/hacsfiles/enerlens-card/…` umstellen.
+- **Karte in der Zielansicht einbauen:** Dashboard `dashboard-warmepumpe`, Ansicht `enerlens` (http://<home-assistant>:8123/dashboard-warmepumpe/enerlens) — vorher den aktuellen UI-Stand einlesen, weil Markus parallel selbst editiert.
+- **Vor dem Public-Schalten:** Historie auf personenbezogene Inhalte prüfen (N-9).
 - Optional: Prüfung gegen die Mindestversion (HA-Container 2025.7 auf einem anderen Rechner) oder N-3 auf die tatsächlich geprüfte Version anheben.
 
 **Fertig, wenn:** Frische Installation über HACS zeigt die Karte identisch zur Entwicklungsversion.
@@ -290,7 +298,8 @@ Größen: **S** ≈ eine Sitzung, **M** ≈ zwei, **L** ≈ drei oder mehr. Jede
 
 | Ebene | Was | Wie |
 |---|---|---|
-| Unit | `config`, `model`, `consumers`, `flow`, `colors`, `format`, `averaging` | Vitest; Orakel ist `test/fixtures/expected.json` aus M0a; Abnahmen K, P, L, R, V als Testfälle; Eigenschaften über alle Rasterpunkte. |
+| Unit (CI) | `config`, `model`, `consumers`, `flow`, `colors`, `format`, `averaging` | Vitest mit kleinen, handgeschriebenen Fällen im Repo — Formeln, Rundung, Vorzeichen, Filter, Limit, Flussverteilung, Punkteregel (Abnahmen K und P). Läuft überall, auch ohne Referenzdaten (REQ N-9). |
+| Unit (lokal) | Abnahmen L, R, V gegen echte Messdaten | Liest `/share/dev/enerlens-fixture/`; Orakel ist `expected.json`. Fehlen die Daten, überspringt die Suite diese Fälle mit deutlicher Meldung — sie darf deswegen nicht rot werden. |
 | Komponente | Element registriert, `setConfig`-Fehler, Render ohne Exceptions, `getStubConfig` | Vitest + `happy-dom`; keine Pixelvergleiche. |
 | Manuell in HA | Optik, Animationen, Themes, Touch, Companion Apps, Editor | Test-Dashboard aus M2a (*Live*, *Szenarien*, *Stress*) plus `replay.mjs`. Messungen (Trefferflächen, Schriftgrößen, Kontrast) mit dem DevTools-Inspektor, Werte protokolliert. |
 | CI | Build, Lint, Tests bei jedem Push; HACS-Validierung ab M11 | GitHub Actions. |
@@ -305,13 +314,16 @@ Bewusst **nicht**: Pixelgenaue Screenshots, Browser-Automatisierung.
 2. `scripts/deploy.sh` kopiert nach `/homeassistant/www/enerlens-card.js` und zählt die Ressourcen-Version hoch (`/local/enerlens-card.js?v=<hash>`, per WebSocket `lovelace/resources/update`) — sonst cached der Browser.
 3. Markus prüft im Test-Dashboard (Desktop und Handy), gibt frei; danach Commit.
 
+**Zielort der fertigen Karte** (nach M11, wenn sie über HACS installiert ist): Dashboard „Energie/PV" (`dashboard-warmepumpe`), Ansicht `enerlens` — http://<home-assistant>:8123/dashboard-warmepumpe/enerlens. Bis dahin läuft alles im separaten Test-Dashboard, damit das produktive Dashboard unberührt bleibt.
+
 ---
 
 ## 6. Risiken und Gegenmaßnahmen
 
 | Risiko | Wirkung | Gegenmaßnahme |
 |---|---|---|
-| **Fixture geht verloren** (Recorder-Purge um den 15. 9. 2026) | Alle Abnahmekriterien ohne Datengrundlage | **M0a zuerst**, vor jedem anderen Schritt. |
+| ~~Referenzdaten gehen verloren~~ | — | **Erledigt:** neun Tage in `/share/dev/enerlens-fixture/` gesichert (M0a). |
+| Personenbezogene Daten gelangen versehentlich ins öffentliche Repo | Seriennummern und Verbrauchsprofil dauerhaft einsehbar | `test/fixtures/` und `*.json` mit Messdaten in `.gitignore`; Referenzdaten liegen außerhalb des Repos; vor dem Public-Schalten in M11 die Historie prüfen (`git log -p` nach Entitäts-IDs durchsuchen); Screenshots mit neutralen Namen (N-9). |
 | Keine Animationstechnik erfüllt P-6 in allen Ziel-WebViews | Sichtbare Sprünge beim Tempowechsel | Spike mit drei Kandidaten und Fallback-Kette (M3); notfalls Parameter nur bei Stufenwechsel ändern und die Einschränkung dokumentieren. |
 | Objekt-Selektor verhält sich anders als erwartet | E-4 rutscht | YAML-Fallback ist immer da; Hinweistext im Editor; Entscheidung nach M9. |
 | W/kW-Verwechslung, `mW` als Mega gelesen | Werte um Faktor 1000 falsch | Case-sensitive SI-Tabelle (4.1) mit Tests; README-Abschnitt. |

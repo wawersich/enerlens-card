@@ -5,3 +5,8 @@ dist/
 
 # Manual backup copies - git is the history now
 *.bak.*
+
+# Reference measurements stay out of the repository (REQ 5.1, N-9)
+test/fixtures/
+history-*.json
+expected.json
