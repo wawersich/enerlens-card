@@ -3,10 +3,26 @@
  * (REQ K-1 to K-6, ENT-20).
  */
 import { type TemplateResult, html, svg } from "lit";
+import { socColor } from "../colors";
 import { formatKW, formatSoc } from "../format";
 import { localize } from "../localize";
 import type { ColorKey, Config, HomeAssistant, Model, NodeKey, Reading, Signed } from "../types";
 import { DRAWN_CONNECTIONS, PATHS, VIEW_H, VIEW_W, nodePercent } from "./geometry";
+
+/** Resolves var(--x) against the document so the gradient can mix real colours. */
+function resolveCssColor(value: string): string {
+  const match = /^var\((--[^,)]+)/.exec(value.trim());
+  if (!match || typeof getComputedStyle === "undefined") return value;
+  const resolved = getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim();
+  return resolved || value;
+}
+
+/** Opens Home Assistant's own dialog with its history graph (REQ I-1, ENT-3). */
+function openMoreInfo(target: EventTarget, entityId: string): void {
+  target.dispatchEvent(
+    new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }),
+  );
+}
 
 const DEFAULT_ICONS: Record<NodeKey, string> = {
   solar: "mdi:white-balance-sunny",
@@ -35,6 +51,12 @@ interface NodeView {
   value: string;
   available: boolean;
   socValue?: string;
+  /** 0..100 for the fill level; undefined when there is no state of charge. */
+  socPercent?: number;
+  socFillColor?: string;
+  /** More-info targets. Absent means not clickable (REQ I-4). */
+  entity?: string;
+  socEntity?: string;
 }
 
 /** Colour of a two-way quantity from the sign of its net value (REQ 4.2). */
@@ -68,6 +90,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
     derived: model.solar.derived,
     value: readingValue(model.solar, hass),
     available: model.solar.available,
+    entity: model.solar.derived ? undefined : model.solar.entity,
   });
 
   const grid = model.grid;
@@ -87,6 +110,12 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
       ? formatKW(Math.abs(grid.net), hass)
       : localize("state.unavailable", hass),
     available: grid.available,
+    // Whichever direction is running is the one worth opening (REQ I-1).
+    entity: grid.derived
+      ? undefined
+      : grid.available && grid.net < 0
+        ? (grid.entityNegative ?? grid.entityPositive)
+        : (grid.entityPositive ?? grid.entityNegative),
   });
 
   views.push({
@@ -97,6 +126,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
     derived: model.house.derived,
     value: readingValue(model.house, hass),
     available: model.house.available,
+    entity: model.house.derived ? undefined : model.house.entity,
   });
 
   const bat = model.battery;
@@ -121,6 +151,16 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
       available: bat.available,
       // Percent above the icon, power below - two separate tap targets (REQ K-4, ENT-5).
       socValue: model.soc.available ? formatSoc(stateObj, hass) : undefined,
+      socPercent: model.soc.available ? Math.max(0, Math.min(100, model.soc.w)) : undefined,
+      socFillColor: model.soc.available
+        ? socColor(model.soc.w, config.colors.socStops, resolveCssColor)
+        : undefined,
+      entity: bat.derived
+        ? undefined
+        : bat.available && bat.net < 0
+          ? (bat.entityNegative ?? bat.entityPositive)
+          : (bat.entityPositive ?? bat.entityNegative),
+      socEntity,
     });
   }
 
@@ -157,19 +197,47 @@ export function renderCross(
         </svg>
         ${views.map((v) => {
           const pos = nodePercent(v.key);
+          const tap = (entity?: string) => (ev: Event) => {
+            if (entity) openMoreInfo(ev.currentTarget as EventTarget, entity);
+          };
           return html`
           <div
             class="node ${v.key}"
             style="left:${pos.left};top:${pos.top};border-color:${v.color}"
           >
             ${
-              v.socValue
-                ? html`<div class="value" style="color:${v.color}">${v.socValue}</div>`
+              v.socPercent !== undefined
+                ? html`<div class="fill" style="height:${v.socPercent}%;background:${v.socFillColor}"></div>`
                 : ""
             }
+            ${v.socValue ? html`<div class="value">${v.socValue}</div>` : ""}
             <ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>
             <div class="value ${v.available ? "" : "unavailable"}">${v.value}</div>
             <div class="label">${label(v.label, v.derived, hass)}</div>
+            ${
+              v.socEntity
+                ? html`
+                    <button
+                      class="hit upper"
+                      aria-label=${`${v.label} ${v.socValue ?? ""}`}
+                      @click=${tap(v.socEntity)}
+                    ></button>
+                    <button
+                      class="hit lower"
+                      aria-label=${`${v.label} ${v.value}`}
+                      @click=${tap(v.entity)}
+                      ?disabled=${!v.entity}
+                    ></button>
+                  `
+                : v.entity
+                  ? html`<button
+                      class="hit"
+                      style="top:-22px;bottom:-22px"
+                      aria-label=${`${v.label} ${v.value}`}
+                      @click=${tap(v.entity)}
+                    ></button>`
+                  : ""
+            }
           </div>
           `;
         })}

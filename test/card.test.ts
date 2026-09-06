@@ -218,3 +218,66 @@ describe("dot spacing", () => {
     group.remove();
   });
 });
+
+describe("battery node", () => {
+  async function mountBattery(soc: string) {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig(CONFIG);
+    el.hass = fakeHass({ ...STATES, "sensor.soc": soc });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    return el;
+  }
+
+  it("fills the node to the state of charge (REQ K-5)", async () => {
+    const el = await mountBattery("72");
+    const fill = el.shadowRoot?.querySelector(".node.battery .fill") as HTMLElement | null;
+    expect(fill, "no fill element").toBeTruthy();
+    expect(fill?.style.height).toBe("72%");
+  });
+
+  it("offers two separate tap targets (REQ I-2)", async () => {
+    const el = await mountBattery("50");
+    const hits = el.shadowRoot?.querySelectorAll(".node.battery .hit");
+    expect(hits?.length, "expected an upper and a lower target").toBe(2);
+    expect(hits?.[0].classList.contains("upper")).toBe(true);
+    expect(hits?.[1].classList.contains("lower")).toBe(true);
+  });
+
+  it("opens the charge entity from the upper target (REQ I-2, I-1)", async () => {
+    const el = await mountBattery("50");
+    const seen: string[] = [];
+    el.addEventListener("hass-more-info", (ev) => {
+      seen.push((ev as CustomEvent<{ entityId: string }>).detail.entityId);
+    });
+    const hits = el.shadowRoot?.querySelectorAll(".node.battery .hit");
+    (hits?.[0] as HTMLElement).click();
+    (hits?.[1] as HTMLElement).click();
+    expect(seen[0], "upper target should open the state of charge").toBe("sensor.soc");
+    // Charging, so the lower target opens the charge entity (REQ 4.2).
+    expect(seen[1]).toBe("sensor.bat_in");
+  });
+
+  it("leaves derived nodes unclickable (REQ I-4)", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+    });
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector(".node.house .hit"), "house is derived").toBeFalsy();
+    expect(el.shadowRoot?.textContent).toContain("berechnet");
+  });
+});

@@ -76,6 +76,51 @@ export const styles = css`
     gap: 1px;
   }
 
+  /* Fill level rises from the bottom with the state of charge (REQ K-5).
+     Low opacity so the numbers on top stay readable. */
+  .node .fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0 0 999px 999px;
+    opacity: 0.22;
+    pointer-events: none;
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Two tap targets on the battery: charge above, power below. Rectangles that
+     reach past the circle, because the visible shape is too small for 44 px on
+     a phone (REQ I-2, I-3, ENT-5). */
+  .hit {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max(44px, 100%);
+    min-height: 44px;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+
+  .hit.upper {
+    bottom: 50%;
+    top: -22px;
+  }
+
+  .hit.lower {
+    top: 50%;
+    bottom: -22px;
+  }
+
+  .hit:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
   .node ha-icon {
     --mdc-icon-size: calc(var(--el-node-size) * 0.3);
     display: flex;

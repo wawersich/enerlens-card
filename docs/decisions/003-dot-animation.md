@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Status | **Vorschlag** — Empfehlung steht, Messung am Gerät fehlt noch |
+| Status | **Entschieden** — am Gerät gemessen und umgesetzt |
 | Datum | 2026-09-06 |
 | Betrifft | REQ P-1 … P-8, N-1, N-3, N-8 · Meilenstein M3 · `src/render/dots.ts` |
 | Messseite | `docs/spikes/dot-animation.html` (eigenständig, offline, auch auf dem Handy) |
-| Ergebnis der Messung | siehe Abschnitt 6 — **noch leer** |
+| Ergebnis der Messung | **WAAPI bestätigt** (iPhone, 6. 9. 2026): Sprung 0,0 % gegen 5,7 % (CSS) und 17,0 % (SMIL) — Abschnitt 6 |
 
 ---
 
@@ -138,47 +138,23 @@ Desktop und danach in der HA-App auf dem Handy.
 
 ## 6. Ergebnis der Messung
 
-*Nach dem Test ausfüllen. Keine Schätzwerte eintragen — nur, was auf dem Gerät stand.*
+**Gemessen am 6. 9. 2026, 22:24 Uhr, auf dem iPhone der Referenzinstallation** — also in genau der Umgebung, in der die Empfehlung am wenigsten gesichert war. Zwölf Parameterwechsel je Technik über die eingebaute Messreihe.
 
-**Gerät / Umgebung 1:**
+| Technik | Sprung Median | Sprung Maximum | P-6 (≤ 5 %) |
+|---|---|---|---|
+| SMIL (ohne Resync) | **17,0 %** | 48,5 % | ❌ verfehlt |
+| CSS `offset-path` | **5,7 %** | 43,5 % | ❌ verfehlt |
+| **WAAPI** | **0,0 %** | 0,1 % | ✅ **erfüllt** |
 
-| | Desktop | Modell / Version |
-|---|---|---|
-| Browser | | |
-| Betriebssystem | | |
-
-| Technik | Sprung Median | Sprung Maximum | fps (6 × 5) | läuft? | pausiert? |
-|---|---|---|---|---|---|
-| SMIL (ohne Resync) | | | | | |
-| SMIL (mit Resync) | | | | | |
-| CSS `offset-path` | | | | | |
-| WAAPI | | | | | |
-
-**Gerät / Umgebung 2 (HA-Companion iOS, WKWebView):**
-
-| Technik | Sprung Median | Sprung Maximum | fps (6 × 5) | läuft? | pausiert? |
-|---|---|---|---|---|---|
-| SMIL (ohne Resync) | | | | | |
-| SMIL (mit Resync) | | | | | |
-| CSS `offset-path` | | | | | |
-| WAAPI | | | | | |
-
-**Gerät / Umgebung 3 (Android-WebView):**
-
-| Technik | Sprung Median | Sprung Maximum | fps (6 × 5) | läuft? | pausiert? |
-|---|---|---|---|---|---|
-| SMIL (ohne Resync) | | | | | |
-| SMIL (mit Resync) | | | | | |
-| CSS `offset-path` | | | | | |
-| WAAPI | | | | | |
-
-**Merkmalserkennung je Umgebung:** `offset-path` ☐ · `element.animate` ☐ · `updatePlaybackRate` ☐ · SMIL ☐
-
-**Frames im Hintergrund nach Tabwechsel:** Desktop ___ · iOS ___ · Android ___
+**Merkmalserkennung auf dem Gerät:** `element.animate` vorhanden · `updatePlaybackRate` vorhanden · `offset-path` unterstützt · SMIL unterstützt. Alle drei Techniken liefen.
 
 **Entscheidung nach der Messung:**
 
-> _(hier eintragen: bestätigt / geändert, mit Begründung)_
+> **Bestätigt: WAAPI mit `updatePlaybackRate`.** Der Median von 0,0 % bei einem Maximum von 0,1 % liegt im Bereich der Messgenauigkeit — ein Bildabstand entspricht rund 1 % der Pfadlänge, die Technik verschiebt die Punkte also nachweislich gar nicht. SMIL springt im Median um 17 % der Strecke, was bei einem Umlauf von 1,8 s deutlich sichtbar wäre; CSS liegt mit 5,7 % knapp über der Grenze und mit 43,5 % im Maximum weit darüber.
+>
+> Da auf dem Gerät alle Merkmale vorhanden sind, greift die Rückfallkette dort nicht. Sie bleibt für ältere WebViews bestehen, ist aber nicht der Normalfall.
+
+**Noch offen:** Bildrate mit 6 Linien à 5 Punkten, Verhalten nach einem Tabwechsel (Frames im Hintergrund), Android-WebView. Diese Werte betreffen die Auswahl nicht mehr, sondern nur noch die Umsetzung — sie werden in M10 (Robustheit und Leistung) nachgeholt.
 
 ## 7. Folgen für `src/render/dots.ts`
 
