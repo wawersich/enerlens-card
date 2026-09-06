@@ -1,33 +1,81 @@
 /**
  * <enerlens-card> - energy flow card for Home Assistant.
- *
- * M0 scaffold: registers the element and renders an empty card. The pieces
- * behind it (model, breakdown, flows, rendering) arrive with the later steps.
  */
 import { LitElement, type TemplateResult, html, nothing } from "lit";
+import { collectEntityIds, normalizeConfig } from "./config";
 import { CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
-import type { HomeAssistant, RawConfig } from "./types";
+import { computeFlows } from "./flow";
+import { buildModel } from "./model";
+import { renderCross } from "./render/cross";
+import { VIEW_W } from "./render/geometry";
+import { styles } from "./styles";
+import { type Config, ConfigError, type HomeAssistant, type Model, type RawConfig } from "./types";
 
 class EnerLensCard extends LitElement {
+  static styles = styles;
+
   static properties = {
     hass: { attribute: false },
-    _config: { state: true },
+    _model: { state: true },
   };
 
-  hass?: HomeAssistant;
-  private _config?: RawConfig;
+  private _hass?: HomeAssistant;
+  private _config?: Config;
+  private _rawConfig?: RawConfig;
+  private _entityIds: string[] = [];
+  private _model?: Model;
+  private _resizeObserver?: ResizeObserver;
 
-  setConfig(config: RawConfig): void {
-    if (!config) throw new Error("Missing configuration");
-    this._config = config;
+  set hass(hass: HomeAssistant) {
+    const previous = this._hass;
+    this._hass = hass;
+    if (!this._config) return;
+    // Only rebuild when one of our entities actually changed (REQ T-3).
+    if (previous && !this._entitiesChanged(previous, hass)) return;
+    this._model = buildModel(hass, this._config);
   }
 
-  /** Height in Masonry views, in 50 px units. */
+  get hass(): HomeAssistant | undefined {
+    return this._hass;
+  }
+
+  private _entitiesChanged(a: HomeAssistant, b: HomeAssistant): boolean {
+    for (const id of this._entityIds) {
+      if (a.states[id] !== b.states[id]) return true;
+    }
+    return false;
+  }
+
+  setConfig(config: RawConfig): void {
+    // Structural problems throw so HA shows its error card; runtime problems
+    // never do - they are rendered inside the card (REQ E-1).
+    this._config = normalizeConfig(config, this._hass);
+    this._rawConfig = config;
+    this._entityIds = collectEntityIds(this._config);
+    if (this._hass) this._model = buildModel(this._hass, this._config);
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Text keeps a minimum size in CSS pixels while the drawing scales, so the
+    // card stays legible on a phone (REQ K-12).
+    this._resizeObserver = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      if (width > 0) this.style.setProperty("--el-scale", String(width / VIEW_W));
+    });
+    this._resizeObserver.observe(this);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = undefined;
+  }
+
   getCardSize(): number {
     return 7;
   }
 
-  /** Sizing in Sections views. The card needs the full section width (REQ K-12, I-3). */
   getGridOptions(): Record<string, unknown> {
     return { columns: 12, min_columns: 12, rows: "auto" };
   }
@@ -37,13 +85,31 @@ class EnerLensCard extends LitElement {
     return document.createElement(EDITOR_NAME);
   }
 
-  static getStubConfig(): Record<string, unknown> {
-    return { entities: {} };
+  static getStubConfig(
+    _hass: HomeAssistant,
+    entities: string[] = [],
+    entitiesFallback: string[] = [],
+  ): Record<string, unknown> {
+    const pool = [...entities, ...entitiesFallback].filter((id) => id.startsWith("sensor."));
+    return {
+      entities: {
+        solar: pool[0] ?? "sensor.solar_power",
+        grid: pool[1] ?? "sensor.grid_power",
+      },
+    };
   }
 
   render(): TemplateResult | typeof nothing {
-    if (!this.hass || !this._config) return nothing;
-    return html`<ha-card .header=${this._config.title ?? "EnerLens"}></ha-card>`;
+    if (!this._hass || !this._config) return nothing;
+    const model = this._model ?? buildModel(this._hass, this._config);
+    const flows = computeFlows(model);
+    const active = new Set(Object.keys(flows));
+
+    return html`
+      <ha-card .header=${this._rawConfig?.title}>
+        <div class="body">${renderCross(model, this._config, this._hass, active)}</div>
+      </ha-card>
+    `;
   }
 }
 
@@ -75,3 +141,5 @@ console.info(
   "color:#fff;background:#03a9f4;font-weight:700",
   "color:#03a9f4;background:#fff;font-weight:700",
 );
+
+export { ConfigError, type Config };
