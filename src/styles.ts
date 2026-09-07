@@ -121,15 +121,23 @@ export const styles = css`
   }
 
   /* Fill level rises from the bottom with the state of charge (REQ K-5).
-     Low opacity so the numbers on top stay readable. */
+     The clip is what makes it read as a filled circle: without it the
+     rectangle juts out past the rim and looks like a plinth. The node itself
+     cannot clip, because the label sits outside it. */
+  .node .fill-clip {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
   .node .fill {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    border-radius: 0 0 999px 999px;
     opacity: 0.22;
-    pointer-events: none;
     transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -225,6 +233,11 @@ export const styles = css`
 
   .node:not(.solar) .label {
     top: calc(100% + 4px);
+  }
+
+  /* The ring sits outside the circle, so the label has to clear it. */
+  .node.has-ring .label {
+    top: calc(100% + 16px);
   }
 
   .label .derived {

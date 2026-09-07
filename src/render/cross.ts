@@ -225,12 +225,17 @@ export function renderCross(
           };
           return html`
           <div
-            class="node ${v.key}"
+            class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""}"
             style="left:${pos.left};top:${pos.top};border-color:${v.color}"
           >
             ${
               v.socPercent !== undefined
-                ? html`<div class="fill" style="height:${v.socPercent}%;background:${v.socFillColor}"></div>`
+                ? html`<div class="fill-clip">
+                    <div
+                      class="fill"
+                      style="height:${v.socPercent}%;background:${v.socFillColor}"
+                    ></div>
+                  </div>`
                 : ""
             }
             ${v.socValue ? html`<div class="value">${v.socValue}</div>` : ""}
