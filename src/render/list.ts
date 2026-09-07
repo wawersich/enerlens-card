@@ -33,15 +33,19 @@ function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
  */
 function lane(w: number, color: string, config: Config): TemplateResult | typeof nothing {
   const params = dotParams(w, config);
-  if (!params) return nothing;
+  // The track is always drawn, even below the flow threshold: a row without one
+  // reads as broken rather than as idle. Only the dots depend on there being
+  // something to move.
+  if (!params) return html`<span class="lane" aria-hidden="true"></span>`;
 
-  const dots = Array.from({ length: params.count }, (_, i) => i);
+  const { count, durationS } = params;
+  const dots = Array.from({ length: count }, (_, i) => i);
   return html`<span class="lane" aria-hidden="true">
     ${dots.map(
       (i) => html`<span
         class="lane-dot"
-        style="background:${color};animation-duration:${params.durationS.toFixed(2)}s;animation-delay:${(
-          (-i * params.durationS) / params.count
+        style="background:${color};animation-duration:${durationS.toFixed(2)}s;animation-delay:${(
+          (-i * durationS) / count
         ).toFixed(2)}s"
       ></span>`,
     )}

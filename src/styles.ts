@@ -139,7 +139,7 @@ export const styles = css`
      shrinks into place rather than snapping (REQ R-4). */
   .ring-seg {
     fill: none;
-    stroke-width: calc(8px / var(--el-scale, 1));
+    stroke-width: calc(11px / var(--el-scale, 1));
     stroke-linecap: butt;
     transition:
       stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1),

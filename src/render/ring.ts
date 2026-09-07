@@ -11,6 +11,13 @@ import { NODE_POS, RING_R } from "./geometry";
 
 /** Gap between segments, in viewBox units (REQ R-2). */
 const GAP = 3;
+/**
+ * Shortest arc a segment may occupy. Without a floor, a consumer at a fraction
+ * of a percent becomes a hairline that reads as a rendering artefact - and with
+ * a low min_consumer_w there can be several of them. The share it borrows comes
+ * off the largest segment, so the ring still closes.
+ */
+const MIN_ARC = 6;
 
 export function renderRing(
   segments: Segment[],
@@ -24,9 +31,23 @@ export function renderRing(
   const gaps = segments.length > 1 ? segments.length * GAP : 0;
   const available = circumference - gaps;
 
+  // Give tiny segments their floor, then take it back from the biggest one.
+  const lengths = segments.map((s) => s.share * available);
+  let borrowed = 0;
+  for (const [i, length] of lengths.entries()) {
+    if (length > 0 && length < MIN_ARC) {
+      borrowed += MIN_ARC - length;
+      lengths[i] = MIN_ARC;
+    }
+  }
+  if (borrowed > 0) {
+    const biggest = lengths.indexOf(Math.max(...lengths));
+    lengths[biggest] = Math.max(MIN_ARC, lengths[biggest] - borrowed);
+  }
+
   let offset = 0;
-  const arcs = segments.map((segment) => {
-    const length = segment.share * available;
+  const arcs = segments.map((segment, index) => {
+    const length = lengths[index];
     const dash = `${length.toFixed(2)} ${(circumference - length).toFixed(2)}`;
     const arc = svg`<circle
       class="ring-seg"
