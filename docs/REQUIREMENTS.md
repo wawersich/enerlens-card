@@ -169,7 +169,7 @@ Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein
 | E-3 | GUI-Editor auf Basis von `ha-form`. Entity-Selektoren mit **ODER-Filter**, damit auch Template-Sensoren ohne `device_class` erscheinen: Leistung `[{domain: sensor, device_class: power}, {domain: sensor, unit_of_measurement: [W, kW]}]`, SOC `[{domain: sensor, device_class: battery}, {domain: sensor, unit_of_measurement: "%"}]`. Dazu Schalter Liste/Ring, Limit, Takt, Schwellen, Rest-Bezeichnung, Ansichtsmodus, Farben. | MUSS |
 | E-4 | **Verbraucherliste im Editor** über den Objekt-Selektor (`object` mit `multiple: true`, `fields`, `label_field`, `description_field`) — Hinzufügen, Bearbeiten, Löschen, Sortieren. Verfügbar ab HA 2025.7 (N-3). | MUSS |
 | E-5 | `getStubConfig(hass, entities, entitiesFallback)` liefert eine **ohne Nutzereingabe renderbare** Konfiguration (erste Sensoren mit `device_class: power` bzw. Einheit W/kW). Nötig, weil `preview: true` (AL-4) die Karte im Kartenauswahl-Dialog live rendert. Findet sich nichts, zeigt die Karte im Vorschaumodus einen Beispielzustand statt einer Fehlerkarte. | MUSS |
-| E-6 | Editor-Beschriftungen und Hilfetexte auf Deutsch und Englisch (N-7). | MUSS |
+| E-6 | Editor-Beschriftungen und **Hilfetexte** auf Deutsch und Englisch (N-7). Jede Einstellung, deren Wirkung sich nicht aus ihrem Namen ergibt, trägt einen Hilfetext unter dem Feld — insbesondere die Auswahlfelder, deren Werte sonst zu erraten wären. Bei `flow.animation` weist der Text darauf hin, dass die Systemeinstellung im **Betriebssystem des Geräts** liegt, nicht in Home Assistant. | MUSS |
 
 ### 2.8 Takt & Aktualisierung (T)
 
