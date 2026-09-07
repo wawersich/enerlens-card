@@ -10,3 +10,8 @@ dist/
 test/fixtures/
 history-*.json
 expected.json
+
+# Screenshots belong in docs/images, not in the project root
+/*.png
+/*.jpg
+/*.jpeg

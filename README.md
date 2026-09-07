@@ -6,6 +6,7 @@ and battery — plus a breakdown of what the house figure is actually made of.
 *[Deutsche Fassung dieser Seite](README.de.md)*
 
 ![EnerLens in a light theme](docs/images/light.png)
+![EnerLens in a dark theme](docs/images/dark.png)
 
 > **Status: not released yet.** The card works and is in daily use on one
 > installation, but there is no tagged release and it is not in HACS. Treat the

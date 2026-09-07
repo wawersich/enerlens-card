@@ -7,6 +7,7 @@ besteht.
 *[English version of this page](README.md)*
 
 ![EnerLens im hellen Design](docs/images/light.png)
+![EnerLens im dunklen Design](docs/images/dark.png)
 
 > **Stand: noch nicht veröffentlicht.** Die Karte läuft und ist auf einer
 > Anlage täglich im Einsatz, aber es gibt noch kein Release und sie ist nicht

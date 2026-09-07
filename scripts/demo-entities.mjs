@@ -23,7 +23,7 @@ const VALUES = [
   ["battery", -1200, "W", "power", "Battery"],
   ["battery_soc", 68, "%", "battery", "Battery charge"],
   ["heat_pump", 1180, "W", "power", "Heat pump"],
-  ["washing_machine", 620, "W", "power", "Washing machine"],
+  ["washing_machine", 620, "W", "power", "Washer"],
   ["air_conditioning", 310, "W", "power", "Air conditioning"],
   ["fridge", 145, "W", "power", "Fridge"],
   ["dishwasher", 95, "W", "power", "Dishwasher"],
