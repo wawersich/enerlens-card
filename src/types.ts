@@ -64,6 +64,8 @@ export interface LovelaceCardConfig {
 
 export type ViewMode = "current" | "avg_short" | "avg_long";
 export type AnimationMode = "auto" | "on" | "off";
+/** How connections without flow are drawn (REQ P-9). */
+export type InactiveLines = "show" | "dim" | "hide";
 export type NodeKey = "solar" | "grid" | "house" | "battery";
 export type ColorKey =
   | "solar"
@@ -123,6 +125,7 @@ export interface RawConfig extends LovelaceCardConfig {
     slow_s?: number;
     fast_s?: number;
     animation?: AnimationMode;
+    inactive_lines?: InactiveLines;
   };
   colors?: Partial<Record<ColorKey, string>> & {
     soc_stops?: SocStop[];
@@ -186,6 +189,7 @@ export interface Config {
     slowS: number;
     fastS: number;
     animation: AnimationMode;
+    inactiveLines: InactiveLines;
   };
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
   icons: Partial<Record<NodeKey, string>>;

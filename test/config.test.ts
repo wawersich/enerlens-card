@@ -453,6 +453,7 @@ describe("defaults (section 3)", () => {
       slowS: 5,
       fastS: 1.8,
       animation: "auto",
+      inactiveLines: "show",
     });
   });
 
@@ -670,7 +671,20 @@ describe("numeric ranges (schema rules)", () => {
       slowS: 4,
       fastS: 1,
       animation: "off",
+      inactiveLines: "show",
     });
+  });
+
+  it("accepts the inactive_lines modes and rejects anything else (P-9)", () => {
+    for (const mode of ["show", "dim", "hide"] as const) {
+      expect(normalizeConfig(cfg({ flow: { inactive_lines: mode } })).flow.inactiveLines).toBe(
+        mode,
+      );
+    }
+    expectError(
+      () => normalizeConfig(cfg({ flow: { inactive_lines: "invisible" } })),
+      "error.config.enum",
+    );
   });
 
   it("rejects avg_short_minutes >= avg_long_minutes (V-1)", () => {

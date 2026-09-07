@@ -10,6 +10,7 @@ import {
   type Config,
   ConfigError,
   type HomeAssistant,
+  type InactiveLines,
   type NodeKey,
   type NormalizedConsumer,
   type RawConfig,
@@ -53,6 +54,7 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
+const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
 
 const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "type",
@@ -547,6 +549,13 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       slowS,
       fastS,
       animation: readEnum(rawFlow.animation, ANIMATION_MODES, "flow.animation", "auto", hass),
+      inactiveLines: readEnum(
+        rawFlow.inactive_lines,
+        INACTIVE_LINES,
+        "flow.inactive_lines",
+        "show",
+        hass,
+      ),
     },
     colors,
     icons: readIcons(rawRecord.icons, hass),

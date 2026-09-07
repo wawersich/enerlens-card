@@ -199,9 +199,15 @@ export function renderCross(
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass);
   // No battery configured: its lines go with it, the rest of the cross stays put.
-  const links = model.battery
+  const withBattery = model.battery
     ? DRAWN_CONNECTIONS
     : DRAWN_CONNECTIONS.filter((id) => !BATTERY_LINKS.has(id));
+  // Connections without flow can be dropped entirely (REQ P-9). The nodes keep
+  // their positions either way - the cross must not change shape with the data.
+  const links =
+    config.flow.inactiveLines === "hide"
+      ? withBattery.filter((id) => activeConnections.has(id))
+      : withBattery;
 
   return html`
     <div class="cross">
@@ -210,7 +216,7 @@ export function renderCross(
         ${links.map(
           (id) =>
             svg`<path
-              class="link ${activeConnections.has(id) ? "active" : ""}"
+              class="link ${activeConnections.has(id) ? "active" : `inactive-${config.flow.inactiveLines}`}"
               style=${activeConnections.has(id) ? `stroke:${activeConnections.get(id)}` : ""}
               d=${PATHS[id]}
             ></path>`,

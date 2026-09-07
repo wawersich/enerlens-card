@@ -162,6 +162,12 @@ export const styles = css`
   /* Dimmed so the dots stand out - but not so far that the hue disappears.
      At 0.55 the colour washed out to grey on a dark background, where the line
      blends into the card instead of the page. */
+  /* Connections without flow, per flow.inactive_lines (REQ P-9). "hide" never
+     reaches the stylesheet - those paths are not rendered at all. */
+  .link.inactive-dim {
+    opacity: 0.25;
+  }
+
   .link.active {
     opacity: 0.8;
   }
