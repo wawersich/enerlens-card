@@ -1,46 +1,243 @@
 # EnerLens Card
 
-An energy flow card for Home Assistant: the familiar cross of PV, grid, house and
-battery, plus an optional consumer list and ring that break the house value down
-into the appliances you actually measure.
+An energy flow card for Home Assistant. The familiar cross of PV, grid, house
+and battery — plus a breakdown of what the house figure is actually made of.
 
-> **Status: in development.** The scaffold builds and loads, the card itself is
-> being implemented. Not usable yet.
+*[Deutsche Fassung dieser Seite](README.de.md)*
+
+![EnerLens in a light theme](docs/images/light.png)
+
+> **Status: not released yet.** The card works and is in daily use on one
+> installation, but there is no tagged release and it is not in HACS. Treat the
+> configuration as settled and the version as pre-1.0.
 
 ## What it does differently
 
-- **Consumers as a breakdown, not extra nodes.** The list beside the house node
-  and the ring around it show what the house value is made of; a configurable
-  rest entry holds everything that is not individually measured.
-- **Three view modes.** Live values, or time-weighted moving averages over two
-  configurable windows - because a live power diagram jumps by kilowatts within
-  seconds. The active mode is always visible; measurements are never silently
-  smoothed.
-- **Sorted, animated list.** Entries reorder by power on a fixed tick and glide
-  to their new position instead of jumping.
-- **Sign conventions that match Home Assistant.** Grid positive = import,
-  battery positive = discharging, exactly like the energy dashboard and
-  power-flow-card-plus, with `invert` per entity when your sensors disagree.
+**Consumers are a breakdown, not extra nodes.** The list beside the house node
+and the ring around it show what makes up the house value. A configurable
+remainder holds everything you do not measure individually — on the reference
+installation that is about 45 % of consumption, which is worth seeing rather
+than hiding.
 
-## Documentation
+**Three view modes.** A live power diagram jumps by kilowatts within seconds.
+Switch to a 5- or 15-minute moving average and the picture calms down without
+the numbers becoming a lie: the active mode is always named, and clicking any
+element still opens Home Assistant's own dialog with the raw history.
 
-Requirements and implementation plan live in [`docs/`](docs/) (in German):
+**The list sorts itself and glides.** Rows reorder by power on a fixed beat and
+slide to their new position instead of jumping. Values update immediately; only
+the order waits for the beat, because a jumping figure does not disturb but a
+jumping row does.
 
-- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) - requirements, configuration
-  schema, calculation rules, acceptance criteria
-- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) - technical
-  decisions, module layout, work steps
-- [`docs/mockup.html`](docs/mockup.html) - visual draft
+**Measurements are never quietly changed.** Sensors update at different rates,
+so the individually measured consumers can briefly add up to more than the
+house total — on the reference installation that happens about 1 % of the time,
+by as much as 3 kW. The card does not smooth that away: the remainder simply
+disappears and the ring shows shares of the consumer sum instead.
+
+## Installation
+
+### HACS (once released)
+
+Not yet available. Until then, add this repository as a custom repository of
+type *Dashboard*.
+
+### Manually
+
+1. Download `enerlens-card.js` from the latest release
+2. Copy it to `config/www/`
+3. Add the resource under *Settings → Dashboards → Resources*:
+   `/local/enerlens-card.js` as *JavaScript module*
+
+## Configuration
+
+The card ships a GUI editor — everything below can be set through the form.
+The YAML is documented for people who prefer it and for the two entity forms
+the form cannot express.
+
+### Minimal
+
+```yaml
+type: custom:enerlens-card
+entities:
+  solar: sensor.pv_power
+  grid: sensor.grid_power
+  house: sensor.house_consumption
+```
+
+### With a battery and consumers
+
+```yaml
+type: custom:enerlens-card
+title: Energy
+entities:
+  solar: sensor.pv_power
+  grid: sensor.grid_power
+  house: sensor.house_consumption
+  battery: sensor.battery_power
+  battery_soc: sensor.battery_level
+consumers:
+  - entity: sensor.heat_pump_power
+    name: Heat pump
+  - entity: sensor.washing_machine_power
+  - entity: sensor.fridge_power
+max_consumers: 5
+```
+
+### Sign conventions
+
+The card follows Home Assistant's own convention, the same one
+`power-flow-card-plus` and the energy dashboard use:
+
+| Quantity | Positive | Negative |
+|---|---|---|
+| `grid` | import from the grid | export |
+| `battery` | discharging | charging |
+
+If your sensor reports the other way round — many inverters report export as a
+positive number — invert it per entity:
+
+```yaml
+entities:
+  grid:
+    entity: sensor.grid_power
+    invert: true
+```
+
+If you have separate sensors per direction instead of one signed sensor, name
+both. Values are expected to be zero or positive:
+
+```yaml
+entities:
+  grid:
+    import: sensor.grid_import
+    export: sensor.grid_export
+  battery:
+    discharge: sensor.battery_discharge
+    charge: sensor.battery_charge
+```
+
+### Deriving a missing quantity
+
+`solar`, `grid`, `house` and `battery` form one equation:
+
+```
+solar + import − export + discharge − charge = house
+```
+
+Leave `house` out and the card derives it. To derive one of the others instead,
+name it explicitly:
+
+```yaml
+entities:
+  solar: sensor.pv_power
+  grid: sensor.grid_power
+  house: sensor.house_consumption
+  battery: derived        # no battery power sensor
+```
+
+Exactly one quantity may be derived — two unknowns cannot be solved from one
+equation, and the card says so rather than guessing. Derived nodes are labelled
+and are not clickable, because there is no entity behind them to show.
+
+**A note on accuracy:** deriving the house value is convenient but only as good
+as its inputs. On the reference installation, deriving it from 60-second grid
+and battery sensors was off by up to 8.7 kW during load changes, while a
+measured 5-second sensor followed within 4 seconds. If you have a fast house
+sensor, use it.
+
+### All options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `title` | — | Card heading |
+| `entities.solar` | required | PV power, W or kW |
+| `entities.grid` | required | Grid power, signed |
+| `entities.house` | derived | House consumption |
+| `entities.battery` | — | Battery power, signed |
+| `entities.battery_soc` | — | State of charge in % |
+| `consumers` | — | List of `{entity, name, color}` |
+| `min_consumer_w` | `10` | Consumers below this are folded into the remainder |
+| `max_consumers` | all | Only the strongest are listed |
+| `update_interval_s` | `5` | How often the list reorders |
+| `list.enabled` | on with consumers | Show the list |
+| `list.rest_label` | localised | Name of the remainder |
+| `list.title` | — | Heading above the list |
+| `ring.enabled` | on with consumers | Show the ring |
+| `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
+| `view.avg_short_minutes` | `5` | Short averaging window |
+| `view.avg_long_minutes` | `15` | Long averaging window |
+| `view.show_selector` | `true` | Show the mode chips |
+| `view.remember` | `true` | Remember the mode per browser |
+| `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
+| `flow.animation` | `auto` | `auto`, `on` or `off` |
+| `flow.min_w` | `10` | Below this nothing moves |
+| `flow.slow_below_w` | `500` | One slow dot up to here |
+| `flow.more_dots_above_w` | `2000` | More dots beyond here |
+| `flow.max_dots_at_w` | `6000` | Where the dot count peaks |
+| `flow.max_dots` | `5` | Upper limit on dots |
+| `colors.*` | HA energy colours | Any CSS value, including `var(--…)` |
+| `colors.soc_stops` | red → yellow → green | Gradient for the charge level |
+| `icons.*` | mdi defaults | Per-node icon |
+
+`flow.animation: auto` follows the device's reduce-motion preference — that
+setting lives in the operating system, not in Home Assistant.
+
+### Colours
+
+Defaults come from Home Assistant's energy theme variables, so the card matches
+the energy dashboard without configuration. To colour by good and bad instead:
+
+```yaml
+colors:
+  grid_export: "#43a047"        # exporting is good
+  grid_import: "#e53935"        # importing is not
+  battery_charge: "#43a047"
+  battery_discharge: "#e53935"
+```
+
+## Languages
+
+The card follows the language of the signed-in Home Assistant user (*Profile →
+Language*). There is no language setting on the card itself — that would mean
+maintaining the same choice twice.
+
+| | |
+|---|---|
+| Supported | English, German |
+| Chosen by | `hass.language`, falling back to English |
+| Not translated | Anything you typed yourself — titles, consumer names, `rest_label` |
+
+Adding a language needs no code: copy `src/translations/en.json`, translate the
+values, keep the keys, and drop it in as `<code>.json`. A test checks that every
+translation file carries exactly the same keys as the English one, so a missing
+entry fails the build rather than surfacing as a raw key in someone's dashboard.
+
+## Coming from power-flow-card-plus
+
+- Sign conventions are identical — existing sensors should work unchanged.
+- Individual consumers become the `consumers` list, and they are a *breakdown*
+  of the house value rather than additional nodes. The remainder shows what is
+  left.
+- There is no `watt_threshold`; use `min_consumer_w` for the list and
+  `flow.min_w` for the animation. They are deliberately separate.
 
 ## Development
 
 ```bash
 ./scripts/setup.sh     # install dependencies
-npm test               # unit tests
-npm run lint           # Biome
+npm run check          # typecheck, lint, tests, build
 npm run build          # single-file bundle in dist/
 ./scripts/deploy.sh    # build and copy into a local Home Assistant
 ```
+
+Requirements and the implementation plan live in [`docs/`](docs/). They are
+written in German and stay that way: they change with every step, and a second
+copy would mostly be a source of contradictions. They record what was decided
+and why — including the measurements the defaults are based on.
+
+The user-facing documentation — this page and [`README.de.md`](README.de.md) —
+is maintained in both languages.
 
 ## Licence
 

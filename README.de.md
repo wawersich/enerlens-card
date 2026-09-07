@@ -1,0 +1,249 @@
+# EnerLens Card
+
+Eine Energiefluss-Karte für Home Assistant. Das bekannte Kreuz aus PV, Netz,
+Haus und Batterie — dazu eine Aufschlüsselung, woraus der Hauswert eigentlich
+besteht.
+
+*[English version of this page](README.md)*
+
+![EnerLens im hellen Design](docs/images/light.png)
+
+> **Stand: noch nicht veröffentlicht.** Die Karte läuft und ist auf einer
+> Anlage täglich im Einsatz, aber es gibt noch kein Release und sie ist nicht
+> in HACS. Die Konfiguration ist stabil, die Version vor 1.0.
+
+## Was sie anders macht
+
+**Verbraucher sind eine Aufschlüsselung, keine zusätzlichen Knoten.** Die Liste
+neben dem Haus-Knoten und der Ring darum zeigen, woraus der Hauswert besteht.
+Ein frei benennbarer Rest fasst zusammen, was nicht einzeln gemessen wird — auf
+der Referenzanlage rund 45 % des Verbrauchs, was sichtbar besser aufgehoben ist
+als versteckt.
+
+**Drei Ansichtsmodi.** Ein Live-Leistungsdiagramm springt binnen Sekunden um
+Kilowatt. Ein 5- oder 15-Minuten-Mittel beruhigt das Bild, ohne die Zahlen zu
+verfälschen: Der aktive Modus ist immer benannt, und ein Klick öffnet weiterhin
+den Dialog von Home Assistant mit der echten Historie.
+
+**Die Liste sortiert sich und gleitet.** Zeilen ordnen sich im festen Takt nach
+Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
+ändern sich sofort; nur die Reihenfolge wartet auf den Takt — eine springende
+Zahl stört nicht, eine springende Zeile schon.
+
+**Messwerte werden nie stillschweigend verändert.** Sensoren aktualisieren
+unterschiedlich schnell, deshalb kann die Summe der einzeln gemessenen
+Verbraucher kurzzeitig über dem Hauswert liegen — auf der Referenzanlage in
+etwa 1 % der Zeit, um bis zu 3 kW. Die Karte glättet das nicht weg: Der Rest
+verschwindet einfach, und der Ring zeigt dann Anteile an der Verbrauchersumme.
+
+## Installation
+
+### HACS (nach der Veröffentlichung)
+
+Noch nicht verfügbar. Bis dahin dieses Repository als Custom Repository vom
+Typ *Dashboard* hinzufügen.
+
+### Von Hand
+
+1. `enerlens-card.js` aus dem letzten Release herunterladen
+2. Nach `config/www/` kopieren
+3. Unter *Einstellungen → Dashboards → Ressourcen* eintragen:
+   `/local/enerlens-card.js` als *JavaScript-Modul*
+
+## Konfiguration
+
+Die Karte bringt einen GUI-Editor mit — alles Folgende lässt sich im Formular
+einstellen. Das YAML ist für alle dokumentiert, die es vorziehen, und für die
+beiden Entitätsformen, die ein Formular nicht abbilden kann.
+
+### Minimal
+
+```yaml
+type: custom:enerlens-card
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch
+```
+
+### Mit Batterie und Verbrauchern
+
+```yaml
+type: custom:enerlens-card
+title: Energie
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch
+  battery: sensor.batterie_leistung
+  battery_soc: sensor.batterie_ladezustand
+consumers:
+  - entity: sensor.waermepumpe_leistung
+    name: Wärmepumpe
+  - entity: sensor.waschmaschine_leistung
+  - entity: sensor.kuehlschrank_leistung
+max_consumers: 5
+```
+
+### Vorzeichen
+
+Die Karte folgt der Konvention von Home Assistant — derselben, die auch
+`power-flow-card-plus` und das Energie-Dashboard verwenden:
+
+| Größe | Positiv | Negativ |
+|---|---|---|
+| `grid` | Bezug aus dem Netz | Einspeisung |
+| `battery` | Entladen | Laden |
+
+Meldet dein Sensor es andersherum — viele Wechselrichter geben die Einspeisung
+positiv aus — lässt sich das je Entität umkehren:
+
+```yaml
+entities:
+  grid:
+    entity: sensor.netz_leistung
+    invert: true
+```
+
+Wer statt eines signierten Sensors getrennte Sensoren je Richtung hat, nennt
+beide. Erwartet werden Werte ab null:
+
+```yaml
+entities:
+  grid:
+    import: sensor.netz_bezug
+    export: sensor.netz_einspeisung
+  battery:
+    discharge: sensor.batterie_entladen
+    charge: sensor.batterie_laden
+```
+
+### Fehlende Größen ableiten
+
+`solar`, `grid`, `house` und `battery` bilden eine Gleichung:
+
+```
+solar + Bezug − Einspeisung + Entladen − Laden = house
+```
+
+Lässt man `house` weg, leitet die Karte es ab. Soll stattdessen eine der
+anderen abgeleitet werden, wird sie ausdrücklich benannt:
+
+```yaml
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch
+  battery: derived        # kein Sensor für die Batterieleistung
+```
+
+Genau eine Größe darf abgeleitet werden — zwei Unbekannte lassen sich aus einer
+Gleichung nicht bestimmen, und die Karte sagt das, statt zu raten. Abgeleitete
+Knoten sind gekennzeichnet und nicht anklickbar, weil keine Entität dahinter
+steht, deren Verlauf man zeigen könnte.
+
+**Zur Genauigkeit:** Den Hauswert abzuleiten ist bequem, aber nur so gut wie
+seine Eingangswerte. Auf der Referenzanlage lag er, aus 60-Sekunden-Sensoren
+für Netz und Batterie abgeleitet, bei Lastwechseln bis zu 8,7 kW daneben,
+während ein gemessener 5-Sekunden-Sensor binnen 4 Sekunden folgte. Wer einen
+schnellen Haussensor hat, sollte ihn nehmen.
+
+### Alle Optionen
+
+| Option | Standard | Bedeutung |
+|---|---|---|
+| `title` | — | Überschrift der Karte |
+| `entities.solar` | Pflicht | PV-Leistung, W oder kW |
+| `entities.grid` | Pflicht | Netzleistung, signiert |
+| `entities.house` | abgeleitet | Hausverbrauch |
+| `entities.battery` | — | Batterieleistung, signiert |
+| `entities.battery_soc` | — | Ladezustand in % |
+| `consumers` | — | Liste aus `{entity, name, color}` |
+| `min_consumer_w` | `10` | Verbraucher darunter zählen zum Rest |
+| `max_consumers` | alle | Nur die stärksten werden gelistet |
+| `update_interval_s` | `5` | Wie oft die Liste neu sortiert |
+| `list.enabled` | an mit Verbrauchern | Liste anzeigen |
+| `list.rest_label` | lokalisiert | Bezeichnung des Rests |
+| `list.title` | — | Überschrift über der Liste |
+| `ring.enabled` | an mit Verbrauchern | Ring anzeigen |
+| `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
+| `view.avg_short_minutes` | `5` | Kurzes Mittelungsfenster |
+| `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
+| `view.show_selector` | `true` | Umschalter anzeigen |
+| `view.remember` | `true` | Modus je Browser merken |
+| `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
+| `flow.animation` | `auto` | `auto`, `on` oder `off` |
+| `flow.min_w` | `10` | Darunter bewegt sich nichts |
+| `flow.slow_below_w` | `500` | Bis hier ein langsamer Punkt |
+| `flow.more_dots_above_w` | `2000` | Ab hier kommen Punkte hinzu |
+| `flow.max_dots_at_w` | `6000` | Wo die Punktzahl ihr Maximum erreicht |
+| `flow.max_dots` | `5` | Obergrenze für Punkte |
+| `colors.*` | HA-Energiefarben | Jeder CSS-Wert, auch `var(--…)` |
+| `colors.soc_stops` | rot → gelb → grün | Verlauf für den Ladezustand |
+| `icons.*` | mdi-Standard | Icon je Knoten |
+
+`flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
+die steht im Betriebssystem, nicht in Home Assistant.
+
+### Farben
+
+Die Standardwerte kommen aus den Energie-Theme-Variablen von Home Assistant,
+sodass die Karte ohne Konfiguration zum Energie-Dashboard passt. Wer stattdessen
+nach gut und schlecht färben will:
+
+```yaml
+colors:
+  grid_export: "#43a047"        # Einspeisen ist gut
+  grid_import: "#e53935"        # Beziehen nicht
+  battery_charge: "#43a047"
+  battery_discharge: "#e53935"
+```
+
+## Sprachen
+
+Die Karte richtet sich nach der Sprache des angemeldeten Home-Assistant-Nutzers
+(*Profil → Sprache*). Es gibt keine eigene Spracheinstellung auf der Karte —
+das hieße, dieselbe Wahl zweimal zu pflegen.
+
+| | |
+|---|---|
+| Unterstützt | Englisch, Deutsch |
+| Ausgewählt über | `hass.language`, Rückfall auf Englisch |
+| Nicht übersetzt | Alles Selbstgeschriebene — Titel, Verbrauchernamen, `rest_label` |
+
+Eine Sprache hinzuzufügen erfordert keinen Code: `src/translations/en.json`
+kopieren, die Werte übersetzen, die Schlüssel behalten und als `<code>.json`
+ablegen. Ein Test prüft, dass jede Übersetzungsdatei genau dieselben Schlüssel
+trägt wie die englische — ein fehlender Eintrag lässt also den Build scheitern,
+statt in irgendeinem Dashboard als roher Schlüssel aufzutauchen.
+
+## Umstieg von power-flow-card-plus
+
+- Die Vorzeichen sind identisch — vorhandene Sensoren sollten unverändert
+  funktionieren.
+- Aus den einzelnen Verbrauchern wird die `consumers`-Liste, und sie sind eine
+  *Aufschlüsselung* des Hauswerts statt zusätzlicher Knoten. Der Rest zeigt,
+  was übrig bleibt.
+- `watt_threshold` gibt es nicht; stattdessen `min_consumer_w` für die Liste
+  und `flow.min_w` für die Animation. Die beiden sind bewusst getrennt.
+
+## Entwicklung
+
+```bash
+./scripts/setup.sh     # Abhängigkeiten installieren
+npm run check          # Typen, Lint, Tests, Build
+npm run build          # Einzeldatei-Bundle in dist/
+./scripts/deploy.sh    # bauen und in ein lokales Home Assistant kopieren
+```
+
+Anforderungen und Implementierungsplan liegen in [`docs/`](docs/) und bleiben
+auf Deutsch: Sie ändern sich mit jedem Schritt, und eine zweite Fassung wäre
+vor allem eine Quelle für Widersprüche. Sie halten fest, was entschieden wurde
+und warum — einschließlich der Messungen, auf denen die Standardwerte beruhen.
+
+Die Anwenderdokumentation — diese Seite und [`README.md`](README.md) — wird
+zweisprachig gepflegt.
+
+## Lizenz
+
+MIT
