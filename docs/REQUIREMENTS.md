@@ -401,14 +401,14 @@ Die Abnahmen L und V beruhen auf echten Messdaten der Referenzanlage. Diese Date
 
 - [ ] Alle MUSS-Anforderungen erfüllt; SOLL-Abweichungen im CHANGELOG benannt.
 - [ ] Unit-Tests grün: Formeln und Regeln in der CI, Abnahmen L, R und V lokal gegen die Referenzdaten (5.1).
-- [ ] Vorzeichen: `battery: derived` im Nacht-Szenario (PV 0, Netz +420 W, Haus 1 520 W) → „entlädt", 1 100 W, Fluss Batterie→Haus. Gegenprobe Tag-Szenario → „lädt".
+- [x] Vorzeichen: `battery: derived` im Nacht-Szenario (PV 0, Netz +420 W, Haus 1 520 W) → „entlädt", 1 100 W, Fluss Batterie→Haus. Gegenprobe Tag-Szenario → „lädt". *(`test/acceptance.test.ts`)*
 - [x] Alle Entitäten nacheinander auf `unavailable` — keine Exception, kein Layoutbruch, Rest verschwindet bei fehlendem Hauswert. *(M10, `test/stress.test.ts` und auf dem Dashboard)*
 - [x] 100 Verbraucher, `max_consumers: 5` — flüssig, DOM enthält 6 Einträge. *(M10)*
-- [ ] Trefferflächen bei Gerätebreite 360 px und 320 px per Inspektor gemessen (I-3); SOC und kW getrennt getroffen.
-- [ ] Schriftgrößen nach K-12 bei 360 px gemessen.
+- [x] Trefferflächen bei Gerätebreite 360 px und 320 px gemessen (I-3), headless Chromium via `scripts/measure.mjs`, Karte 344 / 304 px: Knoten 94 / 83 px (Haus mit Ring 77 / 70 px), Batterie-Hälften 90 × 67 / 79 × 61 px getrennt, Modus-Chips 36 px hoch mit 8 px Abstand, Filter-Knopf 28 px, Abstand Batterie → erste Zeile 23 px. **Abweichung:** Listenzeilen haben 44 px Trefferfläche bei 34 px Zeilenabstand — die Flächen überlappen sich um 10 px, wirksam bleiben 34 px je Zeile (über der harten Untergrenze 24 px, unter den gewünschten 44 px). Entscheidung offen: Zeilenabstand 44 px oder L-9 auf 34 px wirksam anpassen.
+- [x] Schriftgrößen nach K-12 bei 344 und 304 px Kartenbreite gemessen: Beschriftungen, Knotenwerte, SOC, Listenzeilen und Chips je 12 px; Punkte Ø 12,0 px; Linien 4,1 / 4,7 px. *(`scripts/measure.mjs`)*
 - [x] Kontraste nach N-6 in beiden Themes gemessen. *(M10; Ausnahmen in N-6 dokumentiert)*
 - [ ] Ansichtsmodi: Abnahme V reproduziert; Umschalten < 100 ms; Kennzeichnung sichtbar; More-Info zeigt rohe Historie.
-- [ ] Sprache auf Englisch umgestellt → alle Beschriftungen englisch, `rest_label` „Other".
+- [x] Sprache auf Englisch umgestellt → alle Beschriftungen englisch, `rest_label` „Other", Zahlen mit Punkt. *(`LANG_CARD=en scripts/measure.mjs`)*
 - [ ] HACS: als Custom Repository installiert, Update funktioniert; `hacs/action` grün ohne `ignore`.
 - [x] Bundle-Größe protokolliert. *(28 kB gzip, `npm run check`)*
 

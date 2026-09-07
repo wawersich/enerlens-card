@@ -1,0 +1,90 @@
+<!doctype html>
+<!--
+  Measurement harness for REQ I-3 and K-12: mounts the built card at a given
+  width with stand-ins for ha-card and ha-icon, then writes every measurement
+  as JSON into #out so a headless browser can dump it.
+  Usage: scripts/measure.mjs (do not open in HA - the stubs would clash).
+-->
+<html lang="de"><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; font-family: Roboto, system-ui, sans-serif; font-size: 14px; }
+  /* Sections view: one column, the card fills it. */
+  #host { margin: 8px; }
+</style>
+<script>
+  // ha-card: a block with the card's default look; ha-icon: a 24 px square.
+  customElements.define("ha-card", class extends HTMLElement {
+    connectedCallback() { this.style.display = "block"; this.style.borderRadius = "12px"; this.style.background = "#fff"; }
+  });
+  customElements.define("ha-icon", class extends HTMLElement {
+    connectedCallback() { this.style.display = "inline-block"; this.style.width = this.style.height = "var(--mdc-icon-size, 24px)"; }
+  });
+</script>
+<script type="module" src="./enerlens-card.js"></script>
+</head><body>
+<div id="host"></div>
+<pre id="out"></pre>
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const width = Number(params.get("w") ?? 344);
+  const lang = params.get("lang") ?? "de";
+  document.getElementById("host").style.width = `${width}px`;
+
+  const W = (id, w) => [id, { entity_id: id, state: String(w), attributes: { unit_of_measurement: "W", device_class: "power", friendly_name: id }, last_changed: "", last_updated: "" }];
+  const states = Object.fromEntries([
+    W("sensor.s", 6420), W("sensor.gi", 0), W("sensor.ge", 2100), W("sensor.bd", 0), W("sensor.bc", 1500), W("sensor.h", 2820),
+    W("sensor.c1", 1260), W("sensor.c2", 610), W("sensor.c3", 180), W("sensor.c4", 95),
+  ]);
+  states["sensor.soc"] = { entity_id: "sensor.soc", state: "72", attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" };
+  const hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => [] };
+
+  await customElements.whenDefined("enerlens-card");
+  const card = document.createElement("enerlens-card");
+  card.setConfig({
+    type: "custom:enerlens-card", title: "EnerLens",
+    entities: { solar: "sensor.s", grid: { import: "sensor.gi", export: "sensor.ge" }, house: "sensor.h",
+                battery: { discharge: "sensor.bd", charge: "sensor.bc" }, battery_soc: "sensor.soc" },
+    consumers: [{ entity: "sensor.c1", name: "Wärmepumpe" }, { entity: "sensor.c2", name: "Klima" }, { entity: "sensor.c3", name: "Kühlschränke" }, { entity: "sensor.c4", name: "Speicher" }],
+  });
+  card.hass = hass;
+  document.getElementById("host").appendChild(card);
+  await card.updateComplete;
+  // Let ResizeObserver and the scale measurement settle.
+  await new Promise((r) => setTimeout(r, 400));
+
+  const root = card.shadowRoot;
+  const rect = (el) => { const r = el.getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), x: +r.left.toFixed(1), y: +r.top.toFixed(1) }; };
+  const font = (el) => +parseFloat(getComputedStyle(el).fontSize).toFixed(1);
+  const all = (sel) => Array.from(root.querySelectorAll(sel));
+
+  const out = {
+    width,
+    lang,
+    // Every visible string, for the language check (REQ N-7, section 5).
+    texts: Array.from(root.querySelectorAll(".label, .value, .name, .row-value, .mode, .filter-toggle"))
+      .map((e) => (e.textContent ?? e.getAttribute("aria-label") ?? "").trim().replace(/\s+/g, " ")).filter(Boolean),
+    card: rect(card),
+    plot: rect(root.querySelector(".plot")),
+    scale: +parseFloat(getComputedStyle(card).getPropertyValue("--el-scale")).toFixed(3),
+    stacked: root.querySelector(".lane") !== null,
+    nodes: Object.fromEntries(all(".node").map((n) => [n.classList[1], rect(n)])),
+    hits: all(".hit").map((h) => ({ cls: h.className, ...rect(h) })),
+    rowHits: all(".row-hit").map((h) => rect(h)),
+    rows: all(".row").map((r) => rect(r)),
+    modes: all(".mode").map((m) => rect(m)),
+    filterToggle: root.querySelector(".filter-toggle") ? rect(root.querySelector(".filter-toggle")) : null,
+    fonts: {
+      label: font(root.querySelector(".label")),
+      value: font(root.querySelector(".node .value")),
+      soc: root.querySelector(".node.battery .value") ? font(root.querySelector(".node.battery .value")) : null,
+      rowName: font(root.querySelector(".row .name")),
+      rowValue: font(root.querySelector(".row-value")),
+      mode: root.querySelector(".mode") ? font(root.querySelector(".mode")) : null,
+    },
+    dots: all("svg circle.dot, .dot").slice(0, 1).map((d) => +parseFloat(d.getAttribute("r") ?? "0") * 2 * (parseFloat(getComputedStyle(card).getPropertyValue("--el-scale")) || 1)),
+    lineWidthPx: (() => { const l = root.querySelector(".link"); return l ? +parseFloat(getComputedStyle(l).strokeWidth).toFixed(2) : null; })(),
+  };
+  document.getElementById("out").textContent = JSON.stringify(out);
+  document.title = "MEASURED";
+</script>
+</body></html>

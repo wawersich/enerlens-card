@@ -67,7 +67,8 @@ export const styles = css`
 
   .modes {
     display: flex;
-    gap: 4px;
+    /* Measured: 4 px left the chips closer than the 8 px I-3 asks between targets. */
+    gap: 8px;
     flex: none;
   }
 
@@ -349,9 +350,7 @@ export const styles = css`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* The button hangs into the margin so an empty bar costs no height. */
     min-height: 0;
-    margin-bottom: -4px;
   }
 
   .filter-toggle {
@@ -359,8 +358,12 @@ export const styles = css`
     /* Small, but not below the 24 px floor (REQ I-3). */
     width: 28px;
     height: 28px;
-    margin: -2px -4px 0 0;
+    margin: 0 -4px 0 0;
     padding: 0;
+    /* Above the first row's hit target, which reaches 5 px up into the bar -
+       measured: without this the row took the toggle's lower half. */
+    position: relative;
+    z-index: 1;
     border: 0;
     border-radius: 50%;
     background: transparent;
