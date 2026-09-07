@@ -52,9 +52,10 @@ type *Dashboard*.
 
 ## Configuration
 
-The card ships a GUI editor — everything below can be set through the form.
-The YAML is documented for people who prefer it and for the two entity forms
-the form cannot express.
+The card ships a GUI editor. Every entity form below — a single entity, an
+inverted one, two entities, or a derived quantity — is a choice in the form, so
+YAML is never required for the entities. Colours and icons are YAML-only for
+now. The YAML is documented for people who prefer it.
 
 ### Minimal
 
@@ -147,6 +148,12 @@ and battery sensors was off by up to 8.7 kW during load changes, while a
 measured 5-second sensor followed within 4 seconds. If you have a fast house
 sensor, use it.
 
+The exception is a house sensor that does not see all of your PV. A hybrid
+inverter computes "house" from its own strings, the grid and the battery; a
+micro-inverter feeding in behind the meter shows up as *less house load*, not
+as production. If `solar` includes such sources and `house` comes from the
+inverter, the house is low by exactly that amount — derive it instead.
+
 ### All options
 
 | Option | Default | Meaning |
@@ -177,8 +184,11 @@ sensor, use it.
 | `flow.more_dots_above_w` | `2000` | More dots beyond here |
 | `flow.max_dots_at_w` | `6000` | Where the dot count peaks |
 | `flow.max_dots` | `5` | Upper limit on dots |
+| `flow.slow_s` | `5` | Seconds per pass at the low threshold |
+| `flow.fast_s` | `1.8` | Seconds per pass at the top threshold |
 | `colors.*` | HA energy colours | Any CSS value, including `var(--…)` |
 | `colors.soc_stops` | red → yellow → green | Gradient for the charge level |
+| `colors.consumer_palette` | 10 colours | Cycled through consumers without a colour of their own |
 | `icons.*` | mdi defaults | Per-node icon |
 
 `flow.animation: auto` follows the device's reduce-motion preference — that

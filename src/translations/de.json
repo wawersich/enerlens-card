@@ -85,7 +85,16 @@
     "anim_auto": "Systemeinstellung folgen",
     "anim_on": "Immer",
     "anim_off": "Aus",
-    "advanced_notice": "Für {fields} nutzt diese Karte eine Einstellung, die das Formular nicht abbilden kann (getrennte Entitäten oder ein abgeleiteter Wert). Diese Felder werden hier deshalb nicht angezeigt und bleiben unverändert — ändern lassen sie sich im YAML-Editor."
+    "invert": "Vorzeichen umdrehen",
+    "source_entity": "Eine Entität",
+    "source_split_grid": "Zwei Entitäten (Bezug / Einspeisung)",
+    "source_split_battery": "Zwei Entitäten (Entladen / Laden)",
+    "source_derived": "Abgeleitet aus den anderen Größen",
+    "source_none": "Keine Batterie",
+    "grid_import": "Bezug",
+    "grid_export": "Einspeisung",
+    "battery_discharge": "Entladen",
+    "battery_charge": "Laden"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -98,6 +107,15 @@
     "inactive_lines": "Verbindungen, auf denen gerade nichts fließt. „Ausblenden“ beruhigt das Bild nachts.",
     "animation": "„Systemeinstellung folgen“ richtet sich nach „Bewegung reduzieren“ des Geräts — das steht im Betriebssystem, nicht in Home Assistant.",
     "battery_soc": "Ladezustand in Prozent. Wird nie gemittelt.",
-    "color": "Beliebiger CSS-Wert, z. B. #7e57c2 oder var(--primary-color). Leer = automatisch."
+    "color": "Beliebiger CSS-Wert, z. B. #7e57c2 oder var(--primary-color). Leer = automatisch.",
+    "solar": "Positive Werte = Erzeugung. Meldet der Sensor die Erzeugung negativ, Vorzeichen umdrehen.",
+    "grid": "Positiv = Bezug aus dem Netz, negativ = Einspeisung. Ist es beim Sensor umgekehrt, Vorzeichen umdrehen.",
+    "house": "Gesamtverbrauch des Hauses. Ohne eigenen Sensor „Abgeleitet“ wählen.",
+    "battery": "Positiv = Entladen, negativ = Laden (Konvention von Home Assistant). Ist es beim Sensor umgekehrt, Vorzeichen umdrehen.",
+    "grid_import": "Nur der Bezug, als Betrag ≥ 0.",
+    "grid_export": "Nur die Einspeisung, als Betrag ≥ 0.",
+    "battery_discharge": "Nur das Entladen, als Betrag ≥ 0.",
+    "battery_charge": "Nur das Laden aus allen Quellen, als Betrag ≥ 0.",
+    "derived": "Wird aus den drei anderen Größen berechnet, damit die Bilanz aufgeht. Nur eine Größe kann abgeleitet sein."
   }
 }

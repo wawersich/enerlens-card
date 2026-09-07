@@ -4,7 +4,7 @@
 import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { AveragingBuffer, fetchHistory } from "./averaging";
 import { collectEntityIds, normalizeConfig } from "./config";
-import { CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
+import { BUILD_ID, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
 import { buildBreakdown, refreshBreakdownValues } from "./consumers";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
@@ -496,7 +496,7 @@ if (!w.customCards.some((c) => c.type === CARD_NAME)) {
 }
 
 console.info(
-  `%c ENERLENS-CARD %c ${CARD_VERSION} `,
+  `%c ENERLENS-CARD %c ${CARD_VERSION} · ${BUILD_ID} `,
   "color:#fff;background:#03a9f4;font-weight:700",
   "color:#03a9f4;background:#fff;font-weight:700",
 );

@@ -85,7 +85,16 @@
     "anim_auto": "Follow system setting",
     "anim_on": "Always",
     "anim_off": "Off",
-    "advanced_notice": "For {fields} this card uses a setting the form cannot represent (split entities or a derived value). Those fields are not shown here and stay untouched - edit them in the YAML editor."
+    "invert": "Flip sign",
+    "source_entity": "One entity",
+    "source_split_grid": "Two entities (import / export)",
+    "source_split_battery": "Two entities (discharge / charge)",
+    "source_derived": "Derived from the other quantities",
+    "source_none": "No battery",
+    "grid_import": "Import",
+    "grid_export": "Export",
+    "battery_discharge": "Discharge",
+    "battery_charge": "Charge"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -98,6 +107,15 @@
     "inactive_lines": "Connections with nothing flowing on them. \"Hide\" calms the picture at night.",
     "animation": "\"Follow system setting\" respects the device's reduce-motion preference - that lives in the operating system, not in Home Assistant.",
     "battery_soc": "State of charge in percent. Never averaged.",
-    "color": "Any CSS value, e.g. #7e57c2 or var(--primary-color). Empty = automatic."
+    "color": "Any CSS value, e.g. #7e57c2 or var(--primary-color). Empty = automatic.",
+    "solar": "Positive = production. If the sensor reports production as negative, flip the sign.",
+    "grid": "Positive = import from the grid, negative = export. If your sensor has it the other way round, flip the sign.",
+    "house": "Total consumption of the house. Without a sensor of its own, choose \"Derived\".",
+    "battery": "Positive = discharging, negative = charging (Home Assistant's convention). If your sensor has it the other way round, flip the sign.",
+    "grid_import": "Import only, as a magnitude ≥ 0.",
+    "grid_export": "Export only, as a magnitude ≥ 0.",
+    "battery_discharge": "Discharging only, as a magnitude ≥ 0.",
+    "battery_charge": "Charging from all sources, as a magnitude ≥ 0.",
+    "derived": "Calculated from the other three quantities so the balance adds up. Only one quantity can be derived."
   }
 }

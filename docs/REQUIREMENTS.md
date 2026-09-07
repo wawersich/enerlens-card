@@ -166,7 +166,7 @@ Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein
 |---|---|---|
 | E-1 | **Zwei Fehlerpfade.** (1) *Strukturfehler* (fehlendes `entities`, unzulässige Mischform, zwei abgeleitete Größen, Bereichsverletzung) → `setConfig` wirft; HA zeigt die Fehlerkarte. Meldung mit Feldname; Sprache über `hass?.language ?? document.documentElement.lang ?? "en"`, da `hass` zu diesem Zeitpunkt fehlen kann. (2) *Laufzeitprobleme* (Entität fehlt, `unavailable`) → niemals werfen, sondern in der Karte anzeigen (K-9). Unbekannte Schlüssel → Konsolenwarnung. | MUSS |
 | E-2 | **Vorzeichen-Konvention — wie HA Energy-Dashboard, `power-flow-card`, `power-flow-card-plus`:** `grid` positiv = **Bezug**, negativ = Einspeisung. `battery` positiv = **Entladen**, negativ = Laden. Je Entität `invert: true` möglich (Objektform `{ entity, invert }`). Alternativ **zwei Entitäten** (`import`/`export` bzw. `discharge`/`charge`, jeweils ≥ 0). | MUSS |
-| E-3 | GUI-Editor auf Basis von `ha-form`. Entity-Selektoren mit **ODER-Filter**, damit auch Template-Sensoren ohne `device_class` erscheinen: Leistung `[{domain: sensor, device_class: power}, {domain: sensor, unit_of_measurement: [W, kW]}]`, SOC `[{domain: sensor, device_class: battery}, {domain: sensor, unit_of_measurement: "%"}]`. Dazu Schalter Liste/Ring, Limit, Takt, Schwellen, Rest-Bezeichnung, Ansichtsmodus, Farben. | MUSS |
+| E-3 | GUI-Editor auf Basis von `ha-form`. Entity-Selektoren mit **ODER-Filter**, damit auch Template-Sensoren ohne `device_class` erscheinen: Leistung `[{domain: sensor, device_class: power}, {domain: sensor, unit_of_measurement: [W, kW]}]`, SOC `[{domain: sensor, device_class: battery}, {domain: sensor, unit_of_measurement: "%"}]`. **Je Bilanzgröße eine Quellenauswahl** (eine Entität · zwei Entitäten · abgeleitet · bei der Batterie zusätzlich „keine"), darunter nur die Felder der gewählten Quelle; bei der Ein-Entitäten-Form ein Schalter „Vorzeichen umdrehen". Jede YAML-Form aus E-2 und A-1 ist damit im Formular abbildbar und überlebt den Rundlauf Formular → YAML → Formular unverändert; eine gewählte Quelle bleibt stehen, solange ihre Felder noch leer sind. „Abgeleitet" wird bei den übrigen Größen ausgeblendet, sobald eine es ist. Dazu Schalter Liste/Ring, Limit, Takt, Schwellen, Rest-Bezeichnung, Ansichtsmodus. **Farben und Icons: nur YAML in 0.1.0** (offen, siehe Abschnitt 5). | MUSS |
 | E-4 | **Verbraucherliste im Editor** über den Objekt-Selektor (`object` mit `multiple: true`, `fields`, `label_field`, `description_field`) — Hinzufügen, Bearbeiten, Löschen, Sortieren. Verfügbar ab HA 2025.7 (N-3). | MUSS |
 | E-5 | `getStubConfig(hass, entities, entitiesFallback)` liefert eine **ohne Nutzereingabe renderbare** Konfiguration (erste Sensoren mit `device_class: power` bzw. Einheit W/kW). Nötig, weil `preview: true` (AL-4) die Karte im Kartenauswahl-Dialog live rendert. Findet sich nichts, zeigt die Karte im Vorschaumodus einen Beispielzustand statt einer Fehlerkarte. | MUSS |
 | E-6 | Editor-Beschriftungen und **Hilfetexte** auf Deutsch und Englisch (N-7). Jede Einstellung, deren Wirkung sich nicht aus ihrem Namen ergibt, trägt einen Hilfetext unter dem Feld — insbesondere die Auswahlfelder, deren Werte sonst zu erraten wären. Bei `flow.animation` weist der Text darauf hin, dass die Systemeinstellung im **Betriebssystem des Geräts** liegt, nicht in Home Assistant. | MUSS |
@@ -204,7 +204,7 @@ Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein
 | AL-3 | CI: `build.yml` (Build, Lint, Tests bei jedem Push; Release bei Tag) und `validate.yml` (`hacs/action`, `category: plugin`) — letzteres per `workflow_dispatch` und beim Release, verpflichtend grün **ohne** `ignore` ab dem ersten Release. | MUSS |
 | AL-4 | Registrierung in `window.customCards` mit `type: "enerlens-card"` (ohne `custom:`-Präfix), `name`, `description`, `preview: true`, `documentationURL`; idempotent. | MUSS |
 | AL-5 | README (Englisch): Installation über HACS und manuell (`/hacsfiles/enerlens-card/enerlens-card.js`), vollständige Konfigurationsreferenz mit Standardwerten, **Vorzeichen-Konvention und Umstieg von power-flow-card-plus**, Beispiel für Grün/Rot-Färbung, Screenshots hell/dunkel, Hinweis auf schnelle Haus-Sensoren (ENT-8). | MUSS |
-| AL-6 | Semantische Versionierung, `CHANGELOG.md`, Version im Konsolen-Banner; Lizenz MIT. | MUSS |
+| AL-6 | Semantische Versionierung, `CHANGELOG.md`, Version **und Git-Revision** im Konsolen-Banner (`0.1.0 · ee96880`, mit `+` bei nicht eingecheckten Änderungen) — damit steht ohne Raten fest, welcher Stand im Browser läuft; Lizenz MIT. | MUSS |
 
 ### 2.11 Fehlende Messwerte ableiten (A)
 
@@ -399,15 +399,15 @@ Die Abnahmen L und V beruhen auf echten Messdaten der Referenzanlage. Diese Date
 - [ ] Alle MUSS-Anforderungen erfüllt; SOLL-Abweichungen im CHANGELOG benannt.
 - [ ] Unit-Tests grün: Formeln und Regeln in der CI, Abnahmen L, R und V lokal gegen die Referenzdaten (5.1).
 - [ ] Vorzeichen: `battery: derived` im Nacht-Szenario (PV 0, Netz +420 W, Haus 1 520 W) → „entlädt", 1 100 W, Fluss Batterie→Haus. Gegenprobe Tag-Szenario → „lädt".
-- [ ] Alle Entitäten nacheinander auf `unavailable` — keine Exception, kein Layoutbruch, Rest verschwindet bei fehlendem Hauswert.
-- [ ] 100 Verbraucher, `max_consumers: 5` — flüssig, DOM enthält 6 Einträge.
+- [x] Alle Entitäten nacheinander auf `unavailable` — keine Exception, kein Layoutbruch, Rest verschwindet bei fehlendem Hauswert. *(M10, `test/stress.test.ts` und auf dem Dashboard)*
+- [x] 100 Verbraucher, `max_consumers: 5` — flüssig, DOM enthält 6 Einträge. *(M10)*
 - [ ] Trefferflächen bei Gerätebreite 360 px und 320 px per Inspektor gemessen (I-3); SOC und kW getrennt getroffen.
 - [ ] Schriftgrößen nach K-12 bei 360 px gemessen.
-- [ ] Kontraste nach N-6 in beiden Themes gemessen.
+- [x] Kontraste nach N-6 in beiden Themes gemessen. *(M10; Ausnahmen in N-6 dokumentiert)*
 - [ ] Ansichtsmodi: Abnahme V reproduziert; Umschalten < 100 ms; Kennzeichnung sichtbar; More-Info zeigt rohe Historie.
 - [ ] Sprache auf Englisch umgestellt → alle Beschriftungen englisch, `rest_label` „Other".
 - [ ] HACS: als Custom Repository installiert, Update funktioniert; `hacs/action` grün ohne `ignore`.
-- [ ] Bundle-Größe protokolliert.
+- [x] Bundle-Größe protokolliert. *(28 kB gzip, `npm run check`)*
 
 ---
 

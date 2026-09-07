@@ -53,9 +53,11 @@ Typ *Dashboard* hinzufügen.
 
 ## Konfiguration
 
-Die Karte bringt einen GUI-Editor mit — alles Folgende lässt sich im Formular
-einstellen. Das YAML ist für alle dokumentiert, die es vorziehen, und für die
-beiden Entitätsformen, die ein Formular nicht abbilden kann.
+Die Karte bringt einen GUI-Editor mit. Jede Entitätsform unten — eine Entität,
+eine mit umgedrehtem Vorzeichen, zwei Entitäten oder eine abgeleitete Größe —
+ist im Formular eine Auswahl; für die Entitäten braucht es also nie YAML. Farben
+und Icons gibt es bisher nur im YAML. Das YAML ist für alle dokumentiert, die es
+vorziehen.
 
 ### Minimal
 
@@ -149,6 +151,13 @@ für Netz und Batterie abgeleitet, bei Lastwechseln bis zu 8,7 kW daneben,
 während ein gemessener 5-Sekunden-Sensor binnen 4 Sekunden folgte. Wer einen
 schnellen Haussensor hat, sollte ihn nehmen.
 
+Die Ausnahme ist ein Haussensor, der nicht die ganze PV sieht. Ein
+Hybrid-Wechselrichter berechnet „Haus" aus seinen eigenen Strings, dem Netz und
+der Batterie; ein Mikro-Wechselrichter, der hinter dem Zähler einspeist,
+erscheint darin als *weniger Hauslast*, nicht als Erzeugung. Enthält `solar`
+solche Quellen und stammt `house` vom Wechselrichter, ist das Haus um genau
+diesen Betrag zu klein — dann besser ableiten.
+
 ### Alle Optionen
 
 | Option | Standard | Bedeutung |
@@ -179,8 +188,11 @@ schnellen Haussensor hat, sollte ihn nehmen.
 | `flow.more_dots_above_w` | `2000` | Ab hier kommen Punkte hinzu |
 | `flow.max_dots_at_w` | `6000` | Wo die Punktzahl ihr Maximum erreicht |
 | `flow.max_dots` | `5` | Obergrenze für Punkte |
+| `flow.slow_s` | `5` | Sekunden pro Durchlauf an der unteren Schwelle |
+| `flow.fast_s` | `1.8` | Sekunden pro Durchlauf an der oberen Schwelle |
 | `colors.*` | HA-Energiefarben | Jeder CSS-Wert, auch `var(--…)` |
 | `colors.soc_stops` | rot → gelb → grün | Verlauf für den Ladezustand |
+| `colors.consumer_palette` | 10 Farben | Reihum für Verbraucher ohne eigene Farbe |
 | `icons.*` | mdi-Standard | Icon je Knoten |
 
 `flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —

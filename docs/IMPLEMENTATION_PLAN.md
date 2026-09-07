@@ -6,6 +6,7 @@
 | Grundlage | `docs/REQUIREMENTS.md` (IDs wie K-7, L-5, A-2, ENT-16 verweisen dorthin), `docs/mockup.html` |
 | Ziel | Version 0.1.0 als HACS-Custom-Repository, getestet auf der eigenen HA-Instanz |
 | Arbeitsweise | Claude Code implementiert Schritt für Schritt; Markus prüft in der HA-Oberfläche und gibt jeden Schritt frei, bevor der nächste beginnt. |
+| **Status 7. 9. 2026** | **M0–M11 umgesetzt** (siehe `git log`, ein Commit je Meilenstein). Karte läuft produktiv auf `dashboard-warmepumpe`. Offen aus M11: Repository öffentlich, Tag `v0.1.0`, HACS-Validierung, Ressource auf `/hacsfiles/` umstellen. Editor nachgeschärft: Quellenauswahl je Bilanzgröße (E-3). |
 
 > **Dringend, unabhängig vom Rest:** Der Recorder läuft ohne `purge_keep_days` (Standard 10 Tage). Die Rohdaten vom 5. 9. 2026, auf denen **alle** Abnahmekriterien beruhen, werden um den **15. 9. 2026** gelöscht. Schritt **M0a** muss vorher laufen.
 
