@@ -24,7 +24,21 @@ const BATTERY_FILTER = [
   { domain: "sensor", unit_of_measurement: "%" },
 ];
 
-function schema(hass: HomeAssistant) {
+/**
+ * Balance quantities the form can edit. A split ({import, export}) or derived
+ * entry has no field: a single picker cannot express it, and offering one would
+ * let a save replace the whole thing with one entity.
+ */
+function plainEntities(config: RawConfig): Set<string> {
+  const plain = new Set<string>();
+  for (const key of ["solar", "grid", "house", "battery"] as const) {
+    const value = config.entities?.[key];
+    if (value === undefined || typeof value === "string") plain.add(key);
+  }
+  return plain;
+}
+
+function schema(hass: HomeAssistant, editable: Set<string>) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   return [
     { name: "title", selector: { text: {} } },
@@ -34,10 +48,9 @@ function schema(hass: HomeAssistant) {
       flatten: true,
       title: t("entities"),
       schema: [
-        { name: "solar", selector: { entity: { filter: POWER_FILTER } } },
-        { name: "grid", selector: { entity: { filter: POWER_FILTER } } },
-        { name: "house", selector: { entity: { filter: POWER_FILTER } } },
-        { name: "battery", selector: { entity: { filter: POWER_FILTER } } },
+        ...(["solar", "grid", "house", "battery"] as const)
+          .filter((key) => editable.has(key))
+          .map((key) => ({ name: key, selector: { entity: { filter: POWER_FILTER } } })),
         { name: "battery_soc", selector: { entity: { filter: BATTERY_FILTER } } },
       ],
     },
@@ -193,12 +206,15 @@ function prune<T extends Record<string, unknown>>(obj: T): T | undefined {
 }
 
 function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
+  // Only quantities the form could show are taken from it; the rest keep what
+  // the YAML holds, so saving cannot flatten a split or derived entry.
+  const editable = plainEntities(previous);
   const entities = {
     ...previous.entities,
-    solar: flat.solar ?? previous.entities?.solar,
-    grid: flat.grid ?? previous.entities?.grid,
-    house: flat.house ?? previous.entities?.house,
-    battery: flat.battery ?? previous.entities?.battery,
+    solar: editable.has("solar") ? flat.solar : previous.entities?.solar,
+    grid: editable.has("grid") ? flat.grid : previous.entities?.grid,
+    house: editable.has("house") ? flat.house : previous.entities?.house,
+    battery: editable.has("battery") ? flat.battery : previous.entities?.battery,
     battery_soc: flat.battery_soc,
   };
 
@@ -261,24 +277,27 @@ class EnerLensCardEditor extends LitElement {
   render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;
 
-    // Forms cannot express split or derived entities; those configs stay in
-    // YAML rather than being silently flattened (REQ E-1, G-5).
-    const advanced = (["solar", "grid", "battery", "house"] as const).some(
-      (key) =>
-        this._config?.entities?.[key] !== undefined &&
-        typeof this._config.entities[key] !== "string",
+    // Forms cannot express split or derived entities. Those fields are left out
+    // entirely rather than offered and silently flattened on save (REQ E-1, G-5).
+    const editable = plainEntities(this._config);
+    const advanced = (["solar", "grid", "house", "battery"] as const).filter(
+      (key) => !editable.has(key) && this._config?.entities?.[key] !== undefined,
     );
 
     return html`
       ${
-        advanced
-          ? html`<ha-alert alert-type="info">${localize("editor.advanced_notice", this.hass)}</ha-alert>`
+        advanced.length
+          ? html`<ha-alert alert-type="info">
+              ${localize("editor.advanced_notice", this.hass, {
+                fields: advanced.map((k) => localize(`editor.${k}`, this.hass)).join(", "),
+              })}
+            </ha-alert>`
           : nothing
       }
       <ha-form
         .hass=${this.hass}
         .data=${toFlat(this._config)}
-        .schema=${schema(this.hass)}
+        .schema=${schema(this.hass, editable)}
         .computeLabel=${this._label}
         .computeHelper=${this._helper}
         @value-changed=${this._valueChanged}

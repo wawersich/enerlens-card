@@ -85,7 +85,7 @@
     "anim_auto": "Systemeinstellung folgen",
     "anim_on": "Immer",
     "anim_off": "Aus",
-    "advanced_notice": "Diese Karte nutzt Einstellungen, die das Formular nicht abbilden kann (getrennte Entitäten oder abgeleitete Werte). Sie bleiben erhalten; bearbeite sie im YAML-Editor."
+    "advanced_notice": "Für {fields} nutzt diese Karte eine Einstellung, die das Formular nicht abbilden kann (getrennte Entitäten oder ein abgeleiteter Wert). Diese Felder werden hier deshalb nicht angezeigt und bleiben unverändert — ändern lassen sie sich im YAML-Editor."
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",

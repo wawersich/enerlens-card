@@ -85,7 +85,7 @@
     "anim_auto": "Follow system setting",
     "anim_on": "Always",
     "anim_off": "Off",
-    "advanced_notice": "This card uses settings the form cannot represent (split entities or derived values). They are preserved; edit them in the YAML editor."
+    "advanced_notice": "For {fields} this card uses a setting the form cannot represent (split entities or a derived value). Those fields are not shown here and stay untouched - edit them in the YAML editor."
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",

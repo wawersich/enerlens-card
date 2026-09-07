@@ -10,7 +10,11 @@ export const styles = css`
   :host {
     --el-node-size: clamp(70px, calc(104px * var(--el-scale, 1)), 104px);
     --el-value-size: clamp(12px, calc(13px * var(--el-scale, 1)), 15px);
-    --el-label-size: clamp(11px, calc(11px * var(--el-scale, 1)), 13px);
+    /* 12 px matches power-flow-card-plus, whose labels this sits next to on
+       many dashboards. Fixed rather than scaled: the original does not scale
+       either, and text below a circle has no reason to shrink with it. */
+    --el-label-size: 12px;
+    --el-list-size: 12px;
     --el-line: var(--divider-color, rgba(127, 127, 127, 0.3));
     display: block;
   }
@@ -116,7 +120,10 @@ export const styles = css`
      bases plus the gap have to stay under that, or the list never sits beside
      the cross in a sections view (REQ L-1). */
   .cross {
-    flex: 1 1 250px;
+    /* The cross grows twice as fast as the list when there is room to spare:
+       the drawing carries the picture, the list only needs enough width for a
+       name and a value. */
+    flex: 2 1 250px;
     min-width: 210px;
     max-width: 400px;
     /* Room for the labels, which reach beyond the drawing. */
@@ -321,8 +328,8 @@ export const styles = css`
      The flex basis is the switch: below roughly 500 px of content the list
      wraps to its own line (REQ L-1). */
   .list {
-    flex: 1 1 175px;
-    min-width: 165px;
+    flex: 1 1 150px;
+    min-width: 145px;
     align-self: center;
   }
 
@@ -343,6 +350,7 @@ export const styles = css`
     align-items: center;
     gap: 9px;
     min-height: 34px;
+    font-size: var(--el-list-size);
     font-variant-numeric: tabular-nums;
   }
 

@@ -76,7 +76,7 @@ Berechnet wird nur an fünf klar benannten Stellen: die **eine abgeleitete Bilan
 | K-9 | Nicht verfügbare Werte (`unavailable`, `unknown`, nicht numerisch): Knoten zeigt „—", seine Verbindungen sind inaktiv, keine Punkte. Die Karte bleibt sonst voll funktionsfähig. | MUSS |
 | K-10 | Nicht konfigurierte optionale Knoten (Batterie) entfallen samt Verbindungen; die Geometrie der übrigen Knoten bleibt unverändert. | MUSS |
 | K-11 | Optionaler Kartentitel (`title`) als HA-Kartenkopf. | MUSS |
-| K-12 | **Mindestgrößen auf schmalen Karten.** Bei Kartenbreite ≥ 344 px gilt in CSS-px: Knotenwerte ≥ 12 px, Beschriftungen und SOC-Zahl ≥ 11 px, Punkte ≥ 12 px Durchmesser, Verbindungslinien ≥ 3 px, Ring-Strich ≥ 8 px. Umsetzung durch Gegenskalierung anhand der gemessenen Kartenbreite, nicht durch feste viewBox-Einheiten. | MUSS |
+| K-12 | **Mindestgrößen auf schmalen Karten.** Bei Kartenbreite ≥ 344 px gilt in CSS-px: Knotenwerte ≥ 12 px, Beschriftungen und Listenzeilen **12 px fest** (dieselbe Größe wie `power-flow-card-plus`, neben der die Karte auf vielen Dashboards steht), SOC-Zahl ≥ 11 px, Punkte ≥ 12 px Durchmesser, Verbindungslinien ≥ 3 px, Ring-Strich ≥ 8 px. Umsetzung durch Gegenskalierung anhand der gemessenen Kartenbreite, nicht durch feste viewBox-Einheiten. | MUSS |
 | K-13 | **Textüberlauf:** Werte dürfen den Knotenrand nicht schneiden. Passt ein Wert nicht (z. B. `123,45 kW`), wird er auf bis zu 85 % gestaucht; das Format `x,xx kW` bleibt. Beschriftungen mit Zusatz „· berechnet" dürfen zweizeilig umbrechen. | SOLL |
 | K-14 | Optionale Anzeige von Autarkie-/Eigenverbrauchsquote im Haus-Knoten. | KANN |
 
