@@ -5,10 +5,11 @@ import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { collectEntityIds, normalizeConfig } from "./config";
 import { CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
 import { buildBreakdown, refreshBreakdownValues } from "./consumers";
-import { computeFlows, planDots } from "./flow";
+import { computeFlows, dotParams, planDots } from "./flow";
 import { buildModel } from "./model";
 import { openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
+import { FanLayer } from "./render/fan";
 import { VIEW_W } from "./render/geometry";
 import { RowAnimator, renderList } from "./render/list";
 import { styles } from "./styles";
@@ -31,9 +32,13 @@ class EnerLensCard extends LitElement {
   private _tickModel?: Model;
   private _tickTimer?: ReturnType<typeof setInterval>;
   private readonly _rows = new RowAnimator();
+  /** Latest entries by key - the fan needs colour and value per row. */
+  private _lastEntries = new Map<string, { w: number; color: string }>();
   private _resizeObserver?: ResizeObserver;
   private _intersectionObserver?: IntersectionObserver;
   private _dots?: DotLayer;
+  private _fan?: FanLayer;
+  private _fanRedraw?: ReturnType<typeof setTimeout>;
   private _technique: DotTechnique = "static";
   private _motionQuery?: MediaQueryList;
   private _visible = true;
@@ -80,19 +85,7 @@ class EnerLensCard extends LitElement {
     super.connectedCallback();
     // Text keeps a minimum size in CSS pixels while the drawing scales, so the
     // card stays legible on a phone (REQ K-12).
-    this._resizeObserver = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      if (width <= 0) return;
-      this.style.setProperty("--el-scale", String(width / VIEW_W));
-      this._dots?.setScale(width / VIEW_W);
-      // Mirrors the flex bases in styles.ts (250 + 175 + gap). Kept in sync by
-      // hand because CSS cannot report whether it wrapped.
-      const stacked = width < 445;
-      if (stacked !== this._stacked) {
-        this._stacked = stacked;
-        this.requestUpdate();
-      }
-    });
+    this._resizeObserver = new ResizeObserver(() => this._measure());
     this._resizeObserver.observe(this);
 
     this._technique = detectTechnique();
@@ -132,6 +125,100 @@ class EnerLensCard extends LitElement {
     return !this._motionQuery?.matches;
   }
 
+  /**
+   * Line widths, dot sizes and font sizes are meant in screen pixels and are
+   * divided by this scale to survive resizing. It has to come from the drawing
+   * itself: with the list beside the cross the SVG is only about half the
+   * card's width, and measuring the card would leave lines and dots too thin.
+   */
+  private _measure(): void {
+    const plot = this.renderRoot?.querySelector(".plot") as HTMLElement | null;
+    const width = plot?.getBoundingClientRect().width ?? 0;
+    if (width > 0) {
+      const scale = width / VIEW_W;
+      this.style.setProperty("--el-scale", String(scale));
+      this._dots?.setScale(scale);
+    }
+    this._checkStacked();
+  }
+
+  /**
+   * Whether the list wrapped below the cross. Measured rather than derived from
+   * a width threshold: the flex bases live in the stylesheet, and a number
+   * duplicated here would silently drift apart from them.
+   */
+  private _checkStacked(): void {
+    const cross = this.renderRoot?.querySelector(".cross") as HTMLElement | null;
+    const list = this.renderRoot?.querySelector(".list") as HTMLElement | null;
+    if (!cross || !list) return;
+    const stacked = list.offsetTop >= cross.offsetTop + cross.offsetHeight / 2;
+    if (stacked === this._stacked) return;
+    this._stacked = stacked;
+    this.requestUpdate();
+  }
+
+  /**
+   * One line from the house node to each row, with dots on it (REQ P-1 style).
+   *
+   * Only when the list sits beside the cross - stacked, the rows carry their
+   * own short lanes instead, and a fan would have to cross every row above its
+   * target. The list is HTML and the cross is SVG, so there is no shared
+   * coordinate system: both are measured and the fan is drawn in CSS pixels on
+   * its own overlay.
+   */
+  private _updateFan(): void {
+    const svg = this.renderRoot?.querySelector("svg.fan") as SVGSVGElement | null;
+    if (!svg || !this._config) return;
+    if (!this._fan) this._fan = new FanLayer(svg);
+
+    const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
+    const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;
+    const rows = this.renderRoot.querySelectorAll<HTMLElement>(".row");
+    if (this._stacked || !body || !house || rows.length === 0) {
+      this._fan.destroy();
+      return;
+    }
+
+    const origin = body.getBoundingClientRect();
+    const houseBox = house.getBoundingClientRect();
+    const start = {
+      x: houseBox.right - origin.left,
+      y: houseBox.top + houseBox.height / 2 - origin.top,
+    };
+
+    const entries = this._lastEntries;
+    const fanRows = [...rows]
+      .map((row) => {
+        const key = row.dataset.key;
+        const entry = key ? entries.get(key) : undefined;
+        if (!entry) return null;
+        const params = dotParams(entry.w, this._config as Config);
+        if (!params) return null;
+        const box = row.getBoundingClientRect();
+        return {
+          key: key as string,
+          x: box.left - origin.left,
+          y: box.top + box.height / 2 - origin.top,
+          color: entry.color,
+          count: params.count,
+          durationS: params.durationS,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    this._fan.setDotRadius(5);
+    this._fan.update(
+      fanRows,
+      start,
+      { width: origin.width, height: origin.height },
+      this._animationsWanted,
+    );
+
+    // Rows glide for 600 ms after a reorder; redraw once they have landed.
+    if (this._fanRedraw) clearTimeout(this._fanRedraw);
+    this._fanRedraw = setTimeout(() => this._updateFan(), 650);
+  }
+
   private _syncPlayState(): void {
     const documentHidden = typeof document !== "undefined" && document.hidden;
     if (this._visible && !documentHidden) this._dots?.resume();
@@ -154,13 +241,16 @@ class EnerLensCard extends LitElement {
     if (!group) return;
     if (!this._dots) {
       this._dots = new DotLayer(group, this._technique);
-      const width = this.getBoundingClientRect().width;
+      const plot = this.renderRoot.querySelector(".plot") as HTMLElement | null;
+      const width = plot?.getBoundingClientRect().width ?? 0;
       if (width > 0) this._dots.setScale(width / VIEW_W);
     }
     const ticked = this._tickModel ?? this._model ?? buildModel(this._hass, this._config);
     const plans = planDots(computeFlows(ticked), this._config);
     this._dots.update(plans, this._config, this._animationsWanted);
+    this._updateFan();
     this._syncPlayState();
+    this._measure();
   }
 
   disconnectedCallback(): void {
@@ -174,6 +264,10 @@ class EnerLensCard extends LitElement {
     this._motionQuery = undefined;
     this._dots?.destroy();
     this._dots = undefined;
+    this._fan?.destroy();
+    this._fan = undefined;
+    if (this._fanRedraw) clearTimeout(this._fanRedraw);
+    this._fanRedraw = undefined;
     if (this._tickTimer) clearInterval(this._tickTimer);
     this._tickTimer = undefined;
   }
@@ -217,12 +311,14 @@ class EnerLensCard extends LitElement {
     const active = new Map(
       plans.map((p) => [p.connection, this._config?.colors[p.colorKey] ?? ""]),
     );
+    this._lastEntries = new Map(breakdown.entries.map((e) => [e.key, { w: e.w, color: e.color }]));
     const openEntry = (entity: string, ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`
-      <ha-card .header=${this._rawConfig?.title}>
+      <ha-card .header=${this._rawConfig?.title} translate="no">
         <div class="body">
+          <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(model, this._config, this._hass, active)}
           ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>

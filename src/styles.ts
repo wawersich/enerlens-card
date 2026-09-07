@@ -8,7 +8,7 @@ import { css } from "lit";
  */
 export const styles = css`
   :host {
-    --el-node-size: clamp(58px, calc(88px * var(--el-scale, 1)), 88px);
+    --el-node-size: clamp(70px, calc(104px * var(--el-scale, 1)), 104px);
     --el-value-size: clamp(12px, calc(13px * var(--el-scale, 1)), 15px);
     --el-label-size: clamp(11px, calc(11px * var(--el-scale, 1)), 13px);
     --el-line: var(--divider-color, rgba(127, 127, 127, 0.3));
@@ -20,7 +20,23 @@ export const styles = css`
     overflow: visible;
   }
 
+  /* Overlay for the fan: spans the whole card body so it can reach from the
+     house node into the list. Never takes clicks - the rows underneath do. */
+  svg.fan {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .fan-line {
+    stroke-width: 2px;
+    opacity: 0.45;
+    fill: none;
+  }
+
   .body {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -59,8 +75,11 @@ export const styles = css`
     stroke-linecap: round;
   }
 
+  /* Dimmed so the dots stand out - but not so far that the hue disappears.
+     At 0.55 the colour washed out to grey on a dark background, where the line
+     blends into the card instead of the page. */
   .link.active {
-    opacity: 0.55;
+    opacity: 0.8;
   }
 
   /* No CSS radius here: dots.ts sets the r attribute from the measured scale.
@@ -164,16 +183,23 @@ export const styles = css`
     line-height: 1.25;
     color: var(--secondary-text-color);
     text-align: center;
-    max-width: calc(var(--el-node-size) * 1.55);
-    overflow-wrap: anywhere;
-  }
-
-  .label-name {
-    white-space: nowrap;
+    /* Wide enough for the longest state word ("Einspeisung"). Words are never
+       broken apart - a hyphen-less split reads as gibberish. Long consumer
+       names are cut with an ellipsis instead. */
+    max-width: min(150px, calc(var(--el-node-size) * 2));
+    overflow-wrap: normal;
   }
 
   .label-state {
     opacity: 0.85;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .label-name {
+    white-space: nowrap;
   }
 
   .node.solar .label {
@@ -230,7 +256,9 @@ export const styles = css`
   .lane {
     position: relative;
     flex: none;
-    width: 26px;
+    /* Long enough for the dots to read as movement, but capped so long consumer
+       names keep their room. Grows with the card rather than staying fixed. */
+    width: clamp(48px, 16%, 88px);
     height: 3px;
     border-radius: 1.5px;
     background: var(--divider-color, rgba(127, 127, 127, 0.25));
