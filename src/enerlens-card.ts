@@ -2,18 +2,28 @@
  * <enerlens-card> - energy flow card for Home Assistant.
  */
 import { LitElement, type TemplateResult, html, nothing } from "lit";
+import { AveragingBuffer, fetchHistory } from "./averaging";
 import { collectEntityIds, normalizeConfig } from "./config";
 import { CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
 import { buildBreakdown, refreshBreakdownValues } from "./consumers";
 import { computeFlows, dotParams, planDots } from "./flow";
-import { buildModel } from "./model";
+import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import { VIEW_W } from "./render/geometry";
+import { renderHeader } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { styles } from "./styles";
-import { type Config, ConfigError, type HomeAssistant, type Model, type RawConfig } from "./types";
+import {
+  type Config,
+  ConfigError,
+  type HomeAssistant,
+  type Model,
+  type RawConfig,
+  type Sample,
+  type ViewMode,
+} from "./types";
 
 class EnerLensCard extends LitElement {
   static styles = styles;
@@ -34,6 +44,12 @@ class EnerLensCard extends LitElement {
   private readonly _rows = new RowAnimator();
   /** Latest entries by key - the fan needs colour and value per row. */
   private _lastEntries = new Map<string, { w: number; color: string }>();
+  private _mode: ViewMode = "current";
+  private _buffer?: AveragingBuffer;
+  /** Set while a prefill is in flight, so a mode switch does not start a second. */
+  private _prefilling = false;
+  /** Oldest sample time when the window is not yet full (REQ V-6). */
+  private _since?: string;
   private _resizeObserver?: ResizeObserver;
   private _intersectionObserver?: IntersectionObserver;
   private _dots?: DotLayer;
@@ -55,6 +71,7 @@ class EnerLensCard extends LitElement {
     if (previous && !this._entitiesChanged(previous, hass)) return;
     this._model = buildModel(hass, this._config);
     this._tickModel ??= this._model;
+    this._recordSamples(hass);
   }
 
   get hass(): HomeAssistant | undefined {
@@ -74,6 +91,19 @@ class EnerLensCard extends LitElement {
     this._config = normalizeConfig(config, this._hass);
     this._rawConfig = config;
     this._entityIds = collectEntityIds(this._config);
+    this._buffer = new AveragingBuffer(this._config.view.avgLongMinutes * 60_000);
+    this._mode = this._config.view.defaultMode;
+    if (this._config.view.remember) {
+      try {
+        const stored = localStorage.getItem("enerlens-view-mode");
+        if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
+          this._mode = stored;
+        }
+      } catch {
+        // Storage unavailable - fall back to the configured default.
+      }
+    }
+    if (this._mode !== "current") void this._prefill();
     if (this._hass) {
       this._model = buildModel(this._hass, this._config);
       this._tickModel = this._model;
@@ -112,8 +142,11 @@ class EnerLensCard extends LitElement {
     if (this._tickTimer) clearInterval(this._tickTimer);
     const seconds = this._config?.updateIntervalS ?? 5;
     this._tickTimer = setInterval(() => {
-      if (!this._model) return;
-      this._tickModel = this._model;
+      if (!this._hass || !this._config) return;
+      // In an average mode the window keeps moving even when no sensor changed,
+      // so the tick recomputes rather than reusing the last model (REQ T-1).
+      this._tickModel = this._modelForMode(this._hass, this._config);
+      this._updateSince();
       this.requestUpdate();
     }, seconds * 1000);
   }
@@ -123,6 +156,104 @@ class EnerLensCard extends LitElement {
     if (mode === "off") return false;
     if (mode === "on") return true;
     return !this._motionQuery?.matches;
+  }
+
+  /**
+   * Every reading goes into the buffer, whatever the current mode - switching
+   * to an average then has history to work with rather than starting empty.
+   */
+  private _recordSamples(hass: HomeAssistant): void {
+    if (!this._config || !this._buffer) return;
+    const now = Date.now();
+    for (const id of this._entityIds) {
+      const state = hass.states[id];
+      if (!state) continue;
+      this._buffer.push(id, Date.parse(state.last_changed) || now, readPowerW(hass, id));
+    }
+    this._buffer.prune(now);
+  }
+
+  /** Model for the active mode: raw readings, or window means (REQ V-4). */
+  private _modelForMode(hass: HomeAssistant, config: Config): Model {
+    if (this._mode === "current" || !this._buffer) return buildModel(hass, config);
+    const minutes =
+      this._mode === "avg_short" ? config.view.avgShortMinutes : config.view.avgLongMinutes;
+    const windowMs = minutes * 60_000;
+    const now = Date.now();
+    const buffer = this._buffer;
+    // The state of charge is never averaged, so buildModelFrom reads it live.
+    return buildModelFrom(hass, config, (entityId) => buffer.mean(entityId, windowMs, now));
+  }
+
+  /**
+   * Pulls recent history in one request so a freshly opened card does not have
+   * to wait a quarter of an hour for its first mean (REQ V-6). Skipped in the
+   * editor preview, which recreates the card on every keystroke.
+   */
+  private async _prefill(): Promise<void> {
+    if (!this._hass || !this._config || !this._buffer || this._prefilling) return;
+    if ((this as unknown as { preview?: boolean }).preview) return;
+    this._prefilling = true;
+    try {
+      const history = await fetchHistory(
+        this._hass,
+        this._entityIds,
+        this._config.view.avgLongMinutes,
+      );
+      for (const [entityId, samples] of Object.entries(history)) {
+        const unit = this._hass.states[entityId]?.attributes.unit_of_measurement;
+        for (const sample of samples as Sample[]) {
+          this._buffer.push(entityId, sample.t, this._toWatts(sample.v, unit));
+        }
+      }
+      this._updateSince();
+    } catch {
+      // Recorder slow or unavailable: carry on with live buffering and label
+      // the mode with "since hh:mm" until the window fills (REQ V-6).
+      this._updateSince();
+    } finally {
+      this._prefilling = false;
+      this.requestUpdate();
+    }
+  }
+
+  /** History returns raw sensor numbers; the model normalises live values. */
+  private _toWatts(value: number | null, unit: string | undefined): number | null {
+    if (value === null) return null;
+    const factor = unit === "kW" ? 1000 : unit === "MW" ? 1e6 : unit === "mW" ? 1e-3 : 1;
+    return value * factor;
+  }
+
+  private _updateSince(): void {
+    if (!this._buffer || this._mode === "current") {
+      this._since = undefined;
+      return;
+    }
+    const status = this._buffer.status(Date.now());
+    this._since =
+      status.complete || !status.since
+        ? undefined
+        : new Date(status.since).toLocaleTimeString(this._hass?.locale.language ?? "de", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+  }
+
+  private _setMode(mode: ViewMode): void {
+    if (mode === this._mode) return;
+    this._mode = mode;
+    if (this._config?.view.remember) {
+      try {
+        localStorage.setItem("enerlens-view-mode", mode);
+      } catch {
+        // Private browsing or storage disabled - the mode simply is not kept.
+      }
+    }
+    if (mode !== "current") void this._prefill();
+    this._updateSince();
+    // A switch takes effect at once rather than waiting for the next tick (V-8).
+    if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
+    this.requestUpdate();
   }
 
   /**
@@ -301,7 +432,7 @@ class EnerLensCard extends LitElement {
 
   render(): TemplateResult | typeof nothing {
     if (!this._hass || !this._config) return nothing;
-    const model = this._model ?? buildModel(this._hass, this._config);
+    const model = this._modelForMode(this._hass, this._config);
     const ticked = this._tickModel ?? model;
     // Selection and order come from the tick, the figures from the live model
     // (REQ L-7): values may move every second, rows only on the beat.
@@ -316,7 +447,15 @@ class EnerLensCard extends LitElement {
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`
-      <ha-card .header=${this._rawConfig?.title} translate="no">
+      <ha-card translate="no">
+        ${renderHeader(
+          this._config,
+          this._hass,
+          this._rawConfig?.title,
+          this._mode,
+          this._since,
+          (mode) => this._setMode(mode),
+        )}
         <div class="body">
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(

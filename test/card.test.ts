@@ -281,3 +281,52 @@ describe("battery node", () => {
     expect(el.shadowRoot?.textContent).toContain("berechnet");
   });
 });
+
+describe("view modes (REQ V-1 to V-9)", () => {
+  async function mountWithModes(view?: Record<string, unknown>) {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig(view ? { ...CONFIG, view } : CONFIG);
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    return el;
+  }
+
+  it("offers three chips with the configured windows", async () => {
+    const el = await mountWithModes({ avg_short_minutes: 3, avg_long_minutes: 20 });
+    const chips = [...(el.shadowRoot?.querySelectorAll(".mode") ?? [])].map((c) =>
+      c.textContent?.trim(),
+    );
+    expect(chips).toEqual(["Jetzt", "Ø 3 min", "Ø 20 min"]);
+  });
+
+  it("marks exactly one chip as selected", async () => {
+    const el = await mountWithModes();
+    const checked = [...(el.shadowRoot?.querySelectorAll('.mode[aria-checked="true"]') ?? [])];
+    expect(checked.length).toBe(1);
+    expect(checked[0].textContent?.trim()).toBe("Jetzt");
+  });
+
+  it("switches mode on click and keeps the state of charge live (REQ V-5, V-8)", async () => {
+    const el = await mountWithModes();
+    const chips = el.shadowRoot?.querySelectorAll(".mode");
+    (chips?.[2] as HTMLElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.mode[aria-checked="true"]')?.textContent?.trim()).toBe(
+      "Ø 15 min",
+    );
+    // 72 % comes straight from the sensor, never from the window mean.
+    expect(el.shadowRoot?.textContent).toContain("72");
+  });
+
+  it("names the active mode even with the selector hidden (REQ V-3)", async () => {
+    const el = await mountWithModes({ show_selector: false, default_mode: "avg_long" });
+    expect(el.shadowRoot?.querySelector(".modes")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".mode-note")?.textContent?.trim()).toBe("Ø 15 min");
+  });
+});

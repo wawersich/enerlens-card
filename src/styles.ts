@@ -35,6 +35,73 @@ export const styles = css`
     fill: none;
   }
 
+  /* Title left, mode chips right. Below about 400 px the chips drop onto their
+     own line rather than squeezing the title (REQ V-2). */
+  .header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    padding: 12px 16px 0;
+  }
+
+  .title {
+    font-size: 20px;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    color: var(--ha-card-header-color, var(--primary-text-color));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .modes {
+    display: flex;
+    gap: 4px;
+    flex: none;
+  }
+
+  .mode {
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    /* 36 px so the chips stay reachable on a phone (REQ I-3). */
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    background: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mode.on {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 500;
+  }
+
+  .mode:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  /* Shown when the selector is hidden but a mean is active (REQ V-3). */
+  .mode-note {
+    font-size: 12px;
+    color: var(--secondary-text-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .since {
+    flex-basis: 100%;
+    font-size: 11px;
+    color: var(--secondary-text-color);
+    text-align: right;
+  }
+
   .body {
     position: relative;
     display: flex;

@@ -17,7 +17,8 @@
   "view": {
     "now": "Now",
     "average": "Ø {minutes} min",
-    "since": "since {time}"
+    "since": "since {time}",
+    "label": "View"
   },
   "state": {
     "unavailable": "—"
