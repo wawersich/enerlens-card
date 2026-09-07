@@ -75,7 +75,9 @@ export class FanLayer {
         dot.style.offsetPath = `path("${d}")`;
         dot.style.offsetRotate = "0deg";
 
-        if (!animate) {
+        // Same guard as the list: no Web Animations means static dots, not a
+        // crash (REQ N-5, and the fallback chain of decision 003).
+        if (!animate || typeof dot.animate !== "function") {
           line.animations[i]?.cancel();
           line.animations[i] = undefined as unknown as Animation;
           dot.style.offsetDistance = `${(100 * i) / row.count}%`;

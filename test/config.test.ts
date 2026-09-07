@@ -465,7 +465,7 @@ describe("defaults (section 3)", () => {
     expect(colors.grid_export).toBe("var(--energy-grid-return-color, #8353d1)");
     expect(colors.battery_charge).toBe("var(--energy-battery-in-color, #f06292)");
     expect(colors.battery_discharge).toBe("var(--energy-battery-out-color, #4db6ac)");
-    expect(colors.rest).toBe("#9e9e9e");
+    expect(colors.rest).toBe("#7d7d7d");
     expect(colors.consumerPalette).toEqual([...DEFAULT_CONSUMER_PALETTE]);
   });
 

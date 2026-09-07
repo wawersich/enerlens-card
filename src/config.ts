@@ -36,7 +36,7 @@ const DEFAULT_COLORS: Record<ColorKey, string> = {
   grid_export: "var(--energy-grid-return-color, #8353d1)",
   battery_charge: "var(--energy-battery-in-color, #f06292)",
   battery_discharge: "var(--energy-battery-out-color, #4db6ac)",
-  rest: "#9e9e9e",
+  rest: "#7d7d7d",
 };
 
 const DEFAULT_SOC_STOPS: readonly SocStop[] = [

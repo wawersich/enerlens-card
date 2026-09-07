@@ -112,6 +112,9 @@ export class RowAnimator {
   /** Call after the DOM changed; animates every row that moved. */
   play(container: Element | null, enabled: boolean): void {
     if (!container) return;
+    // Without the Web Animations API the list still works, it just does not
+    // glide - the rows are already in their new places (REQ N-5).
+    const canAnimate = enabled && typeof Element.prototype.animate === "function";
     for (const row of container.querySelectorAll<HTMLElement>(".row")) {
       const key = row.dataset.key;
       if (!key) continue;
@@ -120,7 +123,7 @@ export class RowAnimator {
 
       if (before === undefined) {
         // New row: fade and slide in rather than appearing abruptly.
-        if (enabled) {
+        if (canAnimate) {
           row.animate(
             [
               { opacity: 0, transform: "translateY(-6px)" },
@@ -133,7 +136,7 @@ export class RowAnimator {
       }
 
       const delta = before - after;
-      if (!delta || !enabled) continue;
+      if (!delta || !canAnimate) continue;
       row.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], {
         duration: 600,
         easing: "cubic-bezier(0.4, 0, 0.2, 1)",

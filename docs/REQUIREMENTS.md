@@ -142,7 +142,7 @@ Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein
 | ID | Anforderung | Prio |
 |---|---|---|
 | C-1 | Jede Farbe konfigurierbar; jeder CSS-Farbwert erlaubt, ausdrücklich auch HA-Theme-Variablen. | MUSS |
-| C-2 | Standardfarben als Theme-Variable mit Hex-Fallback, damit die Karte dem HA-Energie-Dashboard folgt: `solar var(--energy-solar-color, #ff9800)`, `house var(--primary-color)`, `grid_import var(--energy-grid-consumption-color, #488fc2)`, `grid_export var(--energy-grid-return-color, #8353d1)`, `battery_charge var(--energy-battery-in-color, #f06292)`, `battery_discharge var(--energy-battery-out-color, #4db6ac)`, `rest #9e9e9e`. Wer die Gut/Schlecht-Logik farblich will, setzt `grid_export`/`battery_charge` auf Grün und `grid_import`/`battery_discharge` auf Rot — als Beispiel im README (AL-5). | MUSS |
+| C-2 | Standardfarben als Theme-Variable mit Hex-Fallback, damit die Karte dem HA-Energie-Dashboard folgt: `solar var(--energy-solar-color, #ff9800)`, `house var(--primary-color)`, `grid_import var(--energy-grid-consumption-color, #488fc2)`, `grid_export var(--energy-grid-return-color, #8353d1)`, `battery_charge var(--energy-battery-in-color, #f06292)`, `battery_discharge var(--energy-battery-out-color, #4db6ac)`, `rest #7d7d7d`. Wer die Gut/Schlecht-Logik farblich will, setzt `grid_export`/`battery_charge` auf Grün und `grid_import`/`battery_discharge` auf Rot — als Beispiel im README (AL-5). | MUSS |
 | C-3 | **Ladezustandsfarbe als Verlauf** über Stützstellen `{ at: %, color }`, Standard `0 → #e53935`, `50 → #fdd835`, `100 → #43a047`. Lineare Mischung zwischen den Stützstellen; zwei Stützstellen mit gleichem `at` ergeben eine harte Kante. Die Farbe trägt **Füllstand, Knotenrand und Icon** — **nicht die SOC-Zahl** (C-5). | MUSS |
 | C-4 | Verbraucherfarben: deterministische Palette in Konfigurationsreihenfolge, je Verbraucher per `color` überschreibbar. Liste und Ring nutzen dieselbe Farbe. | MUSS |
 | C-5 | **Zahlen stehen immer in `--primary-text-color`.** Zustandsfarben tragen Icons, Knotenränder, Linien, Punkte, Füllstand und Farbmarken. Grund: Die Standardfarben erreichen als Textfarbe den WCAG-Kontrast nicht (`#fdd835` auf Weiß = 1,4:1), als Grafik genügt 3:1. | MUSS |
@@ -188,7 +188,7 @@ Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein
 | N-3 | **Home Assistant ≥ 2025.7** (wegen E-4). Browser: Desktop-Chrome/Edge/Firefox/Safari der letzten zwei Jahre, HA-Companion iOS ≥ 16.4 und Android mit System-WebView ab Chromium 106. Funktioniert in Sections- und Masonry-Ansichten. | MUSS |
 | N-4 | Kein Speicherleck: Timer, Observer, Listener und Animationen werden in `disconnectedCallback` aufgeräumt; Wiedereinhängen funktioniert. | MUSS |
 | N-5 | Robust: fehlende Entitäten, `unavailable`, `NaN`, negative Werte, leere Verbraucherliste, 100 Verbraucher, gleichzeitig positive Import- und Export-Entität — nie eine leere oder kaputte Karte, nie eine Exception. | MUSS |
-| N-6 | Barrierefreiheit: `aria-label` an Knoten und Einträgen, `prefers-reduced-motion` (P-7), **messbarer Kontrast**: Text ≥ 4,5:1, Grafik ≥ 3:1 auf `#ffffff` und `#1c1c1c`. | MUSS |
+| N-6 | Barrierefreiheit: `aria-label` an Knoten und Einträgen, `prefers-reduced-motion` (P-7), **messbarer Kontrast**: Text ≥ 4,5:1, Grafik ≥ 3:1 auf `#ffffff` und `#1c1c1c`. Zahlen erfüllen das über die Theme-Textfarbe (ENT-18). Zwei begründete Ausnahmen bei Grafik, gemessen am 07.09.2026: (1) **Die HA-Energiefarben selbst** reißen die Grenze auf hellem Grund — `--energy-solar-color` erreicht 2,16:1, `--energy-battery-out-color` 2,44:1. Sie zu ändern hieße, die Angleichung ans Energie-Dashboard aufzugeben (ENT-19); wer mehr Kontrast braucht, setzt eigene Farben (C-1). (2) **Die mittlere Stützstelle des Ladezustands-Verlaufs** ist gelb und auf Weiß nicht über 3:1 zu bekommen, ohne den vom Auftraggeber gewünschten Verlauf rot→gelb→grün aufzugeben. In beiden Fällen trägt die Farbe nie allein: Zustandswort und Zahl stehen daneben (C-6). | MUSS |
 | N-7 | **Mehrsprachig:** alle sichtbaren Texte von Karte und Editor in Übersetzungsdateien; Deutsch und Englisch vollständig, Auswahl nach `hass.language`, Rückfall auf Englisch. Weitere Sprachen durch eine zusätzliche Datei ohne Codeänderung. Konfigurierte Texte werden nicht übersetzt. | MUSS |
 | N-10 | **Keine automatische Seitenübersetzung.** Die Karte trägt `translate="no"`. Browser-Übersetzer erkennen die Sprache pro Seite und verfälschen sonst Entitätsnamen und Beschriftungen — beobachtet: aus dem deutschen „Rest" wurde „Ausruhen", weil der Übersetzer es als englisches *rest* las. Zahlen und Einheiten sind ebenso betroffen. | MUSS |
 | N-8 | Eindeutige SVG-IDs je Karteninstanz (Pfade, Verläufe, Clip-Pfade) — sonst greifen mehrere Karten auf demselben Dashboard auf fremde Referenzen zu (WebKit-Fehler vor Safari 17). | MUSS |
@@ -307,7 +307,7 @@ colors:
   grid_export: var(--energy-grid-return-color, "#8353d1")
   battery_charge: var(--energy-battery-in-color, "#f06292")
   battery_discharge: var(--energy-battery-out-color, "#4db6ac")
-  rest: "#9e9e9e"
+  rest: "#7d7d7d"
   soc_stops:                                # ≥ 2 Einträge, aufsteigend, erster at 0, letzter at 100
     - { at: 0,   color: "#e53935" }
     - { at: 50,  color: "#fdd835" }
