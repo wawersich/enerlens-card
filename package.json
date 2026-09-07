@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "lint": "biome check src test",
     "format": "biome check --write src test",
-    "deploy": "npm run build && ./scripts/deploy.sh"
+    "deploy": "npm run build && ./scripts/deploy.sh",
+    "check": "./scripts/check.sh"
   },
   "dependencies": {
     "lit": "3.2.1"

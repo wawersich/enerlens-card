@@ -66,6 +66,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       slowS: 5,
       fastS: 1.8,
       animation: "auto",
+      inactiveLines: "show" as const,
       ...over,
     },
     colors: {
