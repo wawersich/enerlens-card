@@ -20,9 +20,12 @@ const GAP = 3;
 const MIN_ARC = 6;
 
 export function renderRing(
-  segments: Segment[],
+  allSegments: Segment[],
   enabled: boolean,
 ): SVGTemplateResult | typeof nothing {
+  // Entries at 0 W (only there with the filter lifted, REQ L-12) would each
+  // still claim a gap; a ring of gaps says nothing, so they are skipped here.
+  const segments = allSegments.filter((s) => s.share > 0);
   if (!enabled || segments.length === 0) return nothing;
 
   const { x, y } = NODE_POS.house;

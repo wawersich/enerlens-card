@@ -19,7 +19,10 @@ First release. Everything below is new.
   individually; consumers below `min_consumer_w` fold into it, and
   `max_consumers` caps the list.
 - Fan lines from the house to each list row, with dots, when the list sits
-  beside the cross; short lanes inside the rows when it is stacked below.
+  beside the cross; short lanes inside the rows when it is stacked below. The
+  lines follow the rows frame by frame while these glide into a new order.
+- All four nodes share one outer diameter: solar, grid and battery are drawn as
+  large as the house together with its ring.
 - Battery node shows state of charge above the icon and power below, with a
   fill level and a red-yellow-green gradient; the two halves open the two
   histories.
@@ -30,6 +33,12 @@ First release. Everything below is new.
   (exactly one). Grid and battery accept a signed entity, an inverted one, or
   two entities (import/export, discharge/charge).
 - Inactive connections can be shown, dimmed or hidden.
+- Grid and battery show their state word and colour only from `flow.min_w`
+  upwards - a 4 W trickle reads "0.00 kW" and gets no "export" next to it.
+- A small toggle above the list lifts the filter and shows every consumer,
+  so a device that was busy a minute ago can still be tapped for its history.
+- Each consumer can carry its own `min_w`, so a heat pump's 25 W standby does
+  not count as a consumer while the global threshold stays at 10 W.
 - Tap any node or row for Home Assistant's more-info dialog. No chart of its own.
 - All colours configurable; defaults follow the energy dashboard's theme
   variables.
@@ -38,6 +47,8 @@ First release. Everything below is new.
 ### Editor
 - Full GUI editor on `ha-form`, including the consumer list (object selector,
   HA 2025.7+).
+- Colours as text fields (theme variables work), icons via the icon picker,
+  `flow.min_w`, and a per-consumer `min_w` in the consumer list.
 - Each balance quantity has a source selector - one entity, two entities,
   derived, or none for the battery - with only the matching fields shown and a
   "flip sign" switch for single entities. Every YAML form round-trips through

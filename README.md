@@ -28,7 +28,9 @@ element still opens Home Assistant's own dialog with the raw history.
 **The list sorts itself and glides.** Rows reorder by power on a fixed beat and
 slide to their new position instead of jumping. Values update immediately; only
 the order waits for the beat, because a jumping figure does not disturb but a
-jumping row does.
+jumping row does. A small filter button above the list shows every consumer
+regardless of power — for tapping the history of a device that has just gone
+quiet.
 
 **Measurements are never quietly changed.** Sensors update at different rates,
 so the individually measured consumers can briefly add up to more than the
@@ -54,8 +56,8 @@ type *Dashboard*.
 
 The card ships a GUI editor. Every entity form below — a single entity, an
 inverted one, two entities, or a derived quantity — is a choice in the form, so
-YAML is never required for the entities. Colours and icons are YAML-only for
-now. The YAML is documented for people who prefer it.
+YAML is never required. Only the charge gradient and the consumer palette stay
+YAML-only. The YAML is documented for people who prefer it.
 
 ### Minimal
 
@@ -142,6 +144,20 @@ Exactly one quantity may be derived — two unknowns cannot be solved from one
 equation, and the card says so rather than guessing. Derived nodes are labelled
 and are not clickable, because there is no entity behind them to show.
 
+**Want a history for the derived value?** A derived node has no entity, so
+tapping it cannot open Home Assistant's history. If you want that, let Home
+Assistant do the same sum: create a *Template → Sensor* helper (unit `W`,
+device class `power`, state class `measurement`) with
+
+```jinja
+{{ [0, states('sensor.pv_power')|float(0)
+      - states('sensor.grid_export')|float(0) + states('sensor.grid_import')|float(0)
+      + states('sensor.battery_discharge')|float(0) - states('sensor.battery_charge')|float(0)]|max|round(0) }}
+```
+
+and use that sensor as `house`. It is the card's formula, only now it is
+recorded - history, statistics and automations get it too.
+
 **A note on accuracy:** deriving the house value is convenient but only as good
 as its inputs. On the reference installation, deriving it from 60-second grid
 and battery sensors was off by up to 8.7 kW during load changes, while a
@@ -164,8 +180,8 @@ inverter, the house is low by exactly that amount — derive it instead.
 | `entities.house` | derived | House consumption |
 | `entities.battery` | — | Battery power, signed |
 | `entities.battery_soc` | — | State of charge in % |
-| `consumers` | — | List of `{entity, name, color}` |
-| `min_consumer_w` | `10` | Consumers below this are folded into the remainder |
+| `consumers` | — | List of `{entity, name, color, min_w}` |
+| `min_consumer_w` | `10` | Consumers below this are folded into the remainder; a consumer's own `min_w` overrides it |
 | `max_consumers` | all | Only the strongest are listed |
 | `update_interval_s` | `5` | How often the list reorders |
 | `list.enabled` | on with consumers | Show the list |
@@ -179,7 +195,7 @@ inverter, the house is low by exactly that amount — derive it instead.
 | `view.remember` | `true` | Remember the mode per browser |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
-| `flow.min_w` | `10` | Below this nothing moves |
+| `flow.min_w` | `10` | Below this nothing moves, and grid and battery show no state word |
 | `flow.slow_below_w` | `500` | One slow dot up to here |
 | `flow.more_dots_above_w` | `2000` | More dots beyond here |
 | `flow.max_dots_at_w` | `6000` | Where the dot count peaks |

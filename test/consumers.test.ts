@@ -13,12 +13,13 @@ function reading(w: number): Reading {
 }
 
 /** `w === null` marks an unavailable consumer (REQ L-3, A-6). */
-function consumer(name: string, w: number | null): ConsumerReading {
+function consumer(name: string, w: number | null, minW?: number): ConsumerReading {
   return {
     key: `sensor.${name}`,
     entity: `sensor.${name}`,
     name,
     color: `color-${name}`,
+    minW,
     reading: w === null ? unavailable : reading(w),
   };
 }
@@ -94,6 +95,37 @@ describe("buildBreakdown - filter (REQ L-3, 4.4 step 1)", () => {
       config({ minConsumerW: 10 }),
     );
     expect(keys(b)).toEqual(["sensor.c", "sensor.b"]);
+  });
+
+  it("lets a consumer's own threshold override the global one (REQ L-3)", () => {
+    // A heat pump idling at 25 W passes the global 10 W but not its own 50 W;
+    // a fridge with its own 5 W threshold shows at 8 W although 8 < 10.
+    const m = model(reading(1000), [
+      consumer("heatpump", 25, 50),
+      consumer("fridge", 8, 5),
+      consumer("tv", 25),
+    ]);
+    const names = buildBreakdown(m, config()).entries.map((e) => e.name);
+    expect(names).not.toContain("heatpump");
+    expect(names).toContain("fridge");
+    expect(names).toContain("tv");
+  });
+
+  it("lists everything available when the filter is lifted (REQ L-12)", () => {
+    const m = model(reading(1000), [
+      consumer("heatpump", 25, 50),
+      consumer("idle", 0),
+      consumer("gone", null),
+      consumer("tv", 300),
+    ]);
+    const all = buildBreakdown(m, config({ maxConsumers: 1 }), true);
+    const names = all.entries.map((e) => e.name);
+    // Threshold and limit are lifted, availability is not (REQ A-6).
+    // The rest (1000 - 325 = 675 W) sorts to the top like any other entry.
+    expect(names).toEqual(["", "tv", "heatpump", "idle"]);
+    expect(all.entries[0].isRest).toBe(true);
+    // The zero entry has no share; the ring skips it (see renderRing).
+    expect(all.segments.find((s) => s.key === "sensor.idle")?.share).toBe(0);
   });
 
   it("drops unavailable consumers", () => {

@@ -9,12 +9,16 @@ import { type Breakdown, type Config, type ListEntry, type Model, REST_KEY } fro
  * `maxConsumers`, compute the rest, sort descending, derive ring shares.
  * Entries and segments always describe the same set in the same order (REQ R-2).
  */
-export function buildBreakdown(model: Model, config: Config): Breakdown {
-  // 1. Candidates: available and at or above the threshold (REQ L-3).
+export function buildBreakdown(model: Model, config: Config, showAll = false): Breakdown {
+  // 1. Candidates: available and at or above the threshold - the consumer's
+  // own if it has one, else the global one (REQ L-3). A standby draw that is
+  // real but uninteresting (a heat pump idling at 25 W) is hidden this way.
+  // `showAll` lifts threshold and limit (REQ L-12): a consumer that was busy a
+  // minute ago is otherwise gone from the list before one can tap its history.
   const candidates: ListEntry[] = [];
   for (const consumer of model.consumers) {
     if (!consumer.reading.available) continue;
-    if (consumer.reading.w < config.minConsumerW) continue;
+    if (!showAll && consumer.reading.w < (consumer.minW ?? config.minConsumerW)) continue;
     candidates.push({
       key: consumer.key,
       name: consumer.name,
@@ -27,7 +31,10 @@ export function buildBreakdown(model: Model, config: Config): Breakdown {
 
   // 2. Strongest `maxConsumers` (REQ L-4). Array.sort is stable, so consumers
   // of equal power keep their configured order.
-  const shown = sortDescending(candidates).slice(0, config.maxConsumers);
+  const shown = sortDescending(candidates).slice(
+    0,
+    showAll ? Number.POSITIVE_INFINITY : config.maxConsumers,
+  );
 
   // 3. Rest, only with an available house value and at or above the threshold
   // (REQ L-5). A negative rest - sum of shown > house - fails that test too.

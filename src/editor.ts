@@ -89,7 +89,29 @@ interface FlatConfig {
   show_selector?: boolean;
   inactive_lines?: string;
   animation?: string;
+  min_w?: number;
+  color_solar?: string;
+  color_house?: string;
+  color_grid_import?: string;
+  color_grid_export?: string;
+  color_battery_charge?: string;
+  color_battery_discharge?: string;
+  color_rest?: string;
+  icon_solar?: string;
+  icon_grid?: string;
+  icon_house?: string;
+  icon_battery?: string;
 }
+
+const COLOR_KEYS = [
+  "solar",
+  "house",
+  "grid_import",
+  "grid_export",
+  "battery_charge",
+  "battery_discharge",
+  "rest",
+] as const;
 
 type FlatRecord = Record<string, unknown>;
 
@@ -146,8 +168,13 @@ function toFlat(config: RawConfig): FlatConfig {
     show_selector: config.view?.show_selector,
     inactive_lines: config.flow?.inactive_lines,
     animation: config.flow?.animation,
+    min_w: config.flow?.min_w,
   };
   for (const quantity of QUANTITIES) flattenQuantity(quantity, e[quantity], out);
+  const colors = (config.colors ?? {}) as Record<string, unknown>;
+  for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
+  const icons = (config.icons ?? {}) as Record<string, unknown>;
+  for (const key of QUANTITIES) out[`icon_${key}`] = icons[key];
   return out as FlatConfig;
 }
 
@@ -222,7 +249,14 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       ...previous.flow,
       inactive_lines: flat.inactive_lines,
       animation: flat.animation,
+      min_w: flat.min_w,
     }),
+    // soc_stops and consumer_palette have no fields; they ride along untouched.
+    colors: prune({
+      ...previous.colors,
+      ...Object.fromEntries(COLOR_KEYS.map((key) => [key, f[`color_${key}`]])),
+    }),
+    icons: prune(Object.fromEntries(QUANTITIES.map((key) => [key, f[`icon_${key}`]]))),
   } as RawConfig;
 }
 
@@ -301,9 +335,14 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           label_field: "name",
           description_field: "entity",
           fields: {
-            entity: { selector: { entity: { filter: POWER_FILTER } }, required: true },
-            name: { selector: { text: {} } },
-            color: { selector: { text: {} } },
+            entity: {
+              label: t("entity"),
+              selector: { entity: { filter: POWER_FILTER } },
+              required: true,
+            },
+            name: { label: t("name"), selector: { text: {} } },
+            color: { label: t("color"), selector: { text: {} } },
+            min_w: { label: t("min_w"), selector: { number: { min: 0, max: 10000, mode: "box" } } },
           },
         },
       },
@@ -352,6 +391,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       flatten: true,
       title: t("flow"),
       schema: [
+        { name: "min_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
         {
           name: "inactive_lines",
           selector: {
@@ -379,6 +419,22 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           },
         },
       ],
+    },
+    {
+      name: "colors",
+      type: "expandable",
+      flatten: true,
+      title: t("colors"),
+      // Text rather than a colour picker: HA's pickers know RGB triples, not
+      // theme variables, and var(--energy-solar-color) is the point (REQ C-1).
+      schema: COLOR_KEYS.map((key) => ({ name: `color_${key}`, selector: { text: {} } })),
+    },
+    {
+      name: "icons",
+      type: "expandable",
+      flatten: true,
+      title: t("icons"),
+      schema: QUANTITIES.map((key) => ({ name: `icon_${key}`, selector: { icon: {} } })),
     },
   ];
 }
@@ -416,6 +472,7 @@ class EnerLensCardEditor extends LitElement {
     if (name.endsWith("_source"))
       return localize(`editor.${name.replace(/_source$/, "")}`, this.hass);
     if (name.endsWith("_invert")) return localize("editor.invert", this.hass);
+    if (name.startsWith("icon_")) return localize(`editor.${name.slice(5)}`, this.hass);
     if (QUANTITIES.includes(name as Quantity)) return localize("editor.entity", this.hass);
     return localize(`editor.${name}`, this.hass);
   };
@@ -424,6 +481,7 @@ class EnerLensCardEditor extends LitElement {
    *  returns the key itself when there is no entry. */
   private _helper = (item: { name: string }): string => {
     let key = `editor_help.${item.name}`;
+    if (item.name.startsWith("color_")) key = "editor_help.color";
     if (item.name.endsWith("_source")) {
       const flat = (this._flat ?? {}) as FlatRecord;
       if (flat[item.name] !== "derived") return "";

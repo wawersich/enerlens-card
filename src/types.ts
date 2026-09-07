@@ -87,6 +87,8 @@ export interface ConsumerConfig {
   entity: string;
   name?: string;
   color?: string;
+  /** Own threshold in W; overrides `min_consumer_w` for this consumer (REQ L-3). */
+  min_w?: number;
 }
 
 export interface SocStop {
@@ -156,6 +158,8 @@ export interface NormalizedConsumer {
   /** Configured name; undefined falls back to friendly_name at render time. */
   name?: string;
   color: string;
+  /** Own threshold in W, undefined = the global `min_consumer_w` (REQ L-3). */
+  minW?: number;
 }
 
 export interface Config {
@@ -243,6 +247,7 @@ export interface ConsumerReading {
   entity: string;
   name: string;
   color: string;
+  minW?: number;
   reading: Reading;
 }
 

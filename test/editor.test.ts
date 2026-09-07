@@ -243,3 +243,50 @@ describe("editor", () => {
     expect(saved.entities).toEqual({ ...config.entities, house: undefined });
   });
 });
+
+describe("editor - colours, icons and thresholds", () => {
+  it("round-trips colours and icons, leaving soc_stops alone", async () => {
+    const config: RawConfig = {
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      colors: {
+        grid_export: "#43a047",
+        soc_stops: [
+          { at: 0, color: "#f00" },
+          { at: 100, color: "#0f0" },
+        ],
+      },
+      icons: { house: "mdi:home-lightning-bolt" },
+    };
+    const el = await mount(config);
+    expect(form(el).data.color_grid_export).toBe("#43a047");
+    expect(form(el).data.icon_house).toBe("mdi:home-lightning-bolt");
+    const saved = await change(el, { color_solar: "var(--warning-color)", icon_grid: "mdi:flash" });
+    expect(saved.colors).toEqual({
+      grid_export: "#43a047",
+      solar: "var(--warning-color)",
+      soc_stops: config.colors?.soc_stops,
+    });
+    expect(saved.icons).toEqual({ house: "mdi:home-lightning-bolt", grid: "mdi:flash" });
+  });
+
+  it("drops the colours block entirely when the last colour is cleared", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      colors: { rest: "#999" },
+    });
+    const saved = await change(el, { color_rest: "" });
+    expect(saved.colors).toBeUndefined();
+  });
+
+  it("writes flow.min_w next to the other flow options", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      flow: { inactive_lines: "dim" },
+    });
+    const saved = await change(el, { min_w: 25 });
+    expect(saved.flow).toEqual({ inactive_lines: "dim", min_w: 25 });
+  });
+});

@@ -330,3 +330,59 @@ describe("view modes (REQ V-1 to V-9)", () => {
     expect(el.shadowRoot?.querySelector(".mode-note")?.textContent?.trim()).toBe("Ø 15 min");
   });
 });
+
+describe("show-all toggle (REQ L-12)", () => {
+  type Card = HTMLElement & {
+    setConfig: (c: unknown) => void;
+    hass: HomeAssistant;
+    updateComplete: Promise<unknown>;
+    shadowRoot: ShadowRoot | null;
+  };
+
+  async function mountWithConsumers() {
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pump" },
+        { entity: "sensor.idle", name: "Idle" },
+      ],
+      min_consumer_w: 10,
+    });
+    el.hass = fakeHass({ ...STATES, "sensor.pump": "1200", "sensor.idle": "3" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    return el;
+  }
+
+  const names = (el: Card) =>
+    Array.from(el.shadowRoot?.querySelectorAll(".row .name") ?? []).map((n) => n.textContent);
+
+  it("lists only the filtered consumers until the toggle is pressed", async () => {
+    const el = await mountWithConsumers();
+    expect(names(el)).not.toContain("Idle");
+    const toggle = el.shadowRoot?.querySelector(".filter-toggle") as HTMLButtonElement;
+    expect(toggle, "no toggle above the list").toBeTruthy();
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+    toggle.click();
+    await el.updateComplete;
+    // The 3 W consumer is there now and can be tapped for its history.
+    expect(names(el)).toContain("Idle");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(el.shadowRoot?.querySelector('.row[data-key="sensor.idle"] .row-hit')).toBeTruthy();
+
+    toggle.click();
+    await el.updateComplete;
+    expect(names(el)).not.toContain("Idle");
+  });
+
+  it("offers no toggle without consumers", async () => {
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig(CONFIG);
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector(".filter-toggle")).toBeNull();
+  });
+});

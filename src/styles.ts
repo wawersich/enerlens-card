@@ -9,6 +9,11 @@ import { css } from "lit";
 export const styles = css`
   :host {
     --el-node-size: clamp(70px, calc(104px * var(--el-scale, 1)), 104px);
+    /* Outer diameter of the house ring: 2 × RING_R in viewBox units plus the
+       ring's stroke, which is a fixed 11 CSS px. Solar, grid and battery - and
+       the house without a ring - are drawn this size, so every node has the
+       same outer diameter (REQ K-13). */
+    --el-node-size-lg: max(var(--el-node-size), calc(112px * var(--el-scale, 1) + 11px));
     --el-value-size: clamp(12px, calc(13px * var(--el-scale, 1)), 15px);
     /* 12 px matches power-flow-card-plus, whose labels this sits next to on
        many dashboards. Fixed rather than scaled: the original does not scale
@@ -126,8 +131,9 @@ export const styles = css`
     flex: 2 1 250px;
     min-width: 210px;
     max-width: 400px;
-    /* Room for the labels, which reach beyond the drawing. */
-    padding: 18px 8px 22px;
+    /* Room for the labels, which reach beyond the drawing, and for the large
+       nodes, which overhang the viewBox by a few units. */
+    padding: 26px 8px 28px;
   }
 
   /* Positioning context for the nodes: exactly the area the SVG covers. */
@@ -204,6 +210,12 @@ export const styles = css`
      The clip is what makes it read as a filled circle: without it the
      rectangle juts out past the rim and looks like a plinth. The node itself
      cannot clip, because the label sits outside it. */
+  /* Every node but the ringed house takes the ring's outer diameter. */
+  .node:not(.has-ring) {
+    width: var(--el-node-size-lg);
+    height: var(--el-node-size-lg);
+  }
+
   .node .fill-clip {
     position: absolute;
     inset: 0;
@@ -331,6 +343,46 @@ export const styles = css`
     flex: 1 1 150px;
     min-width: 145px;
     align-self: center;
+  }
+
+  .list-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* The button hangs into the margin so an empty bar costs no height. */
+    min-height: 0;
+    margin-bottom: -4px;
+  }
+
+  .filter-toggle {
+    font: inherit;
+    /* Small, but not below the 24 px floor (REQ I-3). */
+    width: 28px;
+    height: 28px;
+    margin: -2px -4px 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    --mdc-icon-size: 18px;
+  }
+
+  .filter-toggle.on {
+    color: var(--primary-color);
+  }
+
+  .filter-toggle:hover {
+    background: rgba(var(--rgb-primary-text-color, 0, 0, 0), 0.06);
+  }
+
+  .filter-toggle:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
   }
 
   .list-title {

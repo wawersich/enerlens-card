@@ -12,7 +12,9 @@
   },
   "list": {
     "rest": "Other",
-    "title": "Consumers"
+    "title": "Consumers",
+    "show_all": "Show every consumer, even without power",
+    "filter_on": "Show active consumers only"
   },
   "view": {
     "now": "Now",
@@ -94,7 +96,17 @@
     "grid_import": "Import",
     "grid_export": "Export",
     "battery_discharge": "Discharge",
-    "battery_charge": "Charge"
+    "battery_charge": "Charge",
+    "colors": "Colours",
+    "icons": "Icons",
+    "color_solar": "Solar",
+    "color_house": "House",
+    "color_grid_import": "Grid · import",
+    "color_grid_export": "Grid · export",
+    "color_battery_charge": "Battery · charging",
+    "color_battery_discharge": "Battery · discharging",
+    "color_rest": "Remainder",
+    "min_w": "Minimum power (W)"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -116,6 +128,9 @@
     "grid_export": "Export only, as a magnitude ≥ 0.",
     "battery_discharge": "Discharging only, as a magnitude ≥ 0.",
     "battery_charge": "Charging from all sources, as a magnitude ≥ 0.",
-    "derived": "Calculated from the other three quantities so the balance adds up. Only one quantity can be derived."
+    "derived": "Calculated from the other three quantities so the balance adds up. Only one quantity can be derived.",
+    "min_w": "From this power on a connection counts as active: dots move, grid and battery show their state. Below it everything is neutral.",
+    "consumers": "A consumer's own minimum power overrides the global one - say 50 W for a heat pump, so its standby draw does not count as a consumer.",
+    "icon_battery": "Empty = icon follows the state of charge."
   }
 }

@@ -76,7 +76,8 @@ function signedColor(
   negative: ColorKey,
   config: Config,
 ): string {
-  if (!s || !s.available || s.net === 0) return "var(--el-line)";
+  // Neutral below flow.min_w, in step with the state word and the dots.
+  if (!s || !s.available || Math.abs(s.net) < config.flow.minW) return "var(--el-line)";
   return config.colors[s.net > 0 ? positive : negative];
 }
 
@@ -116,11 +117,13 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
     key: "grid",
     icon: config.icons.grid ?? DEFAULT_ICONS.grid,
     color: signedColor(grid, "grid_import", "grid_export", config),
+    // The state word follows the sign, but only once something actually flows:
+    // 4 W of export rounds to 0.00 kW, and "export" next to that is noise (REQ K-3).
     label: !grid.available
       ? localize("node.grid", hass)
-      : grid.net > 0
+      : grid.net >= config.flow.minW
         ? localize("node.grid_import", hass)
-        : grid.net < 0
+        : grid.net <= -config.flow.minW
           ? localize("node.grid_export", hass)
           : localize("node.grid", hass),
     derived: grid.derived,
@@ -157,9 +160,9 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
       color: signedColor(bat, "battery_discharge", "battery_charge", config),
       label: !bat.available
         ? localize("node.battery", hass)
-        : bat.net > 0
+        : bat.net >= config.flow.minW
           ? localize("node.battery_discharging", hass)
-          : bat.net < 0
+          : bat.net <= -config.flow.minW
             ? localize("node.battery_charging", hass)
             : localize("node.battery", hass),
       derived: bat.derived,
@@ -198,6 +201,9 @@ export function renderCross(
   segments: Segment[] = [],
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass);
+  // Decided by configuration, not by the segments of the moment: the house must
+  // not change size whenever the list happens to be empty (REQ K-13).
+  const hasRing = config.ring.enabled && config.consumers.length > 0;
   // No battery configured: its lines go with it, the rest of the cross stays put.
   const withBattery = model.battery
     ? DRAWN_CONNECTIONS
@@ -231,7 +237,7 @@ export function renderCross(
           };
           return html`
           <div
-            class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""}"
+            class="node ${v.key} ${v.key === "house" && hasRing ? "has-ring" : ""}"
             style="left:${pos.left};top:${pos.top};border-color:${v.color}"
           >
             ${

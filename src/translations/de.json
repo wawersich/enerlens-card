@@ -12,7 +12,9 @@
   },
   "list": {
     "rest": "Rest",
-    "title": "Verbraucher"
+    "title": "Verbraucher",
+    "show_all": "Alle Verbraucher anzeigen, auch ohne Leistung",
+    "filter_on": "Nur aktive Verbraucher anzeigen"
   },
   "view": {
     "now": "Jetzt",
@@ -94,7 +96,17 @@
     "grid_import": "Bezug",
     "grid_export": "Einspeisung",
     "battery_discharge": "Entladen",
-    "battery_charge": "Laden"
+    "battery_charge": "Laden",
+    "colors": "Farben",
+    "icons": "Icons",
+    "color_solar": "PV",
+    "color_house": "Haus",
+    "color_grid_import": "Netz · Bezug",
+    "color_grid_export": "Netz · Einspeisung",
+    "color_battery_charge": "Batterie · lädt",
+    "color_battery_discharge": "Batterie · entlädt",
+    "color_rest": "Rest",
+    "min_w": "Mindestleistung (W)"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -116,6 +128,9 @@
     "grid_export": "Nur die Einspeisung, als Betrag ≥ 0.",
     "battery_discharge": "Nur das Entladen, als Betrag ≥ 0.",
     "battery_charge": "Nur das Laden aus allen Quellen, als Betrag ≥ 0.",
-    "derived": "Wird aus den drei anderen Größen berechnet, damit die Bilanz aufgeht. Nur eine Größe kann abgeleitet sein."
+    "derived": "Wird aus den drei anderen Größen berechnet, damit die Bilanz aufgeht. Nur eine Größe kann abgeleitet sein.",
+    "min_w": "Ab dieser Leistung gilt eine Verbindung als aktiv: Punkte laufen, Netz und Batterie zeigen ihren Zustand. Darunter ist alles neutral.",
+    "consumers": "Mindestleistung je Verbraucher überschreibt den globalen Wert – etwa 50 W für eine Wärmepumpe, damit ihr Standby nicht als Verbraucher zählt.",
+    "icon_battery": "Leer = Icon folgt dem Ladezustand."
   }
 }

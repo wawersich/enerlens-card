@@ -285,6 +285,17 @@ describe("battery_soc (schema rules, A-5)", () => {
 });
 
 describe("consumers (C-4, L-4)", () => {
+  it("reads an own threshold and rejects a negative one (REQ L-3)", () => {
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a", min_w: 50 }, { entity: "sensor.b" }] }),
+    );
+    expect(config.consumers[0].minW).toBe(50);
+    expect(config.consumers[1].minW).toBeUndefined();
+    expect(() =>
+      normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", min_w: -1 }] })),
+    ).toThrow();
+  });
+
   it("defaults to an empty list", () => {
     expect(normalizeConfig(cfg()).consumers).toEqual([]);
   });

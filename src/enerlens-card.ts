@@ -31,6 +31,7 @@ class EnerLensCard extends LitElement {
   static properties = {
     hass: { attribute: false },
     _model: { state: true },
+    _showAll: { state: true },
   };
 
   private _hass?: HomeAssistant;
@@ -54,12 +55,22 @@ class EnerLensCard extends LitElement {
   private _intersectionObserver?: IntersectionObserver;
   private _dots?: DotLayer;
   private _fan?: FanLayer;
-  private _fanRedraw?: ReturnType<typeof setTimeout>;
+  /** Frame loop that keeps the fan on the rows while they glide. */
+  private _fanFollow?: number;
   private _technique: DotTechnique = "static";
   private _motionQuery?: MediaQueryList;
   private _visible = true;
   /** True while the list wraps below the cross - the lanes only run there. */
   private _stacked = false;
+  /** Filter lifted by the toggle above the list (REQ L-12). Not persisted. */
+  private _showAll = false;
+
+  private _toggleShowAll(): void {
+    this._showAll = !this._showAll;
+    // Re-select at once rather than on the next tick; the FLIP in updated()
+    // glides the rows that move.
+    if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
+  }
   private readonly _onVisibility = () => this._syncPlayState();
   private readonly _onMotionChange = () => this.requestUpdate();
 
@@ -298,6 +309,22 @@ class EnerLensCard extends LitElement {
    * its own overlay.
    */
   private _updateFan(): void {
+    this._drawFan();
+
+    // Rows glide for 600 ms after a reorder. The lines follow them frame by
+    // frame - measured mid-transform, getBoundingClientRect reports where a
+    // row is drawn, not where it will land - and one last pass after the glide.
+    if (this._fanFollow) cancelAnimationFrame(this._fanFollow);
+    if (typeof requestAnimationFrame !== "function") return;
+    const started = performance.now();
+    const step = () => {
+      this._drawFan();
+      this._fanFollow = performance.now() - started < 650 ? requestAnimationFrame(step) : undefined;
+    };
+    this._fanFollow = requestAnimationFrame(step);
+  }
+
+  private _drawFan(): void {
     const svg = this.renderRoot?.querySelector("svg.fan") as SVGSVGElement | null;
     if (!svg || !this._config) return;
     if (!this._fan) this._fan = new FanLayer(svg);
@@ -344,10 +371,6 @@ class EnerLensCard extends LitElement {
       { width: origin.width, height: origin.height },
       this._animationsWanted,
     );
-
-    // Rows glide for 600 ms after a reorder; redraw once they have landed.
-    if (this._fanRedraw) clearTimeout(this._fanRedraw);
-    this._fanRedraw = setTimeout(() => this._updateFan(), 650);
   }
 
   private _syncPlayState(): void {
@@ -395,10 +418,10 @@ class EnerLensCard extends LitElement {
     this._motionQuery = undefined;
     this._dots?.destroy();
     this._dots = undefined;
+    if (this._fanFollow) cancelAnimationFrame(this._fanFollow);
+    this._fanFollow = undefined;
     this._fan?.destroy();
     this._fan = undefined;
-    if (this._fanRedraw) clearTimeout(this._fanRedraw);
-    this._fanRedraw = undefined;
     if (this._tickTimer) clearInterval(this._tickTimer);
     this._tickTimer = undefined;
   }
@@ -436,7 +459,10 @@ class EnerLensCard extends LitElement {
     const ticked = this._tickModel ?? model;
     // Selection and order come from the tick, the figures from the live model
     // (REQ L-7): values may move every second, rows only on the beat.
-    const breakdown = refreshBreakdownValues(buildBreakdown(ticked, this._config), model);
+    const breakdown = refreshBreakdownValues(
+      buildBreakdown(ticked, this._config, this._showAll),
+      model,
+    );
     // Lines carry the colour of the flow on them, dimmed by CSS (REQ P-5).
     const plans = planDots(computeFlows(ticked), this._config);
     const active = new Map(
@@ -465,7 +491,15 @@ class EnerLensCard extends LitElement {
             active,
             this._config.ring.enabled ? breakdown.segments : [],
           )}
-          ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
+          ${renderList(
+            breakdown,
+            this._config,
+            this._hass,
+            openEntry,
+            this._stacked,
+            this._showAll,
+            () => this._toggleShowAll(),
+          )}
         </div>
       </ha-card>
     `;

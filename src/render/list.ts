@@ -58,12 +58,31 @@ export function renderList(
   hass: HomeAssistant,
   onEntry: (entity: string, ev: Event) => void,
   stacked: boolean,
+  /** Filter lifted: every consumer is listed regardless of power (REQ L-12). */
+  showAll = false,
+  onToggleAll?: () => void,
 ): TemplateResult | typeof nothing {
   if (!config.list.enabled) return nothing;
 
+  const toggleLabel = localize(showAll ? "list.filter_on" : "list.show_all", hass);
   return html`
     <div class="list">
-      ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
+      <div class="list-bar">
+        ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : html`<span></span>`}
+        ${
+          onToggleAll && config.consumers.length > 0
+            ? html`<button
+                class="filter-toggle ${showAll ? "on" : ""}"
+                aria-pressed=${showAll ? "true" : "false"}
+                aria-label=${toggleLabel}
+                title=${toggleLabel}
+                @click=${onToggleAll}
+              >
+                <ha-icon .icon=${showAll ? "mdi:filter-off-outline" : "mdi:filter-outline"}></ha-icon>
+              </button>`
+            : nothing
+        }
+      </div>
       <div class="rows">
         ${repeat(
           breakdown.entries,

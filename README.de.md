@@ -29,7 +29,9 @@ den Dialog von Home Assistant mit der echten Historie.
 **Die Liste sortiert sich und gleitet.** Zeilen ordnen sich im festen Takt nach
 Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
 ändern sich sofort; nur die Reihenfolge wartet auf den Takt — eine springende
-Zahl stört nicht, eine springende Zeile schon.
+Zahl stört nicht, eine springende Zeile schon. Ein kleiner Filter-Knopf über
+der Liste zeigt alle Verbraucher unabhängig von ihrer Leistung — um den Verlauf
+eines Geräts anzutippen, das gerade still geworden ist.
 
 **Messwerte werden nie stillschweigend verändert.** Sensoren aktualisieren
 unterschiedlich schnell, deshalb kann die Summe der einzeln gemessenen
@@ -55,9 +57,9 @@ Typ *Dashboard* hinzufügen.
 
 Die Karte bringt einen GUI-Editor mit. Jede Entitätsform unten — eine Entität,
 eine mit umgedrehtem Vorzeichen, zwei Entitäten oder eine abgeleitete Größe —
-ist im Formular eine Auswahl; für die Entitäten braucht es also nie YAML. Farben
-und Icons gibt es bisher nur im YAML. Das YAML ist für alle dokumentiert, die es
-vorziehen.
+ist im Formular eine Auswahl; YAML braucht es also nie. Nur der Ladezustands-
+Verlauf und die Verbraucherpalette bleiben dem YAML vorbehalten. Das YAML ist für
+alle dokumentiert, die es vorziehen.
 
 ### Minimal
 
@@ -145,6 +147,20 @@ Gleichung nicht bestimmen, und die Karte sagt das, statt zu raten. Abgeleitete
 Knoten sind gekennzeichnet und nicht anklickbar, weil keine Entität dahinter
 steht, deren Verlauf man zeigen könnte.
 
+**Verlauf für den abgeleiteten Wert?** Ein abgeleiteter Knoten hat keine
+Entität, also kann ein Tipp darauf keinen Verlauf öffnen. Wer den will, lässt
+Home Assistant dieselbe Summe rechnen: Helfer *Template → Sensor* (Einheit `W`,
+Geräteklasse `power`, Statusklasse `measurement`) mit
+
+```jinja
+{{ [0, states('sensor.pv_leistung')|float(0)
+      - states('sensor.einspeisung')|float(0) + states('sensor.bezug')|float(0)
+      + states('sensor.batterie_entladen')|float(0) - states('sensor.batterie_laden')|float(0)]|max|round(0) }}
+```
+
+und diesen Sensor als `house` eintragen. Es ist die Formel der Karte, nur wird
+sie jetzt aufgezeichnet — Verlauf, Statistik und Automationen bekommen sie mit.
+
 **Zur Genauigkeit:** Den Hauswert abzuleiten ist bequem, aber nur so gut wie
 seine Eingangswerte. Auf der Referenzanlage lag er, aus 60-Sekunden-Sensoren
 für Netz und Batterie abgeleitet, bei Lastwechseln bis zu 8,7 kW daneben,
@@ -168,8 +184,8 @@ diesen Betrag zu klein — dann besser ableiten.
 | `entities.house` | abgeleitet | Hausverbrauch |
 | `entities.battery` | — | Batterieleistung, signiert |
 | `entities.battery_soc` | — | Ladezustand in % |
-| `consumers` | — | Liste aus `{entity, name, color}` |
-| `min_consumer_w` | `10` | Verbraucher darunter zählen zum Rest |
+| `consumers` | — | Liste aus `{entity, name, color, min_w}` |
+| `min_consumer_w` | `10` | Verbraucher darunter zählen zum Rest; ein eigenes `min_w` am Verbraucher hat Vorrang |
 | `max_consumers` | alle | Nur die stärksten werden gelistet |
 | `update_interval_s` | `5` | Wie oft die Liste neu sortiert |
 | `list.enabled` | an mit Verbrauchern | Liste anzeigen |
@@ -183,7 +199,7 @@ diesen Betrag zu klein — dann besser ableiten.
 | `view.remember` | `true` | Modus je Browser merken |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
-| `flow.min_w` | `10` | Darunter bewegt sich nichts |
+| `flow.min_w` | `10` | Darunter bewegt sich nichts; Netz und Batterie zeigen kein Zustandswort |
 | `flow.slow_below_w` | `500` | Bis hier ein langsamer Punkt |
 | `flow.more_dots_above_w` | `2000` | Ab hier kommen Punkte hinzu |
 | `flow.max_dots_at_w` | `6000` | Wo die Punktzahl ihr Maximum erreicht |
