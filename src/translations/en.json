@@ -106,7 +106,8 @@
     "color_battery_charge": "Battery · charging",
     "color_battery_discharge": "Battery · discharging",
     "color_rest": "Remainder",
-    "min_w": "Minimum power (W)"
+    "min_w": "Minimum power (W)",
+    "icon": "Icon"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",

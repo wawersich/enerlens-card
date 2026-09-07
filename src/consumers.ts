@@ -25,6 +25,7 @@ export function buildBreakdown(model: Model, config: Config, showAll = false): B
       w: consumer.reading.w,
       color: consumer.color,
       entity: consumer.entity,
+      icon: consumer.icon,
       isRest: false,
     });
   }

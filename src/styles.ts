@@ -416,6 +416,12 @@ export const styles = css`
     flex: none;
   }
 
+  .row .row-icon {
+    --mdc-icon-size: 18px;
+    display: flex;
+    flex: none;
+  }
+
   /* Short run of wire per row, only in the stacked layout. Width is fixed so
      every row reads at the same scale - the dots' speed carries the figure,
      not the length. */

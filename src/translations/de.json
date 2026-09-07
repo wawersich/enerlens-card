@@ -106,7 +106,8 @@
     "color_battery_charge": "Batterie · lädt",
     "color_battery_discharge": "Batterie · entlädt",
     "color_rest": "Rest",
-    "min_w": "Mindestleistung (W)"
+    "min_w": "Mindestleistung (W)",
+    "icon": "Icon"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",

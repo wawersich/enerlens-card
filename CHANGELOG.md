@@ -37,6 +37,7 @@ First release. Everything below is new.
   upwards - a 4 W trickle reads "0.00 kW" and gets no "export" next to it.
 - A small toggle above the list lifts the filter and shows every consumer,
   so a device that was busy a minute ago can still be tapped for its history.
+- A consumer can carry an icon, shown in front of its name in its colour.
 - Each consumer can carry its own `min_w`, so a heat pump's 25 W standby does
   not count as a consumer while the global threshold stays at 10 W.
 - Tap any node or row for Home Assistant's more-info dialog. No chart of its own.

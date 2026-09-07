@@ -291,6 +291,10 @@ describe("consumers (C-4, L-4)", () => {
     );
     expect(config.consumers[0].minW).toBe(50);
     expect(config.consumers[1].minW).toBeUndefined();
+    const withIcon = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a", icon: "mdi:heat-pump" }] }),
+    );
+    expect(withIcon.consumers[0].icon).toBe("mdi:heat-pump");
     expect(() =>
       normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", min_w: -1 }] })),
     ).toThrow();

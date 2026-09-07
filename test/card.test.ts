@@ -386,3 +386,31 @@ describe("show-all toggle (REQ L-12)", () => {
     expect(el.shadowRoot?.querySelector(".filter-toggle")).toBeNull();
   });
 });
+
+describe("consumer icons (REQ L-2)", () => {
+  it("shows a configured icon in the entry's colour, and none otherwise", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pump", icon: "mdi:heat-pump", color: "#123456" },
+        { entity: "sensor.tv", name: "TV" },
+      ],
+    });
+    el.hass = fakeHass({ ...STATES, "sensor.pump": "1200", "sensor.tv": "300" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const pump = el.shadowRoot?.querySelector(
+      '.row[data-key="sensor.pump"] .row-icon',
+    ) as HTMLElement & { icon?: string };
+    expect(pump).toBeTruthy();
+    expect(pump.icon).toBe("mdi:heat-pump");
+    expect(pump.style.color).toMatch(/#123456|rgb\(18, 52, 86\)/);
+    expect(el.shadowRoot?.querySelector('.row[data-key="sensor.tv"] .row-icon')).toBeNull();
+  });
+});

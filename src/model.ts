@@ -260,6 +260,7 @@ export function buildModelFrom(
       name: consumer.name ?? friendly ?? consumer.entity,
       color: consumer.color,
       minW: consumer.minW,
+      icon: consumer.icon,
       reading: makeReading(safeValueOf(consumer.entity), consumer.entity, false),
     };
   });

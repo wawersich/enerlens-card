@@ -370,6 +370,7 @@ function readConsumers(
       name: readString(entry.name, `${field}.name`, hass),
       // Palette wraps so that even 100 consumers get a colour (REQ C-4, L-11).
       color: readString(entry.color, `${field}.color`, hass) ?? palette[i % palette.length],
+      icon: readString(entry.icon, `${field}.icon`, hass),
       minW:
         entry.min_w === undefined
           ? undefined

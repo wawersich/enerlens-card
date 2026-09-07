@@ -89,6 +89,8 @@ export interface ConsumerConfig {
   color?: string;
   /** Own threshold in W; overrides `min_consumer_w` for this consumer (REQ L-3). */
   min_w?: number;
+  /** Optional mdi icon shown in front of the name (REQ L-2). */
+  icon?: string;
 }
 
 export interface SocStop {
@@ -160,6 +162,7 @@ export interface NormalizedConsumer {
   color: string;
   /** Own threshold in W, undefined = the global `min_consumer_w` (REQ L-3). */
   minW?: number;
+  icon?: string;
 }
 
 export interface Config {
@@ -248,6 +251,7 @@ export interface ConsumerReading {
   name: string;
   color: string;
   minW?: number;
+  icon?: string;
   reading: Reading;
 }
 
@@ -278,6 +282,8 @@ export interface ListEntry {
   color: string;
   /** Absent for the rest entry, which is not clickable (REQ I-4). */
   entity?: string;
+  /** Configured icon, shown in front of the name in the entry's colour (REQ L-2). */
+  icon?: string;
   isRest: boolean;
 }
 

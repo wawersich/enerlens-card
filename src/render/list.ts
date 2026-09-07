@@ -91,6 +91,11 @@ export function renderList(
             <div class="row ${entry.isRest ? "rest" : ""}" data-key=${entry.key}>
               <span class="swatch" style="background:${entry.color}"></span>
               ${stacked ? lane(entry.w, entry.color, config) : nothing}
+              ${
+                entry.icon
+                  ? html`<ha-icon class="row-icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
+                  : nothing
+              }
               <span class="name">${rowLabel(entry, hass)}</span>
               <span class="row-value">${formatKW(entry.w, hass)}</span>
               ${

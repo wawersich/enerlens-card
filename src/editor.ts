@@ -342,6 +342,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
             name: { label: t("name"), selector: { text: {} } },
             color: { label: t("color"), selector: { text: {} } },
+            icon: { label: t("icon"), selector: { icon: {} } },
             min_w: { label: t("min_w"), selector: { number: { min: 0, max: 10000, mode: "box" } } },
           },
         },

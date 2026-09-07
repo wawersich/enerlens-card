@@ -184,7 +184,7 @@ diesen Betrag zu klein — dann besser ableiten.
 | `entities.house` | abgeleitet | Hausverbrauch |
 | `entities.battery` | — | Batterieleistung, signiert |
 | `entities.battery_soc` | — | Ladezustand in % |
-| `consumers` | — | Liste aus `{entity, name, color, min_w}` |
+| `consumers` | — | Liste aus `{entity, name, color, icon, min_w}` |
 | `min_consumer_w` | `10` | Verbraucher darunter zählen zum Rest; ein eigenes `min_w` am Verbraucher hat Vorrang |
 | `max_consumers` | alle | Nur die stärksten werden gelistet |
 | `update_interval_s` | `5` | Wie oft die Liste neu sortiert |
