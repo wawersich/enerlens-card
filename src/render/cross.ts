@@ -6,8 +6,18 @@ import { type TemplateResult, html, svg } from "lit";
 import { socColor } from "../colors";
 import { formatKW, formatSoc } from "../format";
 import { localize } from "../localize";
-import type { ColorKey, Config, HomeAssistant, Model, NodeKey, Reading, Signed } from "../types";
+import type {
+  ColorKey,
+  Config,
+  HomeAssistant,
+  Model,
+  NodeKey,
+  Reading,
+  Segment,
+  Signed,
+} from "../types";
 import { DRAWN_CONNECTIONS, PATHS, VIEW_H, VIEW_W, nodePercent } from "./geometry";
+import { renderRing } from "./ring";
 
 /** Resolves var(--x) against the document so the gradient can mix real colours. */
 function resolveCssColor(value: string): string {
@@ -184,6 +194,8 @@ export function renderCross(
   hass: HomeAssistant,
   /** Active connection -> CSS colour of the flow running on it (REQ P-5). */
   activeConnections: ReadonlyMap<string, string>,
+  /** Ring segments; empty when the ring is off or there is nothing to show. */
+  segments: Segment[] = [],
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass);
   // No battery configured: its lines go with it, the rest of the cross stays put.
@@ -204,6 +216,7 @@ export function renderCross(
             ></path>`,
         )}
           <g class="dots"></g>
+          ${renderRing(segments, segments.length > 0)}
         </svg>
         ${views.map((v) => {
           const pos = nodePercent(v.key);

@@ -68,6 +68,23 @@ export const styles = css`
     overflow: visible;
   }
 
+  /* Segments animate their length and position, so a consumer's slice grows or
+     shrinks into place rather than snapping (REQ R-4). */
+  .ring-seg {
+    fill: none;
+    stroke-width: calc(8px / var(--el-scale, 1));
+    stroke-linecap: butt;
+    transition:
+      stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+      stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring-seg {
+      transition: none;
+    }
+  }
+
   .link {
     fill: none;
     stroke: var(--el-line);

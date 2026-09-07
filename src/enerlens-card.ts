@@ -319,7 +319,13 @@ class EnerLensCard extends LitElement {
       <ha-card .header=${this._rawConfig?.title} translate="no">
         <div class="body">
           <svg class="fan" aria-hidden="true"></svg>
-          ${renderCross(model, this._config, this._hass, active)}
+          ${renderCross(
+            model,
+            this._config,
+            this._hass,
+            active,
+            this._config.ring.enabled ? breakdown.segments : [],
+          )}
           ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>
       </ha-card>

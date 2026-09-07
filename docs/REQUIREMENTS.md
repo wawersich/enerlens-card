@@ -440,7 +440,7 @@ Die Abnahmen L und V beruhen auf echten Messdaten der Referenzanlage. Diese Date
 
 | ID | Frage | Vorschlag |
 |---|---|---|
-| O-1 | Listentitel im Standard? | Kein Titel; `list.title` optional. |
+| ~~O-1~~ | ~~Listentitel im Standard?~~ | **Entschieden am 07.09.2026: kein Titel.** Am laufenden Bild geprüft — die Überschrift sitzt über einer vertikal zentrierten Liste und bezieht sich auf nichts; sie liest sich wie eine Tabellenkopfzeile ohne Tabelle. `list.title` bleibt als Option. |
 | O-2 | Kompaktes Layout für halbe Sektionsbreite (6 Spalten)? | Für 0.1 nicht; die Karte belegt volle Breite (`min_columns: 12`). Backlog. |
 
 ---
