@@ -396,23 +396,24 @@ export const styles = css`
     font-variant-numeric: tabular-nums;
   }
 
+  /* One 18 px slot whether it holds the dot or an icon, so lanes and names
+     line up across rows that differ (seen on the reference dashboard). */
   .row .swatch {
     flex: none;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    --mdc-icon-size: 18px;
   }
 
-  .row .swatch.dot {
+  .row .swatch.dot::after {
+    content: "";
     width: 10px;
     height: 10px;
     border-radius: 50%;
-  }
-
-  /* An icon in the swatch's place is wider than the dot; the name column
-     starts a little later in that row, which is what "in front of" means. */
-  .row .swatch.icon {
-    --mdc-icon-size: 18px;
-    display: flex;
-    width: 18px;
-    height: 18px;
+    background: currentColor;
   }
 
   /* Short run of wire per row, only in the stacked layout. Width is fixed so

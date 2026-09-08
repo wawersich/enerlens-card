@@ -263,12 +263,12 @@ describe("battery_soc (schema rules, A-5)", () => {
     expect(config.sources.batterySoc).toBe("sensor.soc");
   });
 
-  it("rejects battery_soc without a battery (schema rules)", () => {
-    expectError(
-      () => normalizeConfig(withEntities({ ...ENTITIES, battery_soc: "sensor.soc" })),
-      "error.config.soc_without_battery",
-      "entities.battery_soc",
-    );
+  it("ignores battery_soc without a battery, with a warning (REQ A-5, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = normalizeConfig(withEntities({ ...ENTITIES, battery_soc: "sensor.soc" }));
+    expect(config.sources.batterySoc).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it("rejects a non-string battery_soc (E-1)", () => {
@@ -360,21 +360,24 @@ describe("consumers (C-4, L-4)", () => {
     expect(config.consumers[0].name).toBeUndefined();
   });
 
-  it("rejects duplicate consumer entities (schema rules)", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ consumers: [{ entity: "sensor.a" }, { entity: "sensor.a" }] })),
-      "error.config.duplicate_consumer",
-      "consumers[1]",
+  it("skips a duplicate consumer entity, keeping the first (REQ E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a", name: "first" }, { entity: "sensor.a" }] }),
     );
-    expect(error.message).toContain("sensor.a");
+    expect(config.consumers.map((c) => c.name)).toEqual(["first"]);
+    expect(warn.mock.calls[0]?.[0]).toContain("sensor.a");
+    warn.mockRestore();
   });
 
-  it("rejects a consumer without an entity (schema rules)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ consumers: [{ name: "no entity" }] })),
-      "error.config.consumer_entity",
-      "consumers[0]",
+  it("skips a consumer without an entity (REQ E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = normalizeConfig(
+      cfg({ consumers: [{ name: "no entity" }, { entity: "sensor.b" }] }),
     );
+    expect(config.consumers.map((c) => c.entity)).toEqual(["sensor.b"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it("rejects consumers that are not a list (E-1)", () => {
@@ -628,42 +631,31 @@ describe("numeric ranges (schema rules)", () => {
     );
   });
 
-  it("rejects flow.min_w above slow_below_w (P-3)", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ flow: { min_w: 600 } })),
-      "error.config.order_le",
-      "flow.min_w",
-    );
-    expect(error.message).toContain("flow.slow_below_w");
+  it("raises slow_below_w to a min_w above it, with a warning (P-3, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const flow = normalizeConfig(cfg({ flow: { min_w: 600 } })).flow;
+    expect(flow.minW).toBe(600);
+    expect(flow.slowBelowW).toBe(600);
+    expect(warn.mock.calls[0]?.[0]).toContain("flow.slow_below_w");
+    warn.mockRestore();
   });
 
   it("accepts flow.min_w exactly equal to slow_below_w (P-3)", () => {
     expect(normalizeConfig(cfg({ flow: { min_w: 500 } })).flow.minW).toBe(500);
   });
 
-  it("rejects slow_below_w >= more_dots_above_w (P-3)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ flow: { slow_below_w: 2000 } })),
-      "error.config.order",
-      "flow.slow_below_w",
-    );
-  });
-
-  it("rejects more_dots_above_w >= max_dots_at_w (P-3)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ flow: { more_dots_above_w: 6000 } })),
-      "error.config.order",
-      "flow.more_dots_above_w",
-    );
-  });
-
-  it("rejects fast_s >= slow_s (P-3)", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ flow: { fast_s: 5 } })),
-      "error.config.order",
-      "flow.fast_s",
-    );
-    expect(error.message).toContain("flow.slow_s");
+  it("pushes a broken threshold chain upwards instead of refusing it (P-3, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // slow_below_w 2000 collides with more_dots_above_w 2000, which then
+    // collides with nothing - max_dots_at_w 6000 still holds.
+    let flow = normalizeConfig(cfg({ flow: { slow_below_w: 2000 } })).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([2000, 2001, 6000]);
+    flow = normalizeConfig(cfg({ flow: { more_dots_above_w: 6000 } })).flow;
+    expect([flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([6000, 6001]);
+    flow = normalizeConfig(cfg({ flow: { fast_s: 5 } })).flow;
+    expect([flow.fastS, flow.slowS]).toEqual([5, 6]);
+    expect(warn).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
   });
 
   it("rejects a non-positive duration (P-3)", () => {
@@ -714,13 +706,13 @@ describe("numeric ranges (schema rules)", () => {
     );
   });
 
-  it("rejects avg_short_minutes >= avg_long_minutes (V-1)", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ view: { avg_short_minutes: 20 } })),
-      "error.config.order",
-      "view.avg_short_minutes",
-    );
-    expect(error.message).toContain("view.avg_long_minutes");
+  it("raises avg_long_minutes above a longer short window, with a warning (V-1, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const view = normalizeConfig(cfg({ view: { avg_short_minutes: 20 } })).view;
+    expect(view.avgShortMinutes).toBe(20);
+    expect(view.avgLongMinutes).toBe(21);
+    expect(warn.mock.calls[0]?.[0]).toContain("view.avg_long_minutes");
+    warn.mockRestore();
   });
 
   it("rejects avg_short_minutes outside 1..120 (V-1)", () => {

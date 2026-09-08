@@ -55,6 +55,12 @@ First release. Everything below is new.
   "flip sign" switch for single entities. Every YAML form round-trips through
   the form unchanged.
 
+### Robustness
+- What the GUI editor can produce never yields a configuration error. Cleared
+  fields (`""`, `null`) read as unset everywhere; a state of charge without a
+  battery, a consumer without an entity or listed twice, and thresholds in the
+  wrong order are repaired with a console warning instead of a dead card.
+
 ### Under the hood
 - Measurements are never smoothed or scaled; the only computed values are the
   rest, the derived quantity, ring shares, flow distribution and the labelled

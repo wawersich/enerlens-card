@@ -211,13 +211,33 @@ function buildRef(quantity: Quantity, flat: FlatRecord): EntityRef | undefined {
   }
 }
 
-/** The object selector leaves "" or null when a field is cleared; the YAML
- *  should not carry those, and the entity must survive (REQ E-4). */
+/** "" and null from a cleared field read as unset. */
+const opt = <T>(v: T | null | ""): T | undefined => (v === null || v === "" ? undefined : v);
+
+/** A number box hands back undefined, null or "" when cleared - never NaN, but
+ *  be safe about that too. */
+function num(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * The object selector leaves "" or null when a field is cleared, keeps a row
+ * whose entity picker was emptied, and lets the same sensor be picked twice.
+ * None of that belongs in the YAML (REQ E-4): empty fields go, a row without an
+ * entity goes, a duplicate keeps its first appearance.
+ */
 function cleanConsumers(value: unknown): RawConfig["consumers"] {
   if (!Array.isArray(value)) return undefined;
-  const list = value
-    .map((entry) => (isRecord(entry) ? prune(entry) : undefined))
-    .filter((entry): entry is Record<string, unknown> => entry !== undefined);
+  const seen = new Set<string>();
+  const list: Record<string, unknown>[] = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const cleaned = prune(entry);
+    const entity = cleaned?.entity;
+    if (!cleaned || typeof entity !== "string" || seen.has(entity)) continue;
+    seen.add(entity);
+    list.push(cleaned);
+  }
   return list.length ? (list as unknown as RawConfig["consumers"]) : undefined;
 }
 
@@ -238,31 +258,44 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
   const f = flat as FlatRecord;
   const entities: Record<string, unknown> = { ...previous.entities };
   for (const quantity of QUANTITIES) entities[quantity] = buildRef(quantity, f);
-  // No battery, no state of charge to show (REQ A-5).
-  entities.battery_soc = f.battery_source === "none" ? undefined : flat.battery_soc;
+  // No battery (none, or not picked yet), no state of charge in the YAML - the
+  // form keeps the choice and writes it once the battery is there (REQ A-5).
+  entities.battery_soc = entities.battery === undefined ? undefined : opt(flat.battery_soc);
+
+  // Two relations the number boxes cannot express: the long window must exceed
+  // the short one, and nothing moves below min_w, so it cannot exceed the first
+  // speed threshold. Fixed here so the YAML never carries the contradiction.
+  const avgShort = num(flat.avg_short_minutes);
+  let avgLong = num(flat.avg_long_minutes);
+  if (avgShort !== undefined && avgLong !== undefined && avgLong <= avgShort)
+    avgLong = avgShort + 1;
+  let minW = num(flat.min_w);
+  const slowBelow =
+    num((previous.flow as Record<string, unknown> | undefined)?.slow_below_w) ?? 500;
+  if (minW !== undefined && minW > slowBelow) minW = slowBelow;
 
   return {
     ...previous,
     type: previous.type,
-    title: flat.title || undefined,
+    title: opt(flat.title),
     entities: prune(entities) as RawConfig["entities"],
     consumers: cleanConsumers(flat.consumers),
-    max_consumers: flat.max_consumers,
-    min_consumer_w: flat.min_consumer_w,
-    update_interval_s: flat.update_interval_s,
+    max_consumers: num(flat.max_consumers),
+    min_consumer_w: num(flat.min_consumer_w),
+    update_interval_s: num(flat.update_interval_s),
     list: prune({ enabled: flat.list_enabled, rest_label: flat.rest_label }),
     ring: prune({ enabled: flat.ring_enabled }),
     view: prune({
       default_mode: flat.default_mode,
-      avg_short_minutes: flat.avg_short_minutes,
-      avg_long_minutes: flat.avg_long_minutes,
+      avg_short_minutes: avgShort,
+      avg_long_minutes: avgLong,
       show_selector: flat.show_selector,
     }),
     flow: prune({
       ...previous.flow,
       inactive_lines: flat.inactive_lines,
       animation: flat.animation,
-      min_w: flat.min_w,
+      min_w: minW,
     }),
     // soc_stops and consumer_palette have no fields; they ride along untouched.
     colors: prune({
@@ -507,8 +540,14 @@ class EnerLensCardEditor extends LitElement {
 
   private _valueChanged(ev: CustomEvent<{ value: FlatConfig }>): void {
     if (!this._config) return;
-    this._flat = ev.detail.value;
-    const config = fromFlat(this._flat, this._config);
+    const config = fromFlat(ev.detail.value, this._config);
+    // The form shows what was written: a corrected window or threshold must
+    // not linger in the box with a different value in the YAML.
+    this._flat = {
+      ...ev.detail.value,
+      avg_long_minutes: config.view?.avg_long_minutes ?? ev.detail.value.avg_long_minutes,
+      min_w: config.flow?.min_w ?? ev.detail.value.min_w,
+    };
     this._emitted = JSON.stringify(config);
     this.dispatchEvent(
       new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }),

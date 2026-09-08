@@ -123,12 +123,16 @@ function requireString(value: unknown, field: string, hass?: HomeAssistant): str
 }
 
 /**
- * Optional text. Empty and null count as "not set": clearing a field in the
- * editor leaves `""` (the object selector) or `null` behind, and neither is a
- * configuration error - it is the absence of one (REQ E-1).
+ * "Not set" has three spellings once a GUI is involved: undefined from YAML,
+ * `null` from a cleared number or boolean field, `""` from a cleared text or
+ * select. None of them is a configuration error - it is the absence of one
+ * (REQ E-1). Every optional reader below goes through this.
  */
+const isUnset = (value: unknown): boolean => value === undefined || value === null || value === "";
+
+/** Optional text. */
 function readString(value: unknown, field: string, hass?: HomeAssistant): string | undefined {
-  if (value === undefined || value === null || value === "") return undefined;
+  if (isUnset(value)) return undefined;
   return requireString(value, field, hass);
 }
 
@@ -138,13 +142,13 @@ function readBoolean(
   fallback: boolean,
   hass?: HomeAssistant,
 ): boolean {
-  if (value === undefined) return fallback;
+  if (isUnset(value)) return fallback;
   if (typeof value !== "boolean") throw fail("error.config.boolean", field, hass);
   return value;
 }
 
 function readNumber(value: unknown, field: string, fallback: number, hass?: HomeAssistant): number {
-  if (value === undefined) return fallback;
+  if (isUnset(value)) return fallback;
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw fail("error.config.number", field, hass);
   }
@@ -183,16 +187,30 @@ function greaterThanZero(value: number, field: string, hass?: HomeAssistant): nu
   return value;
 }
 
-function requireLess(a: number, b: number, first: string, second: string, hass?: HomeAssistant) {
-  if (!(a < b)) {
-    throw new ConfigError(localize("error.config.order", hass, { first, second }), first);
-  }
+/**
+ * Two thresholds in the wrong order are repaired, not refused: the second is
+ * raised to `a + step` with a warning. Both values are reachable from the GUI
+ * (avg_short_minutes, flow.min_w), where a card that dies on "30 is not less
+ * than 15" would leave the user stranded (REQ E-1). The label shows the value
+ * actually used, so nothing is hidden.
+ */
+function fixOrder(
+  a: number,
+  b: number,
+  step: number,
+  first: string,
+  second: string,
+  hass?: HomeAssistant,
+): number {
+  if (a < b) return b;
+  const fixed = a + step;
+  console.warn(localize("error.config.order_fixed", hass, { first, second, value: fixed }));
+  return fixed;
 }
 
-function requireAtMost(a: number, b: number, first: string, second: string, hass?: HomeAssistant) {
-  if (!(a <= b)) {
-    throw new ConfigError(localize("error.config.order_le", hass, { first, second }), first);
-  }
+/** Like fixOrder, but equality is fine (flow.min_w may equal slow_below_w). */
+function fixOrderAtMost(a: number, b: number, first: string, second: string, hass?: HomeAssistant) {
+  return a <= b ? b : fixOrder(a, b, 0, first, second, hass);
 }
 
 function readEnum<T extends string>(
@@ -202,7 +220,7 @@ function readEnum<T extends string>(
   fallback: T,
   hass?: HomeAssistant,
 ): T {
-  if (value === undefined) return fallback;
+  if (isUnset(value)) return fallback;
   if (typeof value !== "string" || !allowed.includes(value as T)) {
     throw fail("error.config.enum", field, hass, { allowed: allowed.join(", ") });
   }
@@ -249,7 +267,7 @@ function parseSource(
       throw fail("error.config.mixed_form", field, hass);
     }
     const invert = value.invert;
-    if (invert !== undefined && typeof invert !== "boolean") {
+    if (!isUnset(invert) && typeof invert !== "boolean") {
       throw fail("error.config.boolean", `${field}.invert`, hass);
     }
     return { kind: "single", entity, invert: invert === true };
@@ -362,12 +380,16 @@ function readConsumers(
   for (let i = 0; i < value.length; i++) {
     const entry: unknown = value[i];
     const field = `consumers[${i}]`;
+    // A row without an entity (picker cleared) or a sensor picked twice are
+    // ordinary editor states; the entry is dropped with a warning (REQ E-1).
     if (!isRecord(entry) || typeof entry.entity !== "string" || entry.entity.trim() === "") {
-      throw fail("error.config.consumer_entity", field, hass, { index: i });
+      console.warn(localize("error.config.consumer_entity", hass, { field, index: i }));
+      continue;
     }
     const entity = entry.entity;
     if (seen.has(entity)) {
-      throw fail("error.config.duplicate_consumer", field, hass, { entity });
+      console.warn(localize("error.config.duplicate_consumer", hass, { field, entity }));
+      continue;
     }
     seen.add(entity);
     consumers.push({
@@ -442,7 +464,12 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   if (rawEntities.battery_soc !== undefined) {
     batterySoc = requireString(rawEntities.battery_soc, "entities.battery_soc", hass);
     if (battery.kind === "absent") {
-      throw fail("error.config.soc_without_battery", "entities.battery_soc", hass);
+      // Reachable from the editor: the SoC picked before the battery entity.
+      // Not an error worth a dead card - the value is simply not shown (REQ A-5).
+      console.warn(
+        localize("error.config.soc_without_battery", hass, { field: "entities.battery_soc" }),
+      );
+      batterySoc = undefined;
     }
   }
 
@@ -491,9 +518,10 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     "view.avg_long_minutes",
     hass,
   );
-  requireLess(
+  const avgLongFixed = fixOrder(
     avgShortMinutes,
     avgLongMinutes,
+    1,
     "view.avg_short_minutes",
     "view.avg_long_minutes",
     hass,
@@ -526,10 +554,25 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     "flow.fast_s",
     hass,
   );
-  requireAtMost(minW, slowBelowW, "flow.min_w", "flow.slow_below_w", hass);
-  requireLess(slowBelowW, moreDotsAboveW, "flow.slow_below_w", "flow.more_dots_above_w", hass);
-  requireLess(moreDotsAboveW, maxDotsAtW, "flow.more_dots_above_w", "flow.max_dots_at_w", hass);
-  requireLess(fastS, slowS, "flow.fast_s", "flow.slow_s", hass);
+  // The step rule needs S1 <= S2 < S3 < S4; a broken chain is pushed upwards.
+  const slowBelowFixed = fixOrderAtMost(minW, slowBelowW, "flow.min_w", "flow.slow_below_w", hass);
+  const moreDotsFixed = fixOrder(
+    slowBelowFixed,
+    moreDotsAboveW,
+    1,
+    "flow.slow_below_w",
+    "flow.more_dots_above_w",
+    hass,
+  );
+  const maxDotsAtFixed = fixOrder(
+    moreDotsFixed,
+    maxDotsAtW,
+    1,
+    "flow.more_dots_above_w",
+    "flow.max_dots_at_w",
+    hass,
+  );
+  const slowSFixed = fixOrder(fastS, slowS, 1, "flow.fast_s", "flow.slow_s", hass);
 
   return {
     title: readString(rawRecord.title, "title", hass),
@@ -547,17 +590,17 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     view: {
       defaultMode: readEnum(rawView.default_mode, VIEW_MODES, "view.default_mode", "current", hass),
       avgShortMinutes,
-      avgLongMinutes,
+      avgLongMinutes: avgLongFixed,
       showSelector: readBoolean(rawView.show_selector, "view.show_selector", true, hass),
       remember: readBoolean(rawView.remember, "view.remember", true, hass),
     },
     flow: {
       minW,
-      slowBelowW,
-      moreDotsAboveW,
-      maxDotsAtW,
+      slowBelowW: slowBelowFixed,
+      moreDotsAboveW: moreDotsFixed,
+      maxDotsAtW: maxDotsAtFixed,
       maxDots,
-      slowS,
+      slowS: slowSFixed,
       fastS,
       animation: readEnum(rawFlow.animation, ANIMATION_MODES, "flow.animation", "auto", hass),
       inactiveLines: readEnum(

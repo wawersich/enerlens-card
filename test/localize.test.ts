@@ -45,7 +45,7 @@ describe("localize (REQ N-7, E-1)", () => {
 
   it("reads document.documentElement.lang when hass is missing (REQ E-1)", () => {
     globalWithDocument.document = { documentElement: { lang: "de-DE" } };
-    expect(localize("error.config.soc_without_battery")).toContain("nur zusammen mit");
+    expect(localize("error.config.soc_without_battery")).toContain("ohne entities.battery");
   });
 
   it("ignores an empty document language", () => {

@@ -304,3 +304,44 @@ describe("editor - consumer list hygiene", () => {
     expect(saved.consumers).toEqual([{ entity: "sensor.a", name: "A" }]);
   });
 });
+
+describe("editor - never writes what the card would refuse (REQ E-1)", () => {
+  const base: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  it("holds the state of charge back until a battery entity is picked", async () => {
+    const el = await mount(base);
+    await change(el, { battery_source: "entity" });
+    let saved = await change(el, { battery_soc: "sensor.soc" });
+    // Battery not picked yet: no battery_soc in the YAML, but the form keeps it.
+    expect(saved.entities?.battery_soc).toBeUndefined();
+    expect(form(el).data.battery_soc).toBe("sensor.soc");
+    saved = await change(el, { battery: "sensor.bat" });
+    expect(saved.entities?.battery).toBe("sensor.bat");
+    expect(saved.entities?.battery_soc).toBe("sensor.soc");
+  });
+
+  it("drops a consumer row without an entity and a duplicate sensor", async () => {
+    const el = await mount(base);
+    const saved = await change(el, {
+      consumers: [{ name: "orphan" }, { entity: "sensor.a", name: "A" }, { entity: "sensor.a" }],
+    });
+    expect(saved.consumers).toEqual([{ entity: "sensor.a", name: "A" }]);
+  });
+
+  it("keeps the long window above the short one and shows the corrected value", async () => {
+    const el = await mount({ ...base, view: { avg_short_minutes: 5, avg_long_minutes: 15 } });
+    const saved = await change(el, { avg_short_minutes: 30 });
+    expect(saved.view).toEqual({ avg_short_minutes: 30, avg_long_minutes: 31 });
+    expect(form(el).data.avg_long_minutes).toBe(31);
+  });
+
+  it("caps flow.min_w at the first speed threshold", async () => {
+    const el = await mount(base);
+    const saved = await change(el, { min_w: 900 });
+    expect(saved.flow?.min_w).toBe(500);
+    expect(form(el).data.min_w).toBe(500);
+  });
+});

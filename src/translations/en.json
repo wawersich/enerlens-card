@@ -38,17 +38,16 @@
       "min": "{field} must be at least {min}.",
       "range": "{field} must be between {min} and {max}.",
       "positive": "{field} must be greater than 0.",
-      "order": "{first} must be smaller than {second}.",
-      "order_le": "{first} must not be greater than {second}.",
       "missing_entities": "{field} is missing: at least three of the four balance quantities must be configured as sensors.",
       "mixed_form": "{field}: use either an entity id, the entity/invert form, the two-entity form or derived - not a mixture.",
       "two_derived": "Only one balance quantity may be derived; {field} would be the second one.",
-      "soc_without_battery": "{field} requires entities.battery.",
+      "soc_without_battery": "{field} has no effect without entities.battery and is ignored.",
       "soc_stops": "{field} needs at least two stops in ascending order, the first at 0 and the last at 100.",
       "soc_stop_entry": "{field} needs a numeric at value and a colour.",
-      "consumer_entity": "{field} needs an entity.",
-      "duplicate_consumer": "{field}: the entity {entity} is listed more than once.",
-      "unknown_key": "Unknown option {field} - ignored."
+      "consumer_entity": "{field} has no entity and is skipped.",
+      "duplicate_consumer": "{field}: entity {entity} is listed more than once; the later entry is skipped.",
+      "unknown_key": "Unknown option {field} - ignored.",
+      "order_fixed": "{first} must be less than {second} - {second} was raised to {value}."
     }
   },
   "editor": {

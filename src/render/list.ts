@@ -75,7 +75,7 @@ export function renderList(
                 // configured icon takes its place, in the same colour (REQ L-2).
                 entry.icon
                   ? html`<ha-icon class="swatch icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
-                  : html`<span class="swatch dot" style="background:${entry.color}"></span>`
+                  : html`<span class="swatch dot" style="color:${entry.color}"></span>`
               }
               ${stacked ? lane(entry.w, entry.color, config) : nothing}
               <span class="name">${rowLabel(entry, hass)}</span>

@@ -38,17 +38,16 @@
       "min": "{field} muss mindestens {min} sein.",
       "range": "{field} muss zwischen {min} und {max} liegen.",
       "positive": "{field} muss größer als 0 sein.",
-      "order": "{first} muss kleiner als {second} sein.",
-      "order_le": "{first} darf nicht größer als {second} sein.",
       "missing_entities": "{field} fehlt: mindestens drei der vier Bilanzgrößen müssen als Sensor angegeben sein.",
       "mixed_form": "{field}: entweder Entitäts-ID, die entity/invert-Form, die Zwei-Entitäten-Form oder derived - keine Mischform.",
       "two_derived": "Nur eine Bilanzgröße darf abgeleitet werden; {field} wäre die zweite.",
-      "soc_without_battery": "{field} ist nur zusammen mit entities.battery zulässig.",
+      "soc_without_battery": "{field} ist ohne entities.battery wirkungslos und wird ignoriert.",
       "soc_stops": "{field} braucht mindestens zwei Stützstellen in aufsteigender Reihenfolge, die erste bei 0, die letzte bei 100.",
       "soc_stop_entry": "{field} braucht einen numerischen at-Wert und eine Farbe.",
-      "consumer_entity": "{field} braucht eine entity.",
-      "duplicate_consumer": "{field}: die Entität {entity} ist mehrfach angegeben.",
-      "unknown_key": "Unbekannte Option {field} - wird ignoriert."
+      "consumer_entity": "{field} hat keine entity und wird übersprungen.",
+      "duplicate_consumer": "{field}: die Entität {entity} ist mehrfach angegeben; der weitere Eintrag wird übersprungen.",
+      "unknown_key": "Unbekannte Option {field} - wird ignoriert.",
+      "order_fixed": "{first} muss kleiner als {second} sein — {second} wurde auf {value} angehoben."
     }
   },
   "editor": {
