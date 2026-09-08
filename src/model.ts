@@ -153,10 +153,6 @@ function readSoc(hass: HomeAssistant, entityId: string | undefined): Reading {
 }
 
 /** Builds the model for the current instant. Never throws (REQ N-5). */
-/** An entity's own icon attribute, if it is one (REQ L-2). */
-const asIcon = (v: unknown): string | undefined =>
-  typeof v === "string" && v.startsWith("mdi:") ? v : undefined;
-
 export function buildModel(hass: HomeAssistant, config: Config): Model {
   return buildModelFrom(hass, config, (entityId) => readPowerW(hass, entityId));
 }
@@ -264,10 +260,10 @@ export function buildModelFrom(
       name: consumer.name ?? friendly ?? consumer.entity,
       color: consumer.color,
       minW: consumer.minW,
-      // Configured icon first, else the one the entity carries itself. Only an
-      // explicit `icon` attribute counts - the frontend's device-class defaults
-      // never reach the state object, so those rows keep the colour dot.
-      icon: consumer.icon ?? asIcon(stateObj?.attributes?.icon),
+      // Configured only. The entity's own icon attribute is almost never set
+      // (device-class defaults live in the frontend), so a fallback would show
+      // icons for one consumer in ten and dots for the rest - worse than dots.
+      icon: consumer.icon,
       reading: makeReading(safeValueOf(consumer.entity), consumer.entity, false),
     };
   });

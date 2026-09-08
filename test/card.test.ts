@@ -391,37 +391,6 @@ describe("show-all toggle (REQ L-12)", () => {
 });
 
 describe("consumer icons (REQ L-2)", () => {
-  it("falls back to the entity's own icon attribute", async () => {
-    const el = document.createElement("enerlens-card") as HTMLElement & {
-      setConfig: (c: unknown) => void;
-      hass: HomeAssistant;
-      updateComplete: Promise<unknown>;
-      shadowRoot: ShadowRoot | null;
-    };
-    el.setConfig({
-      ...CONFIG,
-      consumers: [
-        { entity: "sensor.pump", name: "Pump", icon: "mdi:heat-pump" },
-        { entity: "sensor.tv", name: "TV" },
-      ],
-    });
-    // The entity carries mdi:television; the configured icon still wins for the pump.
-    el.hass = fakeHass(
-      { ...STATES, "sensor.pump": "1200", "sensor.tv": "300" },
-      { "sensor.pump": "mdi:fire", "sensor.tv": "mdi:television" },
-    );
-    document.body.appendChild(el);
-    await el.updateComplete;
-    const icon = (key: string) =>
-      (
-        el.shadowRoot?.querySelector(`.row[data-key="${key}"] .swatch.icon`) as {
-          icon?: string;
-        } | null
-      )?.icon;
-    expect(icon("sensor.pump")).toBe("mdi:heat-pump");
-    expect(icon("sensor.tv")).toBe("mdi:television");
-  });
-
   it("shows a configured icon in the entry's colour, and none otherwise", async () => {
     const el = document.createElement("enerlens-card") as HTMLElement & {
       setConfig: (c: unknown) => void;
