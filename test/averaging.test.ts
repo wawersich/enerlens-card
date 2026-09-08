@@ -349,112 +349,117 @@ if (!HAS_FIXTURE) {
   });
 }
 
-describe.skipIf(!HAS_FIXTURE)("Abnahme V - reference data (REQ 2.12, 5.1)", () => {
-  const fixture: Fixture = JSON.parse(readFileSync(FIXTURE_FILE, "utf8"));
-  const roles = [HOUSE_ROLE, ...CONSUMER_ROLES];
+// A plain `if` here as well: describe.skipIf(true) still runs the callback to
+// collect its tests, and the readFileSync below then fails where the reference
+// data is absent - which is every CI runner. That failure hid behind a green
+// local run for two days.
+if (HAS_FIXTURE)
+  describe("Abnahme V - reference data (REQ 2.12, 5.1)", () => {
+    const fixture: Fixture = JSON.parse(readFileSync(FIXTURE_FILE, "utf8"));
+    const roles = [HOUSE_ROLE, ...CONSUMER_ROLES];
 
-  function samplesOf(role: string): Sample[] {
-    const points = fixture.series[role]?.points ?? [];
-    return points.map((p) => {
-      const v = Number.parseFloat(p.v);
-      return { t: Date.parse(p.t), v: Number.isFinite(v) ? v : null };
-    });
-  }
+    function samplesOf(role: string): Sample[] {
+      const points = fixture.series[role]?.points ?? [];
+      return points.map((p) => {
+        const v = Number.parseFloat(p.v);
+        return { t: Date.parse(p.t), v: Number.isFinite(v) ? v : null };
+      });
+    }
 
-  const LONG_MS = 15 * MIN;
+    const LONG_MS = 15 * MIN;
 
-  /**
-   * Mirrors the prefill path: one `history_during_period` over the long window
-   * plus the sample that was in effect when the window opened (REQ V-6).
-   */
-  function prefilled(now: number): AveragingBuffer {
-    const buffer = new AveragingBuffer(LONG_MS);
-    const from = now - LONG_MS;
-    for (const role of roles) {
-      const samples = samplesOf(role).filter((s) => s.t <= now);
-      let carry: Sample | undefined;
-      for (const s of samples) {
-        if (s.t <= from) carry = s;
-        else break;
+    /**
+     * Mirrors the prefill path: one `history_during_period` over the long window
+     * plus the sample that was in effect when the window opened (REQ V-6).
+     */
+    function prefilled(now: number): AveragingBuffer {
+      const buffer = new AveragingBuffer(LONG_MS);
+      const from = now - LONG_MS;
+      for (const role of roles) {
+        const samples = samplesOf(role).filter((s) => s.t <= now);
+        let carry: Sample | undefined;
+        for (const s of samples) {
+          if (s.t <= from) carry = s;
+          else break;
+        }
+        if (carry) buffer.push(role, carry.t, carry.v);
+        for (const s of samples) if (s.t > from) buffer.push(role, s.t, s.v);
       }
-      if (carry) buffer.push(role, carry.t, carry.v);
-      for (const s of samples) if (s.t > from) buffer.push(role, s.t, s.v);
+      return buffer;
     }
-    return buffer;
-  }
 
-  /** Mirrors the live path: every sample of the day, pruned on every tick. */
-  function livePushed(now: number): AveragingBuffer {
-    const buffer = new AveragingBuffer(LONG_MS);
-    const merged: { role: string; s: Sample }[] = [];
-    for (const role of roles) {
-      for (const s of samplesOf(role)) if (s.t <= now) merged.push({ role, s });
+    /** Mirrors the live path: every sample of the day, pruned on every tick. */
+    function livePushed(now: number): AveragingBuffer {
+      const buffer = new AveragingBuffer(LONG_MS);
+      const merged: { role: string; s: Sample }[] = [];
+      for (const role of roles) {
+        for (const s of samplesOf(role)) if (s.t <= now) merged.push({ role, s });
+      }
+      merged.sort((a, b) => a.s.t - b.s.t);
+      let i = 0;
+      for (const { role, s } of merged) {
+        buffer.push(role, s.t, s.v);
+        if (++i % 250 === 0) buffer.prune(s.t);
+      }
+      buffer.prune(now);
+      return buffer;
     }
-    merged.sort((a, b) => a.s.t - b.s.t);
-    let i = 0;
-    for (const { role, s } of merged) {
-      buffer.push(role, s.t, s.v);
-      if (++i % 250 === 0) buffer.prune(s.t);
+
+    function houseAndConsumers(buffer: AveragingBuffer, windowMs: number, now: number) {
+      const house = buffer.mean(HOUSE_ROLE, windowMs, now);
+      let consumers = 0;
+      for (const role of CONSUMER_ROLES) {
+        const w = buffer.mean(role, windowMs, now);
+        if (w !== null) consumers += w;
+      }
+      return { house, consumers };
     }
-    buffer.prune(now);
-    return buffer;
-  }
 
-  function houseAndConsumers(buffer: AveragingBuffer, windowMs: number, now: number) {
-    const house = buffer.mean(HOUSE_ROLE, windowMs, now);
-    let consumers = 0;
-    for (const role of CONSUMER_ROLES) {
-      const w = buffer.mean(role, windowMs, now);
-      if (w !== null) consumers += w;
-    }
-    return { house, consumers };
-  }
-
-  const cases = [
-    { iso: "2026-09-05T15:40:18+02:00", minutes: 5, house: 1525, consumers: 1189 },
-    { iso: "2026-09-05T15:40:18+02:00", minutes: 15, house: 1618, consumers: 1247 },
-    { iso: "2026-09-05T15:10:42+02:00", minutes: 5, house: 3539, consumers: 3192 },
-    { iso: "2026-09-05T15:10:42+02:00", minutes: 15, house: 2947, consumers: 2558 },
-  ];
-
-  for (const c of cases) {
-    it(`${c.iso} / Ø ${c.minutes} min matches the table within 1 W`, () => {
-      const now = Date.parse(c.iso);
-      const { house, consumers } = houseAndConsumers(prefilled(now), c.minutes * MIN, now);
-      expect(house).not.toBeNull();
-      expect(Math.abs((house as number) - c.house)).toBeLessThanOrEqual(1);
-      expect(Math.abs(consumers - c.consumers)).toBeLessThanOrEqual(1);
-    });
-  }
-
-  it("live buffering with pruning gives the same means as the prefill", () => {
-    const now = Date.parse("2026-09-05T15:40:18+02:00");
-    for (const minutes of [5, 15]) {
-      const a = houseAndConsumers(prefilled(now), minutes * MIN, now);
-      const b = houseAndConsumers(livePushed(now), minutes * MIN, now);
-      expect(b.house as number).toBeCloseTo(a.house as number, 6);
-      expect(b.consumers).toBeCloseTo(a.consumers, 6);
-    }
-  });
-
-  const ORACLE_FILE = join(FIXTURE_DIR, "expected.json");
-
-  it.skipIf(!existsSync(ORACLE_FILE))("matches the independent oracle in expected.json", () => {
-    const oracle: Record<string, { t: string; house: number; sum_all_consumers: number }> =
-      JSON.parse(readFileSync(ORACLE_FILE, "utf8"));
-    const pairs: [string, number][] = [
-      ["V2", 5],
-      ["V3", 15],
-      ["V5", 5],
-      ["V6", 15],
+    const cases = [
+      { iso: "2026-09-05T15:40:18+02:00", minutes: 5, house: 1525, consumers: 1189 },
+      { iso: "2026-09-05T15:40:18+02:00", minutes: 15, house: 1618, consumers: 1247 },
+      { iso: "2026-09-05T15:10:42+02:00", minutes: 5, house: 3539, consumers: 3192 },
+      { iso: "2026-09-05T15:10:42+02:00", minutes: 15, house: 2947, consumers: 2558 },
     ];
-    for (const [id, minutes] of pairs) {
-      const expectedCase = oracle[id];
-      if (!expectedCase) continue;
-      const now = Date.parse(expectedCase.t);
-      const { house, consumers } = houseAndConsumers(prefilled(now), minutes * MIN, now);
-      expect(house as number).toBeCloseTo(expectedCase.house, 6);
-      expect(consumers).toBeCloseTo(expectedCase.sum_all_consumers, 6);
+
+    for (const c of cases) {
+      it(`${c.iso} / Ø ${c.minutes} min matches the table within 1 W`, () => {
+        const now = Date.parse(c.iso);
+        const { house, consumers } = houseAndConsumers(prefilled(now), c.minutes * MIN, now);
+        expect(house).not.toBeNull();
+        expect(Math.abs((house as number) - c.house)).toBeLessThanOrEqual(1);
+        expect(Math.abs(consumers - c.consumers)).toBeLessThanOrEqual(1);
+      });
     }
+
+    it("live buffering with pruning gives the same means as the prefill", () => {
+      const now = Date.parse("2026-09-05T15:40:18+02:00");
+      for (const minutes of [5, 15]) {
+        const a = houseAndConsumers(prefilled(now), minutes * MIN, now);
+        const b = houseAndConsumers(livePushed(now), minutes * MIN, now);
+        expect(b.house as number).toBeCloseTo(a.house as number, 6);
+        expect(b.consumers).toBeCloseTo(a.consumers, 6);
+      }
+    });
+
+    const ORACLE_FILE = join(FIXTURE_DIR, "expected.json");
+
+    it.skipIf(!existsSync(ORACLE_FILE))("matches the independent oracle in expected.json", () => {
+      const oracle: Record<string, { t: string; house: number; sum_all_consumers: number }> =
+        JSON.parse(readFileSync(ORACLE_FILE, "utf8"));
+      const pairs: [string, number][] = [
+        ["V2", 5],
+        ["V3", 15],
+        ["V5", 5],
+        ["V6", 15],
+      ];
+      for (const [id, minutes] of pairs) {
+        const expectedCase = oracle[id];
+        if (!expectedCase) continue;
+        const now = Date.parse(expectedCase.t);
+        const { house, consumers } = houseAndConsumers(prefilled(now), minutes * MIN, now);
+        expect(house as number).toBeCloseTo(expectedCase.house, 6);
+        expect(consumers).toBeCloseTo(expectedCase.sum_all_consumers, 6);
+      }
+    });
   });
-});
