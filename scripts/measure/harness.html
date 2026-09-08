@@ -45,12 +45,16 @@
     entities: { solar: "sensor.s", grid: { import: "sensor.gi", export: "sensor.ge" }, house: "sensor.h",
                 battery: { discharge: "sensor.bd", charge: "sensor.bc" }, battery_soc: "sensor.soc" },
     consumers: [{ entity: "sensor.c1", name: "Wärmepumpe" }, { entity: "sensor.c2", name: "Klima" }, { entity: "sensor.c3", name: "Kühlschränke" }, { entity: "sensor.c4", name: "Speicher" }],
+    // No motion: under --virtual-time-budget Web Animations do not advance, and a
+    // row frozen mid-glide would be measured where it is drawn, not where it lands.
+    flow: { animation: "off" },
   });
   card.hass = hass;
   document.getElementById("host").appendChild(card);
   await card.updateComplete;
   // Let ResizeObserver and the scale measurement settle.
-  await new Promise((r) => setTimeout(r, 400));
+  // Past the 600 ms glide of the first layout pass, so positions are final.
+  await new Promise((r) => setTimeout(r, 1200));
 
   const root = card.shadowRoot;
   const rect = (el) => { const r = el.getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), x: +r.left.toFixed(1), y: +r.top.toFixed(1) }; };
@@ -64,11 +68,20 @@
     texts: Array.from(root.querySelectorAll(".label, .value, .name, .row-value, .mode, .filter-toggle"))
       .map((e) => (e.textContent ?? e.getAttribute("aria-label") ?? "").trim().replace(/\s+/g, " ")).filter(Boolean),
     card: rect(card),
+    body: rect(root.querySelector(".body")),
+    cross: rect(root.querySelector(".cross")),
+    list: rect(root.querySelector(".list")),
     plot: rect(root.querySelector(".plot")),
     scale: +parseFloat(getComputedStyle(card).getPropertyValue("--el-scale")).toFixed(3),
     stacked: root.querySelector(".lane") !== null,
     nodes: Object.fromEntries(all(".node").map((n) => [n.classList[1], rect(n)])),
     hits: all(".hit").map((h) => ({ cls: h.className, ...rect(h) })),
+    // What a tap in the centre (and lower half, for the battery) of each node lands on.
+    tapTargets: Object.fromEntries(all(".node").map((n) => {
+      const r = n.getBoundingClientRect();
+      const at = (x, y) => { const el = root.elementFromPoint(x, y); return el ? el.className || el.tagName.toLowerCase() : null; };
+      return [n.classList[1], { centre: at(r.left + r.width / 2, r.top + r.height / 2), lower: at(r.left + r.width / 2, r.top + r.height * 0.8) }];
+    })),
     rowHits: all(".row-hit").map((h) => rect(h)),
     rows: all(".row").map((r) => rect(r)),
     modes: all(".mode").map((m) => rect(m)),

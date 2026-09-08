@@ -286,6 +286,10 @@ export const styles = css`
      a phone (REQ I-2, I-3, ENT-5). */
   .hit {
     position: absolute;
+    /* Above icon and figure, which sit at z-index 1 to clear the ring. Without
+       this a tap in the middle of a node landed on the figure, not the button
+       - the node "mostly" did not open its history. */
+    z-index: 2;
     left: 50%;
     transform: translateX(-50%);
     width: max(44px, 100%);
