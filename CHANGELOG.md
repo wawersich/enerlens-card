@@ -4,7 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.1] - 2026-09-08
+
+### Changed
+- The filter button above the consumer list keeps its state per browser now,
+  the same way the selected view does (`view.remember`, key
+  `enerlens-show-all`). It used to start over on every reload while the view
+  chips came back, which needed explaining every time (L-12).
+
+### Under the hood
+- `CARD_SUFFIX=-dev` builds the card as `<enerlens-card-dev>` with its own
+  editor, so a local build can be tested next to the released card in the same
+  browser. `scripts/deploy.sh` uses it by default and keeps its own Lovelace
+  resource; the released bundle is unchanged.
+
+## [0.1.0] - 2026-09-08
 
 First release. Everything below is new.
 
