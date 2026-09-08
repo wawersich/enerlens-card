@@ -122,8 +122,14 @@ function requireString(value: unknown, field: string, hass?: HomeAssistant): str
   return value;
 }
 
+/**
+ * Optional text. Empty and null count as "not set": clearing a field in the
+ * editor leaves `""` (the object selector) or `null` behind, and neither is a
+ * configuration error - it is the absence of one (REQ E-1).
+ */
 function readString(value: unknown, field: string, hass?: HomeAssistant): string | undefined {
-  return value === undefined ? undefined : requireString(value, field, hass);
+  if (value === undefined || value === null || value === "") return undefined;
+  return requireString(value, field, hass);
 }
 
 function readBoolean(

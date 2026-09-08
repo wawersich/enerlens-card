@@ -211,12 +211,25 @@ function buildRef(quantity: Quantity, flat: FlatRecord): EntityRef | undefined {
   }
 }
 
+/** The object selector leaves "" or null when a field is cleared; the YAML
+ *  should not carry those, and the entity must survive (REQ E-4). */
+function cleanConsumers(value: unknown): RawConfig["consumers"] {
+  if (!Array.isArray(value)) return undefined;
+  const list = value
+    .map((entry) => (isRecord(entry) ? prune(entry) : undefined))
+    .filter((entry): entry is Record<string, unknown> => entry !== undefined);
+  return list.length ? (list as unknown as RawConfig["consumers"]) : undefined;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
 /** Undefined values are dropped so removing an option clears it from the YAML
  *  instead of leaving a null behind. */
 function prune<T extends Record<string, unknown>>(obj: T): T | undefined {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined && value !== "") out[key] = value;
+    if (value !== undefined && value !== null && value !== "") out[key] = value;
   }
   return Object.keys(out).length ? (out as T) : undefined;
 }
@@ -233,7 +246,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
     type: previous.type,
     title: flat.title || undefined,
     entities: prune(entities) as RawConfig["entities"],
-    consumers: (flat.consumers as RawConfig["consumers"]) ?? undefined,
+    consumers: cleanConsumers(flat.consumers),
     max_consumers: flat.max_consumers,
     min_consumer_w: flat.min_consumer_w,
     update_interval_s: flat.update_interval_s,

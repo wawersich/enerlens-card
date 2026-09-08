@@ -290,3 +290,17 @@ describe("editor - colours, icons and thresholds", () => {
     expect(saved.flow).toEqual({ inactive_lines: "dim", min_w: 25 });
   });
 });
+
+describe("editor - consumer list hygiene", () => {
+  it("drops cleared fields from a consumer instead of writing empty strings", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      consumers: [{ entity: "sensor.a", name: "A", icon: "mdi:fan" }],
+    });
+    const saved = await change(el, {
+      consumers: [{ entity: "sensor.a", name: "A", icon: "", color: null }],
+    });
+    expect(saved.consumers).toEqual([{ entity: "sensor.a", name: "A" }]);
+  });
+});
