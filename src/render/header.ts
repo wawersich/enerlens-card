@@ -56,6 +56,7 @@ export function renderHeader(
                     class="mode ${m === mode ? "on" : ""}"
                     role="radio"
                     aria-checked=${m === mode ? "true" : "false"}
+                    title=${m === mode && since ? localize("view.since", hass, { time: since }) : ""}
                     @click=${() => onMode(m)}
                   >
                     ${modeLabel(m, config, hass)}
@@ -69,11 +70,6 @@ export function renderHeader(
         }
         ${toggle}
       </div>
-      ${
-        since
-          ? html`<div class="since">${localize("view.since", hass, { time: since })}</div>`
-          : nothing
-      }
     </div>
   `;
 }

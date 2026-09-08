@@ -140,12 +140,6 @@ export const styles = css`
     font-variant-numeric: tabular-nums;
   }
 
-  .since {
-    flex-basis: 100%;
-    font-size: 11px;
-    color: var(--secondary-text-color);
-    text-align: right;
-  }
 
   .body {
     position: relative;
