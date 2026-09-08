@@ -65,6 +65,41 @@ export const styles = css`
     white-space: nowrap;
   }
 
+  /* Mode chips and the list filter share one row at the right of the header. */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+  }
+
+  /* A round chip: same height and border as the mode chips beside it. */
+  .filter-toggle {
+    font: inherit;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    background: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    --mdc-icon-size: 18px;
+  }
+
+  .filter-toggle.on {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  .filter-toggle:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
   .modes {
     display: flex;
     /* Measured: 4 px left the chips closer than the 8 px I-3 asks between targets. */
@@ -346,48 +381,6 @@ export const styles = css`
     align-self: center;
   }
 
-  .list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 0;
-  }
-
-  .filter-toggle {
-    font: inherit;
-    /* Small, but not below the 24 px floor (REQ I-3). */
-    width: 28px;
-    height: 28px;
-    margin: 0 -4px 0 0;
-    padding: 0;
-    /* Above the first row's hit target, which reaches 5 px up into the bar -
-       measured: without this the row took the toggle's lower half. */
-    position: relative;
-    z-index: 1;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--secondary-text-color);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    --mdc-icon-size: 18px;
-  }
-
-  .filter-toggle.on {
-    color: var(--primary-color);
-  }
-
-  .filter-toggle:hover {
-    background: rgba(var(--rgb-primary-text-color, 0, 0, 0), 0.06);
-  }
-
-  .filter-toggle:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-  }
-
   .list-title {
     margin: 0 0 2px;
     font-size: 11px;
@@ -410,16 +403,22 @@ export const styles = css`
   }
 
   .row .swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
     flex: none;
   }
 
-  .row .row-icon {
+  .row .swatch.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* An icon in the swatch's place is wider than the dot; the name column
+     starts a little later in that row, which is what "in front of" means. */
+  .row .swatch.icon {
     --mdc-icon-size: 18px;
     display: flex;
-    flex: none;
+    width: 18px;
+    height: 18px;
   }
 
   /* Short run of wire per row, only in the stacked layout. Width is fixed so

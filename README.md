@@ -28,7 +28,7 @@ element still opens Home Assistant's own dialog with the raw history.
 **The list sorts itself and glides.** Rows reorder by power on a fixed beat and
 slide to their new position instead of jumping. Values update immediately; only
 the order waits for the beat, because a jumping figure does not disturb but a
-jumping row does. A small filter button above the list shows every consumer
+jumping row does. A small filter button beside the view chips shows every consumer
 regardless of power — for tapping the history of a device that has just gone
 quiet.
 

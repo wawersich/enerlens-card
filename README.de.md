@@ -29,8 +29,8 @@ den Dialog von Home Assistant mit der echten Historie.
 **Die Liste sortiert sich und gleitet.** Zeilen ordnen sich im festen Takt nach
 Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
 ändern sich sofort; nur die Reihenfolge wartet auf den Takt — eine springende
-Zahl stört nicht, eine springende Zeile schon. Ein kleiner Filter-Knopf über
-der Liste zeigt alle Verbraucher unabhängig von ihrer Leistung — um den Verlauf
+Zahl stört nicht, eine springende Zeile schon. Ein kleiner Filter-Knopf neben
+den Ansichts-Chips zeigt alle Verbraucher unabhängig von ihrer Leistung — um den Verlauf
 eines Geräts anzutippen, das gerade still geworden ist.
 
 **Messwerte werden nie stillschweigend verändert.** Sensoren aktualisieren

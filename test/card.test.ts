@@ -362,7 +362,7 @@ describe("show-all toggle (REQ L-12)", () => {
     const el = await mountWithConsumers();
     expect(names(el)).not.toContain("Idle");
     const toggle = el.shadowRoot?.querySelector(".filter-toggle") as HTMLButtonElement;
-    expect(toggle, "no toggle above the list").toBeTruthy();
+    expect(toggle, "no toggle in the header").toBeTruthy();
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
 
     toggle.click();
@@ -406,11 +406,12 @@ describe("consumer icons (REQ L-2)", () => {
     document.body.appendChild(el);
     await el.updateComplete;
     const pump = el.shadowRoot?.querySelector(
-      '.row[data-key="sensor.pump"] .row-icon',
+      '.row[data-key="sensor.pump"] .swatch.icon',
     ) as HTMLElement & { icon?: string };
     expect(pump).toBeTruthy();
     expect(pump.icon).toBe("mdi:heat-pump");
     expect(pump.style.color).toMatch(/#123456|rgb\(18, 52, 86\)/);
-    expect(el.shadowRoot?.querySelector('.row[data-key="sensor.tv"] .row-icon')).toBeNull();
+    expect(el.shadowRoot?.querySelector('.row[data-key="sensor.tv"] .swatch.icon')).toBeNull();
+    expect(el.shadowRoot?.querySelector('.row[data-key="sensor.tv"] .swatch.dot')).toBeTruthy();
   });
 });

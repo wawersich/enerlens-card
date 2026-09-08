@@ -481,6 +481,8 @@ class EnerLensCard extends LitElement {
           this._mode,
           this._since,
           (mode) => this._setMode(mode),
+          this._showAll,
+          () => this._toggleShowAll(),
         )}
         <div class="body">
           <svg class="fan" aria-hidden="true"></svg>
@@ -491,15 +493,7 @@ class EnerLensCard extends LitElement {
             active,
             this._config.ring.enabled ? breakdown.segments : [],
           )}
-          ${renderList(
-            breakdown,
-            this._config,
-            this._hass,
-            openEntry,
-            this._stacked,
-            this._showAll,
-            () => this._toggleShowAll(),
-          )}
+          ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>
       </ha-card>
     `;
