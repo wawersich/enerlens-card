@@ -182,7 +182,14 @@ export const styles = css`
      icon and figure (z-index), above the node's background. */
   .node .ring {
     position: absolute;
-    inset: 4px;
+    left: 4px;
+    top: 4px;
+    /* Explicit size, not derived from the insets: an SVG is a replaced element,
+       and WebKit gives an absolutely positioned one its intrinsic 300 x 150
+       instead of stretching it between left and right - the ring then sat off
+       to the lower right and too large on iOS while Chromium looked fine. */
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
     z-index: 0;
     pointer-events: none;
     overflow: visible;

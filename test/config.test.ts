@@ -477,6 +477,7 @@ describe("defaults (section 3)", () => {
     expect(config.flow).toEqual({
       minW: 10,
       slowBelowW: 500,
+      fullSpeedW: 2000,
       moreDotsAboveW: 2000,
       maxDotsAtW: 6000,
       maxDots: 5,
@@ -631,6 +632,16 @@ describe("numeric ranges (schema rules)", () => {
     );
   });
 
+  it("derives the three thresholds from peak_w, explicit values winning (P-3)", () => {
+    let flow = normalizeConfig(cfg({ flow: { peak_w: 3000 } })).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([250, 1000, 3000]);
+    flow = normalizeConfig(cfg({ flow: { peak_w: 3000, more_dots_above_w: 800 } })).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([250, 800, 3000]);
+    // Without peak_w the defaults are what they always were.
+    flow = normalizeConfig(cfg()).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([500, 2000, 6000]);
+  });
+
   it("raises slow_below_w to a min_w above it, with a warning (P-3, E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const flow = normalizeConfig(cfg({ flow: { min_w: 600 } })).flow;
@@ -684,6 +695,7 @@ describe("numeric ranges (schema rules)", () => {
     expect(config.flow).toEqual({
       minW: 5,
       slowBelowW: 300,
+      fullSpeedW: 1500,
       moreDotsAboveW: 1500,
       maxDotsAtW: 5000,
       maxDots: 7,

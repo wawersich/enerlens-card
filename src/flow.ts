@@ -74,18 +74,26 @@ export function computeFlows(model: Model): Flows {
  * Returns null below `flow.min_w`, where nothing moves at all.
  */
 export function dotParams(w: number, config: Config): { count: number; durationS: number } | null {
-  const { minW, slowBelowW, moreDotsAboveW, maxDotsAtW, maxDots, slowS, fastS } = config.flow;
+  const { minW, slowBelowW, fullSpeedW, moreDotsAboveW, maxDotsAtW, maxDots, slowS, fastS } =
+    config.flow;
   if (!Number.isFinite(w) || w < minW) return null;
 
-  if (w < slowBelowW) return { count: 1, durationS: slowS };
-
-  if (w < moreDotsAboveW) {
-    const ramp = (w - slowBelowW) / (moreDotsAboveW - slowBelowW);
-    return { count: 1, durationS: slowS - ramp * (slowS - fastS) };
+  // Speed: resting pace below S1, ramping up to fast_s at full_speed_w.
+  let durationS = slowS;
+  if (w >= fullSpeedW) durationS = fastS;
+  else if (w > slowBelowW) {
+    const ramp = (w - slowBelowW) / (fullSpeedW - slowBelowW);
+    durationS = slowS - ramp * (slowS - fastS);
   }
 
-  const grown = (w - moreDotsAboveW) / (maxDotsAtW - moreDotsAboveW);
-  return { count: Math.min(maxDots, 2 + Math.floor(grown * (maxDots - 2))), durationS: fastS };
+  // Count: one dot below more_dots_above_w, then growing to max_dots at S3.
+  // The two thresholds are independent (REQ P-3); by default they coincide.
+  let count = 1;
+  if (w >= moreDotsAboveW) {
+    const grown = (w - moreDotsAboveW) / (maxDotsAtW - moreDotsAboveW);
+    count = Math.min(maxDots, 2 + Math.floor(grown * (maxDots - 2)));
+  }
+  return { count, durationS };
 }
 
 export function planDots(flows: Flows, config: Config): DotPlan[] {

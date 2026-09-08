@@ -90,6 +90,14 @@ interface FlatConfig {
   inactive_lines?: string;
   animation?: string;
   min_w?: number;
+  peak_w?: number;
+  slow_below_w?: number;
+  full_speed_w?: number;
+  more_dots_above_w?: number;
+  max_dots_at_w?: number;
+  max_dots?: number;
+  slow_s?: number;
+  fast_s?: number;
   color_solar?: string;
   color_house?: string;
   color_grid_import?: string;
@@ -169,6 +177,14 @@ function toFlat(config: RawConfig): FlatConfig {
     inactive_lines: config.flow?.inactive_lines,
     animation: config.flow?.animation,
     min_w: config.flow?.min_w,
+    peak_w: config.flow?.peak_w,
+    slow_below_w: config.flow?.slow_below_w,
+    full_speed_w: config.flow?.full_speed_w,
+    more_dots_above_w: config.flow?.more_dots_above_w,
+    max_dots_at_w: config.flow?.max_dots_at_w,
+    max_dots: config.flow?.max_dots,
+    slow_s: config.flow?.slow_s,
+    fast_s: config.flow?.fast_s,
   };
   for (const quantity of QUANTITIES) flattenQuantity(quantity, e[quantity], out);
   const colors = (config.colors ?? {}) as Record<string, unknown>;
@@ -262,17 +278,10 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
   // form keeps the choice and writes it once the battery is there (REQ A-5).
   entities.battery_soc = entities.battery === undefined ? undefined : opt(flat.battery_soc);
 
-  // Two relations the number boxes cannot express: the long window must exceed
-  // the short one, and nothing moves below min_w, so it cannot exceed the first
-  // speed threshold. Fixed here so the YAML never carries the contradiction.
-  const avgShort = num(flat.avg_short_minutes);
-  let avgLong = num(flat.avg_long_minutes);
-  if (avgShort !== undefined && avgLong !== undefined && avgLong <= avgShort)
-    avgLong = avgShort + 1;
-  let minW = num(flat.min_w);
-  const slowBelow =
-    num((previous.flow as Record<string, unknown> | undefined)?.slow_below_w) ?? 500;
-  if (minW !== undefined && minW > slowBelow) minW = slowBelow;
+  // Numbers are written as typed. Relations between fields (short < long
+  // window, the threshold chain) are NOT enforced here: ha-form reports every
+  // keystroke, and a correction fired on "1" on the way to "1000" locks the
+  // field. The card repairs a wrong order at runtime with a warning (E-1).
 
   return {
     ...previous,
@@ -287,15 +296,23 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
     ring: prune({ enabled: flat.ring_enabled }),
     view: prune({
       default_mode: flat.default_mode,
-      avg_short_minutes: avgShort,
-      avg_long_minutes: avgLong,
+      avg_short_minutes: num(flat.avg_short_minutes),
+      avg_long_minutes: num(flat.avg_long_minutes),
       show_selector: flat.show_selector,
     }),
     flow: prune({
       ...previous.flow,
       inactive_lines: flat.inactive_lines,
       animation: flat.animation,
-      min_w: minW,
+      min_w: num(flat.min_w),
+      peak_w: num(flat.peak_w),
+      slow_below_w: num(flat.slow_below_w),
+      full_speed_w: num(flat.full_speed_w),
+      more_dots_above_w: num(flat.more_dots_above_w),
+      max_dots_at_w: num(flat.max_dots_at_w),
+      max_dots: num(flat.max_dots),
+      slow_s: num(flat.slow_s),
+      fast_s: num(flat.fast_s),
     }),
     // soc_stops and consumer_palette have no fields; they ride along untouched.
     colors: prune({
@@ -439,6 +456,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       title: t("flow"),
       schema: [
         { name: "min_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
+        { name: "peak_w", selector: { number: { min: 100, max: 100000, mode: "box" } } },
         {
           name: "inactive_lines",
           selector: {
@@ -464,6 +482,24 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
               ],
             },
           },
+        },
+        {
+          name: "flow_fine",
+          type: "expandable",
+          flatten: true,
+          title: t("flow_fine"),
+          schema: [
+            { name: "slow_below_w", selector: { number: { min: 1, max: 100000, mode: "box" } } },
+            { name: "full_speed_w", selector: { number: { min: 2, max: 100000, mode: "box" } } },
+            {
+              name: "more_dots_above_w",
+              selector: { number: { min: 2, max: 100000, mode: "box" } },
+            },
+            { name: "max_dots_at_w", selector: { number: { min: 3, max: 100000, mode: "box" } } },
+            { name: "max_dots", selector: { number: { min: 2, max: 10, mode: "box" } } },
+            { name: "slow_s", selector: { number: { min: 0.5, max: 60, step: 0.1, mode: "box" } } },
+            { name: "fast_s", selector: { number: { min: 0.2, max: 30, step: 0.1, mode: "box" } } },
+          ],
         },
       ],
     },
@@ -540,14 +576,10 @@ class EnerLensCardEditor extends LitElement {
 
   private _valueChanged(ev: CustomEvent<{ value: FlatConfig }>): void {
     if (!this._config) return;
-    const config = fromFlat(ev.detail.value, this._config);
-    // The form shows what was written: a corrected window or threshold must
-    // not linger in the box with a different value in the YAML.
-    this._flat = {
-      ...ev.detail.value,
-      avg_long_minutes: config.view?.avg_long_minutes ?? ev.detail.value.avg_long_minutes,
-      min_w: config.flow?.min_w ?? ev.detail.value.min_w,
-    };
+    // The form keeps exactly what was typed - never a value the editor made up
+    // mid-keystroke (see fromFlat).
+    this._flat = ev.detail.value;
+    const config = fromFlat(this._flat, this._config);
     this._emitted = JSON.stringify(config);
     this.dispatchEvent(
       new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }),

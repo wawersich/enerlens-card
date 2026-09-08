@@ -65,6 +65,7 @@ function configOf(
     flow: {
       minW: 10,
       slowBelowW: 500,
+      fullSpeedW: 2000,
       moreDotsAboveW: 2000,
       maxDotsAtW: 6000,
       maxDots: 5,

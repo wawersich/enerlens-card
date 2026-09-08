@@ -196,7 +196,9 @@ inverter, the house is low by exactly that amount — derive it instead.
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
 | `flow.min_w` | `10` | Below this nothing moves, and grid and battery show no state word |
+| `flow.peak_w` | `6000` | One knob for the motion: the power at which dots peak; the three thresholds below default to 1/12, 1/3 and 1/1 of it |
 | `flow.slow_below_w` | `500` | One slow dot up to here |
+| `flow.full_speed_w` | = `more_dots_above_w` | Where the single dot reaches full speed; set it apart from `more_dots_above_w` to separate speed from count |
 | `flow.more_dots_above_w` | `2000` | More dots beyond here |
 | `flow.max_dots_at_w` | `6000` | Where the dot count peaks |
 | `flow.max_dots` | `5` | Upper limit on dots |

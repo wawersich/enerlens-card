@@ -122,7 +122,12 @@ export interface RawConfig extends LovelaceCardConfig {
   };
   flow?: {
     min_w?: number;
+    /** One knob for the whole step rule: the power at which the animation peaks.
+     *  The three thresholds default to peak/12, peak/3 and peak (REQ P-3). */
+    peak_w?: number;
     slow_below_w?: number;
+    /** Where the single dot reaches fast_s; defaults to more_dots_above_w. */
+    full_speed_w?: number;
     more_dots_above_w?: number;
     max_dots_at_w?: number;
     max_dots?: number;
@@ -190,6 +195,7 @@ export interface Config {
   flow: {
     minW: number;
     slowBelowW: number;
+    fullSpeedW: number;
     moreDotsAboveW: number;
     maxDotsAtW: number;
     maxDots: number;

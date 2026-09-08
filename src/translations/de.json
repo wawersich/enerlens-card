@@ -106,7 +106,16 @@
     "color_battery_discharge": "Batterie · entlädt",
     "color_rest": "Rest",
     "min_w": "Mindestleistung (W)",
-    "icon": "Icon"
+    "icon": "Icon",
+    "peak_w": "Höchstleistung der Anlage (W)",
+    "flow_fine": "Feineinstellung der Bewegung",
+    "slow_below_w": "Beschleunigung ab (W)",
+    "more_dots_above_w": "Mehr Punkte ab (W)",
+    "max_dots_at_w": "Alle Punkte ab (W)",
+    "max_dots": "Höchstzahl Punkte",
+    "slow_s": "Ruhe-Tempo (Sekunden pro Runde)",
+    "fast_s": "Höchsttempo (Sekunden pro Runde)",
+    "full_speed_w": "Höchsttempo ab (W)"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -131,6 +140,15 @@
     "derived": "Wird aus den drei anderen Größen berechnet, damit die Bilanz aufgeht. Nur eine Größe kann abgeleitet sein.",
     "min_w": "Ab dieser Leistung gilt eine Verbindung als aktiv: Punkte laufen, Netz und Batterie zeigen ihren Zustand. Darunter ist alles neutral.",
     "consumers": "Mindestleistung je Verbraucher überschreibt den globalen Wert – etwa 50 W für eine Wärmepumpe, damit ihr Standby nicht als Verbraucher zählt.",
-    "icon_battery": "Leer = Icon folgt dem Ladezustand."
+    "icon_battery": "Leer = Icon folgt dem Ladezustand.",
+    "peak_w": "Ein Wert für die ganze Bewegung: Bei dieser Leistung laufen die meisten Punkte am schnellsten. Die drei Schwellen der Feineinstellung ergeben sich daraus (1/12, 1/3, 1/1), solange sie leer sind. Standard 6000 W.",
+    "flow_fine": "Nur nötig, wenn die Höchstleistung allein nicht reicht. Ein gesetzter Wert hat Vorrang vor der Ableitung aus der Höchstleistung. Stimmt die Reihenfolge nicht, hebt die Karte den zweiten Wert an und meldet es in der Browser-Konsole.",
+    "slow_below_w": "Darunter läuft ein einzelner Punkt im Ruhe-Tempo. Ab hier wird er schneller. Standard: Höchstleistung / 12.",
+    "more_dots_above_w": "Ab hier kommen weitere Punkte dazu, unabhängig vom Tempo. Standard: Höchstleistung / 3.",
+    "max_dots_at_w": "Ab hier laufen so viele Punkte wie erlaubt. Dazwischen: immer mehr Punkte. Standard: Höchstleistung.",
+    "slow_s": "Zeit für eine Runde, wenn wenig fließt. Standard 5.",
+    "fast_s": "Zeit für eine Runde, wenn viel fließt. Standard 1,8.",
+    "max_dots": "Wie viele Punkte auf einer Verbindung höchstens laufen. Standard 5.",
+    "full_speed_w": "Ab hier läuft der Punkt so schnell wie möglich. Dazwischen: ein Punkt, der schneller wird. Standard: wie „Mehr Punkte ab“."
   }
 }

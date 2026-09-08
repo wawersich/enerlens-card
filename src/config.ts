@@ -529,14 +529,21 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
 
   const rawFlow = rawRecord.flow === undefined ? {} : requireRecord(rawRecord.flow, "flow", hass);
   const minW = atLeast(readNumber(rawFlow.min_w, "flow.min_w", 10, hass), 0, "flow.min_w", hass);
-  const slowBelowW = readNumber(rawFlow.slow_below_w, "flow.slow_below_w", 500, hass);
+  // peak_w sets the whole step rule at once - the three thresholds keep the
+  // ratios of the defaults (500 / 2000 / 6000). An explicit threshold wins.
+  const peakW = greaterThanZero(
+    readNumber(rawFlow.peak_w, "flow.peak_w", 6000, hass),
+    "flow.peak_w",
+    hass,
+  );
+  const slowBelowW = readNumber(rawFlow.slow_below_w, "flow.slow_below_w", peakW / 12, hass);
   const moreDotsAboveW = readNumber(
     rawFlow.more_dots_above_w,
     "flow.more_dots_above_w",
-    2000,
+    peakW / 3,
     hass,
   );
-  const maxDotsAtW = readNumber(rawFlow.max_dots_at_w, "flow.max_dots_at_w", 6000, hass);
+  const maxDotsAtW = readNumber(rawFlow.max_dots_at_w, "flow.max_dots_at_w", peakW, hass);
   const maxDots = inRange(
     readInteger(rawFlow.max_dots, "flow.max_dots", 5, hass),
     2,
@@ -573,6 +580,18 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     hass,
   );
   const slowSFixed = fixOrder(fastS, slowS, 1, "flow.fast_s", "flow.slow_s", hass);
+  // Full speed and the second dot fall together unless told otherwise - and
+  // the default follows the repaired value, so one wrong input warns once.
+  const fullSpeedFixed = isUnset(rawFlow.full_speed_w)
+    ? moreDotsFixed
+    : fixOrder(
+        slowBelowFixed,
+        readNumber(rawFlow.full_speed_w, "flow.full_speed_w", moreDotsFixed, hass),
+        1,
+        "flow.slow_below_w",
+        "flow.full_speed_w",
+        hass,
+      );
 
   return {
     title: readString(rawRecord.title, "title", hass),
@@ -597,6 +616,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     flow: {
       minW,
       slowBelowW: slowBelowFixed,
+      fullSpeedW: fullSpeedFixed,
       moreDotsAboveW: moreDotsFixed,
       maxDotsAtW: maxDotsAtFixed,
       maxDots,

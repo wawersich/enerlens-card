@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computeFlows, planDots } from "../src/flow";
+import { normalizeConfig } from "../src/config";
+import { computeFlows, dotParams, planDots } from "../src/flow";
 import type { Config, ConnectionId, Flows, Model, Reading, Signed } from "../src/types";
 
 // Test data is built by hand: config.ts and model.ts are implemented in
@@ -60,6 +61,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
     flow: {
       minW: 10,
       slowBelowW: 500,
+      fullSpeedW: 2000,
       moreDotsAboveW: 2000,
       maxDotsAtW: 6000,
       maxDots: 5,
@@ -297,5 +299,46 @@ describe("planDots (REQ 4.6, P-4)", () => {
   it("keeps every connection at or above minW", () => {
     expect(planDots({ solar_house: 10 }, config({ minW: 0 })).length).toBe(1);
     expect(planDots({ solar_house: 0 }, config({ minW: 0 })).length).toBe(1);
+  });
+});
+
+describe("dotParams - full speed and more dots as separate thresholds (REQ P-3)", () => {
+  const withFlow = (flow: Record<string, number>): Config =>
+    normalizeConfig({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.s", grid: "sensor.g" },
+      flow,
+    });
+
+  it("reaches full speed before the second dot when full_speed_w is lower", () => {
+    const config = withFlow({
+      slow_below_w: 500,
+      full_speed_w: 2000,
+      more_dots_above_w: 3000,
+      max_dots_at_w: 6000,
+    });
+    // 2500 W: at full speed, still one dot.
+    expect(dotParams(2500, config)).toEqual({ count: 1, durationS: 1.8 });
+    // 3000 W: the second dot joins.
+    expect(dotParams(3000, config)?.count).toBe(2);
+    // 1250 W: halfway up the speed ramp.
+    expect(dotParams(1250, config)?.durationS).toBeCloseTo(3.4, 5);
+  });
+
+  it("adds dots while still speeding up when more_dots_above_w is lower", () => {
+    const config = withFlow({
+      slow_below_w: 500,
+      full_speed_w: 4000,
+      more_dots_above_w: 1000,
+      max_dots_at_w: 6000,
+    });
+    const p = dotParams(2000, config);
+    expect(p?.count).toBe(2);
+    expect(p?.durationS).toBeGreaterThan(1.8);
+  });
+
+  it("keeps the old behaviour without full_speed_w", () => {
+    const flow = withFlow({}).flow;
+    expect(flow.fullSpeedW).toBe(flow.moreDotsAboveW);
   });
 });

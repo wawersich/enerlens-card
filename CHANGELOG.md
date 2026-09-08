@@ -49,6 +49,10 @@ First release. Everything below is new.
 ### Editor
 - Full GUI editor on `ha-form`, including the consumer list (object selector,
   HA 2025.7+).
+- `flow.full_speed_w` separates where the dot reaches full speed from where
+  more dots join (`more_dots_above_w`); by default the two coincide.
+- `flow.peak_w`: one knob for the whole motion, from which the three thresholds
+  derive; the six individual values sit in a collapsed fine-tuning section.
 - Colours as text fields (theme variables work), icons via the icon picker,
   `flow.min_w`, and a per-consumer `min_w` in the consumer list.
 - Each balance quantity has a source selector - one entity, two entities,

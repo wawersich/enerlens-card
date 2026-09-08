@@ -106,7 +106,16 @@
     "color_battery_discharge": "Battery · discharging",
     "color_rest": "Remainder",
     "min_w": "Minimum power (W)",
-    "icon": "Icon"
+    "icon": "Icon",
+    "peak_w": "System peak power (W)",
+    "flow_fine": "Fine-tune the motion",
+    "slow_below_w": "Speed up from (W)",
+    "more_dots_above_w": "More dots from (W)",
+    "max_dots_at_w": "All dots from (W)",
+    "max_dots": "Maximum dots",
+    "slow_s": "Resting pace (seconds per lap)",
+    "fast_s": "Full speed (seconds per lap)",
+    "full_speed_w": "Full speed from (W)"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -131,6 +140,15 @@
     "derived": "Calculated from the other three quantities so the balance adds up. Only one quantity can be derived.",
     "min_w": "From this power on a connection counts as active: dots move, grid and battery show their state. Below it everything is neutral.",
     "consumers": "A consumer's own minimum power overrides the global one - say 50 W for a heat pump, so its standby draw does not count as a consumer.",
-    "icon_battery": "Empty = icon follows the state of charge."
+    "icon_battery": "Empty = icon follows the state of charge.",
+    "peak_w": "One value for the whole motion: at this power the most dots run at their fastest. The three thresholds below derive from it (1/12, 1/3, 1/1) while they are empty. Default 6000 W.",
+    "flow_fine": "Only needed when the peak power alone does not do. A set value overrides the one derived from the peak. If the order is wrong, the card raises the second value and says so in the browser console.",
+    "slow_below_w": "Below this a single dot runs at resting pace. From here on it gets faster. Default: peak / 12.",
+    "more_dots_above_w": "From here on more dots join, independent of the speed. Default: peak / 3.",
+    "max_dots_at_w": "From here on as many dots as allowed. In between: more and more dots. Default: peak.",
+    "slow_s": "One lap when little is flowing. Default 5.",
+    "fast_s": "One lap when a lot is flowing. Default 1.8.",
+    "max_dots": "How many dots a connection carries at most. Default 5.",
+    "full_speed_w": "From here on the dot runs as fast as it gets. In between: one dot, getting faster. Default: same as “More dots from”."
   }
 }

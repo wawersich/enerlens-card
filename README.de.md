@@ -200,7 +200,9 @@ diesen Betrag zu klein — dann besser ableiten.
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
 | `flow.min_w` | `10` | Darunter bewegt sich nichts; Netz und Batterie zeigen kein Zustandswort |
+| `flow.peak_w` | `6000` | Ein Regler für die Bewegung: Leistung, bei der die Punkte ihr Maximum erreichen; die drei Schwellen darunter sind standardmäßig 1/12, 1/3 und 1/1 davon |
 | `flow.slow_below_w` | `500` | Bis hier ein langsamer Punkt |
+| `flow.full_speed_w` | = `more_dots_above_w` | Ab hier hat der einzelne Punkt sein Höchsttempo; getrennt von `more_dots_above_w` setzen, um Tempo und Anzahl zu entkoppeln |
 | `flow.more_dots_above_w` | `2000` | Ab hier kommen Punkte hinzu |
 | `flow.max_dots_at_w` | `6000` | Wo die Punktzahl ihr Maximum erreicht |
 | `flow.max_dots` | `5` | Obergrenze für Punkte |

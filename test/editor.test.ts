@@ -5,7 +5,8 @@
  * source the user picked must stay put while the fields under it are still
  * empty (REQ E-1, A-1, A-5, G-5).
  */
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { normalizeConfig } from "../src/config";
 import type { HomeAssistant, RawConfig } from "../src/types";
 
 type Editor = HTMLElement & {
@@ -331,17 +332,42 @@ describe("editor - never writes what the card would refuse (REQ E-1)", () => {
     expect(saved.consumers).toEqual([{ entity: "sensor.a", name: "A" }]);
   });
 
-  it("keeps the long window above the short one and shows the corrected value", async () => {
+  it("writes numbers as typed - no correction mid-keystroke", async () => {
+    // Typing "1000" into a box passes through "1"; a correction on "1" would
+    // lock the field. The card repairs the order at runtime instead (E-1).
     const el = await mount({ ...base, view: { avg_short_minutes: 5, avg_long_minutes: 15 } });
     const saved = await change(el, { avg_short_minutes: 30 });
-    expect(saved.view).toEqual({ avg_short_minutes: 30, avg_long_minutes: 31 });
-    expect(form(el).data.avg_long_minutes).toBe(31);
+    expect(saved.view).toEqual({ avg_short_minutes: 30, avg_long_minutes: 15 });
+    expect(form(el).data.avg_short_minutes).toBe(30);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() => normalizeConfig(saved)).not.toThrow();
+    warn.mockRestore();
+  });
+});
+
+describe("editor - flow: peak power and fine tuning", () => {
+  const base: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  it("writes peak_w and the fine-tuning fields, and reads them back", async () => {
+    const el = await mount({ ...base, flow: { peak_w: 3000, max_dots: 4 } });
+    expect(form(el).data.peak_w).toBe(3000);
+    expect(form(el).data.max_dots).toBe(4);
+    const saved = await change(el, { slow_s: 6, fast_s: 2 });
+    expect(saved.flow).toEqual({ peak_w: 3000, max_dots: 4, slow_s: 6, fast_s: 2 });
   });
 
-  it("caps flow.min_w at the first speed threshold", async () => {
-    const el = await mount(base);
-    const saved = await change(el, { min_w: 900 });
-    expect(saved.flow?.min_w).toBe(500);
-    expect(form(el).data.min_w).toBe(500);
+  it("leaves an out-of-order threshold as typed; the card repairs it", async () => {
+    const el = await mount({ ...base, flow: { peak_w: 3000 } });
+    const saved = await change(el, { more_dots_above_w: 200, min_w: 500 });
+    expect(saved.flow).toEqual({ peak_w: 3000, more_dots_above_w: 200, min_w: 500 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const flow = normalizeConfig(saved).flow;
+    expect(flow.minW).toBe(500);
+    expect(flow.slowBelowW).toBe(500);
+    expect(flow.moreDotsAboveW).toBe(501);
+    warn.mockRestore();
   });
 });
