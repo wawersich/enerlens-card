@@ -352,7 +352,9 @@ export const styles = css`
     align-items: center;
     font-size: var(--el-label-size);
     line-height: 1.25;
-    color: var(--secondary-text-color);
+    /* Primary text, like the figures - grey labels looked like a second font
+       next to the state word. */
+    color: var(--primary-text-color);
     text-align: center;
     /* Wide enough for the longest state word ("Einspeisung"). Words are never
        broken apart - a hyphen-less split reads as gibberish. Long consumer
@@ -362,7 +364,6 @@ export const styles = css`
   }
 
   .label-state {
-    opacity: 0.85;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -373,12 +374,14 @@ export const styles = css`
     white-space: nowrap;
   }
 
+  /* 10 px clears the house ring, which reaches 5.5 px beyond the contour; the
+     same distance everywhere keeps the labels of one row aligned. */
   .node.solar .label {
-    bottom: calc(100% + 4px);
+    bottom: calc(100% + 10px);
   }
 
   .node:not(.solar) .label {
-    top: calc(100% + 4px);
+    top: calc(100% + 10px);
   }
 
   .label .derived {
@@ -473,12 +476,11 @@ export const styles = css`
     position: absolute;
     top: 50%;
     left: 0;
-    /* Same 12 px as the dots on the connections (K-12) - the lanes are the
-       same movement, and smaller dots there read as a different thing. */
-    width: 12px;
-    height: 12px;
-    margin-top: -6px;
-    margin-left: -6px;
+    /* Same 10 px as the dots on the connections and the colour mark (K-12). */
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    margin-left: -5px;
     border-radius: 50%;
     animation-name: lane-run;
     animation-timing-function: linear;

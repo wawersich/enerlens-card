@@ -374,8 +374,8 @@ class EnerLensCard extends LitElement {
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
-    // 12 px like the connection dots and the lane dots (K-12).
-    this._fan.setDotRadius(6);
+    // 10 px like the connection dots, the lane dots and the colour mark (K-12).
+    this._fan.setDotRadius(5);
     this._fan.update(
       fanRows,
       start,

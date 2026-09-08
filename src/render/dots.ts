@@ -39,7 +39,8 @@ interface Link {
 }
 
 /** Dot diameter in CSS pixels (REQ K-12). */
-const DOT_PX = 12;
+/** Same 10 px as the colour mark in the list - one dot size everywhere (K-12). */
+const DOT_PX = 10;
 
 export class DotLayer {
   private readonly links = new Map<string, Link>();
