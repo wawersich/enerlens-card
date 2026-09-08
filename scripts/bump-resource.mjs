@@ -2,6 +2,8 @@
 // Without the changing query parameter the browser serves the cached bundle.
 const token = process.env.SUPERVISOR_TOKEN;
 const version = process.argv[2] || String(Date.now());
+// The dev build lives under its own file name so it can sit next to the HACS one.
+const file = process.argv[3] || "enerlens-card-dev.js";
 if (!token) { console.error("SUPERVISOR_TOKEN fehlt"); process.exit(1); }
 
 const ws = new WebSocket("ws://supervisor/core/websocket");
@@ -20,8 +22,8 @@ ws.addEventListener("message", async (ev) => {
   if (m.type === "auth_ok") {
     try {
       const resources = await send({ type: "lovelace/resources" });
-      const url = `/local/enerlens-card.js?v=${version}`;
-      const existing = resources.find((r) => String(r.url).startsWith("/local/enerlens-card.js"));
+      const url = `/local/${file}?v=${version}`;
+      const existing = resources.find((r) => String(r.url).startsWith(`/local/${file}`));
       if (existing) {
         await send({ type: "lovelace/resources/update", resource_id: existing.id, url, res_type: "module" });
       } else {
