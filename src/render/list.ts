@@ -115,15 +115,33 @@ export function renderList(
  * (REQ L-8).
  */
 export class RowAnimator {
+  /** Drawn position per row before the update, relative to the container. */
   private positions = new Map<string, number>();
+  /** Layout position each row was last sent to, relative to the container. */
+  private targets = new Map<string, number>();
+  /** Top of the .rows block before the update - new rows ride along with it. */
+  private blockTop?: number;
+
+  /**
+   * Positions are taken relative to the container, not the viewport: the card
+   * re-renders on every state change, and a render while the page scrolls
+   * would otherwise see every row "move" by the scroll distance and glide the
+   * whole list for nothing.
+   */
+  private static top(row: Element, container: Element): number {
+    return row.getBoundingClientRect().top - container.getBoundingClientRect().top;
+  }
 
   /** Call before the DOM changes. */
   capture(container: Element | null): void {
     this.positions.clear();
+    this.blockTop = undefined;
     if (!container) return;
+    const block = container.querySelector(".rows");
+    if (block) this.blockTop = RowAnimator.top(block, container);
     for (const row of container.querySelectorAll<HTMLElement>(".row")) {
       const key = row.dataset.key;
-      if (key) this.positions.set(key, row.getBoundingClientRect().top);
+      if (key) this.positions.set(key, RowAnimator.top(row, container));
     }
   }
 
@@ -133,33 +151,64 @@ export class RowAnimator {
     // Without the Web Animations API the list still works, it just does not
     // glide - the rows are already in their new places (REQ N-5).
     const canAnimate = enabled && typeof Element.prototype.animate === "function";
+    const seen = new Set<string>();
+    // How far the whole block moved (the list re-centres beside the cross when
+    // rows come and go). Entering rows start displaced by this much, so they
+    // arrive together with their neighbours instead of popping into a moving list.
+    const block = container.querySelector(".rows");
+    const blockDelta =
+      block && this.blockTop !== undefined ? this.blockTop - RowAnimator.top(block, container) : 0;
     for (const row of container.querySelectorAll<HTMLElement>(".row")) {
       const key = row.dataset.key;
       if (!key) continue;
+      seen.add(key);
       const before = this.positions.get(key);
-      const after = row.getBoundingClientRect().top;
+      const after = RowAnimator.top(row, container);
+
+      // A render mid-glide (the card updates with every state change) finds
+      // the row drawn somewhere between start and target. If its layout target
+      // has not changed, the running glide will land it - starting a fresh
+      // animation from the drawn position would reset the easing each time
+      // and turn one smooth move into a series of jerks.
+      const glide = RowAnimator.runningGlide(row);
+      if (glide && this.targets.get(key) === after) continue;
+      this.targets.set(key, after);
 
       if (before === undefined) {
-        // New row: fade and slide in rather than appearing abruptly.
+        // New row: fade in while moving with the block, on the glide's own clock.
         if (canAnimate) {
-          row.animate(
+          const animation = row.animate(
             [
-              { opacity: 0, transform: "translateY(-6px)" },
+              { opacity: 0, transform: `translateY(${blockDelta}px)` },
+              { opacity: 0, transform: `translateY(${blockDelta * 0.6}px)`, offset: 0.4 },
               { opacity: 1, transform: "none" },
             ],
-            { duration: 350, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+            { duration: 600, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
           );
+          animation.id = GLIDE;
         }
         continue;
       }
 
       const delta = before - after;
       if (!delta || !canAnimate) continue;
-      row.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], {
-        duration: 600,
-        easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-      });
+      // A real reorder while a glide is running: continue from where the row is
+      // drawn, but as the only glide on it.
+      glide?.cancel();
+      const animation = row.animate(
+        [{ transform: `translateY(${delta}px)` }, { transform: "none" }],
+        { duration: 600, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+      );
+      animation.id = GLIDE;
     }
+    for (const key of [...this.targets.keys()]) if (!seen.has(key)) this.targets.delete(key);
     this.positions.clear();
   }
+
+  private static runningGlide(row: Element): Animation | undefined {
+    if (typeof row.getAnimations !== "function") return undefined;
+    return row.getAnimations().find((a) => a.id === GLIDE && a.playState === "running");
+  }
 }
+
+const GLIDE = "enerlens-glide";

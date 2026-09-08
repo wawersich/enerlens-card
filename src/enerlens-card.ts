@@ -385,11 +385,14 @@ class EnerLensCard extends LitElement {
    * which is what REQ P-6 forbids.
    */
   protected willUpdate(): void {
-    this._rows.capture(this.renderRoot?.querySelector(".rows") ?? null);
+    // Measured against .body, not .rows: beside the cross the list is centred
+    // vertically, so a changed row count shifts the whole block - a movement
+    // the rows must glide through too.
+    this._rows.capture(this.renderRoot?.querySelector(".body") ?? null);
   }
 
   protected updated(): void {
-    this._rows.play(this.renderRoot.querySelector(".rows"), this._animationsWanted);
+    this._rows.play(this.renderRoot.querySelector(".body"), this._animationsWanted);
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
