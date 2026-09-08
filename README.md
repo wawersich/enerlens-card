@@ -40,10 +40,13 @@ disappears and the ring shows shares of the consumer sum instead.
 
 ## Installation
 
-### HACS (once released)
+### HACS
 
-Not yet available. Until then, add this repository as a custom repository of
-type *Dashboard*.
+1. HACS → ⋮ → *Custom repositories* → add `https://github.com/wawersich/enerlens-card`,
+   type *Dashboard*
+2. Search for *EnerLens*, install, reload the browser
+3. HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
+   you; if the card does not appear, check *Settings → Dashboards → Resources*
 
 ### Manually
 

@@ -72,6 +72,9 @@ First release. Everything below is new.
 - List rows: the effective tap height equals the row pitch (28-40 px by row
   count), above the 24 px floor but below the 44 px the other targets keep -
   a compact list was preferred (L-9, measured).
+- Rows that leave the list disappear at once rather than fading and collapsing
+  (L-8 asked for 350 ms opacity and 400 ms height); entering rows fade in
+  while moving with the block.
 - Home Assistant's energy colours and the yellow charge stop miss 3:1 contrast
   on white; kept for alignment with the energy dashboard, never the only
   carrier of meaning (N-6).

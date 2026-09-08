@@ -20,6 +20,8 @@ interface FanRow {
   color: string;
   count: number;
   durationS: number;
+  /** Set when nothing flows: "show" draws the line neutral, "dim" fainter. */
+  inactive?: "show" | "dim";
 }
 
 interface FanLine {
@@ -56,7 +58,10 @@ export class FanLayer {
       const d = this.pathFor(origin, row);
       const line = this.lines.get(row.key) ?? this.createLine(row.key);
       line.path.setAttribute("d", d);
-      line.path.setAttribute("stroke", row.color);
+      // Colour through CSS classes rather than the attribute, so the neutral
+      // shade can be a theme variable (attributes do not resolve var()).
+      line.path.setAttribute("class", `fan-line${row.inactive ? ` inactive-${row.inactive}` : ""}`);
+      line.path.style.stroke = row.inactive ? "" : row.color;
 
       while (line.dots.length > row.count) {
         line.dots.pop()?.remove();

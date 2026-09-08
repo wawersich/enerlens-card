@@ -41,10 +41,13 @@ verschwindet einfach, und der Ring zeigt dann Anteile an der Verbrauchersumme.
 
 ## Installation
 
-### HACS (nach der Veröffentlichung)
+### HACS
 
-Noch nicht verfügbar. Bis dahin dieses Repository als Custom Repository vom
-Typ *Dashboard* hinzufügen.
+1. HACS → ⋮ → *Benutzerdefinierte Repositories* → `https://github.com/wawersich/enerlens-card`
+   hinzufügen, Typ *Dashboard*
+2. Nach *EnerLens* suchen, installieren, Browser neu laden
+3. HACS trägt die Ressource `/hacsfiles/enerlens-card/enerlens-card.js` selbst ein;
+   erscheint die Karte nicht, unter *Einstellungen → Dashboards → Ressourcen* nachsehen
 
 ### Von Hand
 

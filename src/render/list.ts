@@ -34,13 +34,16 @@ function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
 function lane(w: number, color: string, config: Config): TemplateResult | typeof nothing {
   const params = dotParams(w, config);
   // The track is always drawn, even below the flow threshold: a row without one
-  // reads as broken rather than as idle. Only the dots depend on there being
-  // something to move.
-  if (!params) return html`<span class="lane" aria-hidden="true"></span>`;
+  // reads as broken rather than as idle. With flow it takes the entry's colour
+  // like the fan lines beside the cross; without, the neutral shade of an
+  // inactive connection, following flow.inactive_lines (P-9).
+  if (!params) {
+    return html`<span class="lane inactive-${config.flow.inactiveLines}" aria-hidden="true"></span>`;
+  }
 
   const { count, durationS } = params;
   const dots = Array.from({ length: count }, (_, i) => i);
-  return html`<span class="lane" aria-hidden="true">
+  return html`<span class="lane active" style="color:${color}" aria-hidden="true">
     ${dots.map(
       (i) => html`<span
         class="lane-dot"

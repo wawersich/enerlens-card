@@ -42,6 +42,17 @@ export const styles = css`
     fill: none;
   }
 
+  /* A row with nothing flowing keeps its line in the neutral shade of the
+     inactive connections; "dim" fades it further (L-13, P-9). */
+  .fan-line.inactive-show,
+  .fan-line.inactive-dim {
+    stroke: var(--el-line);
+  }
+
+  .fan-line.inactive-dim {
+    opacity: 0.2;
+  }
+
   /* Title left, mode chips right. Below about 400 px the chips drop onto their
      own line rather than squeezing the title (REQ V-2). */
   .header {
@@ -472,8 +483,32 @@ export const styles = css`
     width: clamp(48px, 16%, 88px);
     height: 3px;
     border-radius: 1.5px;
-    background: var(--divider-color, rgba(127, 127, 127, 0.25));
     overflow: visible;
+  }
+
+  /* The track is a pseudo-element so its opacity does not fade the dots
+     riding on it. With flow it carries the entry's colour at the weight of the
+     fan lines; without, the neutral shade, following the inactive-line
+     setting like the cross. */
+  .lane::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--el-line);
+  }
+
+  .lane.active::before {
+    background: currentColor;
+    opacity: 0.45;
+  }
+
+  .lane.inactive-dim::before {
+    opacity: 0.25;
+  }
+
+  .lane.inactive-hide::before {
+    visibility: hidden;
   }
 
   .lane-dot {

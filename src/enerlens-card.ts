@@ -360,16 +360,21 @@ class EnerLensCard extends LitElement {
         const key = row.dataset.key;
         const entry = key ? entries.get(key) : undefined;
         if (!entry) return null;
+        // Below the threshold the line stays, without dots - like an inactive
+        // connection in the cross and the track of a lane below it. It follows
+        // flow.inactive_lines: hidden means no line at all (L-13, P-9).
         const params = dotParams(entry.w, this._config as Config);
-        if (!params) return null;
+        const mode = this._config?.flow.inactiveLines ?? "show";
+        if (!params && mode === "hide") return null;
         const box = row.getBoundingClientRect();
         return {
           key: key as string,
           x: box.left - origin.left,
           y: box.top + box.height / 2 - origin.top,
           color: entry.color,
-          count: params.count,
-          durationS: params.durationS,
+          count: params?.count ?? 0,
+          durationS: params?.durationS ?? 1,
+          inactive: params || mode === "hide" ? undefined : mode,
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
