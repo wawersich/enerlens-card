@@ -128,6 +128,30 @@ entities:
     charge: sensor.batterie_laden
 ```
 
+**Eine Entität oder zwei?** Wenn deine Anlage beides hergibt — einen
+vorzeichenbehafteten Sensor und ein Paar je Richtung — nimm den
+vorzeichenbehafteten. Der Verlaufsdialog von Home Assistant zeigt immer nur eine
+Entität, ein Paar verbirgt also die Hälfte: Tippst du bei 4 W Einspeisung auf den
+Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von gestern
+Abend überhaupt nicht vorkommt.
+
+Gibt es keinen vorzeichenbehafteten Sensor, baut ein Helfer *Vorlage → Sensor*
+einen (Einheit `W`, Geräteklasse `power`, Statusklasse `measurement`):
+
+```jinja
+{{ (states('sensor.netz_bezug')|float(0)
+  - states('sensor.netz_einspeisung')|float(0))|round(0) }}
+```
+
+Gib ihm dieselbe Verfügbarkeitsregel wie dem abgeleiteten Haussensor weiter unten
+— nicht verfügbar, sobald eine der Quellen es ist —, damit ein Aussetzer nicht als
+Null in die Statistik wandert. Sein Wert wird dann aufgezeichnet, was für einen von
+der Karte gerechneten Wert nie gilt: Verlauf, Langzeitstatistik, Automationen und
+das Energie-Dashboard sehen ihn.
+
+Geht beides nicht, ist die Zwei-Entitäten-Form in jeder angezeigten Zahl richtig;
+nur die Historie bleibt geteilt.
+
 ### Fehlende Größen ableiten
 
 `solar`, `grid`, `house` und `battery` bilden eine Gleichung:

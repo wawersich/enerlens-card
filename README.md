@@ -125,6 +125,28 @@ entities:
     charge: sensor.battery_charge
 ```
 
+**One entity or two?** If your installation offers both — a signed sensor and a
+pair per direction — take the signed one. Home Assistant's history dialog shows
+one entity at a time, so a split pair hides half of what happened: tap the grid
+node while 4 W are being exported and you get the export curve, in which last
+night's charging from the grid does not appear at all.
+
+If there is no signed sensor, a *Template → Sensor* helper builds one (unit `W`,
+device class `power`, state class `measurement`):
+
+```jinja
+{{ (states('sensor.grid_import')|float(0)
+  - states('sensor.grid_export')|float(0))|round(0) }}
+```
+
+Give it the same availability rule as the derived house sensor below — unavailable
+as soon as one input is — so that a dropout does not enter the statistics as a
+zero. Its value is then recorded, which a figure the card computes never is:
+history, long-term statistics, automations and the energy dashboard all see it.
+
+Failing both, the two-entity form is right in every number the card shows; only
+the history stays in two places.
+
 ### Deriving a missing quantity
 
 `solar`, `grid`, `house` and `battery` form one equation:

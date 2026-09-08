@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- With split grid or battery entities, tapping a node below `flow.min_w` opened
+  the direction the sign pointed at, even though the node itself showed no state
+  word - 4 W of export led to the export history, where charging the battery
+  from the grid does not appear. Label and tap target now share one rule.
+
+### Documentation
+- README explains when to prefer a single signed entity, and how a template
+  helper turns a split pair into one, so the history stays in one place.
+
 ## [0.1.1] - 2026-09-08
 
 ### Changed

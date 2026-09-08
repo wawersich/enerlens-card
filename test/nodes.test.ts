@@ -75,3 +75,58 @@ describe("state words around flow.min_w", () => {
     expect(grid?.value).toBe("0,00 kW");
   });
 });
+
+/**
+ * Split entities keep their history in two places, so the card has to pick one
+ * to open. Below the threshold it must pick the same way the label does - 4 W of
+ * export is not export, and its day-long curve hides what the other direction did.
+ */
+describe("more-info target for split entities (REQ I-1)", () => {
+  const split = normalizeConfig({
+    type: "custom:enerlens-card",
+    entities: {
+      solar: "sensor.s",
+      grid: { import: "sensor.gi", export: "sensor.ge" },
+      house: "sensor.h",
+      battery: { discharge: "sensor.bd", charge: "sensor.bc" },
+    },
+    flow: { min_w: 10 },
+  });
+
+  function splitViews(values: Record<string, number>) {
+    const hass = hassWith(values);
+    const all = buildNodeViews(buildModel(hass, split), split, hass);
+    return {
+      grid: all.find((v) => v.key === "grid"),
+      battery: all.find((v) => v.key === "battery"),
+    };
+  }
+
+  it("opens the running direction", () => {
+    const { grid, battery } = splitViews({
+      "sensor.s": 0,
+      "sensor.gi": 0,
+      "sensor.ge": 4000,
+      "sensor.h": 500,
+      "sensor.bd": 0,
+      "sensor.bc": 3000,
+    });
+    expect(grid?.entity).toBe("sensor.ge");
+    expect(battery?.entity).toBe("sensor.bc");
+  });
+
+  it("opens import and discharge while nothing flows", () => {
+    const { grid, battery } = splitViews({
+      "sensor.s": 0,
+      "sensor.gi": 0,
+      "sensor.ge": 4,
+      "sensor.h": 500,
+      "sensor.bd": 0,
+      "sensor.bc": 6,
+    });
+    expect(grid?.label).toBe("Netz");
+    expect(grid?.entity).toBe("sensor.gi");
+    expect(battery?.label).toBe("Batterie");
+    expect(battery?.entity).toBe("sensor.bd");
+  });
+});

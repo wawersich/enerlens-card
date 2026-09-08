@@ -27,6 +27,28 @@ function resolveCssColor(value: string): string {
   return resolved || value;
 }
 
+/**
+ * Which way a signed quantity is running, as one answer for the label and the
+ * tap target. Below flow.min_w neither: 4 W of export is not export, and the
+ * card must not open the export history while the node says "grid" (REQ I-1,
+ * K-3). Two separate rules for the same question drifted apart once already.
+ */
+function direction(value: Signed, minW: number): "positive" | "negative" | "none" {
+  if (!value.available) return "none";
+  if (value.net >= minW) return "positive";
+  if (value.net <= -minW) return "negative";
+  return "none";
+}
+
+/** The entity worth opening: the running direction, else the one that defines
+ *  the sign - import for the grid, discharging for the battery (REQ I-1). */
+function moreInfoEntity(value: Signed, minW: number): string | undefined {
+  if (value.derived) return undefined;
+  return direction(value, minW) === "negative"
+    ? (value.entityNegative ?? value.entityPositive)
+    : (value.entityPositive ?? value.entityNegative);
+}
+
 /** Opens Home Assistant's own dialog with its history graph (REQ I-1, ENT-3). */
 export function openMoreInfo(target: EventTarget, entityId: string): void {
   target.dispatchEvent(
@@ -113,17 +135,17 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
   });
 
   const grid = model.grid;
+  const gridDirection = direction(grid, config.flow.minW);
   views.push({
     key: "grid",
     icon: config.icons.grid ?? DEFAULT_ICONS.grid,
     color: signedColor(grid, "grid_import", "grid_export", config),
     // The state word follows the sign, but only once something actually flows:
     // 4 W of export rounds to 0.00 kW, and "export" next to that is noise (REQ K-3).
-    label: !grid.available
-      ? localize("node.grid", hass)
-      : grid.net >= config.flow.minW
+    label:
+      gridDirection === "positive"
         ? localize("node.grid_import", hass)
-        : grid.net <= -config.flow.minW
+        : gridDirection === "negative"
           ? localize("node.grid_export", hass)
           : localize("node.grid", hass),
     derived: grid.derived,
@@ -131,12 +153,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
       ? formatPower(Math.abs(grid.net), hass, config.power)
       : localize("state.unavailable", hass),
     available: grid.available,
-    // Whichever direction is running is the one worth opening (REQ I-1).
-    entity: grid.derived
-      ? undefined
-      : grid.available && grid.net < 0
-        ? (grid.entityNegative ?? grid.entityPositive)
-        : (grid.entityPositive ?? grid.entityNegative),
+    entity: moreInfoEntity(grid, config.flow.minW),
   });
 
   views.push({
@@ -152,17 +169,17 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
 
   const bat = model.battery;
   if (bat) {
+    const batDirection = direction(bat, config.flow.minW);
     const socEntity = config.sources.batterySoc;
     const stateObj = socEntity ? hass.states[socEntity] : undefined;
     views.push({
       key: "battery",
       icon: batteryIcon(model.soc, config.icons.battery),
       color: signedColor(bat, "battery_discharge", "battery_charge", config),
-      label: !bat.available
-        ? localize("node.battery", hass)
-        : bat.net >= config.flow.minW
+      label:
+        batDirection === "positive"
           ? localize("node.battery_discharging", hass)
-          : bat.net <= -config.flow.minW
+          : batDirection === "negative"
             ? localize("node.battery_charging", hass)
             : localize("node.battery", hass),
       derived: bat.derived,
@@ -176,11 +193,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
       socFillColor: model.soc.available
         ? socColor(model.soc.w, config.colors.socStops, resolveCssColor)
         : undefined,
-      entity: bat.derived
-        ? undefined
-        : bat.available && bat.net < 0
-          ? (bat.entityNegative ?? bat.entityPositive)
-          : (bat.entityPositive ?? bat.entityNegative),
+      entity: moreInfoEntity(bat, config.flow.minW),
       socEntity,
     });
   }
