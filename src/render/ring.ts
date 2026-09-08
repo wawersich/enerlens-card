@@ -2,10 +2,11 @@
  * The consumer ring inside the house node: one segment per list entry, sized
  * by its share of the house value (REQ R-1 to R-6).
  *
- * It lives inside the node's circle, just within the coloured border, so all
- * four nodes share one outer diameter (K-14). Drawn as its own small SVG
- * inside the node: the ring must paint above the node's background and below
- * its icon and figure, which the cross SVG underneath the nodes cannot do.
+ * It takes the place of the house node's coloured border: its outer edge is the
+ * node's outer edge, so all four nodes share one outer diameter and one contour
+ * weight (K-14). Drawn as its own small SVG inside the node: the ring must
+ * paint above the node's background and below its icon and figure, which the
+ * cross SVG underneath the nodes cannot do.
  *
  * Segments carry the same keys as the list rows, so a consumer keeps its
  * segment across updates and the transition animates instead of jumping.
@@ -15,9 +16,9 @@ import type { Segment } from "../types";
 
 /** Stroke in CSS px (REQ K-12: ring >= 8 px). */
 export const RING_STROKE_PX = 11;
-/** Node border (2 px) plus the air between border and ring (4 px). The ring's
- *  box is inset by the air from the padding edge, see styles.ts. */
-export const RING_INSET_PX = 2 + 4;
+/** The ring's box is the node's outer box (it replaces the border), so nothing
+ *  is inset. Kept as a named constant because styles.ts mirrors it. */
+export const RING_INSET_PX = 0;
 
 /** Gap between segments and the shortest arc, as fractions of the circumference
  *  (REQ R-2). A hairline segment reads as a rendering artefact; the share it

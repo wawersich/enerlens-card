@@ -178,18 +178,19 @@ export const styles = css`
 
   /* Segments animate their length and position, so a consumer's slice grows or
      shrinks into place rather than snapping (REQ R-4). */
-  /* Inside the node's border, with a little air between the two. Below the
+  /* The ring stands in for the border: its box is the node's outer box, which
+     from inside the padding edge means 2 px beyond on every side. Below the
      icon and figure (z-index), above the node's background. */
   .node .ring {
     position: absolute;
-    left: 4px;
-    top: 4px;
+    left: -2px;
+    top: -2px;
     /* Explicit size, not derived from the insets: an SVG is a replaced element,
        and WebKit gives an absolutely positioned one its intrinsic 300 x 150
        instead of stretching it between left and right - the ring then sat off
        to the lower right and too large on iOS while Chromium looked fine. */
-    width: calc(100% - 8px);
-    height: calc(100% - 8px);
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
     z-index: 0;
     pointer-events: none;
     overflow: visible;
@@ -446,10 +447,12 @@ export const styles = css`
     position: absolute;
     top: 50%;
     left: 0;
-    width: 7px;
-    height: 7px;
-    margin-top: -3.5px;
-    margin-left: -3.5px;
+    /* Same 12 px as the dots on the connections (K-12) - the lanes are the
+       same movement, and smaller dots there read as a different thing. */
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    margin-left: -6px;
     border-radius: 50%;
     animation-name: lane-run;
     animation-timing-function: linear;

@@ -235,8 +235,11 @@ export function renderCross(
           };
           return html`
           <div
-            class="node ${v.key}"
-            style="left:${pos.left};top:${pos.top};border-color:${v.color}"
+            class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""}"
+            style="left:${pos.left};top:${pos.top};border-color:${
+              // With segments to show, the ring is the contour (REQ K-14).
+              v.key === "house" && segments.length > 0 ? "transparent" : v.color
+            }"
           >
             ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx) : ""}
             ${

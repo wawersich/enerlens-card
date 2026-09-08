@@ -76,8 +76,8 @@ Berechnet wird nur an fünf klar benannten Stellen: die **eine abgeleitete Bilan
 | K-9 | Nicht verfügbare Werte (`unavailable`, `unknown`, nicht numerisch): Knoten zeigt „—", seine Verbindungen sind inaktiv, keine Punkte. Die Karte bleibt sonst voll funktionsfähig. | MUSS |
 | K-10 | Nicht konfigurierte optionale Knoten (Batterie) entfallen samt Verbindungen; die Geometrie der übrigen Knoten bleibt unverändert. | MUSS |
 | K-11 | Optionaler Kartentitel (`title`) als HA-Kartenkopf. | MUSS |
-| K-14 | **Gleicher Außendurchmesser aller vier Knoten, farbiger Rand außen.** Der Verbraucherring liegt **innerhalb** des Haus-Knotens, direkt hinter dem Rand mit 2 px Luft dazwischen — nicht außen um den Knoten. So haben alle vier Kreise dieselbe Größe und denselben Rand, ob mit oder ohne Ring. | MUSS |
-| K-12 | **Mindestgrößen auf schmalen Karten.** Bei Kartenbreite ≥ 344 px gilt in CSS-px: Knotenwerte ≥ 12 px, Beschriftungen und Listenzeilen **12 px fest** (dieselbe Größe wie `power-flow-card-plus`, neben der die Karte auf vielen Dashboards steht), SOC-Zahl ≥ 11 px, Punkte ≥ 12 px Durchmesser, Verbindungslinien ≥ 3 px, Ring-Strich ≥ 8 px. Umsetzung durch Gegenskalierung anhand der gemessenen Kartenbreite, nicht durch feste viewBox-Einheiten. | MUSS |
+| K-14 | **Gleicher Außendurchmesser aller vier Knoten.** Der Verbraucherring **ersetzt den farbigen Rand** des Haus-Knotens: Er sitzt an dessen Stelle, seine Außenkante ist die Außenkante des Knotens. Ohne Ring (aus, keine Verbraucher, oder gerade keine Segmente) hat das Haus den normalen Rand. Entschieden nach Vergleich von sechs Varianten am Gerät: Rand **und** Ring ließen das Haus kleiner wirken (Delboeuf-Effekt), obwohl es messbar gleich groß ist. | MUSS |
+| K-12 | **Mindestgrößen auf schmalen Karten.** Bei Kartenbreite ≥ 344 px gilt in CSS-px: Knotenwerte ≥ 12 px, Beschriftungen und Listenzeilen **12 px fest** (dieselbe Größe wie `power-flow-card-plus`, neben der die Karte auf vielen Dashboards steht), SOC-Zahl ≥ 11 px, Punkte ≥ 12 px Durchmesser (auf Verbindungen, Fächerlinien und Listenbahnen gleich), Verbindungslinien ≥ 3 px, Ring-Strich ≥ 8 px. Umsetzung durch Gegenskalierung anhand der gemessenen Kartenbreite, nicht durch feste viewBox-Einheiten. | MUSS |
 | K-13 | **Textüberlauf:** Werte dürfen den Knotenrand nicht schneiden. Passt ein Wert nicht (z. B. `123,45 kW`), wird er auf bis zu 85 % gestaucht; das Format `x,xx kW` bleibt. Beschriftungen mit Zusatz „· berechnet" dürfen zweizeilig umbrechen. | SOLL |
 | K-14 | Optionale Anzeige von Autarkie-/Eigenverbrauchsquote im Haus-Knoten. | KANN |
 
@@ -131,7 +131,7 @@ Die Sollwerte erzeugt `reference-values.mjs` aus den Referenzdaten (5.1) — ein
 
 | ID | Anforderung | Prio |
 |---|---|---|
-| R-1 | Optional (`ring.enabled`, Standard: an, sobald `consumers` konfiguriert ist), **im** Haus-Knoten innerhalb des Rands (K-14). | MUSS |
+| R-1 | Optional (`ring.enabled`, Standard: an, sobald `consumers` konfiguriert ist), **anstelle des Rands** des Haus-Knotens (K-14). | MUSS |
 | R-2 | Segmente = gezeigte Verbraucher + Rest — **exakt dieselbe Menge wie in der Liste**. Anteil = Wert / Σ aller Einträge. Reihenfolge = Listenreihenfolge, Beginn oben, im Uhrzeigersinn, Lücke 0,85 % des Umfangs, Mindestbogen 1,7 %; bei genau einem Eintrag keine Lücke (Vollkreis). | MUSS |
 | R-3 | Ist Σ gezeigte Verbraucher > Hauswert, gibt es keinen Rest (L-5) und die Segmente füllen zusammen 100 % — sie zeigen dann Anteile an der Verbrauchersumme. Dasselbe gilt bei nicht verfügbarem Hauswert. | MUSS |
 | R-4 | Synchron mit der Liste: gleicher Takt, gleiche Farben; Segmentlängen und -positionen gleiten animiert (600 ms) über stabile Schlüssel, damit Segmente wandern statt zu springen. | MUSS |
