@@ -192,6 +192,11 @@ export class AveragingBuffer {
     // Conservative: the window counts as covered only once *every* entity
     // reaches back past it, so a consumer added late is not silently averaged
     // over a shorter span than the others.
+    //
+    // `since` is therefore the *newest* first sample, not the oldest: the mean
+    // is valid from the moment the last entity joined. A sensor that has not
+    // changed since yesterday holds a sample from yesterday - the value is
+    // known all along, and that timestamp says nothing about coverage.
     let complete = this.series.size > 0;
     for (const series of this.series.values()) {
       const oldest = series.oldest();
@@ -199,7 +204,7 @@ export class AveragingBuffer {
         complete = false;
         continue;
       }
-      if (since === undefined || oldest < since) since = oldest;
+      if (since === undefined || oldest > since) since = oldest;
       if (oldest > cutoff) complete = false;
     }
     if (since === undefined) return { complete: false };

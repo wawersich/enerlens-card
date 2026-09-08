@@ -6,13 +6,16 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { HomeAssistant } from "../src/types";
 
-function fakeHass(states: Record<string, string>): HomeAssistant {
+function fakeHass(
+  states: Record<string, string>,
+  icons: Record<string, string> = {},
+): HomeAssistant {
   const entities: HomeAssistant["states"] = {};
   for (const [id, state] of Object.entries(states)) {
     entities[id] = {
       entity_id: id,
       state,
-      attributes: { unit_of_measurement: id.includes("soc") ? "%" : "W" },
+      attributes: { unit_of_measurement: id.includes("soc") ? "%" : "W", icon: icons[id] },
       last_changed: "2026-09-06T20:00:00+00:00",
       last_updated: "2026-09-06T20:00:00+00:00",
     };
@@ -388,6 +391,37 @@ describe("show-all toggle (REQ L-12)", () => {
 });
 
 describe("consumer icons (REQ L-2)", () => {
+  it("falls back to the entity's own icon attribute", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pump", icon: "mdi:heat-pump" },
+        { entity: "sensor.tv", name: "TV" },
+      ],
+    });
+    // The entity carries mdi:television; the configured icon still wins for the pump.
+    el.hass = fakeHass(
+      { ...STATES, "sensor.pump": "1200", "sensor.tv": "300" },
+      { "sensor.pump": "mdi:fire", "sensor.tv": "mdi:television" },
+    );
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const icon = (key: string) =>
+      (
+        el.shadowRoot?.querySelector(`.row[data-key="${key}"] .swatch.icon`) as {
+          icon?: string;
+        } | null
+      )?.icon;
+    expect(icon("sensor.pump")).toBe("mdi:heat-pump");
+    expect(icon("sensor.tv")).toBe("mdi:television");
+  });
+
   it("shows a configured icon in the entry's colour, and none otherwise", async () => {
     const el = document.createElement("enerlens-card") as HTMLElement & {
       setConfig: (c: unknown) => void;

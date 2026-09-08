@@ -341,6 +341,6 @@ export interface Sample {
 export interface AveragingStatus {
   /** True once the buffer covers the full window. */
   complete: boolean;
-  /** Epoch ms of the oldest sample, for the "since hh:mm" hint (REQ V-6). */
+  /** Epoch ms from which every entity has data - the "since hh:mm" hint (REQ V-6). */
   since?: number;
 }

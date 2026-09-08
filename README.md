@@ -180,7 +180,7 @@ inverter, the house is low by exactly that amount — derive it instead.
 | `entities.house` | derived | House consumption |
 | `entities.battery` | — | Battery power, signed |
 | `entities.battery_soc` | — | State of charge in % |
-| `consumers` | — | List of `{entity, name, color, icon, min_w}` |
+| `consumers` | — | List of `{entity, name, color, icon, min_w}`; without `icon` the entity's own icon is used |
 | `min_consumer_w` | `10` | Consumers below this are folded into the remainder; a consumer's own `min_w` overrides it |
 | `max_consumers` | all | Only the strongest are listed |
 | `update_interval_s` | `5` | How often the list reorders |

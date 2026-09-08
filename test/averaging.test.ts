@@ -175,7 +175,19 @@ describe("AveragingBuffer.status (REQ V-6)", () => {
     fill(buffer, "b", [[-15 * MIN, 200]]);
     const status = buffer.status(T0);
     expect(status.complete).toBe(true);
-    expect(status.since).toBe(T0 - 20 * MIN);
+    // The last entity to join decides from when the mean is valid.
+    expect(status.since).toBe(T0 - 15 * MIN);
+  });
+
+  it("dates 'since' from the last entity to join, not from a stale hold sample", () => {
+    const buffer = new AveragingBuffer(15 * MIN);
+    // A sensor that last changed 13 hours ago: known all along, one old sample.
+    fill(buffer, "idle", [[-13 * 60 * MIN, 25]]);
+    // A consumer whose first sample is 4 minutes old.
+    fill(buffer, "fresh", [[-4 * MIN, 300]]);
+    const status = buffer.status(T0);
+    expect(status.complete).toBe(false);
+    expect(status.since).toBe(T0 - 4 * MIN);
   });
 
   it("turns incomplete again when one entity joins late", () => {
