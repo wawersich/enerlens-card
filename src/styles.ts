@@ -433,8 +433,8 @@ export const styles = css`
   .lane {
     position: relative;
     flex: none;
-    /* Long enough for the dots to read as movement, but capped so long consumer
-       names keep their room. Grows with the card rather than staying fixed. */
+    /* Fallback width for browsers without subgrid (below). With subgrid the
+       lane fills whatever the name and value columns leave over. */
     width: clamp(48px, 16%, 88px);
     height: 3px;
     border-radius: 1.5px;
@@ -478,6 +478,32 @@ export const styles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--primary-text-color);
+  }
+
+  /* Stacked below the cross the list has the whole card width. The rows become
+     a grid with shared columns: mark | lane | name | value. The name column is
+     as wide as the longest name, the value column as wide as the widest figure,
+     and the lane takes everything that is left - on a phone three times what
+     the fixed width gave it. Browsers without subgrid keep the flex rows. */
+  @supports (grid-template-columns: subgrid) {
+    .list.stacked .rows {
+      display: grid;
+      /* The longest name decides: its column is as wide as it needs, the value
+         column as wide as the widest figure, and the lane takes the rest. */
+      grid-template-columns: 18px minmax(48px, 1fr) minmax(0, max-content) max-content;
+      column-gap: 9px;
+    }
+
+    .list.stacked .row {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: subgrid;
+      align-items: center;
+    }
+
+    .list.stacked .lane {
+      width: auto;
+    }
   }
 
   .row .row-value {

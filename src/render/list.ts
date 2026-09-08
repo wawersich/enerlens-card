@@ -74,7 +74,7 @@ export function renderList(
   if (!config.list.enabled) return nothing;
 
   return html`
-    <div class="list" style="--el-row-h:${rowHeight(breakdown.entries.length)}px">
+    <div class="list ${stacked ? "stacked" : ""}" style="--el-row-h:${rowHeight(breakdown.entries.length)}px">
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
       <div class="rows">
         ${repeat(
