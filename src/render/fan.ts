@@ -111,10 +111,19 @@ export class FanLayer {
     }
   }
 
-  /** Horizontal bezier: leaves the node sideways, arrives at the row sideways. */
+  /**
+   * Leaves the node sideways, bends to the row's height over the first part of
+   * the way, then runs straight into the row. The bend takes 60 % of the
+   * distance (40 to 160 px), the straight run the rest - the lines fan out
+   * right after the house, and the dots settle on the straight stretch (L-13).
+   */
   private pathFor(origin: { x: number; y: number }, row: FanRow): string {
-    const dx = Math.max(24, (row.x - origin.x) * 0.55);
-    return `M${origin.x.toFixed(1)},${origin.y.toFixed(1)} C${(origin.x + dx).toFixed(1)},${origin.y.toFixed(1)} ${(row.x - dx).toFixed(1)},${row.y.toFixed(1)} ${row.x.toFixed(1)},${row.y.toFixed(1)}`;
+    const span = row.x - origin.x;
+    const knee = Math.min(160, Math.max(40, span * 0.6));
+    const kx = origin.x + Math.min(knee, span);
+    const c = knee / 2;
+    const f = (v: number) => v.toFixed(1);
+    return `M${f(origin.x)},${f(origin.y)} C${f(origin.x + c)},${f(origin.y)} ${f(kx - c)},${f(row.y)} ${f(kx)},${f(row.y)} L${f(row.x)},${f(row.y)}`;
   }
 
   private createLine(key: string): FanLine {

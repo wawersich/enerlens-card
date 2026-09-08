@@ -152,12 +152,20 @@ export const styles = css`
      a section column at roughly 500 px, leaving ~460 px of content - so the two
      bases plus the gap have to stay under that, or the list never sits beside
      the cross in a sections view (REQ L-1). */
-  .cross {
-    /* The cross comes first: it takes free width until its 400 px, only then
-       does the list widen. It never shrinks below its basis - when the two do
-       not fit side by side, the list wraps below instead. */
-    flex: 99 0 250px;
+  .body.stacked .cross {
     max-width: 400px;
+  }
+
+  .cross {
+    /* The cross comes first: it takes free width until its cap, only then does
+       the list widen. Beside the list the cap is 320 px but never more than
+       52 % of the card, so the list keeps enough of the other half for the fan
+       lines to run a straight stretch (L-13). It never goes below 225 px - if
+       that does not fit next to the list, the list wraps below, and the cross
+       alone in its row may grow to the full 400 px again. */
+    flex: 99 0 225px;
+    min-width: 225px;
+    max-width: min(320px, 52%);
     /* Room for the labels, which reach beyond the drawing, and for the large
        nodes, which overhang the viewBox by a few units. */
     padding: 26px 8px 28px;

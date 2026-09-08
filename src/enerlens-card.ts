@@ -498,7 +498,7 @@ class EnerLensCard extends LitElement {
           this._showAll,
           () => this._toggleShowAll(),
         )}
-        <div class="body">
+        <div class="body ${this._stacked ? "stacked" : ""}">
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(
             model,
