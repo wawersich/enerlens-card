@@ -265,10 +265,9 @@ npm run build          # single-file bundle in dist/
 ./scripts/deploy.sh    # build and copy into a local Home Assistant
 ```
 
-Requirements and the implementation plan live in [`docs/`](docs/). They are
-written in German and stay that way: they change with every step, and a second
-copy would mostly be a source of contradictions. They record what was decided
-and why — including the measurements the defaults are based on.
+[`docs/`](docs/) holds the design decisions (`docs/decisions/`), the animation
+spike that led to the Web Animations API, the test setup with its replay
+scripts, and the screenshots.
 
 The user-facing documentation — this page and [`README.de.md`](README.de.md) —
 is maintained in both languages.

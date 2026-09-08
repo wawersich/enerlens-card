@@ -272,10 +272,9 @@ npm run build          # Einzeldatei-Bundle in dist/
 ./scripts/deploy.sh    # bauen und in ein lokales Home Assistant kopieren
 ```
 
-Anforderungen und Implementierungsplan liegen in [`docs/`](docs/) und bleiben
-auf Deutsch: Sie ändern sich mit jedem Schritt, und eine zweite Fassung wäre
-vor allem eine Quelle für Widersprüche. Sie halten fest, was entschieden wurde
-und warum — einschließlich der Messungen, auf denen die Standardwerte beruhen.
+In [`docs/`](docs/) liegen die Entwurfsentscheidungen (`docs/decisions/`), der
+Animations-Spike, der zur Web Animations API geführt hat, die Testumgebung mit
+ihren Abspielskripten und die Screenshots.
 
 Die Anwenderdokumentation — diese Seite und [`README.md`](README.md) — wird
 zweisprachig gepflegt.

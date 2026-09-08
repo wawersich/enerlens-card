@@ -1,9 +1,8 @@
 # Testumgebung für die EnerLens-Karte
 
 Diese Anleitung beschreibt, wie die Karte unter reproduzierbaren Bedingungen in
-Home Assistant geprüft wird — die Umsetzung von Schritt **M2a** aus
-`IMPLEMENTATION_PLAN.md` und die Grundlage der Abnahmen **L** und **V** aus
-`REQUIREMENTS.md`.
+Home Assistant geprüft wird: Szenarien abspielen, Stress-Entitäten anlegen,
+Mittelwerte gegen Referenzdaten prüfen.
 
 ## 1. Warum abspielen statt Historie schreiben
 
@@ -11,7 +10,7 @@ Home Assistant kann Zustände **nicht rückdatieren**: `POST /api/states` schrei
 immer „jetzt". Es gibt keinen Weg, dem Recorder nachträglich einen Verlauf
 unterzuschieben.
 
-Deshalb werden die Referenzdaten (REQ 5.1) auf eigene Test-Entitäten
+Deshalb werden die Referenzdaten auf eigene Test-Entitäten
 *abgespielt*. Der 5. 9. 2026 um 15:25 Uhr wird also nicht wiederhergestellt,
 sondern **jetzt noch einmal aufgeführt** — mit denselben Werten in derselben
 Reihenfolge. Für die Karte ist das nicht unterscheidbar: sie sieht laufende
@@ -35,7 +34,7 @@ schreiben. Eine echte Anlagen-Entität kann nicht getroffen werden.
   `$SUPERVISOR_TOKEN` gesetzt und `http://supervisor/core/api` erreichbar.
   (`homeassistant.local:8123` ist aus dem Container **nicht** erreichbar.)
 - Referenzdaten unter `/share/dev/enerlens-fixture/` — außerhalb des
-  Repositories (REQ 5.1, ENT-21). Anderer Pfad: `--fixtures <pfad>` oder
+  Repositories. Anderer Pfad: `--fixtures <pfad>` oder
   Umgebungsvariable `ENERLENS_FIXTURES`.
 - Referenztag ist der **5. 9. 2026** (`history-2026-09-05.json`), gesichert sind
   der 29. 8. bis 6. 9. 2026.
@@ -52,8 +51,8 @@ Schlüssel aus der Referenzdatei, die Namensgebung ist damit fest und ableitbar.
 | Rolle | Entität | Einheit | Bedeutung |
 |---|---|---|---|
 | `solar` | `sensor.enerlens_test_solar` | W | PV-Erzeugung gesamt |
-| `grid` | `sensor.enerlens_test_grid` | W | Netz, signiert: **+ Bezug, − Einspeisung** (E-2) |
-| `house_5s` | `sensor.enerlens_test_house_5s` | W | Hausverbrauch, schneller Sensor — **der empfohlene** (ENT-8) |
+| `grid` | `sensor.enerlens_test_grid` | W | Netz, signiert: **+ Bezug, − Einspeisung** |
+| `house_5s` | `sensor.enerlens_test_house_5s` | W | Hausverbrauch, schneller Sensor — **der empfohlene** |
 | `house_10s` | `sensor.enerlens_test_house_10s` | W | Hausverbrauch, 10-s-Sensor |
 | `house_60s` | `sensor.enerlens_test_house_60s` | W | Hausverbrauch, 60-s-Sensor |
 | `battery_to_house` | `sensor.enerlens_test_battery_to_house` | W | Batterie entlädt (≥ 0) |
@@ -88,7 +87,7 @@ node scripts/replay.mjs --list-roles
 | `sensor.enerlens_stress_house` | Hauswert = Summe aller Verbraucher + 250 W (der „Rest") |
 
 Die Werte sind bei gleichem `--seed` reproduzierbar. Mit Seed 42 liegen 14 der
-100 Verbraucher unter 10 W (fallen also durch `min_consumer_w`, L-3), 8 im
+100 Verbraucher unter 10 W (fallen also durch `min_consumer_w`), 8 im
 Kilowatt-Bereich, der Rest dazwischen.
 
 ## 4. `replay.mjs`
@@ -125,12 +124,12 @@ Drei Zeitpunkte, Modus *Aktuell*, `min_consumer_w: 10`, `max_consumers: 4`.
 Jeder ist ein einzelner Schnappschuss, `--once` genügt:
 
 ```bash
-node scripts/replay.mjs --once 12:46:04     # L-1: Trockner · Rest 0,43 · Kühl · Speicher · Waschm.
-node scripts/replay.mjs --once 12:51:00     # L-2: Rest 0,52 steht oben (größter Posten)
-node scripts/replay.mjs --once 15:40:18     # L-3: kein Rest (Σ 3 979 W > Haus 3 020 W)
+node scripts/replay.mjs --once 12:46:04     # Trockner · Rest 0,43 · Kühl · Speicher · Waschm.
+node scripts/replay.mjs --once 12:51:00     # Rest 0,52 steht oben (größter Posten)
+node scripts/replay.mjs --once 15:40:18     # kein Rest (Σ 3 979 W > Haus 3 020 W)
 ```
 
-Erwartet werden dabei (aus `expected.json`, REQ 2.3):
+Erwartet werden dabei (aus `expected.json`):
 
 | Zeitpunkt | Haus | Erwartete Liste |
 |---|---|---|
@@ -138,7 +137,7 @@ Erwartet werden dabei (aus `expected.json`, REQ 2.3):
 | 12:51:00 | 1 200 W | **Rest 0,52** · Kühl 0,23 · Trockner 0,21 · Speicher 0,13 · Waschm. 0,11 |
 | 15:40:18 | 3 020 W | Waschm. 2,15 · Trockner 1,53 · Kühl 0,17 · Speicher 0,13 — **kein Rest** |
 
-Für die animierten Übergänge (L-8) dieselben Zeitpunkte am Stück abspielen:
+Für die animierten Übergänge dieselben Zeitpunkte am Stück abspielen:
 
 ```bash
 node scripts/replay.mjs --from 12:44 --to 12:53 --speed 2
@@ -181,8 +180,8 @@ Direkt am Ende des Laufs, ohne die Karte anzufassen, die drei Chips durchklicken
 verfügbarem Wert, vor Filter und Limit. Für diese Abnahme läuft die Karte
 **ohne** `max_consumers` (siehe 6.2).
 
-Der Umschalter selbst (V-8: < 100 ms sichtbar) lässt sich auch mitten im Lauf
-prüfen — die Vorbefüllung aus dem Recorder (V-6) greift dabei auf die Historie
+Der Umschalter selbst lässt sich auch mitten im Lauf
+prüfen — die Vorbefüllung aus dem Recorder greift dabei auf die Historie
 der Test-Entitäten zu, die der Replay gerade erst erzeugt hat.
 
 ### 4.3 Trockenlauf
@@ -219,8 +218,8 @@ node scripts/make-stress-entities.mjs --vary --interval 3
 
 `--vary` ist der eigentliche Lasttest: alle paar Sekunden ändern sich alle 101
 Werte, einzelne Verbraucher schalten ab (fallen unter 10 W) und wieder an. Damit
-sieht man das Umsortieren der Liste (L-7, L-8) und die Ring-Übergänge (R-4)
-unter Last und prüft L-11 / N-1: Mit `max_consumers: 5` dürfen nur sechs
+sieht man das Umsortieren der Liste  und die Ring-Übergänge
+unter Last und prüft /: Mit `max_consumers: 5` dürfen nur sechs
 Einträge im DOM stehen.
 
 ## 6. Kartenkonfiguration für das Test-Dashboard
@@ -242,8 +241,7 @@ entities:
     discharge: sensor.enerlens_test_battery_to_house
     charge: sensor.enerlens_test_solar_to_battery
   battery_soc: sensor.enerlens_test_soc
-  house: sensor.enerlens_test_house_5s       # schneller Sensor, ENT-8
-
+  house: sensor.enerlens_test_house_5s       # schneller Sensor
 consumers:
   - entity: sensor.enerlens_test_heatpump
     name: Wärmepumpe
@@ -293,7 +291,7 @@ flow:
 ```
 
 Farben und Icons sind bewusst nicht gesetzt — so prüft die Karte gleich die
-Standardwerte aus den HA-Energie-Theme-Variablen (C-2, ENT-19).
+Standardwerte aus den HA-Energie-Theme-Variablen.
 
 ### 6.2 Zweite Szenarien-Karte (Abnahme V)
 
@@ -313,15 +311,15 @@ view:
 
 ### 6.3 Weitere nützliche Varianten
 
-- **Abgeleiteter Hauswert (A-1, A-2):** `house` weglassen. Der Knoten trägt dann
-  „· berechnet" und ist nicht klickbar (A-3).
+- **Abgeleiteter Hauswert :** `house` weglassen. Der Knoten trägt dann
+  „· berechnet" und ist nicht klickbar.
 - **Abgeleitete Batterie (Checkliste 0.1.0):** `battery: derived` und `house`
   angeben — im Nachtszenario (`--once 03:00:00`) muss „entlädt" stehen.
-- **Ohne Batterie (A-5, K-10):** `battery` und `battery_soc` weglassen — der
+- **Ohne Batterie :** `battery` und `battery_soc` weglassen — der
   Knoten entfällt.
-- **Langsamer Hauswert (ENT-8):** `house: sensor.enerlens_test_house_60s` — zeigt
+- **Langsamer Hauswert:** `house: sensor.enerlens_test_house_60s` — zeigt
   den Unterschied zum 5-s-Sensor.
-- **Nicht verfügbar (K-9):** Einzelne Rollen weglassen, z. B.
+- **Nicht verfügbar:** Einzelne Rollen weglassen, z. B.
   `--roles solar,grid,house_5s`; alle nicht abgespielten Entitäten bleiben leer.
 
 ### 6.4 Stress-Karte
@@ -342,7 +340,7 @@ consumers:
   # … bis sensor.enerlens_stress_100
 
 min_consumer_w: 10
-max_consumers: 5                             # L-11: nur 6 Einträge dürfen im DOM stehen
+max_consumers: 5                             # nur 6 Einträge dürfen im DOM stehen
 update_interval_s: 5
 
 list:
@@ -365,8 +363,8 @@ for i in $(seq -w 1 100); do echo "  - entity: sensor.enerlens_stress_$i"; done
 ```
 
 `consumers[].name` bleibt weg — die Karte nimmt dann den `friendly_name`
-(„EnerLens Stress 001"), womit gleich L-2 mitgeprüft wird. Farben kommen aus der
-eingebauten Palette (C-4); bei 100 Verbrauchern wiederholt sie sich, das ist so
+(„EnerLens Stress 001"), womit gleich mitgeprüft wird. Farben kommen aus der
+eingebauten Palette; bei 100 Verbrauchern wiederholt sie sich, das ist so
 gewollt.
 
 **Hinweis zu PV und Netz:** Die Stress-Skripte legen nur die Verbraucher und den
@@ -390,7 +388,7 @@ Für Testzwecke ist das genau richtig:
 - Kein Aufräumen nötig — ein Core-Neustart setzt die Testumgebung zurück.
 - Keine Rückstände in `.storage`, keine verwaisten Helfer, kein Risiko, dass
   Testwerte später in einer Automation landen.
-- Die Karten im Test-Dashboard zeigen nach einem Neustart „—" (K-9) — auch das
+- Die Karten im Test-Dashboard zeigen nach einem Neustart „—" — auch das
   ist ein brauchbarer Testfall, bis das nächste Replay läuft.
 
 Was einen Neustart überlebt, sind allein die Dashboard-Ansichten mit den

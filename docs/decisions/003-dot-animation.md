@@ -4,9 +4,25 @@
 |---|---|
 | Status | **Entschieden** — am Gerät gemessen und umgesetzt |
 | Datum | 2026-09-06 |
-| Betrifft | REQ P-1 … P-8, N-1, N-3, N-8 · Meilenstein M3 · `src/render/dots.ts` |
+| Betrifft | Punkte-Animation · `src/render/dots.ts` |
 | Messseite | `docs/spikes/dot-animation.html` (eigenständig, offline, auch auf dem Handy) |
 | Ergebnis der Messung | **WAAPI bestätigt** (iPhone, 6. 9. 2026): Sprung 0,0 % gegen 5,7 % (CSS) und 17,0 % (SMIL) — Abschnitt 6 |
+
+**Kriterien, gegen die gemessen wurde** — die Kürzel im Text stehen für:
+
+| Kürzel | Kriterium |
+|---|---|
+| P-2 | auf jeder Verbindung höchstens eine Richtung aktiv |
+| P-3 / 4.6 | Stufenregel: Anzahl und Tempo der Punkte aus der Leistung, drei Schwellen |
+| P-4 | Punktfarbe = Farbe des Flusszustands |
+| P-5 | inaktive Verbindung: keine Punkte, Linie in Trennlinienfarbe |
+| **P-6** | **beim Parameterwechsel springt kein Punkt um mehr als 5 % der Pfadlänge**; Punkte, die dazukommen oder entfallen, blenden ein und aus |
+| P-7 | `prefers-reduced-motion` respektieren, auch bei Änderung zur Laufzeit: Punkte statisch, gleichmäßig verteilt |
+| P-8 | bei verstecktem Tab keine Frames |
+| N-1 | ≥ 30 fps bei 6 Linien à 5 Punkten |
+| N-3 | Browser der letzten zwei Jahre, HA-Companion iOS und Android |
+| N-4 | Aufräumen in `disconnectedCallback`, kein Speicherleck |
+| N-8 | SVG-IDs eindeutig je Karteninstanz |
 
 ---
 
