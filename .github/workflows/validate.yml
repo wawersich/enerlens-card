@@ -4,6 +4,11 @@
 name: HACS
 
 on:
+  # The tag itself, because a release created by CI with the workflow token
+  # does not fire `release: published` - GitHub suppresses workflow chains
+  # started from that token on purpose.
+  push:
+    tags: ["v*"]
   release:
     types: [published]
   workflow_dispatch:
