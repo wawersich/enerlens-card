@@ -9,9 +9,10 @@ besteht.
 ![EnerLens im hellen Design](docs/images/light.png)
 ![EnerLens im dunklen Design](docs/images/dark.png)
 
-> **Stand: noch nicht veröffentlicht.** Die Karte läuft und ist auf einer
-> Anlage täglich im Einsatz, aber es gibt noch kein Release und sie ist nicht
-> in HACS. Die Konfiguration ist stabil, die Version vor 1.0.
+> **Stand: veröffentlicht, vor 1.0.** Die Karte ist auf einer Anlage täglich im
+> Einsatz und lässt sich über HACS als Custom Repository installieren. Die
+> Konfiguration ist stabil; die Version bleibt unter 1.0, bis die Karte auf mehr
+> als einer Anlage gelaufen ist.
 
 ## Was sie anders macht
 
@@ -272,6 +273,13 @@ npm run check          # Typen, Lint, Tests, Build
 npm run build          # Einzeldatei-Bundle in dist/
 ./scripts/deploy.sh    # bauen und in ein lokales Home Assistant kopieren
 ```
+
+`deploy.sh` baut mit `CARD_SUFFIX=-dev`; die lokale Karte meldet sich dann als
+`<enerlens-card-dev>` an, mit eigenem Editor und eigener Lovelace-Ressource. So
+lassen sich ein Entwicklungsstand und eine über HACS installierte Karte im
+selben Browser betreiben — ohne die Umbenennung gewinnt die zuerst geladene
+Datei den Elementnamen und bespielt alle Dashboards. Unter dem offiziellen Namen
+ausliefern: `CARD_SUFFIX= ./scripts/deploy.sh`.
 
 In [`docs/`](docs/) liegen die Entwurfsentscheidungen (`docs/decisions/`), der
 Animations-Spike, der zur Web Animations API geführt hat, die Testumgebung mit

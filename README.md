@@ -8,9 +8,10 @@ and battery — plus a breakdown of what the house figure is actually made of.
 ![EnerLens in a light theme](docs/images/light.png)
 ![EnerLens in a dark theme](docs/images/dark.png)
 
-> **Status: not released yet.** The card works and is in daily use on one
-> installation, but there is no tagged release and it is not in HACS. Treat the
-> configuration as settled and the version as pre-1.0.
+> **Status: released, pre-1.0.** The card is in daily use on one installation
+> and installs through HACS as a custom repository. The configuration is
+> settled; the version stays below 1.0 until it has run on more than one
+> installation.
 
 ## What it does differently
 
@@ -264,6 +265,13 @@ npm run check          # typecheck, lint, tests, build
 npm run build          # single-file bundle in dist/
 ./scripts/deploy.sh    # build and copy into a local Home Assistant
 ```
+
+`deploy.sh` builds with `CARD_SUFFIX=-dev`, so the local card registers as
+`<enerlens-card-dev>` with its own editor and its own Lovelace resource. That
+way a development build and a card installed through HACS can live in the same
+browser — without the suffix whichever file loads first claims the element name
+and serves every dashboard. Use `CARD_SUFFIX= ./scripts/deploy.sh` to deploy
+under the official name instead.
 
 [`docs/`](docs/) holds the design decisions (`docs/decisions/`), the animation
 spike that led to the Web Animations API, the test setup with its replay

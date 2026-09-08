@@ -100,4 +100,4 @@ First release. Everything below is new.
 - Dots animate with the Web Animations API (decision 003), chosen after
   measuring the alternatives on a phone.
 - Console banner shows version and git revision.
-- Single-file bundle, about 28 kB gzip.
+- Single-file bundle, about 33 kB gzip.
