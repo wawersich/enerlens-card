@@ -30,7 +30,7 @@ slide to their new position instead of jumping. Values update immediately; only
 the order waits for the beat, because a jumping figure does not disturb but a
 jumping row does. A small filter button beside the view chips shows every consumer
 regardless of power — for tapping the history of a device that has just gone
-quiet.
+quiet. Like the selected view, the button survives a reload.
 
 **Measurements are never quietly changed.** Sensors update at different rates,
 so the individually measured consumers can briefly add up to more than the
@@ -197,7 +197,7 @@ inverter, the house is low by exactly that amount — derive it instead.
 | `view.avg_short_minutes` | `5` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
 | `view.show_selector` | `true` | Show the mode chips |
-| `view.remember` | `true` | Remember the mode per browser |
+| `view.remember` | `true` | Remember the view and the filter button per browser |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
 | `flow.min_w` | `10` | Below this nothing moves, and grid and battery show no state word |

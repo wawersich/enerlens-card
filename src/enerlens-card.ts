@@ -25,6 +25,28 @@ import {
   type ViewMode,
 } from "./types";
 
+/** Preferences kept per browser while view.remember is on (REQ V-11, L-12). */
+const MODE_KEY = "enerlens-view-mode";
+const SHOW_ALL_KEY = "enerlens-show-all";
+
+/** localStorage throws in private mode and can be disabled outright; a lost
+ *  preference must never cost more than the preference itself. */
+function store(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Not kept, nothing else changes.
+  }
+}
+
+function load(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 class EnerLensCard extends LitElement {
   static styles = styles;
 
@@ -63,7 +85,8 @@ class EnerLensCard extends LitElement {
   private _visible = true;
   /** True while the list wraps below the cross - the lanes only run there. */
   private _stacked = false;
-  /** Filter lifted by the toggle above the list (REQ L-12). Not persisted. */
+  /** Filter lifted by the toggle above the list (REQ L-12). Kept per browser
+   *  like the view mode, unless view.remember is off. */
   private _showAll = false;
   /** Plot width over VIEW_W - the ring inside the house node is sized by it. */
   private _scale = 1;
@@ -75,6 +98,7 @@ class EnerLensCard extends LitElement {
 
   private _toggleShowAll(): void {
     this._showAll = !this._showAll;
+    if (this._config?.view.remember) store(SHOW_ALL_KEY, this._showAll ? "1" : "0");
     // Re-select at once rather than on the next tick; the FLIP in updated()
     // glides the rows that move.
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
@@ -113,14 +137,11 @@ class EnerLensCard extends LitElement {
     this._buffer = new AveragingBuffer(this._config.view.avgLongMinutes * 60_000);
     this._mode = this._config.view.defaultMode;
     if (this._config.view.remember) {
-      try {
-        const stored = localStorage.getItem("enerlens-view-mode");
-        if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
-          this._mode = stored;
-        }
-      } catch {
-        // Storage unavailable - fall back to the configured default.
+      const stored = load(MODE_KEY);
+      if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
+        this._mode = stored;
       }
+      this._showAll = load(SHOW_ALL_KEY) === "1";
     }
     if (this._mode !== "current") void this._prefill();
     if (this._hass) {
@@ -261,13 +282,7 @@ class EnerLensCard extends LitElement {
   private _setMode(mode: ViewMode): void {
     if (mode === this._mode) return;
     this._mode = mode;
-    if (this._config?.view.remember) {
-      try {
-        localStorage.setItem("enerlens-view-mode", mode);
-      } catch {
-        // Private browsing or storage disabled - the mode simply is not kept.
-      }
-    }
+    if (this._config?.view.remember) store(MODE_KEY, mode);
     if (mode !== "current") void this._prefill();
     this._updateSince();
     // A switch takes effect at once rather than waiting for the next tick (V-8).

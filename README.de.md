@@ -31,7 +31,8 @@ Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
 ändern sich sofort; nur die Reihenfolge wartet auf den Takt — eine springende
 Zahl stört nicht, eine springende Zeile schon. Ein kleiner Filter-Knopf neben
 den Ansichts-Chips zeigt alle Verbraucher unabhängig von ihrer Leistung — um den Verlauf
-eines Geräts anzutippen, das gerade still geworden ist.
+eines Geräts anzutippen, das gerade still geworden ist. Der Knopf bleibt wie die
+gewählte Ansicht über einen Neuladen hinweg gesetzt.
 
 **Messwerte werden nie stillschweigend verändert.** Sensoren aktualisieren
 unterschiedlich schnell, deshalb kann die Summe der einzeln gemessenen
@@ -201,7 +202,7 @@ diesen Betrag zu klein — dann besser ableiten.
 | `view.avg_short_minutes` | `5` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
 | `view.show_selector` | `true` | Umschalter anzeigen |
-| `view.remember` | `true` | Modus je Browser merken |
+| `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
 | `flow.min_w` | `10` | Darunter bewegt sich nichts; Netz und Batterie zeigen kein Zustandswort |

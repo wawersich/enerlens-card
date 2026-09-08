@@ -3,7 +3,7 @@
  * Renders the actual custom element. This is the layer where a broken template
  * or a missing update trigger shows up - unit tests on the modules cannot see it.
  */
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { HomeAssistant } from "../src/types";
 
 function fakeHass(
@@ -342,7 +342,9 @@ describe("show-all toggle (REQ L-12)", () => {
     shadowRoot: ShadowRoot | null;
   };
 
-  async function mountWithConsumers() {
+  beforeEach(() => localStorage.clear());
+
+  async function mountWithConsumers(extra: Record<string, unknown> = {}) {
     const el = document.createElement("enerlens-card") as Card;
     el.setConfig({
       ...CONFIG,
@@ -351,6 +353,7 @@ describe("show-all toggle (REQ L-12)", () => {
         { entity: "sensor.idle", name: "Idle" },
       ],
       min_consumer_w: 10,
+      ...extra,
     });
     el.hass = fakeHass({ ...STATES, "sensor.pump": "1200", "sensor.idle": "3" });
     document.body.appendChild(el);
@@ -378,6 +381,29 @@ describe("show-all toggle (REQ L-12)", () => {
     toggle.click();
     await el.updateComplete;
     expect(names(el)).not.toContain("Idle");
+  });
+
+  it("keeps a lifted filter for the next card (REQ L-12, V-11)", async () => {
+    const first = await mountWithConsumers();
+    (first.shadowRoot?.querySelector(".filter-toggle") as HTMLButtonElement).click();
+    await first.updateComplete;
+
+    // A reload means a fresh element reading the same browser storage.
+    const second = await mountWithConsumers();
+    expect(names(second)).toContain("Idle");
+    expect(second.shadowRoot?.querySelector(".filter-toggle")?.getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
+  it("forgets the filter when view.remember is off", async () => {
+    const first = await mountWithConsumers({ view: { remember: false } });
+    (first.shadowRoot?.querySelector(".filter-toggle") as HTMLButtonElement).click();
+    await first.updateComplete;
+    expect(names(first)).toContain("Idle");
+
+    const second = await mountWithConsumers({ view: { remember: false } });
+    expect(names(second)).not.toContain("Idle");
   });
 
   it("offers no toggle without consumers", async () => {
