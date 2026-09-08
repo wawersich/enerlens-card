@@ -13,10 +13,11 @@
 import { type TemplateResult, html, nothing, svg } from "lit";
 import type { Segment } from "../types";
 
-/** Stroke in CSS px, kept constant by vector-effect (REQ K-12: ring >= 8 px). */
+/** Stroke in CSS px (REQ K-12: ring >= 8 px). */
 export const RING_STROKE_PX = 11;
-/** Border of the node plus the breathing space between border and ring. */
-export const RING_INSET_PX = 2 + 2;
+/** Node border (2 px) plus the air between border and ring (4 px). The ring's
+ *  box is inset by the air from the padding edge, see styles.ts. */
+export const RING_INSET_PX = 2 + 4;
 
 /** Gap between segments and the shortest arc, as fractions of the circumference
  *  (REQ R-2). A hairline segment reads as a rendering artefact; the share it
@@ -25,12 +26,16 @@ const GAP_FRACTION = 0.0085;
 const MIN_ARC_FRACTION = 0.017;
 
 /**
- * Radius in the ring's own 100-unit viewBox. The stroke does not scale with the
- * box, so its half width has to be converted from px using the node's size.
+ * Stroke width and radius in the ring's own 100-unit viewBox, from the node's
+ * drawn size. Everything stays in user units - no vector-effect, no CSS calc
+ * on SVG geometry, both of which WebKit has rendered unreliably before
+ * (decision 003, dots.ts). The outer edge of the stroke lands exactly on the
+ * box, which sits RING_INSET_PX inside the node's outer edge.
  */
-export function ringRadius(nodePx: number): number {
+export function ringGeometry(nodePx: number): { r: number; strokeWidth: number } {
   const innerPx = Math.max(1, nodePx - 2 * RING_INSET_PX);
-  return 50 - (RING_STROKE_PX / 2) * (100 / innerPx);
+  const strokeWidth = RING_STROKE_PX * (100 / innerPx);
+  return { r: 50 - strokeWidth / 2, strokeWidth };
 }
 
 export function renderRing(
@@ -43,7 +48,7 @@ export function renderRing(
   const segments = allSegments.filter((s) => s.share > 0);
   if (!enabled || segments.length === 0) return nothing;
 
-  const r = ringRadius(nodePx);
+  const { r, strokeWidth } = ringGeometry(nodePx);
   const circumference = 2 * Math.PI * r;
   const gap = circumference * GAP_FRACTION;
   const minArc = circumference * MIN_ARC_FRACTION;
@@ -75,6 +80,7 @@ export function renderRing(
       r=${r.toFixed(2)}
       cx="50"
       cy="50"
+      stroke-width=${strokeWidth.toFixed(2)}
       stroke=${segment.color}
       stroke-dasharray=${dash}
       stroke-dashoffset=${(-offset).toFixed(2)}

@@ -190,9 +190,7 @@ export const styles = css`
 
   .ring-seg {
     fill: none;
-    /* Constant 11 px whatever the node's size (REQ K-12). */
-    stroke-width: 11px;
-    vector-effect: non-scaling-stroke;
+    /* stroke-width is set per render in viewBox units (ringGeometry). */
     stroke-linecap: butt;
     transition:
       stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1),
