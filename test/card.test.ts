@@ -418,3 +418,31 @@ describe("consumer icons (REQ L-2)", () => {
     expect(el.shadowRoot?.querySelector('.row[data-key="sensor.tv"] .swatch.dot')).toBeTruthy();
   });
 });
+
+describe("row pitch follows the row count (REQ L-9)", () => {
+  it("is roomy for few rows and compact for many", async () => {
+    const { rowHeight } = await import("../src/render/list");
+    expect(rowHeight(3)).toBe(40);
+    expect(rowHeight(4)).toBe(40);
+    expect(rowHeight(5)).toBe(34);
+    expect(rowHeight(7)).toBe(34);
+    expect(rowHeight(8)).toBe(28);
+    expect(rowHeight(12)).toBe(28);
+  });
+
+  it("sets the pitch on the list element", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig({ ...CONFIG, consumers: [{ entity: "sensor.a", name: "A" }] });
+    el.hass = fakeHass({ ...STATES, "sensor.a": "500" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    // Two rows: the consumer and the rest.
+    const list = el.shadowRoot?.querySelector(".list") as HTMLElement;
+    expect(list.style.getPropertyValue("--el-row-h")).toBe("40px");
+  });
+});

@@ -52,6 +52,18 @@ function lane(w: number, color: string, config: Config): TemplateResult | typeof
   </span>`;
 }
 
+/**
+ * Row pitch by the number of rows (REQ L-9): three entries may sit apart, ten
+ * should not turn the card into a scroll. The hit target grows with the row
+ * (row-hit reaches 5 px beyond it), so the effective target is the pitch -
+ * never below the 24 px floor of I-3.
+ */
+export function rowHeight(count: number): number {
+  if (count <= 4) return 40;
+  if (count <= 7) return 34;
+  return 28;
+}
+
 export function renderList(
   breakdown: Breakdown,
   config: Config,
@@ -62,7 +74,7 @@ export function renderList(
   if (!config.list.enabled) return nothing;
 
   return html`
-    <div class="list">
+    <div class="list" style="--el-row-h:${rowHeight(breakdown.entries.length)}px">
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
       <div class="rows">
         ${repeat(

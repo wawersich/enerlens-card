@@ -391,7 +391,8 @@ export const styles = css`
     display: flex;
     align-items: center;
     gap: 9px;
-    min-height: 34px;
+    /* Set per list from the row count, see rowHeight() in render/list.ts. */
+    min-height: var(--el-row-h, 34px);
     font-size: var(--el-list-size);
     font-variant-numeric: tabular-nums;
   }

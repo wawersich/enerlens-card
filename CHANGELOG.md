@@ -35,6 +35,7 @@ First release. Everything below is new.
 - Inactive connections can be shown, dimmed or hidden.
 - Grid and battery show their state word and colour only from `flow.min_w`
   upwards - a 4 W trickle reads "0.00 kW" and gets no "export" next to it.
+- Row spacing follows the number of rows: roomy for a few, compact for many.
 - A round filter button beside the mode chips lifts the filter and shows every consumer,
   so a device that was busy a minute ago can still be tapped for its history.
 - A consumer can carry an icon, which takes the colour mark's place at the row's start.
