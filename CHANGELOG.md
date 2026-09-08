@@ -21,8 +21,8 @@ First release. Everything below is new.
 - Fan lines from the house to each list row, with dots, when the list sits
   beside the cross; short lanes inside the rows when it is stacked below. The
   lines follow the rows frame by frame while these glide into a new order.
-- All four nodes share one outer diameter: solar, grid and battery are drawn as
-  large as the house together with its ring.
+- All four nodes share one outer diameter and their coloured border sits on the
+  outside; the consumer ring lives inside the house node, just within the border.
 - Battery node shows state of charge above the icon and power below, with a
   fill level and a red-yellow-green gradient; the two halves open the two
   histories.

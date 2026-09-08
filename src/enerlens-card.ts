@@ -32,6 +32,7 @@ class EnerLensCard extends LitElement {
     hass: { attribute: false },
     _model: { state: true },
     _showAll: { state: true },
+    _scale: { state: true },
   };
 
   private _hass?: HomeAssistant;
@@ -64,6 +65,13 @@ class EnerLensCard extends LitElement {
   private _stacked = false;
   /** Filter lifted by the toggle above the list (REQ L-12). Not persisted. */
   private _showAll = false;
+  /** Plot width over VIEW_W - the ring inside the house node is sized by it. */
+  private _scale = 1;
+
+  /** Drawn node diameter in CSS px; mirrors --el-node-size in styles.ts. */
+  private get _nodePx(): number {
+    return Math.max(70, 112 * this._scale + 11);
+  }
 
   private _toggleShowAll(): void {
     this._showAll = !this._showAll;
@@ -280,6 +288,8 @@ class EnerLensCard extends LitElement {
       const scale = width / VIEW_W;
       this.style.setProperty("--el-scale", String(scale));
       this._dots?.setScale(scale);
+      // Only a real change re-renders; sub-pixel noise from the observer does not.
+      if (Math.abs(scale - this._scale) > 0.005) this._scale = scale;
     }
     this._checkStacked();
   }
@@ -495,6 +505,7 @@ class EnerLensCard extends LitElement {
             this._hass,
             active,
             this._config.ring.enabled ? breakdown.segments : [],
+            this._nodePx,
           )}
           ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>

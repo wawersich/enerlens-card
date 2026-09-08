@@ -8,12 +8,10 @@ import { css } from "lit";
  */
 export const styles = css`
   :host {
-    --el-node-size: clamp(70px, calc(104px * var(--el-scale, 1)), 104px);
-    /* Outer diameter of the house ring: 2 × RING_R in viewBox units plus the
-       ring's stroke, which is a fixed 11 CSS px. Solar, grid and battery - and
-       the house without a ring - are drawn this size, so every node has the
-       same outer diameter (REQ K-13). */
-    --el-node-size-lg: max(var(--el-node-size), calc(112px * var(--el-scale, 1) + 11px));
+    /* One size for all four nodes (REQ K-14): 2 × NODE_R viewBox units at the
+       measured scale, plus 11 px so the ring inside the house keeps its stroke
+       at small sizes; never below 70 px, where the figure stops being legible. */
+    --el-node-size: max(70px, calc(112px * var(--el-scale, 1) + 11px));
     --el-value-size: clamp(12px, calc(13px * var(--el-scale, 1)), 15px);
     /* 12 px matches power-flow-card-plus, whose labels this sits next to on
        many dashboards. Fixed rather than scaled: the original does not scale
@@ -180,9 +178,21 @@ export const styles = css`
 
   /* Segments animate their length and position, so a consumer's slice grows or
      shrinks into place rather than snapping (REQ R-4). */
+  /* Inside the node's border, with a little air between the two. Below the
+     icon and figure (z-index), above the node's background. */
+  .node .ring {
+    position: absolute;
+    inset: 4px;
+    z-index: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+
   .ring-seg {
     fill: none;
-    stroke-width: calc(11px / var(--el-scale, 1));
+    /* Constant 11 px whatever the node's size (REQ K-12). */
+    stroke-width: 11px;
+    vector-effect: non-scaling-stroke;
     stroke-linecap: butt;
     transition:
       stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1),
@@ -240,12 +250,6 @@ export const styles = css`
      The clip is what makes it read as a filled circle: without it the
      rectangle juts out past the rim and looks like a plinth. The node itself
      cannot clip, because the label sits outside it. */
-  /* Every node but the ringed house takes the ring's outer diameter. */
-  .node:not(.has-ring) {
-    width: var(--el-node-size-lg);
-    height: var(--el-node-size-lg);
-  }
-
   .node .fill-clip {
     position: absolute;
     inset: 0;
@@ -293,6 +297,12 @@ export const styles = css`
   .hit:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
+  }
+
+  .node > ha-icon,
+  .node > .value {
+    position: relative;
+    z-index: 1;
   }
 
   .node ha-icon {
@@ -355,11 +365,6 @@ export const styles = css`
 
   .node:not(.solar) .label {
     top: calc(100% + 4px);
-  }
-
-  /* The ring sits outside the circle, so the label has to clear it. */
-  .node.has-ring .label {
-    top: calc(100% + 16px);
   }
 
   .label .derived {

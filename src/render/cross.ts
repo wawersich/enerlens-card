@@ -199,11 +199,10 @@ export function renderCross(
   activeConnections: ReadonlyMap<string, string>,
   /** Ring segments; empty when the ring is off or there is nothing to show. */
   segments: Segment[] = [],
+  /** Drawn node diameter in CSS px - the ring's stroke is sized against it. */
+  nodePx = 123,
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass);
-  // Decided by configuration, not by the segments of the moment: the house must
-  // not change size whenever the list happens to be empty (REQ K-13).
-  const hasRing = config.ring.enabled && config.consumers.length > 0;
   // No battery configured: its lines go with it, the rest of the cross stays put.
   const withBattery = model.battery
     ? DRAWN_CONNECTIONS
@@ -228,7 +227,6 @@ export function renderCross(
             ></path>`,
         )}
           <g class="dots"></g>
-          ${renderRing(segments, segments.length > 0)}
         </svg>
         ${views.map((v) => {
           const pos = nodePercent(v.key);
@@ -237,9 +235,10 @@ export function renderCross(
           };
           return html`
           <div
-            class="node ${v.key} ${v.key === "house" && hasRing ? "has-ring" : ""}"
+            class="node ${v.key}"
             style="left:${pos.left};top:${pos.top};border-color:${v.color}"
           >
+            ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx) : ""}
             ${
               v.socPercent !== undefined
                 ? html`<div class="fill-clip">

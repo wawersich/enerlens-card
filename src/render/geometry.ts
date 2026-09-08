@@ -13,16 +13,12 @@ const CX = VIEW_W / 2;
 const CY = VIEW_H / 2;
 /** Distance from the centre to each node - the knob for how tight the cross sits. */
 const SPREAD = 142;
-/** House node radius in viewBox units; the drawn size comes from CSS. */
-export const NODE_R = 44;
-/** Ring radius around the house node (REQ R-2). */
-export const RING_R = 56;
 /**
- * Solar, grid and battery are drawn as large as the house plus its ring, so all
- * four have the same outer diameter (REQ K-13). Their connections end at the
- * ring radius - always under the circle, never short of it.
+ * Node radius in viewBox units - the same for all four (REQ K-14); the drawn
+ * size comes from CSS (--el-node-size). Connections end here: always under the
+ * circle, never short of it. The consumer ring lives inside the house node.
  */
-export const NODE_R_LG = RING_R;
+export const NODE_R = 56;
 
 export const NODE_POS: Record<NodeKey, { x: number; y: number }> = {
   solar: { x: CX, y: CY - SPREAD },
@@ -31,11 +27,10 @@ export const NODE_POS: Record<NodeKey, { x: number; y: number }> = {
   battery: { x: CX, y: CY + SPREAD },
 };
 
-// Where a connection meets a node: at the circle's edge, not its centre. The
-// house end stays at NODE_R so the line reaches the circle even without a ring.
-const TOP = CY - SPREAD + NODE_R_LG;
-const BOTTOM = CY + SPREAD - NODE_R_LG;
-const LEFT = CX - SPREAD + NODE_R_LG;
+// Where a connection meets a node: at the circle's edge, not its centre.
+const TOP = CY - SPREAD + NODE_R;
+const BOTTOM = CY + SPREAD - NODE_R;
+const LEFT = CX - SPREAD + NODE_R;
 const RIGHT = CX + SPREAD - NODE_R;
 /** Control point offset - larger values bow the curves further out. */
 const BOW = 54;
