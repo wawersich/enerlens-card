@@ -285,6 +285,18 @@ describe("battery_soc (schema rules, A-5)", () => {
 });
 
 describe("consumers (C-4, L-4)", () => {
+  it("treats a cleared optional text as absent, not as an error (REQ E-1)", () => {
+    // What the editor's object selector leaves behind after clearing a field.
+    const config = normalizeConfig(
+      cfg({
+        consumers: [{ entity: "sensor.a", icon: "", name: null as unknown as string, color: "" }],
+      }),
+    );
+    expect(config.consumers[0].icon).toBeUndefined();
+    expect(config.consumers[0].name).toBeUndefined();
+    expect(config.consumers[0].color).toBe(DEFAULT_CONSUMER_PALETTE[0]);
+  });
+
   it("reads an own threshold and rejects a negative one (REQ L-3)", () => {
     const config = normalizeConfig(
       cfg({ consumers: [{ entity: "sensor.a", min_w: 50 }, { entity: "sensor.b" }] }),
