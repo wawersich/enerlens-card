@@ -68,6 +68,14 @@ First release. Everything below is new.
   battery, a consumer without an entity or listed twice, and thresholds in the
   wrong order are repaired with a console warning instead of a dead card.
 
+### Known deviations from the requirements
+- List rows: the effective tap height equals the row pitch (28-40 px by row
+  count), above the 24 px floor but below the 44 px the other targets keep -
+  a compact list was preferred (L-9, measured).
+- Home Assistant's energy colours and the yellow charge stop miss 3:1 contrast
+  on white; kept for alignment with the energy dashboard, never the only
+  carrier of meaning (N-6).
+
 ### Under the hood
 - Measurements are never smoothed or scaled; the only computed values are the
   rest, the derived quantity, ring shares, flow distribution and the labelled

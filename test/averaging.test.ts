@@ -339,11 +339,15 @@ const CONSUMER_ROLES = [
   "dishwasher",
 ];
 
-describe.runIf(!HAS_FIXTURE)("Abnahme V (REQ 2.12)", () => {
-  it.skip(SKIP_NOTE, () => {
-    /* intentionally empty */
+// A plain `if`, not describe.runIf: runIf(false) still registers the block as
+// skipped, so every run showed "1 skipped" although the reference tests ran.
+if (!HAS_FIXTURE) {
+  describe("Abnahme V (REQ 2.12)", () => {
+    it.skip(SKIP_NOTE, () => {
+      /* intentionally empty */
+    });
   });
-});
+}
 
 describe.skipIf(!HAS_FIXTURE)("Abnahme V - reference data (REQ 2.12, 5.1)", () => {
   const fixture: Fixture = JSON.parse(readFileSync(FIXTURE_FILE, "utf8"));
