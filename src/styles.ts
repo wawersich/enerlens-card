@@ -153,11 +153,10 @@ export const styles = css`
      bases plus the gap have to stay under that, or the list never sits beside
      the cross in a sections view (REQ L-1). */
   .cross {
-    /* The cross grows twice as fast as the list when there is room to spare:
-       the drawing carries the picture, the list only needs enough width for a
-       name and a value. */
-    flex: 2 1 250px;
-    min-width: 210px;
+    /* The cross comes first: it takes free width until its 400 px, only then
+       does the list widen. It never shrinks below its basis - when the two do
+       not fit side by side, the list wraps below instead. */
+    flex: 99 0 250px;
     max-width: 400px;
     /* Room for the labels, which reach beyond the drawing, and for the large
        nodes, which overhang the viewBox by a few units. */
@@ -178,19 +177,20 @@ export const styles = css`
 
   /* Segments animate their length and position, so a consumer's slice grows or
      shrinks into place rather than snapping (REQ R-4). */
-  /* The ring stands in for the border: its box is the node's outer box, which
-     from inside the padding edge means 2 px beyond on every side. Below the
-     icon and figure (z-index), above the node's background. */
+  /* The ring stands in for the border and is centred on it: its box reaches
+     the 2 px border plus half the 11 px stroke beyond the padding edge, so the
+     stroke's middle lies on the contour (K-14). Below the icon and figure
+     (z-index), above the node's background. */
   .node .ring {
     position: absolute;
-    left: -2px;
-    top: -2px;
+    left: -7.5px;
+    top: -7.5px;
     /* Explicit size, not derived from the insets: an SVG is a replaced element,
        and WebKit gives an absolutely positioned one its intrinsic 300 x 150
        instead of stretching it between left and right - the ring then sat off
        to the lower right and too large on iOS while Chromium looked fine. */
-    width: calc(100% + 4px);
-    height: calc(100% + 4px);
+    width: calc(100% + 15px);
+    height: calc(100% + 15px);
     z-index: 0;
     pointer-events: none;
     overflow: visible;
@@ -386,6 +386,24 @@ export const styles = css`
     align-self: center;
   }
 
+  /* Beside the cross the rows are only as wide as the longest name and the
+     widest figure need, and sit at the list's right edge - everything between
+     the house and the rows is line, which is what makes the movement readable
+     (L-13). The list itself takes what the cross leaves over (grow 1 against
+     99), so on a narrow card the cross keeps its size and the names get the
+     ellipsis. Wrapped below the cross the list keeps its flex basis, so a wider
+     card can bring it back up. */
+  .list:not(.stacked) {
+    flex: 1 1 145px;
+    max-width: 55%;
+  }
+
+  .list:not(.stacked) .rows {
+    width: max-content;
+    max-width: 100%;
+    margin-left: auto;
+  }
+
   .list-title {
     margin: 0 0 2px;
     font-size: 11px;
@@ -401,7 +419,7 @@ export const styles = css`
     position: relative;
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 6px;
     /* Set per list from the row count, see rowHeight() in render/list.ts. */
     min-height: var(--el-row-h, 34px);
     font-size: var(--el-list-size);
@@ -494,7 +512,7 @@ export const styles = css`
       /* The longest name decides: its column is as wide as it needs, the value
          column as wide as the widest figure, and the lane takes the rest. */
       grid-template-columns: 18px minmax(48px, 1fr) minmax(0, max-content) max-content;
-      column-gap: 9px;
+      column-gap: 6px;
     }
 
     .list.stacked .row {
