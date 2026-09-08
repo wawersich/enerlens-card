@@ -8,7 +8,7 @@
 import { type TemplateResult, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { dotParams } from "../flow";
-import { formatKW } from "../format";
+import { formatPower } from "../format";
 import { localize } from "../localize";
 import type { Breakdown, Config, HomeAssistant, ListEntry } from "../types";
 
@@ -91,12 +91,12 @@ export function renderList(
               }
               ${stacked ? lane(entry.w, entry.color, config) : nothing}
               <span class="name">${rowLabel(entry, hass)}</span>
-              <span class="row-value">${formatKW(entry.w, hass)}</span>
+              <span class="row-value">${formatPower(entry.w, hass, config.power)}</span>
               ${
                 entry.entity
                   ? html`<button
                     class="row-hit"
-                    aria-label=${`${rowLabel(entry, hass)} ${formatKW(entry.w, hass)}`}
+                    aria-label=${`${rowLabel(entry, hass)} ${formatPower(entry.w, hass, config.power)}`}
                     @click=${(ev: Event) => onEntry(entry.entity as string, ev)}
                   ></button>`
                   : nothing

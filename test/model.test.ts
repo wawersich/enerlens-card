@@ -89,6 +89,7 @@ function configOf(
       consumerPalette: ["#7e57c2"],
     },
     icons: {},
+    power: { unit: "kW", decimals: 2 },
   };
 }
 

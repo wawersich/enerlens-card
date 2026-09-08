@@ -83,6 +83,7 @@ function config(over: { minConsumerW?: number; maxConsumers?: number; restLabel?
       consumerPalette: ["#7e57c2"],
     },
     icons: {},
+    power: { unit: "kW", decimals: 2 },
   };
   return cfg;
 }

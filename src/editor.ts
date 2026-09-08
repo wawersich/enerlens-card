@@ -83,6 +83,8 @@ interface FlatConfig {
   rest_label?: string;
   list_enabled?: boolean;
   ring_enabled?: boolean;
+  power_unit?: string;
+  power_decimals?: number;
   default_mode?: string;
   avg_short_minutes?: number;
   avg_long_minutes?: number;
@@ -170,6 +172,8 @@ function toFlat(config: RawConfig): FlatConfig {
     rest_label: config.list?.rest_label,
     list_enabled: config.list?.enabled,
     ring_enabled: config.ring?.enabled,
+    power_unit: config.power?.unit,
+    power_decimals: config.power?.decimals,
     default_mode: config.view?.default_mode,
     avg_short_minutes: config.view?.avg_short_minutes,
     avg_long_minutes: config.view?.avg_long_minutes,
@@ -294,6 +298,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
     update_interval_s: num(flat.update_interval_s),
     list: prune({ enabled: flat.list_enabled, rest_label: flat.rest_label }),
     ring: prune({ enabled: flat.ring_enabled }),
+    power: prune({ unit: opt(flat.power_unit), decimals: num(flat.power_decimals) }),
     view: prune({
       default_mode: flat.default_mode,
       avg_short_minutes: num(flat.avg_short_minutes),
@@ -420,6 +425,31 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "max_consumers", selector: { number: { min: 1, max: 50, mode: "box" } } },
         { name: "min_consumer_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
         { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
+        {
+          name: "power_unit",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "kW", label: t("power_kw") },
+                { value: "W", label: t("power_w") },
+              ],
+            },
+          },
+        },
+        {
+          name: "power_decimals",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: 1, label: "1" },
+                { value: 2, label: "2" },
+                { value: 3, label: "3" },
+              ],
+            },
+          },
+        },
         { name: "rest_label", selector: { text: {} } },
         { name: "list_enabled", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },

@@ -85,7 +85,8 @@ const CLEARED: Record<string, unknown[]> = {
 };
 
 function kindOf(name: string): keyof typeof CLEARED {
-  if (/_source$|default_mode|inactive_lines|animation/.test(name)) return "select";
+  if (/_source$|default_mode|inactive_lines|animation|power_unit|power_decimals/.test(name))
+    return "select";
   if (/_invert$|_enabled$|show_selector/.test(name)) return "boolean";
   if (/minutes|_w$|_s$|max_consumers/.test(name)) return "number";
   return "text";

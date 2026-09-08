@@ -284,6 +284,19 @@ describe("battery_soc (schema rules, A-5)", () => {
   });
 });
 
+describe("power format (K-7)", () => {
+  it("defaults to kW with two decimals and reads the alternatives", () => {
+    expect(normalizeConfig(cfg()).power).toEqual({ unit: "kW", decimals: 2 });
+    expect(normalizeConfig(cfg({ power: { unit: "W" } })).power).toEqual({
+      unit: "W",
+      decimals: 2,
+    });
+    expect(normalizeConfig(cfg({ power: { decimals: 3 } })).power.decimals).toBe(3);
+    expect(() => normalizeConfig(cfg({ power: { decimals: 4 } }))).toThrow();
+    expect(() => normalizeConfig(cfg({ power: { unit: "MW" } }))).toThrow();
+  });
+});
+
 describe("consumers (C-4, L-4)", () => {
   it("treats a cleared optional text as absent, not as an error (REQ E-1)", () => {
     // What the editor's object selector leaves behind after clearing a field.

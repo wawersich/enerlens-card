@@ -2,12 +2,9 @@
  * Number formatting that follows the user's Home Assistant profile.
  * Owner: agent 4. REQ K-7, K-4.
  */
-import type { HassEntity, HomeAssistant } from "./types";
+import type { HassEntity, HomeAssistant, PowerFormat } from "./types";
 
-const KW_OPTIONS: Intl.NumberFormatOptions = {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-};
+const DEFAULT_FORMAT: PowerFormat = { unit: "kW", decimals: 2 };
 
 /**
  * Languages that put a space between number and "%", as Home Assistant's
@@ -21,19 +18,31 @@ function baseLanguage(language: string | undefined): string {
 }
 
 /**
- * Watts as "x,xx kW" - always kW, always two decimals, commercial rounding
- * via Intl (1525 W becomes "1,53 kW"). Separators follow `hass.locale`,
- * all seven `number_format` values. Never renders negative zero (REQ K-7).
+ * Watts in the configured format: "x,xx kW" with a fixed number of decimals,
+ * or whole watts ("1 525 W"). Commercial rounding via Intl (1525 W becomes
+ * "1,53 kW"); separators follow `hass.locale`, all seven `number_format`
+ * values. Never renders negative zero (REQ K-7).
  */
-export function formatKW(w: number, hass: HomeAssistant): string {
+export function formatPower(
+  w: number,
+  hass: HomeAssistant,
+  format: PowerFormat = DEFAULT_FORMAT,
+): string {
+  const digits = format.unit === "W" ? 0 : format.decimals;
   const formatter = new Intl.NumberFormat(localeFor(hass), {
-    ...KW_OPTIONS,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
     ...(hass?.locale?.number_format === "none" ? { useGrouping: false } : {}),
   });
-  const text = formatter.format(w / 1000);
+  const text = formatter.format(format.unit === "W" ? w : w / 1000);
   // A value that rounds to zero must not keep its sign (REQ K-7); testing the
   // digits works for every locale, whereas comparing against "-0" does not.
-  return `${/[1-9]/.test(text) ? text : formatter.format(0)} kW`;
+  return `${/[1-9]/.test(text) ? text : formatter.format(0)} ${format.unit}`;
+}
+
+/** The default format - kW with two decimals. */
+export function formatKW(w: number, hass: HomeAssistant): string {
+  return formatPower(w, hass);
 }
 
 /** Maps `hass.locale` onto an Intl locale argument, mirroring HA's numberFormatToLocale. */

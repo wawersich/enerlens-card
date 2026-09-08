@@ -184,6 +184,8 @@ inverter, the house is low by exactly that amount — derive it instead.
 | `min_consumer_w` | `10` | Consumers below this are folded into the remainder; a consumer's own `min_w` overrides it |
 | `max_consumers` | all | Only the strongest are listed |
 | `update_interval_s` | `5` | How often the list reorders |
+| `power.unit` | `kW` | `kW` or `W`; watts are always whole numbers |
+| `power.decimals` | `2` | Decimals for kW: 1, 2 or 3 |
 | `list.enabled` | on with consumers | Show the list |
 | `list.rest_label` | localised | Name of the remainder |
 | `list.title` | — | Heading above the list |

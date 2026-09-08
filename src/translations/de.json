@@ -115,7 +115,11 @@
     "max_dots": "Höchstzahl Punkte",
     "slow_s": "Ruhe-Tempo (Sekunden pro Runde)",
     "fast_s": "Höchsttempo (Sekunden pro Runde)",
-    "full_speed_w": "Höchsttempo ab (W)"
+    "full_speed_w": "Höchsttempo ab (W)",
+    "power_unit": "Leistung anzeigen in",
+    "power_kw": "Kilowatt (kW)",
+    "power_w": "Watt (W), ganze Zahlen",
+    "power_decimals": "Nachkommastellen (kW)"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -149,6 +153,8 @@
     "slow_s": "Zeit für eine Runde, wenn wenig fließt. Standard 5.",
     "fast_s": "Zeit für eine Runde, wenn viel fließt. Standard 1,8.",
     "max_dots": "Wie viele Punkte auf einer Verbindung höchstens laufen. Standard 5.",
-    "full_speed_w": "Ab hier läuft der Punkt so schnell wie möglich. Dazwischen: ein Punkt, der schneller wird. Standard: wie „Mehr Punkte ab“."
+    "full_speed_w": "Ab hier läuft der Punkt so schnell wie möglich. Dazwischen: ein Punkt, der schneller wird. Standard: wie „Mehr Punkte ab“.",
+    "power_unit": "Gilt für alle Leistungswerte der Karte: Knoten und Liste.",
+    "power_decimals": "Nur bei Kilowatt; Watt werden immer als ganze Zahl gezeigt. Standard 2."
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatKW, formatSoc, localeFor } from "../src/format";
+import { formatKW, formatPower, formatSoc, localeFor } from "../src/format";
 import type { HassEntity, HassLocale, HomeAssistant } from "../src/types";
 
 type NumberFormat = HassLocale["number_format"];
@@ -131,5 +131,23 @@ describe("formatSoc (REQ K-4)", () => {
     expect(formatSoc(undefined, hass)).toBe("—");
     expect(formatSoc(makeState("unavailable"), hass)).toBe("—");
     expect(formatSoc(makeState(""), hass)).toBe("—");
+  });
+});
+
+describe("formatPower - configurable format (REQ K-7)", () => {
+  const hass = makeHass("comma_decimal");
+  it("kW with one or three decimals", () => {
+    expect(formatPower(1525, hass, { unit: "kW", decimals: 1 })).toBe("1.5 kW");
+    expect(formatPower(1525, hass, { unit: "kW", decimals: 3 })).toBe("1.525 kW");
+  });
+  it("whole watts, decimals ignored, grouped per locale", () => {
+    expect(formatPower(1525.4, hass, { unit: "W", decimals: 3 })).toBe("1,525 W");
+    expect(formatPower(1525.4, makeHass("language", "de"), { unit: "W", decimals: 2 })).toBe(
+      "1.525 W",
+    );
+    expect(formatPower(-0.4, hass, { unit: "W", decimals: 2 })).toBe("0 W");
+  });
+  it("defaults to kW with two decimals", () => {
+    expect(formatPower(9330, hass)).toBe(formatKW(9330, hass));
   });
 });

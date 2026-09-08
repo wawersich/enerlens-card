@@ -113,6 +113,8 @@ export interface RawConfig extends LovelaceCardConfig {
   update_interval_s?: number;
   list?: { enabled?: boolean; rest_label?: string; title?: string };
   ring?: { enabled?: boolean };
+  /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
+  power?: { unit?: PowerUnit; decimals?: number };
   view?: {
     default_mode?: ViewMode;
     avg_short_minutes?: number;
@@ -206,6 +208,16 @@ export interface Config {
   };
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
   icons: Partial<Record<NodeKey, string>>;
+  power: PowerFormat;
+}
+
+export type PowerUnit = "kW" | "W";
+
+/** One format for every power figure on the card (REQ K-7). */
+export interface PowerFormat {
+  unit: PowerUnit;
+  /** Decimals in kW; ignored for W, which is always whole numbers. */
+  decimals: number;
 }
 
 /** Thrown by `normalizeConfig` for structural problems (REQ E-1, path 1). */

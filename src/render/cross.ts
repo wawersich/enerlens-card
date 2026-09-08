@@ -4,7 +4,7 @@
  */
 import { type TemplateResult, html, svg } from "lit";
 import { socColor } from "../colors";
-import { formatKW, formatSoc } from "../format";
+import { formatPower, formatSoc } from "../format";
 import { localize } from "../localize";
 import type {
   ColorKey,
@@ -81,8 +81,8 @@ function signedColor(
   return config.colors[s.net > 0 ? positive : negative];
 }
 
-function readingValue(r: Reading, hass: HomeAssistant): string {
-  return r.available ? formatKW(r.w, hass) : localize("state.unavailable", hass);
+function readingValue(r: Reading, hass: HomeAssistant, config: Config): string {
+  return r.available ? formatPower(r.w, hass, config.power) : localize("state.unavailable", hass);
 }
 
 /**
@@ -107,7 +107,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
     color: model.solar.available && model.solar.w > 0 ? config.colors.solar : "var(--el-line)",
     label: localize("node.solar", hass),
     derived: model.solar.derived,
-    value: readingValue(model.solar, hass),
+    value: readingValue(model.solar, hass, config),
     available: model.solar.available,
     entity: model.solar.derived ? undefined : model.solar.entity,
   });
@@ -128,7 +128,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
           : localize("node.grid", hass),
     derived: grid.derived,
     value: grid.available
-      ? formatKW(Math.abs(grid.net), hass)
+      ? formatPower(Math.abs(grid.net), hass, config.power)
       : localize("state.unavailable", hass),
     available: grid.available,
     // Whichever direction is running is the one worth opening (REQ I-1).
@@ -145,7 +145,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
     color: config.colors.house,
     label: localize("node.house", hass),
     derived: model.house.derived,
-    value: readingValue(model.house, hass),
+    value: readingValue(model.house, hass, config),
     available: model.house.available,
     entity: model.house.derived ? undefined : model.house.entity,
   });
@@ -167,7 +167,7 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
             : localize("node.battery", hass),
       derived: bat.derived,
       value: bat.available
-        ? formatKW(Math.abs(bat.net), hass)
+        ? formatPower(Math.abs(bat.net), hass, config.power)
         : localize("state.unavailable", hass),
       available: bat.available,
       // Percent above the icon, power below - two separate tap targets (REQ K-4, ENT-5).

@@ -13,6 +13,8 @@ import {
   type InactiveLines,
   type NodeKey,
   type NormalizedConsumer,
+  type PowerFormat,
+  type PowerUnit,
   type RawConfig,
   type SocStop,
   type SourceSpec,
@@ -70,6 +72,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "flow",
   "colors",
   "icons",
+  "power",
 ]);
 
 /** Keys Lovelace itself puts on a card config - ours to ignore, never to warn about. */
@@ -356,6 +359,23 @@ function readColors(value: unknown, hass?: HomeAssistant): Config["colors"] {
   return colors;
 }
 
+const POWER_UNITS_DISPLAY: readonly PowerUnit[] = ["kW", "W"];
+
+/** kW with 1-3 decimals (default 2), or whole watts (REQ K-7). */
+function readPower(value: unknown, hass?: HomeAssistant): PowerFormat {
+  const raw = value === undefined ? {} : requireRecord(value, "power", hass);
+  return {
+    unit: readEnum(raw.unit, POWER_UNITS_DISPLAY, "power.unit", "kW", hass),
+    decimals: inRange(
+      readInteger(raw.decimals, "power.decimals", 2, hass),
+      1,
+      3,
+      "power.decimals",
+      hass,
+    ),
+  };
+}
+
 function readIcons(value: unknown, hass?: HomeAssistant): Partial<Record<NodeKey, string>> {
   const icons: Partial<Record<NodeKey, string>> = { ...DEFAULT_ICONS };
   if (value === undefined) return icons;
@@ -633,6 +653,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     },
     colors,
     icons: readIcons(rawRecord.icons, hass),
+    power: readPower(rawRecord.power, hass),
   };
 }
 

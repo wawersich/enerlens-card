@@ -42,6 +42,8 @@ First release. Everything below is new.
 - Each consumer can carry its own `min_w`, so a heat pump's 25 W standby does
   not count as a consumer while the global threshold stays at 10 W.
 - Tap any node or row for Home Assistant's more-info dialog. No chart of its own.
+- Power figures in kW with 1-3 decimals or in whole watts, one setting for the
+  whole card (`power.unit`, `power.decimals`).
 - All colours configurable; defaults follow the energy dashboard's theme
   variables.
 - German and English, following the Home Assistant language.

@@ -115,7 +115,11 @@
     "max_dots": "Maximum dots",
     "slow_s": "Resting pace (seconds per lap)",
     "fast_s": "Full speed (seconds per lap)",
-    "full_speed_w": "Full speed from (W)"
+    "full_speed_w": "Full speed from (W)",
+    "power_unit": "Show power in",
+    "power_kw": "Kilowatts (kW)",
+    "power_w": "Watts (W), whole numbers",
+    "power_decimals": "Decimals (kW)"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -149,6 +153,8 @@
     "slow_s": "One lap when little is flowing. Default 5.",
     "fast_s": "One lap when a lot is flowing. Default 1.8.",
     "max_dots": "How many dots a connection carries at most. Default 5.",
-    "full_speed_w": "From here on the dot runs as fast as it gets. In between: one dot, getting faster. Default: same as “More dots from”."
+    "full_speed_w": "From here on the dot runs as fast as it gets. In between: one dot, getting faster. Default: same as “More dots from”.",
+    "power_unit": "Applies to every power figure on the card: nodes and list.",
+    "power_decimals": "Kilowatts only; watts are always whole numbers. Default 2."
   }
 }
