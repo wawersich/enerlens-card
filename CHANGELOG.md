@@ -17,7 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the last real state of the past ten days comes from the recorder. Without
   the option nothing changes.
 
+### Changed
+- **The stacked list gets the fan too.** Below the cross every row used to carry
+  its own short bar with dots; the lines now gather in one point at the left of
+  the block, with the house icon beside it, and fan out to the rows the way they
+  do beside the cross. The colour mark moved next to the name, where it reads as
+  part of the label instead of being separated from it by the bar. One mechanism
+  instead of two: the parallel bars had their own CSS animation, which only
+  happened to agree with the dots on the fan lines.
+
 ### Fixed
+- Node labels hang below the cross, and a two-line one ("Battery / charging")
+  sat on the card's bottom edge with one pixel to spare, or reached into the
+  first list row when stacked. Both layouts now reserve room for it.
 - With split grid or battery entities, tapping a node below `flow.min_w` opened
   the direction the sign pointed at, even though the node itself showed no state
   word - 4 W of export led to the export history, where charging the battery
@@ -56,7 +68,8 @@ First release. Everything below is new.
   individually; consumers below `min_consumer_w` fold into it, and
   `max_consumers` caps the list.
 - Fan lines from the house to each list row, with dots, when the list sits
-  beside the cross; short lanes inside the rows when it is stacked below. The
+  beside the cross; the same lines from a gathering point when it is stacked
+  below (short lanes per row until 0.1.1). The
   lines follow the rows frame by frame while these glide into a new order.
 - All four nodes share one contour; the consumer ring stands in for the house
   node's border, centred on it - half outside, half inside.

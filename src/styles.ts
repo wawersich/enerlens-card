@@ -192,6 +192,14 @@ export const styles = css`
     padding: 4px 16px 16px;
   }
 
+  /* Beside the cross the battery label is the lowest thing on the card, and it
+     hangs 15 px below the cross box - the 16 px of padding left one pixel of
+     air, so the text sat on the card's edge. Stacked, the list is last and
+     needs no extra room. */
+  .body:not(.stacked) {
+    padding-bottom: 26px;
+  }
+
   /* Flex bases decide when the list wraps below the cross. Home Assistant caps
      a section column at roughly 500 px, leaving ~460 px of content - so the two
      bases plus the gap have to stay under that, or the list never sits beside
@@ -540,74 +548,16 @@ export const styles = css`
     background: currentColor;
   }
 
-  /* Short run of wire per row, only in the stacked layout. Width is fixed so
-     every row reads at the same scale - the dots' speed carries the figure,
-     not the length. */
+  /* The runway the fan lines cross in the stacked layout. It draws nothing:
+     the lines and their dots live on the overlay, so they can converge on one
+     point instead of running as a parallel bar per row (REQ L-13). Its only
+     job is to hold the column open - wide enough for the bundle to spread. */
   .lane {
-    position: relative;
     flex: none;
-    /* Fallback width for browsers without subgrid (below). With subgrid the
-       lane fills whatever the name and value columns leave over. */
-    width: clamp(48px, 16%, 88px);
+    /* Fallback for browsers without subgrid; with subgrid the column takes
+       whatever the mark, name and value leave over. */
+    width: clamp(56px, 20%, 120px);
     height: 3px;
-    border-radius: 1.5px;
-    overflow: visible;
-  }
-
-  /* The track is a pseudo-element so its opacity does not fade the dots
-     riding on it. With flow it carries the entry's colour at the weight of the
-     fan lines; without, the neutral shade, following the inactive-line
-     setting like the cross. */
-  .lane::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: var(--el-line);
-  }
-
-  .lane.active::before {
-    background: currentColor;
-    opacity: 0.45;
-  }
-
-  .lane.inactive-dim::before {
-    opacity: 0.25;
-  }
-
-  .lane.inactive-hide::before {
-    visibility: hidden;
-  }
-
-  .lane-dot {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    /* Same 10 px as the dots on the connections and the colour mark (K-12). */
-    width: 10px;
-    height: 10px;
-    margin-top: -5px;
-    margin-left: -5px;
-    border-radius: 50%;
-    animation-name: lane-run;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-  }
-
-  @keyframes lane-run {
-    from {
-      left: 0;
-    }
-    to {
-      left: 100%;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lane-dot {
-      animation: none;
-      left: 50%;
-    }
   }
 
   .row .name {
@@ -619,16 +569,16 @@ export const styles = css`
   }
 
   /* Stacked below the cross the list has the whole card width. The rows become
-     a grid with shared columns: mark | lane | name | value. The name column is
-     as wide as the longest name, the value column as wide as the widest figure,
-     and the lane takes everything that is left - on a phone three times what
-     the fixed width gave it. Browsers without subgrid keep the flex rows. */
+     a grid with shared columns: runway | mark | name | value. The mark sits
+     directly in front of the name so the two read as one label, and the runway
+     takes everything that is left - on a phone three times what a fixed width
+     would give it. Browsers without subgrid keep the flex rows. */
   @supports (grid-template-columns: subgrid) {
     .list.stacked .rows {
       display: grid;
       /* The longest name decides: its column is as wide as it needs, the value
          column as wide as the widest figure, and the lane takes the rest. */
-      grid-template-columns: 18px minmax(48px, 1fr) minmax(0, max-content) max-content;
+      grid-template-columns: minmax(56px, 1fr) 18px minmax(0, max-content) max-content;
       column-gap: 6px;
     }
 
@@ -642,6 +592,37 @@ export const styles = css`
     .list.stacked .lane {
       width: auto;
     }
+  }
+
+  /* Stacked, the lines gather left of the block; the icon marks that point as
+     the house they come from. Absolute, so it stays out of the row grid, and
+     only in this layout - beside the cross the house node itself is the
+     starting point. */
+  .list.stacked .rows {
+    position: relative;
+  }
+
+  .list.stacked {
+    padding-left: 28px;
+    /* The node labels hang below the cross box - a two-line one ("Batterie /
+       lädt") reached into the first row. Measured overhang was 14 px, so the
+       8 px row gap of .body is not enough on its own. */
+    margin-top: 12px;
+  }
+
+  .origin-icon {
+    position: absolute;
+    left: -28px;
+    top: 50%;
+    transform: translateY(-50%);
+    --mdc-icon-size: 22px;
+    display: flex;
+    pointer-events: none;
+  }
+
+  /* Beside the cross there is no runway - the fan comes from the house node. */
+  .list:not(.stacked) .lane {
+    display: none;
   }
 
   .row .row-value {

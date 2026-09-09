@@ -368,11 +368,13 @@ class EnerLensCard extends LitElement {
   /**
    * One line from the house node to each row, with dots on it (REQ P-1 style).
    *
-   * Only when the list sits beside the cross - stacked, the rows carry their
-   * own short lanes instead, and a fan would have to cross every row above its
-   * target. The list is HTML and the cross is SVG, so there is no shared
-   * coordinate system: both are measured and the fan is drawn in CSS pixels on
-   * its own overlay.
+   * Beside the cross the lines start at the right edge of the house node.
+   * Stacked below it they start at the left edge of the rows, halfway down the
+   * block - a fan from the house node would have to cross every row above its
+   * target, but the rows still deserve lines that converge on one point rather
+   * than parallel bars (REQ L-13). The list is HTML and the cross is SVG, so
+   * there is no shared coordinate system: both are measured and the fan is
+   * drawn in CSS pixels on its own overlay.
    */
   private _updateFan(): void {
     this._drawFan();
@@ -397,18 +399,18 @@ class EnerLensCard extends LitElement {
 
     const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
     const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;
+    const block = this.renderRoot.querySelector(".rows") as HTMLElement | null;
     const rows = this.renderRoot.querySelectorAll<HTMLElement>(".row");
-    if (this._stacked || !body || !house || rows.length === 0) {
+    if (!body || !house || !block || rows.length === 0) {
       this._fan.destroy();
       return;
     }
 
     const origin = body.getBoundingClientRect();
-    const houseBox = house.getBoundingClientRect();
-    const start = {
-      x: houseBox.right - origin.left,
-      y: houseBox.top + houseBox.height / 2 - origin.top,
-    };
+    const source = this._stacked ? block.getBoundingClientRect() : house.getBoundingClientRect();
+    const start = this._stacked
+      ? { x: source.left - origin.left, y: source.top + source.height / 2 - origin.top }
+      : { x: source.right - origin.left, y: source.top + source.height / 2 - origin.top };
 
     const entries = this._lastEntries;
     const fanRows = [...rows]
@@ -422,11 +424,17 @@ class EnerLensCard extends LitElement {
         const params = dotParams(entry.w, this._config as Config);
         const mode = this._config?.flow.inactiveLines ?? "show";
         if (!params && mode === "hide") return null;
-        const box = row.getBoundingClientRect();
+        // Stacked, the line ends at the colour mark, not at the row's edge -
+        // the runway column lies in between.
+        const target = this._stacked
+          ? ((row.querySelector(".swatch") as HTMLElement | null) ?? row)
+          : row;
+        const box = target.getBoundingClientRect();
+        const rowBox = row.getBoundingClientRect();
         return {
           key: key as string,
           x: box.left - origin.left,
-          y: box.top + box.height / 2 - origin.top,
+          y: rowBox.top + rowBox.height / 2 - origin.top,
           color: entry.color,
           count: params?.count ?? 0,
           durationS: params?.durationS ?? 1,

@@ -7,10 +7,10 @@
  */
 import { type TemplateResult, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import { dotParams } from "../flow";
 import { formatPower } from "../format";
 import { localize } from "../localize";
 import type { Breakdown, Config, HomeAssistant, ListEntry } from "../types";
+import { DEFAULT_ICONS } from "./cross";
 
 function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
   if (!entry.isRest) return entry.name;
@@ -19,40 +19,28 @@ function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
 }
 
 /**
- * A short run of "wire" at the left of a row, carrying the same dots as the
- * connections do (REQ 4.6 via `dotParams`).
- *
- * Only drawn when the list sits below the cross. Beside the cross the ring and
- * the flow lines already carry the movement, and a second animation there is
- * noise; below the cross the rows are the only thing left, and a fan of lines
- * from the house node would have to cross every row above its target.
- *
- * Speed comes from the ticked value, so it changes on the beat rather than with
- * every reading - a CSS animation restarts its phase when the duration changes,
- * and on a 26 px run that is only tolerable a few times a minute.
+ * The runway the fan lines run through when the list sits below the cross.
+ * Empty on purpose: it only holds the grid column open. The lines and their
+ * dots are drawn on the overlay, so they can converge on one point instead of
+ * running as parallel bars per row (REQ L-13).
  */
-function lane(w: number, color: string, config: Config): TemplateResult | typeof nothing {
-  const params = dotParams(w, config);
-  // The track is always drawn, even below the flow threshold: a row without one
-  // reads as broken rather than as idle. With flow it takes the entry's colour
-  // like the fan lines beside the cross; without, the neutral shade of an
-  // inactive connection, following flow.inactive_lines (P-9).
-  if (!params) {
-    return html`<span class="lane inactive-${config.flow.inactiveLines}" aria-hidden="true"></span>`;
-  }
+function runway(): TemplateResult {
+  return html`<span class="lane" aria-hidden="true"></span>`;
+}
 
-  const { count, durationS } = params;
-  const dots = Array.from({ length: count }, (_, i) => i);
-  return html`<span class="lane active" style="color:${color}" aria-hidden="true">
-    ${dots.map(
-      (i) => html`<span
-        class="lane-dot"
-        style="background:${color};animation-duration:${durationS.toFixed(2)}s;animation-delay:${(
-          (-i * durationS) / count
-        ).toFixed(2)}s"
-      ></span>`,
-    )}
-  </span>`;
+/**
+ * The house icon at the point where the lines gather, stacked only. Beside the
+ * cross the lines start at the house node itself and need no stand-in; below
+ * it the node sits far above the block, so without this the bundle would come
+ * out of nowhere (REQ L-13).
+ */
+function origin(config: Config): TemplateResult {
+  return html`<ha-icon
+    class="origin-icon"
+    aria-hidden="true"
+    .icon=${config.icons.house ?? DEFAULT_ICONS.house}
+    style="color:${config.colors.house}"
+  ></ha-icon>`;
 }
 
 /**
@@ -80,19 +68,21 @@ export function renderList(
     <div class="list ${stacked ? "stacked" : ""}" style="--el-row-h:${rowHeight(breakdown.entries.length)}px">
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
       <div class="rows">
+        ${stacked ? origin(config) : nothing}
         ${repeat(
           breakdown.entries,
           (entry) => entry.key,
           (entry) => html`
             <div class="row ${entry.isRest ? "rest" : ""}" data-key=${entry.key}>
+              ${stacked ? runway() : nothing}
               ${
-                // The colour mark at the row's start - where the fan line ends. A
-                // configured icon takes its place, in the same colour (REQ L-2).
+                // The colour mark, directly in front of the name so the two read
+                // as one label - the fan line ends on it. A configured icon takes
+                // its place, in the same colour (REQ L-2, L-13).
                 entry.icon
                   ? html`<ha-icon class="swatch icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
                   : html`<span class="swatch dot" style="color:${entry.color}"></span>`
               }
-              ${stacked ? lane(entry.w, entry.color, config) : nothing}
               <span class="name">${rowLabel(entry, hass)}</span>
               <span class="row-value">${formatPower(entry.w, hass, config.power)}</span>
               ${

@@ -56,7 +56,7 @@ export function openMoreInfo(target: EventTarget, entityId: string): void {
   );
 }
 
-const DEFAULT_ICONS: Record<NodeKey, string> = {
+export const DEFAULT_ICONS: Record<NodeKey, string> = {
   solar: "mdi:white-balance-sunny",
   grid: "mdi:transmission-tower",
   house: "mdi:home",
