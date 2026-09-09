@@ -4,7 +4,7 @@
 export const CARD_NAME = "enerlens-card";
 export const EDITOR_NAME = "enerlens-card-editor";
 export const CARD_LABEL = "EnerLens Card";
-export const CARD_VERSION = "0.1.1";
+export const CARD_VERSION = "0.2.0";
 export const REPO_URL = "https://github.com/wawersich/enerlens-card";
 /** Replaced by the build with the git revision; stays a placeholder in tests. */
 export const BUILD_ID = "__BUILD_ID__";
