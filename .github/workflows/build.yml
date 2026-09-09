@@ -28,10 +28,17 @@ jobs:
           SIZE=$(stat -c%s dist/enerlens-card.js)
           GZIP=$(gzip -c dist/enerlens-card.js | wc -c)
           echo "Bundle: $SIZE bytes, $GZIP bytes gzipped" >> "$GITHUB_STEP_SUMMARY"
+      # The release page should say what changed in words, and those words are
+      # already written - taking them from the changelog keeps one source.
+      - name: Release notes from the changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+
       # HACS reads real releases, not tags: attach exactly one asset (REQ AL-2).
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           files: dist/enerlens-card.js
+          body_path: release-notes.md
           generate_release_notes: true
