@@ -88,6 +88,8 @@ interface NodeView {
   socFillColor?: string;
   /** More-info targets. Absent means not clickable (REQ I-4). */
   entity?: string;
+  /** Grid node while the status entity reports an outage (REQ NS-4). */
+  outage?: boolean;
   socEntity?: string;
 }
 
@@ -120,7 +122,13 @@ function label(base: string, derived: boolean, hass: HomeAssistant): TemplateRes
   }${suffix ? html`<span class="label-state derived">${suffix}</span>` : ""}`;
 }
 
-export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant): NodeView[] {
+export function buildNodeViews(
+  model: Model,
+  config: Config,
+  hass: HomeAssistant,
+  /** Latched grid outage; undefined or false renders the grid node as always. */
+  outage = false,
+): NodeView[] {
   const views: NodeView[] = [];
 
   views.push({
@@ -136,24 +144,33 @@ export function buildNodeViews(model: Model, config: Config, hass: HomeAssistant
 
   const grid = model.grid;
   const gridDirection = direction(grid, config.flow.minW);
+  const gridOutage = outage && config.gridStatus !== undefined;
   views.push({
     key: "grid",
     icon: config.icons.grid ?? DEFAULT_ICONS.grid,
-    color: signedColor(grid, "grid_import", "grid_export", config),
+    color: gridOutage ? "var(--el-error)" : signedColor(grid, "grid_import", "grid_export", config),
     // The state word follows the sign, but only once something actually flows:
     // 4 W of export rounds to 0.00 kW, and "export" next to that is noise (REQ K-3).
+    // No state word during an outage: "export" next to a severed grid is noise.
     label:
-      gridDirection === "positive"
-        ? localize("node.grid_import", hass)
-        : gridDirection === "negative"
-          ? localize("node.grid_export", hass)
-          : localize("node.grid", hass),
+      gridOutage || gridDirection === "none"
+        ? localize("node.grid", hass)
+        : gridDirection === "positive"
+          ? localize("node.grid_import", hass)
+          : localize("node.grid_export", hass),
     derived: grid.derived,
-    value: grid.available
-      ? formatPower(Math.abs(grid.net), hass, config.power)
-      : localize("state.unavailable", hass),
-    available: grid.available,
-    entity: moreInfoEntity(grid, config.flow.minW),
+    // The word instead of a figure: 0 W and "cut off" look the same otherwise,
+    // which is the reason this feature exists at all (REQ NS-4).
+    value: gridOutage
+      ? localize("node.no_grid", hass)
+      : grid.available
+        ? formatPower(Math.abs(grid.net), hass, config.power)
+        : localize("state.unavailable", hass),
+    available: gridOutage || grid.available,
+    outage: gridOutage,
+    // While the grid is gone, the node shows the status - so a tap opens the
+    // status history, which is the one that says since when.
+    entity: gridOutage ? config.gridStatus?.entity : moreInfoEntity(grid, config.flow.minW),
   });
 
   views.push({
@@ -214,8 +231,10 @@ export function renderCross(
   segments: Segment[] = [],
   /** Drawn node diameter in CSS px - the ring's stroke is sized against it. */
   nodePx = 123,
+  /** Latched grid outage (REQ NS-4). */
+  outage = false,
 ): TemplateResult {
-  const views = buildNodeViews(model, config, hass);
+  const views = buildNodeViews(model, config, hass, outage);
   // No battery configured: its lines go with it, the rest of the cross stays put.
   const withBattery = model.battery
     ? DRAWN_CONNECTIONS
@@ -248,7 +267,9 @@ export function renderCross(
           };
           return html`
           <div
-            class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""}"
+            class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""} ${
+              v.outage ? "outage" : ""
+            }"
             style="left:${pos.left};top:${pos.top};border-color:${
               // With segments to show, the ring is the contour (REQ K-14).
               v.key === "house" && segments.length > 0 ? "transparent" : v.color
@@ -266,7 +287,20 @@ export function renderCross(
                 : ""
             }
             ${v.socValue ? html`<div class="value">${v.socValue}</div>` : ""}
-            <ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>
+            ${
+              v.outage
+                ? // A big X over the symbol, not a slash through it: the slash
+                  // disappeared into the glyph and read as part of it. Its arms
+                  // stop above the text line, whatever the node size (REQ NS-4).
+                  html`<div class="icon-cross">
+                    <ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>
+                    <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+                      <path d="M3,3 L21,21"></path>
+                      <path d="M21,3 L3,21"></path>
+                    </svg>
+                  </div>`
+                : html`<ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>`
+            }
             <div class="value ${v.available ? "" : "unavailable"}">${v.value}</div>
             <div class="label">${label(v.label, v.derived, hass)}</div>
             ${

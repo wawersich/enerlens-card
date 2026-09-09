@@ -76,6 +76,9 @@ interface FlatConfig {
   battery_discharge?: string;
   battery_charge?: string;
   battery_soc?: string;
+  grid_status?: string;
+  grid_status_outage?: string[];
+  grid_status_ok?: string[];
   consumers?: unknown[];
   max_consumers?: number;
   min_consumer_w?: number;
@@ -162,9 +165,15 @@ function flattenQuantity(quantity: Quantity, ref: EntityRef | undefined, out: Fl
 
 function toFlat(config: RawConfig): FlatConfig {
   const e = config.entities ?? {};
+  // The status entity comes as a bare id or as a block with its state names.
+  const status = e.grid_status;
+  const statusRecord = typeof status === "object" && status !== null ? status : undefined;
   const out: FlatRecord = {
     title: config.title,
     battery_soc: e.battery_soc,
+    grid_status: typeof status === "string" ? status : statusRecord?.entity,
+    grid_status_outage: statusRecord?.outage,
+    grid_status_ok: statusRecord?.ok,
     consumers: config.consumers,
     max_consumers: config.max_consumers,
     min_consumer_w: config.min_consumer_w,
@@ -240,6 +249,15 @@ function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
+/** Chips from a multi-select: cleared entries dropped, an empty list omitted. */
+function states(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const list = v.filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim() !== "",
+  );
+  return list.length ? list : undefined;
+}
+
 /**
  * The object selector leaves "" or null when a field is cleared, keeps a row
  * whose entity picker was emptied, and lets the same sensor be picked twice.
@@ -281,6 +299,16 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
   // No battery (none, or not picked yet), no state of charge in the YAML - the
   // form keeps the choice and writes it once the battery is there (REQ A-5).
   entities.battery_soc = entities.battery === undefined ? undefined : opt(flat.battery_soc);
+  // Always the long form, so the YAML never depends on guessed state names
+  // (REQ NS-1). Without an entity the whole block goes.
+  const statusEntity = opt(flat.grid_status);
+  entities.grid_status = statusEntity
+    ? prune({
+        entity: statusEntity,
+        outage: states(flat.grid_status_outage),
+        ok: states(flat.grid_status_ok),
+      })
+    : undefined;
 
   // Numbers are written as typed. Relations between fields (short < long
   // window, the threshold chain) are NOT enforced here: ha-form reports every
@@ -385,6 +413,20 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
     entityFields.push({ name: "battery_soc", selector: { entity: { filter: BATTERY_FILTER } } });
   }
 
+  // Enum sensors and input_selects publish their own values, so the two lists
+  // can be picked instead of typed - nobody has to know how their integration
+  // spells "no grid" (REQ NS-7). Custom values stay allowed for the rest.
+  const statusEntity = typeof flat.grid_status === "string" ? flat.grid_status : undefined;
+  const statusOptions = statusEntity
+    ? (hass.states[statusEntity]?.attributes.options as unknown)
+    : undefined;
+  const stateChoices = (Array.isArray(statusOptions) ? statusOptions : [])
+    .filter((option): option is string => typeof option === "string")
+    .map((option) => ({ value: option, label: option }));
+  const stateSelector = {
+    select: { multiple: true, custom_value: true, mode: "list", options: stateChoices },
+  };
+
   return [
     { name: "title", selector: { text: {} } },
     {
@@ -453,6 +495,17 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "rest_label", selector: { text: {} } },
         { name: "list_enabled", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },
+      ],
+    },
+    {
+      name: "grid_status",
+      type: "expandable",
+      flatten: true,
+      title: t("grid_status_section"),
+      schema: [
+        { name: "grid_status", selector: { entity: {} } },
+        { name: "grid_status_outage", selector: stateSelector },
+        { name: "grid_status_ok", selector: stateSelector },
       ],
     },
     {
@@ -582,6 +635,7 @@ class EnerLensCardEditor extends LitElement {
 
   private _label = (item: { name: string }): string => {
     const name = item.name;
+    if (name === "grid_status") return localize("editor.grid_status", this.hass);
     if (name.endsWith("_source"))
       return localize(`editor.${name.replace(/_source$/, "")}`, this.hass);
     if (name.endsWith("_invert")) return localize("editor.invert", this.hass);

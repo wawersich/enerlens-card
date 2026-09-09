@@ -472,3 +472,60 @@ describe("row pitch follows the row count (REQ L-9)", () => {
     expect(list.style.getPropertyValue("--el-row-h")).toBe("40px");
   });
 });
+
+/**
+ * The banner and the node have to appear on the rendered element, not just in
+ * the node view - that is the layer where a missing update trigger shows up
+ * (REQ NS-4, NS-5).
+ */
+describe("grid outage on the element (REQ NS-4, NS-5)", () => {
+  type Card = HTMLElement & {
+    setConfig: (c: unknown) => void;
+    hass: HomeAssistant;
+    updateComplete: Promise<unknown>;
+    shadowRoot: ShadowRoot | null;
+  };
+
+  const CONFIG_WITH_STATUS = {
+    ...CONFIG,
+    entities: {
+      ...CONFIG.entities,
+      grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] },
+    },
+  };
+
+  async function mountWithStatus(status: string) {
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig(CONFIG_WITH_STATUS);
+    const hass = fakeHass({ ...STATES, "sensor.grid_status": status });
+    el.hass = hass;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    return el;
+  }
+
+  it("shows the strip and marks the node while the grid is gone", async () => {
+    const el = await mountWithStatus("not_detected");
+    const root = el.shadowRoot;
+    expect(root?.querySelector(".outage-banner"), "no banner").toBeTruthy();
+    expect(root?.querySelector(".node.grid.outage"), "grid node not marked").toBeTruthy();
+    expect(root?.querySelector(".node.grid .icon-cross svg"), "no X over the icon").toBeTruthy();
+    expect(root?.textContent).toContain("kein Netz");
+  });
+
+  it("shows nothing of the sort while the grid is there", async () => {
+    const el = await mountWithStatus("ok");
+    expect(el.shadowRoot?.querySelector(".outage-banner")).toBeNull();
+    expect(el.shadowRoot?.querySelector(".node.grid.outage")).toBeNull();
+  });
+
+  it("holds the outage when the status entity falls silent", async () => {
+    const el = await mountWithStatus("not_detected");
+    el.hass = fakeHass({ ...STATES, "sensor.grid_status": "unavailable" });
+    await el.updateComplete;
+    expect(
+      el.shadowRoot?.querySelector(".outage-banner"),
+      "outage dropped on unavailable - the ten-minute hold would lose it",
+    ).toBeTruthy();
+  });
+});

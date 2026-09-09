@@ -8,11 +8,12 @@ import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } 
 import { buildBreakdown, refreshBreakdownValues } from "./consumers";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
+import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
 import { openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import { VIEW_W } from "./render/geometry";
-import { renderHeader } from "./render/header";
+import { renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { styles } from "./styles";
 import {
@@ -20,6 +21,7 @@ import {
   ConfigError,
   type HomeAssistant,
   type Model,
+  type OutageState,
   type RawConfig,
   type Sample,
   type ViewMode,
@@ -54,6 +56,7 @@ class EnerLensCard extends LitElement {
     hass: { attribute: false },
     _model: { state: true },
     _showAll: { state: true },
+    _outage: { state: true },
     _scale: { state: true },
   };
 
@@ -90,6 +93,10 @@ class EnerLensCard extends LitElement {
   private _showAll = false;
   /** Plot width over VIEW_W - the ring inside the house node is sized by it. */
   private _scale = 1;
+  /** Latched grid outage; undefined until a real status has been seen (REQ NS-3). */
+  private _outage: OutageState;
+  /** The one history lookup that gives the latch its starting point (REQ NS-6). */
+  private _outagePrefilled = false;
 
   /** Drawn node diameter in CSS px; mirrors --el-node-size in styles.ts. */
   private get _nodePx(): number {
@@ -110,8 +117,16 @@ class EnerLensCard extends LitElement {
     const previous = this._hass;
     this._hass = hass;
     if (!this._config) return;
+    // The history lookup needs a hass, so it cannot run in setConfig (REQ NS-6).
+    if (this._config.gridStatus && !this._outagePrefilled) {
+      this._outagePrefilled = true;
+      void this._prefillOutage();
+    }
     // Only rebuild when one of our entities actually changed (REQ T-3).
     if (previous && !this._entitiesChanged(previous, hass)) return;
+    if (this._config.gridStatus) {
+      this._outage = readStatus(hass, this._config.gridStatus, this._outage);
+    }
     this._model = buildModel(hass, this._config);
     this._tickModel ??= this._model;
     this._recordSamples(hass);
@@ -136,6 +151,8 @@ class EnerLensCard extends LitElement {
     this._entityIds = collectEntityIds(this._config);
     this._buffer = new AveragingBuffer(this._config.view.avgLongMinutes * 60_000);
     this._mode = this._config.view.defaultMode;
+    this._outage = undefined;
+    this._outagePrefilled = false;
     if (this._config.view.remember) {
       const stored = load(MODE_KEY);
       if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
@@ -253,6 +270,30 @@ class EnerLensCard extends LitElement {
       this._updateSince();
     } finally {
       this._prefilling = false;
+      this.requestUpdate();
+    }
+  }
+
+  /**
+   * The latch has no history of its own when the card is loaded, so the last
+   * real state from the recorder gives it one. Without this, a card opened
+   * during an outage that already went unavailable would show a normal grid
+   * (REQ NS-6).
+   */
+  private async _prefillOutage(): Promise<void> {
+    const spec = this._config?.gridStatus;
+    if (!this._hass || !spec) return;
+    if ((this as unknown as { preview?: boolean }).preview) return;
+    try {
+      const state = await fetchLastKnownStatus(this._hass, spec.entity);
+      // A live state that arrived meanwhile wins - it is newer than the query.
+      if (this._outage === undefined) {
+        this._outage = applyStatus(undefined, state, spec, statusOptions(this._hass, spec.entity));
+      }
+    } catch {
+      // Recorder slow or unavailable: the latch stays unknown and the card
+      // draws a normal grid rather than claiming an outage it cannot prove.
+    } finally {
       this.requestUpdate();
     }
   }
@@ -518,6 +559,7 @@ class EnerLensCard extends LitElement {
           this._showAll,
           () => this._toggleShowAll(),
         )}
+        ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
         <div class="body ${this._stacked ? "stacked" : ""}">
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(
@@ -527,6 +569,7 @@ class EnerLensCard extends LitElement {
             active,
             this._config.ring.enabled ? breakdown.segments : [],
             this._nodePx,
+            this._outage === true,
           )}
           ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>

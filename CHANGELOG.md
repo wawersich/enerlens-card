@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Grid outage.** Where an installation reports whether the grid is there at
+  all, `entities.grid_status` makes the card say so: a red X over the grid
+  icon, "no grid" instead of a figure, and a red strip above the cross. The
+  entity and the states that mean something are configured, never guessed -
+  every integration names them differently. `unavailable`, `unknown` and
+  unlisted states keep the last state, because an outage often takes the
+  connection with it and silence must not read as "the grid is back". On load
+  the last real state of the past ten days comes from the recorder. Without
+  the option nothing changes.
+
 ### Fixed
 - With split grid or battery entities, tapping a node below `flow.min_w` opened
   the direction the sign pointed at, even though the node itself showed no state

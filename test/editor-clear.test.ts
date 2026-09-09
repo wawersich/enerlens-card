@@ -36,6 +36,7 @@ const FULL: RawConfig = {
     house: "sensor.h",
     battery: "sensor.b",
     battery_soc: "sensor.soc",
+    grid_status: { entity: "sensor.status", outage: ["not_detected"], ok: ["ok"] },
   },
   consumers: [{ entity: "sensor.c", name: "C", color: "#123", icon: "mdi:fan", min_w: 20 }],
   min_consumer_w: 10,
@@ -82,9 +83,12 @@ const CLEARED: Record<string, unknown[]> = {
   number: [undefined, null, ""],
   boolean: [undefined, null],
   select: ["", null, undefined],
+  /** A multi-select hands back an empty array, and "" when the form resets it. */
+  list: [[], "", null, undefined],
 };
 
 function kindOf(name: string): keyof typeof CLEARED {
+  if (/^grid_status_(outage|ok)$/.test(name)) return "list";
   if (/_source$|default_mode|inactive_lines|animation|power_unit|power_decimals/.test(name))
     return "select";
   if (/_invert$|_enabled$|show_selector/.test(name)) return "boolean";

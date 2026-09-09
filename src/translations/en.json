@@ -8,7 +8,8 @@
     "grid_export": "Grid · export",
     "battery_charging": "Battery · charging",
     "battery_discharging": "Battery · discharging",
-    "derived_suffix": "· calculated"
+    "derived_suffix": "· calculated",
+    "no_grid": "no grid"
   },
   "list": {
     "rest": "Other",
@@ -47,7 +48,8 @@
       "consumer_entity": "{field} has no entity and is skipped.",
       "duplicate_consumer": "{field}: entity {entity} is listed more than once; the later entry is skipped.",
       "unknown_key": "Unknown option {field} - ignored.",
-      "order_fixed": "{first} must be less than {second} - {second} was raised to {value}."
+      "order_fixed": "{first} must be less than {second} - {second} was raised to {value}.",
+      "grid_status_no_outage": "{field} needs an entity and at least one outage state - without them the grid status is ignored."
     }
   },
   "editor": {
@@ -119,7 +121,11 @@
     "power_unit": "Show power in",
     "power_kw": "Kilowatts (kW)",
     "power_w": "Watts (W), whole numbers",
-    "power_decimals": "Decimals (kW)"
+    "power_decimals": "Decimals (kW)",
+    "grid_status_section": "Grid outage (optional)",
+    "grid_status": "Grid status entity",
+    "grid_status_outage": "States that mean: no grid",
+    "grid_status_ok": "States that mean: grid is there"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -155,6 +161,13 @@
     "max_dots": "How many dots a connection carries at most. Default 5.",
     "full_speed_w": "From here on the dot runs as fast as it gets. In between: one dot, getting faster. Default: same as “More dots from”.",
     "power_unit": "Applies to every power figure on the card: nodes and list.",
-    "power_decimals": "Kilowatts only; watts are always whole numbers. Default 2."
+    "power_decimals": "Kilowatts only; watts are always whole numbers. Default 2.",
+    "grid_status": "Only if your installation reports one - many do not. Without it the card behaves exactly as before.",
+    "grid_status_outage": "Required. Every integration names its states differently, so nothing is guessed here. Enter the raw state, not the label Home Assistant shows: an enum sensor displays a translated name, so “Not detected” may really be `not_detected`. Picking from the list avoids the question.",
+    "grid_status_ok": "Optional. Left empty, the entity's own options minus the outage states count as \\u201cgrid is there\\u201d; anything else, including unavailable, leaves the last state standing."
+  },
+  "outage": {
+    "banner": "Island mode — no grid",
+    "label": "Grid status"
   }
 }

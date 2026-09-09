@@ -8,7 +8,8 @@
     "grid_export": "Netz · Einspeisung",
     "battery_charging": "Batterie · lädt",
     "battery_discharging": "Batterie · entlädt",
-    "derived_suffix": "· berechnet"
+    "derived_suffix": "· berechnet",
+    "no_grid": "kein Netz"
   },
   "list": {
     "rest": "Rest",
@@ -47,7 +48,8 @@
       "consumer_entity": "{field} hat keine entity und wird übersprungen.",
       "duplicate_consumer": "{field}: die Entität {entity} ist mehrfach angegeben; der weitere Eintrag wird übersprungen.",
       "unknown_key": "Unbekannte Option {field} - wird ignoriert.",
-      "order_fixed": "{first} muss kleiner als {second} sein — {second} wurde auf {value} angehoben."
+      "order_fixed": "{first} muss kleiner als {second} sein — {second} wurde auf {value} angehoben.",
+      "grid_status_no_outage": "{field} braucht eine Entität und mindestens einen Ausfall-Zustand — ohne beides wird der Netzstatus ignoriert."
     }
   },
   "editor": {
@@ -119,7 +121,11 @@
     "power_unit": "Leistung anzeigen in",
     "power_kw": "Kilowatt (kW)",
     "power_w": "Watt (W), ganze Zahlen",
-    "power_decimals": "Nachkommastellen (kW)"
+    "power_decimals": "Nachkommastellen (kW)",
+    "grid_status_section": "Netzausfall (optional)",
+    "grid_status": "Entität für den Netzstatus",
+    "grid_status_outage": "Zustände, die „kein Netz“ bedeuten",
+    "grid_status_ok": "Zustände, die „Netz liegt an“ bedeuten"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -155,6 +161,13 @@
     "max_dots": "Wie viele Punkte auf einer Verbindung höchstens laufen. Standard 5.",
     "full_speed_w": "Ab hier läuft der Punkt so schnell wie möglich. Dazwischen: ein Punkt, der schneller wird. Standard: wie „Mehr Punkte ab“.",
     "power_unit": "Gilt für alle Leistungswerte der Karte: Knoten und Liste.",
-    "power_decimals": "Nur bei Kilowatt; Watt werden immer als ganze Zahl gezeigt. Standard 2."
+    "power_decimals": "Nur bei Kilowatt; Watt werden immer als ganze Zahl gezeigt. Standard 2.",
+    "grid_status": "Nur wenn deine Anlage das meldet — viele tun es nicht. Ohne diese Angabe verhält sich die Karte genau wie bisher.",
+    "grid_status_outage": "Pflichtangabe. Jede Integration benennt ihre Zustände anders, hier wird nichts geraten. Trage den Rohwert ein, nicht die Anzeige von Home Assistant: Ein Aufzählungssensor zeigt einen übersetzten Namen, aus „Nicht erkannt“ wird also `not_detected`. Wer aus der Liste auswählt, umgeht die Frage.",
+    "grid_status_ok": "Optional. Leer gelassen gelten die eigenen Optionen der Entität ohne die Ausfall-Zustände als „Netz liegt an“; alles andere, auch unavailable, lässt den letzten Zustand stehen."
+  },
+  "outage": {
+    "banner": "Inselbetrieb — kein Netz",
+    "label": "Netzstatus"
   }
 }

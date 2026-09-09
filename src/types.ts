@@ -83,6 +83,14 @@ export type EntityRef =
   | { import: string; export: string }
   | { discharge: string; charge: string };
 
+/**
+ * Which entity reports whether the grid is there, and which of its states mean
+ * what. Every integration names them differently, so both lists are the user's
+ * to give - a shorthand with guessed defaults would be wrong more often than
+ * right (REQ NS-1).
+ */
+export type GridStatusRef = string | { entity: string; outage?: string[]; ok?: string[] };
+
 export interface ConsumerConfig {
   entity: string;
   name?: string;
@@ -106,6 +114,8 @@ export interface RawConfig extends LovelaceCardConfig {
     battery?: EntityRef;
     battery_soc?: string;
     house?: EntityRef;
+    /** Optional grid status entity; the state names are never guessed (REQ NS-1). */
+    grid_status?: GridStatusRef;
   };
   consumers?: ConsumerConfig[];
   min_consumer_w?: number;
@@ -160,6 +170,17 @@ export type SourceSpec =
   | { kind: "derived" }
   | { kind: "absent" };
 
+/** Normalized grid status: state names lower-cased and trimmed (REQ NS-2). */
+export interface GridStatusSpec {
+  entity: string;
+  outage: string[];
+  /** Empty means: derive from the entity's own `options`, else "any other state". */
+  ok: string[];
+}
+
+/** Latched outage: `undefined` until a real state has been seen (REQ NS-3). */
+export type OutageState = boolean | undefined;
+
 export interface NormalizedConsumer {
   /** Stable identity for list and ring animations - the entity id. */
   key: string;
@@ -181,6 +202,8 @@ export interface Config {
     house: SourceSpec;
     batterySoc?: string;
   };
+  /** Undefined = the feature is off, which is the case for most installations. */
+  gridStatus?: GridStatusSpec;
   consumers: NormalizedConsumer[];
   minConsumerW: number;
   maxConsumers: number;

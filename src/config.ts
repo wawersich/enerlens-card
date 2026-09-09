@@ -4,11 +4,13 @@
  */
 import { DEFAULT_CONSUMER_PALETTE } from "./colors";
 import { localize } from "./localize";
+import { normalizeState, warnUnusable } from "./outage";
 import {
   type AnimationMode,
   type ColorKey,
   type Config,
   ConfigError,
+  type GridStatusSpec,
   type HomeAssistant,
   type InactiveLines,
   type NodeKey,
@@ -296,6 +298,54 @@ function parseSource(
   throw fail("error.config.mixed_form", field, hass);
 }
 
+/**
+ * State names of a status entity, lower-cased and de-duplicated. Cleared chips
+ * in the editor arrive as empty strings and are dropped (REQ E-1).
+ */
+function readStateList(value: unknown, field: string, hass?: HomeAssistant): string[] {
+  if (isUnset(value)) return [];
+  if (!Array.isArray(value)) throw fail("error.config.list", field, hass);
+  const states: string[] = [];
+  for (const entry of value) {
+    if (isUnset(entry)) continue;
+    if (typeof entry !== "string") throw fail("error.config.string", field, hass);
+    const normalized = normalizeState(entry);
+    if (normalized !== "" && !states.includes(normalized)) states.push(normalized);
+  }
+  return states;
+}
+
+/**
+ * The optional grid status entity together with the states that mean something.
+ * Both lists belong to the user: every integration names its states
+ * differently, and a default guessed from one vendor would be wrong more often
+ * than right (REQ NS-1).
+ *
+ * Without usable outage states the feature stays off and says so in the
+ * console. Silently accepting half a configuration would be the worse trap -
+ * it looks complete and does nothing.
+ */
+function readGridStatus(
+  value: unknown,
+  field: string,
+  hass?: HomeAssistant,
+): GridStatusSpec | undefined {
+  if (isUnset(value)) return undefined;
+  if (typeof value === "string") {
+    warnUnusable(field, hass);
+    return undefined;
+  }
+  const raw = requireRecord(value, field, hass);
+  const entity = requireString(raw.entity, `${field}.entity`, hass);
+  const outage = readStateList(raw.outage, `${field}.outage`, hass);
+  const ok = readStateList(raw.ok, `${field}.ok`, hass);
+  if (outage.length === 0) {
+    warnUnusable(field, hass);
+    return undefined;
+  }
+  return { entity, outage, ok };
+}
+
 function requireConfigured(spec: SourceSpec, field: string, hass?: HomeAssistant): void {
   if (spec.kind === "absent") throw fail("error.config.missing_entities", field, hass);
 }
@@ -493,6 +543,8 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     }
   }
 
+  const gridStatus = readGridStatus(rawEntities.grid_status, "entities.grid_status", hass);
+
   const colors = readColors(rawRecord.colors, hass);
   const consumers = readConsumers(rawRecord.consumers, colors.consumerPalette, hass);
 
@@ -616,6 +668,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   return {
     title: readString(rawRecord.title, "title", hass),
     sources: { solar, grid, battery, house, batterySoc },
+    gridStatus,
     consumers,
     minConsumerW,
     maxConsumers,
@@ -677,6 +730,7 @@ export function collectEntityIds(config: Config): string[] {
     }
   }
   add(config.sources.batterySoc);
+  add(config.gridStatus?.entity);
   for (const consumer of config.consumers) add(consumer.entity);
   return ids;
 }

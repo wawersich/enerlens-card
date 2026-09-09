@@ -371,3 +371,108 @@ describe("editor - flow: peak power and fine tuning", () => {
     warn.mockRestore();
   });
 });
+
+/**
+ * The status entity is the one place where the user must name the states
+ * themselves, so the editor has to offer them rather than assume them
+ * (REQ NS-1, NS-7).
+ */
+describe("editor - grid status", () => {
+  beforeAll(async () => {
+    await import("../src/editor");
+  });
+
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" },
+  };
+
+  function statusFields(el: Editor): Field[] {
+    const group = form(el).schema.find((g) => g.name === "grid_status");
+    return group?.schema ?? [];
+  }
+
+  it("keeps the section collapsed - most installations have no such entity", async () => {
+    const el = await mount(BASE);
+    const group = form(el).schema.find((g) => g.name === "grid_status") as Field & {
+      expanded?: boolean;
+    };
+    expect(group).toBeTruthy();
+    expect(group.expanded).toBeUndefined();
+  });
+
+  it("round-trips the long form", async () => {
+    const el = await mount({
+      ...BASE,
+      entities: {
+        ...BASE.entities,
+        grid_status: { entity: "sensor.status", outage: ["not_detected"], ok: ["ok"] },
+      },
+    });
+    expect(form(el).data.grid_status).toBe("sensor.status");
+    expect(form(el).data.grid_status_outage).toEqual(["not_detected"]);
+    expect(form(el).data.grid_status_ok).toEqual(["ok"]);
+  });
+
+  it("always writes the long form, never a bare entity id", async () => {
+    const el = await mount(BASE);
+    const saved = await change(el, {
+      grid_status: "sensor.status",
+      grid_status_outage: ["not_detected"],
+      grid_status_ok: ["ok"],
+    });
+    expect(saved.entities?.grid_status).toEqual({
+      entity: "sensor.status",
+      outage: ["not_detected"],
+      ok: ["ok"],
+    });
+  });
+
+  it("drops the whole block when the entity is cleared", async () => {
+    const el = await mount({
+      ...BASE,
+      entities: {
+        ...BASE.entities,
+        grid_status: { entity: "sensor.status", outage: ["not_detected"] },
+      },
+    });
+    const saved = await change(el, { grid_status: "" });
+    expect(saved.entities?.grid_status).toBeUndefined();
+  });
+
+  it("offers the entity's own states as choices, so nobody has to guess them", async () => {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    el.hass = {
+      ...hass,
+      states: {
+        "sensor.status": {
+          entity_id: "sensor.status",
+          state: "ok",
+          attributes: { options: ["ok", "not_detected"] },
+          last_changed: "",
+          last_updated: "",
+        },
+      },
+    } as HomeAssistant;
+    el.setConfig({
+      ...BASE,
+      entities: {
+        ...BASE.entities,
+        grid_status: { entity: "sensor.status", outage: ["not_detected"] },
+      },
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    const outage = statusFields(el).find((f) => f.name === "grid_status_outage");
+    const select = outage?.selector?.select as {
+      options: Array<{ value: string }>;
+      multiple: boolean;
+      custom_value: boolean;
+    };
+    expect(select.options.map((o) => o.value)).toEqual(["ok", "not_detected"]);
+    expect(select.multiple).toBe(true);
+    // Typing a state the entity does not publish stays possible.
+    expect(select.custom_value).toBe(true);
+  });
+});

@@ -19,7 +19,40 @@ export const styles = css`
     --el-label-size: 12px;
     --el-list-size: 12px;
     --el-line: var(--divider-color, rgba(127, 127, 127, 0.3));
+    /* Grid outage (REQ NS-4, NS-5). A theme that defines --error-color wins;
+       only the fallback differs per scheme, because the default dark red
+       disappears on a dark ground. */
+    --el-error: var(--error-color, #db4437);
     display: block;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host {
+      --el-error: var(--error-color, #f2645a);
+    }
+  }
+
+  /* Only rendered while the grid is gone, so it costs no height otherwise. */
+  .outage-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* The header has no bottom padding and the body only 4 px of top padding,
+       so without a top margin the strip touches the mode chips. */
+    margin: 10px 16px 6px;
+    padding: 6px 10px;
+    border-radius: 9px;
+    background: var(--el-error);
+    /* HA's on-primary colour: white in both schemes, and it stays readable on
+       the lightened dark-mode red, which white on its own would not. */
+    color: var(--text-primary-color, #fff);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .outage-banner ha-icon {
+    --mdc-icon-size: 18px;
+    display: flex;
   }
 
   ha-card {
@@ -353,6 +386,41 @@ export const styles = css`
 
   .node .value.unavailable {
     color: var(--secondary-text-color);
+  }
+
+  /* Grid outage: dashed contour, and figure plus label in the error colour.
+     The exception to C-5 (figures stay in the text colour) is deliberate -
+     here the colour is the message, not decoration (REQ NS-4). */
+  .node.outage {
+    border-style: dashed;
+  }
+
+  .node.outage .value,
+  .node.outage .label {
+    color: var(--el-error);
+  }
+
+  /* A big X over the symbol. Explicit width/height on the SVG, because WebKit
+     gives an absolutely positioned one an intrinsic 300 × 150 otherwise - the
+     same trap the consumer ring fell into. 116 % lets the arms overhang the
+     glyph slightly while staying clear of the figure below. */
+  .node .icon-cross {
+    position: relative;
+    display: flex;
+    z-index: 1;
+  }
+
+  .node .icon-cross svg {
+    position: absolute;
+    left: -8%;
+    top: -8%;
+    width: 116%;
+    height: 116%;
+    overflow: visible;
+    fill: none;
+    stroke: var(--el-error);
+    stroke-width: 2.6;
+    stroke-linecap: round;
   }
 
   /* Label sits outside the circle: above for solar, below for the others. */

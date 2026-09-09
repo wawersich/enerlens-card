@@ -14,6 +14,17 @@ export function modeLabel(mode: ViewMode, config: Config, hass: HomeAssistant): 
   return localize("view.average", hass, { minutes });
 }
 
+/**
+ * The strip above the cross while the grid is gone (REQ NS-5). Only rendered
+ * during an outage, so it costs no height in normal operation.
+ */
+export function renderOutageBanner(hass: HomeAssistant): TemplateResult {
+  return html`<div class="outage-banner" role="status">
+    <ha-icon icon="mdi:flash-off"></ha-icon>
+    <span>${localize("outage.banner", hass)}</span>
+  </div>`;
+}
+
 export function renderHeader(
   config: Config,
   hass: HomeAssistant,
