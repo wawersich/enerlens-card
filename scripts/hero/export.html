@@ -33,10 +33,21 @@
 <script type="module" src="../../dist/enerlens-card.js"></script>
 </head><body><div id="host"></div><pre id="out" style="display:none"></pre>
 <script type="module">
+// A module error would leave the page blank and the runner guessing; show it.
+addEventListener("error", (e) => {
+  document.getElementById("out").textContent = `FEHLER: ${e.message}\n${e.error?.stack ?? ""}`;
+});
+addEventListener("unhandledrejection", (e) => {
+  document.getElementById("out").textContent = `FEHLER: ${e.reason?.message ?? e.reason}\n${e.reason?.stack ?? ""}`;
+});
 /* The card follows the user's language and the theme's colours, so both are
  * parameters here rather than a second copy of the page. */
 const params = new URLSearchParams(location.search);
 const lang = params.get("lang") === "en" ? "en" : "de";
+/* Two scenes show the list re-sorting; one shows only the flow. The quiet
+ * variant is worth keeping - the movement is calmer, which suits a place where
+ * the picture is a side note rather than the subject. */
+const RESORT = params.get("scenes") !== "1";
 if (params.has("dark")) {
   const dark = {
     "--ha-card-background": "#1d1e21",
@@ -59,12 +70,23 @@ const TEXT = {
 
 const W = (id, w) => [id, { entity_id: id, state: String(w),
   attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
-const states = Object.fromEntries([
+/* Two scenes that differ in one respect only: the first two consumers trade
+ * powers, so the list re-sorts. Their sum is unchanged, which keeps the house,
+ * the cross and the rest of the card identical - the picture then shows the
+ * re-sorting itself instead of a general redraw. The two values are chosen to
+ * fall in the same dot-count band, so no dot has to appear or vanish. */
+const SCENES = [
+  { c1: 2600, c2: 2400 },
+  { c1: 2400, c2: 2600 },
+];
+const soc = ["sensor.soc", { entity_id: "sensor.soc", state: "68",
+  attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" }];
+const scene = (i) => Object.fromEntries([
   W("sensor.s", 8500), W("sensor.g", -300), W("sensor.h", 6400), W("sensor.b", -1800),
-  W("sensor.c1", 2600), W("sensor.c2", 1600), W("sensor.c3", 900), W("sensor.c4", 350),
+  W("sensor.c1", SCENES[i].c1), W("sensor.c2", SCENES[i].c2), W("sensor.c3", 900), W("sensor.c4", 350),
+  soc,
 ]);
-states["sensor.soc"] = { entity_id: "sensor.soc", state: "68",
-  attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" };
+const states = scene(0);
 
 await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
@@ -81,6 +103,7 @@ card.setConfig({
   // 2 kW, and a pass in 1.1 s instead of 1.8 s. Everything the card draws still
   // follows its own rule - only the thresholds are set differently.
   flow: { peak_w: 4000, fast_s: 1.1, slow_s: 4.5 },
+  update_interval_s: 2,
 });
 card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
@@ -100,12 +123,28 @@ await new Promise((r) => requestAnimationFrame(() => r()));
  * repeats on its own period, which no shared loop could do.
  */
 const root = card.shadowRoot;
-/* updatePlaybackRate() sets a *pending* rate that only takes effect once the
- * animation is ready - which never happens under a headless virtual clock, so
- * every dot would read back as rate 1 and be exported at the same speed.
- * Pausing applies the pending rate, and a paused animation is what we want to
- * read anyway. */
-for (const a of root.getAnimations()) a.pause();
+/* Waiting for `ready` is what makes a pending playback rate real; pausing then
+ * freezes the state we are about to measure. Both belong to snapshot. */
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+/* `ready` can stay pending forever under a headless virtual clock, so it is
+ * raced against a timeout - waiting is what makes a pending playback rate real,
+ * but hanging would leave the page blank. */
+async function settle() {
+  await card.updateComplete;
+  await pause(350);
+  await Promise.race([
+    Promise.all(root.getAnimations().map((a) => a.ready.catch(() => {}))),
+    pause(1500),
+  ]);
+  await pause(50);
+  for (const a of root.getAnimations()) {
+    // Only the dots repeat forever; those get frozen so their phase can be
+    // read. A row glide has to be *finished* instead - pausing it leaves the
+    // row at its old place and the snapshot would see no re-sorting at all.
+    if (a.effect?.getTiming?.().iterations === Infinity) a.pause();
+    else a.finish();
+  }
+}
 
 
 const card0 = card.getBoundingClientRect();
@@ -122,10 +161,132 @@ const inkRect = (el) => {
   return r.width > 0 ? r : el.getBoundingClientRect();
 };
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/* ---------------------------------------------------------------- timing
+ * One cycle: hold A, glide, hold B, glide back. The glide is the card's own
+ * 600 ms, so the movement in the picture runs at the speed it runs on a
+ * dashboard. */
+const CYCLE = 8;
+const GLIDE = 0.6;
+const KEYTIMES = [
+  0,
+  (CYCLE / 2 - GLIDE) / CYCLE,
+  CYCLE / 2 / CYCLE,
+  (CYCLE - GLIDE) / CYCLE,
+  1,
+].map((v) => v.toFixed(4)).join(";");
+
+/** An attribute that differs between the two scenes, held and eased between. */
+const tween = (attr, a, b) =>
+  a === b
+    ? ""
+    : `<animate attributeName="${attr}" values="${a};${a};${b};${b};${a}" keyTimes="${KEYTIMES}" dur="${CYCLE}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1"/>`;
+
+/* Whichever scene a thing belongs to, it is swapped at the middle of the glide
+ * rather than faded across it. A fade shows both sets at once, and two dots of
+ * the same line then sit at visibly different places - the paths are morphing
+ * underneath them. A hard swap at the midpoint shows one set at a time. */
+const SWAP = [0, (CYCLE / 2 - GLIDE / 2) / CYCLE, (CYCLE - GLIDE / 2) / CYCLE]
+  .map((v) => v.toFixed(4))
+  .join(";");
+/** An attribute that must not be interpolated - a colour between purple and
+ *  teal is blue, and the ring never shows blue. */
+const swap = (attr, a, b) =>
+  a === b
+    ? ""
+    : `<animate attributeName="${attr}" values="${a};${b};${a}" keyTimes="${SWAP}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+
+const showIn = (sceneA) =>
+  `<animate attributeName="opacity" values="${sceneA ? "1;0;1" : "0;1;0"}" keyTimes="${SWAP}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+
+/* --------------------------------------------------------------- snapshot
+ * Everything that can differ between the two scenes, keyed so the two runs can
+ * be matched up: row positions and figures, the fan lines and their dots, and
+ * the ring segments. Everything else is taken from scene A once. */
+function snapshot() {
+  const rows = {};
+  for (const row of root.querySelectorAll(".row")) {
+    const value = row.querySelector(".row-value");
+    rows[row.dataset.key] = {
+      y: row.getBoundingClientRect().top,
+      value: value ? value.textContent.trim() : "",
+      valueWidth: value ? inkRect(value).width : 0,
+    };
+  }
+
+  const fan = {};
+  const fanSvg = root.querySelector("svg.fan");
+  if (fanSvg) {
+    for (const path of fanSvg.querySelectorAll("path.fan-line")) {
+      const key = path.dataset.key;
+      const style = getComputedStyle(path);
+      const dots = [];
+      for (const dot of fanSvg.querySelectorAll(`circle[data-key="${key}"]`)) {
+        const anim = dot.getAnimations()[0];
+        if (!anim) continue;
+        const seconds = 5 / anim.playbackRate;
+        dots.push({
+          r: dot.getAttribute("r"),
+          fill: cs(dot, "fill"),
+          dur: seconds,
+          begin: -(Number(anim.currentTime ?? 0) / 5000) * seconds,
+        });
+      }
+      fan[key] = {
+        d: path.getAttribute("d"),
+        stroke: style.stroke,
+        width: style.strokeWidth,
+        opacity: style.opacity,
+        dots,
+      };
+    }
+  }
+
+  const ring = [...root.querySelectorAll(".node.house svg circle")].map((c) => ({
+    dasharray: c.getAttribute("stroke-dasharray") ?? "",
+    dashoffset: c.getAttribute("stroke-dashoffset") ?? "0",
+    stroke: getComputedStyle(c).stroke,
+  }));
+
+  return { rows, fan, ring };
+}
+
+document.title = "step:vor-A";
+const A = snapshot();
+document.title = "step:A-fertig";
+let B = A;
+card.hass = { states: scene(1), locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
+// The list re-sorts on the beat, not on the reading (REQ L-7), so the second
+// snapshot has to wait for one - otherwise both scenes come out identical.
+if (RESORT) {
+  document.title = "step:szene-B-gesetzt";
+  for (const a of root.getAnimations()) a.play();
+  await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
+  document.title = "step:warte-settle";
+  await settle();
+  document.title = "step:settle-fertig";
+  B = snapshot();
+}
+
+/* Back to scene A before anything is written: the shapes are emitted from the
+ * live DOM, and every animation below moves from A to B. With the DOM left in
+ * B, phase A would have drawn B's geometry with a zero offset - names in their
+ * new places carrying the old figures. */
+const setScene = (i) => {
+  card.hass = { states: scene(i), locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
+};
+setScene(0);
+for (const a of root.getAnimations()) a.play();
+await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
+await settle();
+document.title = "step:B-fertig";
+{
+  const rows = Object.keys(A.rows).map((k) => `${k}: ${A.rows[k].y.toFixed(0)}/${A.rows[k].value} -> ${B.rows[k]?.y.toFixed(0)}/${B.rows[k]?.value}`);
+  console.log("ROWS " + JSON.stringify(rows));
+}
+
 const out = [];
 
-// Background of the card itself.
-// The card element itself is transparent - the background belongs to ha-card.
+// --- background ------------------------------------------------------------
 const shell = root.querySelector("ha-card");
 out.push(`<rect x="0" y="0" width="${card0.width.toFixed(1)}" height="${card0.height.toFixed(1)}" rx="12" fill="${cs(shell ?? card, "background-color")}"/>`);
 
@@ -133,47 +294,45 @@ out.push(`<rect x="0" y="0" width="${card0.width.toFixed(1)}" height="${card0.he
 const plot = root.querySelector(".plot svg");
 const plotBox = plot.getBoundingClientRect();
 const vb = plot.getAttribute("viewBox").split(/\s+/).map(Number);
-const scale = plotBox.width / vb[2];
-const gAttrs = `transform="translate(${X(plotBox.left)},${Y(plotBox.top)}) scale(${scale.toFixed(4)})"`;
-const links = [...plot.querySelectorAll("path.link")].map((p) => {
-  const style = getComputedStyle(p);
-  return `<path d="${p.getAttribute("d")}" fill="none" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round" opacity="${style.opacity}"/>`;
+const plotScale = plotBox.width / vb[2];
+const crossParts = [...plot.querySelectorAll("path.link")].map((path) => {
+  const style = getComputedStyle(path);
+  return `<path d="${path.getAttribute("d")}" fill="none" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round" opacity="${style.opacity}"/>`;
 });
-
-// Dots on the cross: same coordinate system as the links.
-const crossDots = [];
 for (const dot of plot.querySelectorAll("g.dots circle")) {
   const anim = dot.getAnimations()[0];
-  if (!anim) continue;
   const path = (cs(dot, "offset-path").match(/path\(["']?(.+?)["']?\)/) || [])[1];
-  if (!path) continue;
-  const seconds = 5 / anim.playbackRate;                 // keyframes are 5 s
+  if (!anim || !path) continue;
+  const seconds = 5 / anim.playbackRate;
   const begin = -(Number(anim.currentTime ?? 0) / 5000) * seconds;
-  crossDots.push(`<circle r="${dot.getAttribute("r")}" fill="${cs(dot, "fill")}">` +
-    `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" ` +
-    `begin="${begin.toFixed(2)}s" path="${path}" rotate="0"/></circle>`);
+  crossParts.push(`<circle r="${dot.getAttribute("r")}" fill="${cs(dot, "fill")}">` +
+    `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" begin="${begin.toFixed(2)}s" path="${path}" rotate="0"/></circle>`);
 }
-out.push(`<g ${gAttrs}>${links.join("")}${crossDots.join("")}</g>`);
+out.push(`<g transform="translate(${X(plotBox.left)},${Y(plotBox.top)}) scale(${plotScale.toFixed(4)})">${crossParts.join("")}</g>`);
 
-// --- the fan: already in CSS pixels, only shifted by the overlay ------------
-const fan = root.querySelector("svg.fan");
-if (fan) {
-  const fanBox = fan.getBoundingClientRect();
+// --- the fan: lines morph, and each scene keeps its own dots ---------------
+const fanSvg = root.querySelector("svg.fan");
+if (fanSvg) {
+  const fanBox = fanSvg.getBoundingClientRect();
   const inner = [];
-  for (const p of fan.querySelectorAll("path.fan-line")) {
-    const style = getComputedStyle(p);
-    inner.push(`<path d="${p.getAttribute("d")}" fill="none" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round" opacity="${style.opacity}"/>`);
-  }
-  for (const dot of fan.querySelectorAll("circle")) {
-    const anim = dot.getAnimations()[0];
-    if (!anim) continue;
-    const path = (cs(dot, "offset-path").match(/path\(["']?(.+?)["']?\)/) || [])[1];
-    if (!path) continue;
-    const seconds = 5 / anim.playbackRate;
-    const begin = -(Number(anim.currentTime ?? 0) / 5000) * seconds;
-    inner.push(`<circle r="${dot.getAttribute("r")}" fill="${cs(dot, "fill")}">` +
-      `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" ` +
-      `begin="${begin.toFixed(2)}s" path="${path}" rotate="0"/></circle>`);
+  for (const key of Object.keys(A.fan)) {
+    const a = A.fan[key];
+    const b = B.fan[key] ?? a;
+    inner.push(`<path d="${a.d}" fill="none" stroke="${a.stroke}" stroke-width="${a.width}" stroke-linecap="round" opacity="${a.opacity}">${tween("d", a.d, b.d)}</path>`);
+    // A dot cannot follow a path that is itself moving, so each scene brings
+    // its own set and they trade places during the glide.
+    const sets = RESORT ? [[true, a], [false, b]] : [[true, a]];
+    for (const [scene, spec] of sets) {
+      spec.dots.forEach((dot, i) => {
+        // The same phase in both scenes: at the swap the dot of the other set
+        // is at the same point along its line, so it lands where the first one
+        // stood instead of somewhere else on the curve.
+        const phase = (a.dots[i] ?? dot).begin;
+        inner.push(`<circle r="${dot.r}" fill="${dot.fill}" opacity="${scene ? 1 : 0}">` +
+          `<animateMotion dur="${dot.dur.toFixed(2)}s" repeatCount="indefinite" begin="${phase.toFixed(2)}s" path="${spec.d}" rotate="0"/>` +
+          `${RESORT ? showIn(scene) : ""}</circle>`);
+      });
+    }
   }
   out.push(`<g transform="translate(${X(fanBox.left)},${Y(fanBox.top)})">${inner.join("")}</g>`);
 }
@@ -184,33 +343,26 @@ function iconOf(host, colour) {
   const path = svg?.querySelector("path");
   if (!path) return "";
   const b = host.getBoundingClientRect();
-  const s = b.width / 24;
-  return `<g transform="translate(${X(b.left)},${Y(b.top)}) scale(${s.toFixed(4)})"><path d="${path.getAttribute("d")}" fill="${colour}"/></g>`;
+  const scale = b.width / 24;
+  return `<g transform="translate(${X(b.left)},${Y(b.top)}) scale(${scale.toFixed(4)})"><path d="${path.getAttribute("d")}" fill="${colour}"/></g>`;
 }
 
+/** One <text> per line, pinned to the width it was measured at. */
 function textOf(el, anchor = "middle") {
   if (!el) return "";
-  const b = el.getBoundingClientRect();
-  const style = getComputedStyle(el);
-  const x = anchor === "middle" ? X(b.left + b.width / 2) : X(b.left);
-  // Lines inside one element (the two-line labels) are drawn one by one.
-  const parts = [...el.childNodes].filter((n) => n.nodeType === 1 || (n.textContent || "").trim());
-  const lines = el.querySelectorAll("span").length
-    ? [...el.querySelectorAll("span")]
-    : [el];
+  const lines = el.querySelectorAll("span").length ? [...el.querySelectorAll("span")] : [el];
   return lines.map((line) => {
     const lb = inkRect(line);
     const ls = getComputedStyle(line);
-    const lx = anchor === "middle" ? X(lb.left + lb.width / 2) : X(lb.left);
+    const x = anchor === "middle" ? X(lb.left + lb.width / 2) : anchor === "end" ? X(lb.right) : X(lb.left);
     const baseline = Y(lb.top + lb.height / 2 + parseFloat(ls.fontSize) * 0.35);
-    // textLength pins each string to the width it was measured at. Without it a
-    // reader whose font differs - the GitHub app substitutes one - lays the
-    // glyphs out wider and the name runs into the figure beside it.
-    return `<text x="${lx}" y="${baseline}" text-anchor="${anchor}" font-size="${parseFloat(ls.fontSize).toFixed(1)}" font-weight="${ls.fontWeight}" fill="${ls.color}" font-family="Roboto, system-ui, sans-serif" textLength="${lb.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(line.textContent.trim())}</text>`;
+    // Without textLength a reader whose font differs - the GitHub app
+    // substitutes one - lays the glyphs out wider and runs a name into a figure.
+    return `<text x="${x}" y="${baseline}" text-anchor="${anchor}" font-size="${parseFloat(ls.fontSize).toFixed(1)}" font-weight="${ls.fontWeight}" fill="${ls.color}" font-family="Roboto, system-ui, sans-serif" textLength="${lb.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(line.textContent.trim())}</text>`;
   }).join("");
 }
 
-// --- nodes: circle, ring, fill, icon, figure, label ------------------------
+// --- nodes -----------------------------------------------------------------
 for (const node of root.querySelectorAll(".node")) {
   const b = node.getBoundingClientRect();
   const style = getComputedStyle(node);
@@ -218,24 +370,28 @@ for (const node of root.querySelectorAll(".node")) {
   const r = b.width / 2 - parseFloat(style.borderTopWidth) / 2;
   out.push(`<circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="${style.backgroundColor}" stroke="${style.borderTopColor}" stroke-width="${parseFloat(style.borderTopWidth)}"/>`);
 
-  // State of charge: a clipped rectangle rising from the bottom.
   const fill = node.querySelector(".fill");
   if (fill) {
     const fb = fill.getBoundingClientRect();
-    const id = `clip${Math.random().toString(36).slice(2, 7)}`;
+    const id = `soc${Math.random().toString(36).slice(2, 7)}`;
     out.push(`<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}"/></clipPath>` +
       `<rect clip-path="url(#${id})" x="${X(fb.left)}" y="${Y(fb.top)}" width="${fb.width.toFixed(1)}" height="${fb.height.toFixed(1)}" fill="${getComputedStyle(fill).backgroundColor}" opacity="${getComputedStyle(fill).opacity}"/>`);
   }
 
-  // The consumer ring lives in its own viewBox inside the node.
+  // The consumer ring: its segments move when the list re-sorts.
   const ring = node.querySelector("svg");
-  if (ring && ring.getAttribute("viewBox")) {
+  if (ring?.getAttribute("viewBox")) {
     const rb = ring.getBoundingClientRect();
     const rvb = ring.getAttribute("viewBox").split(/\s+/).map(Number);
     const rs = rb.width / rvb[2];
-    const parts = [...ring.querySelectorAll("circle")].map((c) => {
-      const s = getComputedStyle(c);
-      return `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${s.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? s.strokeWidth}" stroke-dasharray="${c.getAttribute("stroke-dasharray") ?? ""}" stroke-dashoffset="${c.getAttribute("stroke-dashoffset") ?? 0}" stroke-linecap="${s.strokeLinecap}" transform="${c.getAttribute("transform") ?? ""}"/>`;
+    const parts = [...ring.querySelectorAll("circle")].map((c, i) => {
+      const st = getComputedStyle(c);
+      const a = A.ring[i] ?? {};
+      const bb = B.ring[i] ?? a;
+      return `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${a.stroke ?? st.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? st.strokeWidth}" stroke-dasharray="${a.dasharray ?? ""}" stroke-dashoffset="${a.dashoffset ?? 0}" stroke-linecap="${st.strokeLinecap}" transform="${c.getAttribute("transform") ?? ""}">` +
+        tween("stroke-dasharray", a.dasharray, bb.dasharray) +
+        tween("stroke-dashoffset", a.dashoffset, bb.dashoffset) +
+        swap("stroke", a.stroke, bb.stroke) + `</circle>`;
     });
     out.push(`<g transform="translate(${X(rb.left)},${Y(rb.top)}) scale(${rs.toFixed(4)})">${parts.join("")}</g>`);
   }
@@ -246,36 +402,57 @@ for (const node of root.querySelectorAll(".node")) {
   out.push(textOf(node.querySelector(".label")));
 }
 
-// --- header: title and the mode chips --------------------------------------
+// --- header ----------------------------------------------------------------
 const title = root.querySelector(".title");
 if (title) out.push(textOf(title, "start"));
 for (const chip of root.querySelectorAll(".mode, .filter-toggle")) {
   const b = chip.getBoundingClientRect();
-  const s = getComputedStyle(chip);
-  // A pill is written as a huge radius in CSS. SVG clamps rx and ry on their
-  // own axis, so passing 999 gives a wide-but-flat corner instead of a pill -
-  // both have to be given, clamped to half the box.
-  const radius = Math.min(parseFloat(s.borderTopLeftRadius) || 0, b.width / 2, b.height / 2);
-  out.push(`<rect x="${X(b.left)}" y="${Y(b.top)}" width="${b.width.toFixed(1)}" height="${b.height.toFixed(1)}" rx="${radius.toFixed(1)}" ry="${radius.toFixed(1)}" fill="${s.backgroundColor}" stroke="${s.borderTopColor}" stroke-width="${parseFloat(s.borderTopWidth)}"/>`);
+  const st = getComputedStyle(chip);
+  // A pill is a huge border-radius in CSS; SVG clamps rx and ry per axis, so
+  // both have to be written and capped at half the box.
+  const radius = Math.min(parseFloat(st.borderTopLeftRadius) || 0, b.width / 2, b.height / 2);
+  out.push(`<rect x="${X(b.left)}" y="${Y(b.top)}" width="${b.width.toFixed(1)}" height="${b.height.toFixed(1)}" rx="${radius.toFixed(1)}" ry="${radius.toFixed(1)}" fill="${st.backgroundColor}" stroke="${st.borderTopColor}" stroke-width="${parseFloat(st.borderTopWidth)}"/>`);
   if (chip.classList.contains("mode")) out.push(textOf(chip));
-  else out.push(iconOf(chip.querySelector("ha-icon"), s.color));
+  else out.push(iconOf(chip.querySelector("ha-icon"), st.color));
 }
 
-// --- list rows -------------------------------------------------------------
+// --- list rows: they glide, and two of them trade figures -------------------
 for (const row of root.querySelectorAll(".row")) {
+  const key = row.dataset.key;
+  const a = A.rows[key];
+  const b = B.rows[key] ?? a;
+  const dy = (b.y - a.y).toFixed(1);
+  const parts = [];
+
   const swatch = row.querySelector(".swatch");
-  if (swatch?.tagName === "HA-ICON") out.push(iconOf(swatch, getComputedStyle(swatch).color));
+  if (swatch?.tagName === "HA-ICON") parts.push(iconOf(swatch, getComputedStyle(swatch).color));
   else if (swatch) {
-    const b = swatch.getBoundingClientRect();
-    out.push(`<circle cx="${X(b.left + b.width / 2)}" cy="${Y(b.top + b.height / 2)}" r="5" fill="${getComputedStyle(swatch).color}"/>`);
+    const sb = swatch.getBoundingClientRect();
+    parts.push(`<circle cx="${X(sb.left + sb.width / 2)}" cy="${Y(sb.top + sb.height / 2)}" r="5" fill="${getComputedStyle(swatch).color}"/>`);
   }
-  out.push(textOf(row.querySelector(".name"), "start"));
+  parts.push(textOf(row.querySelector(".name"), "start"));
+
+  // The figure itself changes on the two rows that swap: two texts, traded.
   const value = row.querySelector(".row-value");
   if (value) {
-    const b = inkRect(value);
-    const s = getComputedStyle(value);
-    out.push(`<text x="${X(b.right)}" y="${Y(b.top + b.height / 2 + parseFloat(s.fontSize) * 0.35)}" text-anchor="end" font-size="${parseFloat(s.fontSize).toFixed(1)}" font-weight="${s.fontWeight}" fill="${s.color}" font-family="Roboto, system-ui, sans-serif" textLength="${b.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(value.textContent.trim())}</text>`);
+    const vb2 = inkRect(value);
+    const st = getComputedStyle(value);
+    const write = (text, width, extra) =>
+      `<text x="${X(vb2.right)}" y="${Y(vb2.top + vb2.height / 2 + parseFloat(st.fontSize) * 0.35)}" text-anchor="end" font-size="${parseFloat(st.fontSize).toFixed(1)}" font-weight="${st.fontWeight}" fill="${st.color}" font-family="Roboto, system-ui, sans-serif" textLength="${width.toFixed(1)}" lengthAdjust="spacingAndGlyphs"${extra.attr}>${esc(text)}${extra.anim}</text>`;
+    if (a.value === b.value) {
+      parts.push(write(a.value, vb2.width, { attr: "", anim: "" }));
+    } else {
+      // A figure may cross-fade - it does not move, so nothing looks doubled.
+      const fade = (sceneA) =>
+        `<animate attributeName="opacity" values="${sceneA ? "1;1;0;0;1" : "0;0;1;1;0"}" keyTimes="${KEYTIMES}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+      parts.push(write(a.value, a.valueWidth, { attr: "", anim: fade(true) }));
+      parts.push(write(b.value, b.valueWidth, { attr: ' opacity="0"', anim: fade(false) }));
+    }
   }
+
+  const glide = dy === "0.0" ? "" :
+    `<animateTransform attributeName="transform" type="translate" values="0 0;0 0;0 ${dy};0 ${dy};0 0" keyTimes="${KEYTIMES}" dur="${CYCLE}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1"/>`;
+  out.push(`<g>${glide}${parts.join("")}</g>`);
 }
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;

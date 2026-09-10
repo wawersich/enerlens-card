@@ -68,7 +68,9 @@ export class FanLayer {
         line.animations.pop()?.cancel();
       }
       while (line.dots.length < row.count) {
-        line.dots.push(this.createDot(row.color));
+        const dot = this.createDot(row.color);
+        dot.dataset.key = row.key;
+        line.dots.push(dot);
       }
 
       const countChanged = line.count !== row.count;
@@ -135,6 +137,11 @@ export class FanLayer {
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("class", "fan-line");
     path.setAttribute("fill", "none");
+    // The row this line belongs to. Nothing in the card reads it back, but it
+    // makes the overlay legible in the inspector and lets the hero exporter
+    // pair a dot with its line without comparing path strings - which differ
+    // between the attribute and the computed style ("190.0" against "190").
+    path.dataset.key = key;
     this.svg.appendChild(path);
     const line: FanLine = { path, dots: [], animations: [], count: 0 };
     this.lines.set(key, line);

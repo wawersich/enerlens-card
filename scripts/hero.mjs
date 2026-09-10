@@ -9,7 +9,8 @@
  * its own period, which is what no GIF can do - there, all speeds have to be
  * rounded into one shared loop.
  *
- *   npm run build && npm run hero
+ *   npm run build && npm run hero              # mit Umsortieren
+ *   npm run build && npm run hero -- --flow-only   # nur der Fluss
  *
  * Needs Chromium (`apk add chromium` on the HA box, not persistent).
  */
@@ -22,6 +23,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "..");
 const bundle = resolve(repo, "dist/enerlens-card.js");
 const page = resolve(here, "hero/export.html");
+/* Two scenes show the list re-sorting, one shows only the flow. The quiet
+ * variant is kept because it suits a place where the picture is a side note;
+ * both come from the same page, so neither can drift away from the card. */
+const flowOnly = process.argv.includes("--flow-only");
+
 /** One picture per language and colour scheme; the README picks with <picture>. */
 const VARIANTS = [
   { lang: "de", dark: false },
@@ -49,7 +55,7 @@ if (!browser) {
 }
 
 function exportOne({ lang, dark }) {
-  const query = `?lang=${lang}${dark ? "&dark" : ""}`;
+  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}`;
   const dom = execFileSync(
     browser,
     [
@@ -58,7 +64,9 @@ function exportOne({ lang, dark }) {
       "--no-sandbox",
       // ES modules over file:// are blocked without this, and the page stays empty.
       "--allow-file-access-from-files",
-      "--virtual-time-budget=8000",
+      // The page waits out two of the card's beats before the second snapshot,
+      // so the clock needs room - too small a budget dumps a blank page.
+      "--virtual-time-budget=30000",
       "--dump-dom",
       `file://${page}${query}`,
     ],
@@ -86,13 +94,15 @@ function exportOne({ lang, dark }) {
     process.exit(1);
   }
 
-  const name = `card-${lang}-${dark ? "dark" : "light"}.svg`;
+  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}.svg`;
   const target = resolve(repo, "docs/images", name);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, svg);
   const periods = new Set(svg.match(/dur="([\d.]+)s"/g) ?? []).size;
+  const glides = (svg.match(/<animateTransform/g) ?? []).length;
   console.log(
-    `  docs/images/${name}: ${(svg.length / 1024).toFixed(1)} kB, ${dots} Punkte in ${periods} Tempi`,
+    `  docs/images/${name}: ${(svg.length / 1024).toFixed(1)} kB, ${dots} Punkte in ${periods} Tempi` +
+      (glides ? `, ${glides} gleitende Zeilen` : ""),
   );
 }
 

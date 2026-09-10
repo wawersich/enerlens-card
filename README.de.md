@@ -11,11 +11,6 @@ besteht.
   <img src="docs/images/card-de-light.svg" alt="EnerLens Card" width="690">
 </picture>
 
-> **Stand: veröffentlicht, vor 1.0.** Die Karte ist auf einer Anlage täglich im
-> Einsatz und lässt sich über HACS als Custom Repository installieren. Die
-> Konfiguration ist stabil; die Version bleibt unter 1.0, bis die Karte auf mehr
-> als einer Anlage gelaufen ist.
-
 ## Was sie anders macht
 
 **Verbraucher sind eine Aufschlüsselung, keine zusätzlichen Knoten.** Die Liste

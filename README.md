@@ -10,11 +10,6 @@ and battery — plus a breakdown of what the house figure is actually made of.
   <img src="docs/images/card-en-light.svg" alt="EnerLens Card" width="690">
 </picture>
 
-> **Status: released, pre-1.0.** The card is in daily use on one installation
-> and installs through HACS as a custom repository. The configuration is
-> settled; the version stays below 1.0 until it has run on more than one
-> installation.
-
 ## What it does differently
 
 **Consumers are a breakdown, not extra nodes.** The list beside the house node
