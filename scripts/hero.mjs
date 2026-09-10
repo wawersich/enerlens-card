@@ -22,7 +22,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "..");
 const bundle = resolve(repo, "dist/enerlens-card.js");
 const page = resolve(here, "hero/export.html");
-const target = resolve(repo, "docs/images/hero.svg");
+/** One picture per language and colour scheme; the README picks with <picture>. */
+const VARIANTS = [
+  { lang: "de", dark: false },
+  { lang: "de", dark: true },
+  { lang: "en", dark: false },
+  { lang: "en", dark: true },
+];
 
 if (!existsSync(bundle)) {
   console.error("dist/enerlens-card.js fehlt - erst `npm run build`");
@@ -42,42 +48,52 @@ if (!browser) {
   process.exit(1);
 }
 
-const dom = execFileSync(
-  browser,
-  [
-    "--headless",
-    "--disable-gpu",
-    "--no-sandbox",
-    // ES modules over file:// are blocked without this, and the page stays empty.
-    "--allow-file-access-from-files",
-    "--virtual-time-budget=8000",
-    "--dump-dom",
-    `file://${page}`,
-  ],
-  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] },
-);
+function exportOne({ lang, dark }) {
+  const query = `?lang=${lang}${dark ? "&dark" : ""}`;
+  const dom = execFileSync(
+    browser,
+    [
+      "--headless",
+      "--disable-gpu",
+      "--no-sandbox",
+      // ES modules over file:// are blocked without this, and the page stays empty.
+      "--allow-file-access-from-files",
+      "--virtual-time-budget=8000",
+      "--dump-dom",
+      `file://${page}${query}`,
+    ],
+    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] },
+  );
 
-const match = /<pre id="out"[^>]*>([\s\S]*?)<\/pre>/.exec(dom);
-if (!match) {
-  console.error("Die Seite hat kein SVG geliefert - Bundle veraltet oder Rendering fehlgeschlagen");
-  process.exit(1);
+  const match = /<pre id="out"[^>]*>([\s\S]*?)<\/pre>/.exec(dom);
+  if (!match) {
+    console.error(`${query}: die Seite hat kein SVG geliefert`);
+    process.exit(1);
+  }
+  const svg = match[1]
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+
+  const dots = (svg.match(/<animateMotion/g) ?? []).length;
+  if (dots === 0) {
+    // How the earlier mistake would have slipped through: the picture looked
+    // right while every dot ran at one speed, because a pending playback rate
+    // reads back as 1 until the animation is ready.
+    console.error(`${query}: kein einziger bewegter Punkt - so wäre das Bild sinnlos`);
+    process.exit(1);
+  }
+
+  const name = `card-${lang}-${dark ? "dark" : "light"}.svg`;
+  const target = resolve(repo, "docs/images", name);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, svg);
+  const periods = new Set(svg.match(/dur="([\d.]+)s"/g) ?? []).size;
+  console.log(
+    `  docs/images/${name}: ${(svg.length / 1024).toFixed(1)} kB, ${dots} Punkte in ${periods} Tempi`,
+  );
 }
-const svg = match[1]
-  .replace(/&lt;/g, "<")
-  .replace(/&gt;/g, ">")
-  .replace(/&quot;/g, '"')
-  .replace(/&#39;/g, "'")
-  .replace(/&amp;/g, "&");
 
-const dots = (svg.match(/<animateMotion/g) ?? []).length;
-if (dots === 0) {
-  console.error("Kein einziger bewegter Punkt im Ergebnis - so wäre das Bild sinnlos");
-  process.exit(1);
-}
-
-mkdirSync(dirname(target), { recursive: true });
-writeFileSync(target, svg);
-const periods = [...new Set((svg.match(/dur="([\d.]+)s"/g) ?? []).map((d) => d))].length;
-console.log(
-  `docs/images/hero.svg: ${(svg.length / 1024).toFixed(1)} kB, ${dots} Punkte in ${periods} Tempi`,
-);
+for (const variant of VARIANTS) exportOne(variant);

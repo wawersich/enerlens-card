@@ -33,6 +33,30 @@
 <script type="module" src="../../dist/enerlens-card.js"></script>
 </head><body><div id="host"></div><pre id="out" style="display:none"></pre>
 <script type="module">
+/* The card follows the user's language and the theme's colours, so both are
+ * parameters here rather than a second copy of the page. */
+const params = new URLSearchParams(location.search);
+const lang = params.get("lang") === "en" ? "en" : "de";
+if (params.has("dark")) {
+  const dark = {
+    "--ha-card-background": "#1d1e21",
+    "--card-background-color": "#1d1e21",
+    "--primary-text-color": "#e3e3e3",
+    "--secondary-text-color": "#9b9b9b",
+    "--divider-color": "rgba(160,160,160,.3)",
+    "--error-color": "#f2645a",
+  };
+  for (const [key, value] of Object.entries(dark)) {
+    document.documentElement.style.setProperty(key, value);
+  }
+  document.body.style.background = "#111214";
+}
+
+const TEXT = {
+  de: { title: "Energie", c1: "Wärmepumpe", c2: "Waschmaschine", c3: "Klima", c4: "Kühlschränke" },
+  en: { title: "Energy", c1: "Heat pump", c2: "Washing machine", c3: "Air conditioning", c4: "Fridges" },
+}[lang];
+
 const W = (id, w) => [id, { entity_id: id, state: String(w),
   attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
 const states = Object.fromEntries([
@@ -45,20 +69,20 @@ states["sensor.soc"] = { entity_id: "sensor.soc", state: "68",
 await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
 card.setConfig({
-  type: "custom:enerlens-card", title: "Energie",
+  type: "custom:enerlens-card", title: TEXT.title,
   entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b", battery_soc: "sensor.soc" },
   consumers: [
-    { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave" },
-    { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine" },
-    { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
-    { entity: "sensor.c4", name: "Kühlschränke", icon: "mdi:fridge-outline" },
+    { entity: "sensor.c1", name: TEXT.c1, icon: "mdi:heat-wave" },
+    { entity: "sensor.c2", name: TEXT.c2, icon: "mdi:washing-machine" },
+    { entity: "sensor.c3", name: TEXT.c3, icon: "mdi:air-conditioner" },
+    { entity: "sensor.c4", name: TEXT.c4, icon: "mdi:fridge-outline" },
   ],
   // A livelier animation than the defaults: full speed from 1.3 kW instead of
   // 2 kW, and a pass in 1.1 s instead of 1.8 s. Everything the card draws still
   // follows its own rule - only the thresholds are set differently.
   flow: { peak_w: 4000, fast_s: 1.1, slow_s: 4.5 },
 });
-card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
+card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
 await card.updateComplete;
 await new Promise((r) => setTimeout(r, 400));

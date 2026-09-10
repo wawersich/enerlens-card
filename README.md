@@ -5,10 +5,10 @@ and battery — plus a breakdown of what the house figure is actually made of.
 
 *[Deutsche Fassung dieser Seite](README.de.md)*
 
-<img src="docs/images/hero.svg" alt="EnerLens Card in motion" width="690">
-
-![EnerLens in a light theme](docs/images/light.png)
-![EnerLens in a dark theme](docs/images/dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark.svg">
+  <img src="docs/images/card-en-light.svg" alt="EnerLens Card" width="690">
+</picture>
 
 > **Status: released, pre-1.0.** The card is in daily use on one installation
 > and installs through HACS as a custom repository. The configuration is

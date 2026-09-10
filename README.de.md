@@ -6,10 +6,10 @@ besteht.
 
 *[English version of this page](README.md)*
 
-<img src="docs/images/hero.svg" alt="EnerLens Card in Bewegung" width="690">
-
-![EnerLens im hellen Design](docs/images/light.png)
-![EnerLens im dunklen Design](docs/images/dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark.svg">
+  <img src="docs/images/card-de-light.svg" alt="EnerLens Card" width="690">
+</picture>
 
 > **Stand: veröffentlicht, vor 1.0.** Die Karte ist auf einer Anlage täglich im
 > Einsatz und lässt sich über HACS als Custom Repository installieren. Die
