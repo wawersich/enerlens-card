@@ -14,7 +14,8 @@
     "lint": "biome check src test",
     "format": "biome check --write src test",
     "deploy": "./scripts/deploy.sh",
-    "check": "./scripts/check.sh"
+    "check": "./scripts/check.sh",
+    "hero": "node scripts/hero.mjs"
   },
   "dependencies": {
     "lit": "3.2.1"

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #fff; font: 15px/1.5 Roboto, system-ui, sans-serif; }
+  #host { width: 660px; }
+  :root {
+    --ha-card-background:#fff; --card-background-color:#fff; --primary-text-color:#212121;
+    --secondary-text-color:#727272; --divider-color:rgba(127,127,127,.3); --primary-color:#03a9f4;
+    --energy-solar-color:#ff9800; --energy-grid-consumption-color:#488fc2;
+    --energy-grid-return-color:#8353d1; --energy-battery-in-color:#f06292;
+    --energy-battery-out-color:#4db6ac; --error-color:#db4437; --text-primary-color:#fff;
+  }
+</style>
+<script>
+  customElements.define("ha-card", class extends HTMLElement {
+    connectedCallback(){ this.style.display="block"; this.style.background="var(--ha-card-background)";
+      this.style.borderRadius="12px"; this.style.padding="0 0 4px"; }
+  });
+  const CACHE = new Map();
+  customElements.define("ha-icon", class extends HTMLElement {
+    set icon(v){ this._i = v; this._r(); }
+    connectedCallback(){ this.style.display="inline-flex"; this._r(); }
+    async _r(){
+      const n = (this._i||"").replace(/^mdi:/,""); if(!n) return;
+      this.style.width = this.style.height = "var(--mdc-icon-size, 24px)";
+      if(!CACHE.has(n)) CACHE.set(n, fetch(`https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/${n}.svg`)
+        .then(r=>r.ok?r.text():"").then(t=>(t.match(/ d="([^"]+)"/)||[])[1]||"").catch(()=>""));
+      const d = await CACHE.get(n); if(!d) return;
+      this.innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%" style="fill:currentColor"><path d="${d}"></path></svg>`;
+    }
+  });
+</script>
+<script type="module" src="../../dist/enerlens-card.js"></script>
+</head><body><div id="host"></div><pre id="out" style="display:none"></pre>
+<script type="module">
+const W = (id, w) => [id, { entity_id: id, state: String(w),
+  attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
+const states = Object.fromEntries([
+  W("sensor.s", 8500), W("sensor.g", -300), W("sensor.h", 6400), W("sensor.b", -1800),
+  W("sensor.c1", 2600), W("sensor.c2", 1600), W("sensor.c3", 900), W("sensor.c4", 350),
+]);
+states["sensor.soc"] = { entity_id: "sensor.soc", state: "68",
+  attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" };
+
+await customElements.whenDefined("enerlens-card");
+const card = document.createElement("enerlens-card");
+card.setConfig({
+  type: "custom:enerlens-card", title: "Energie",
+  entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b", battery_soc: "sensor.soc" },
+  consumers: [
+    { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave" },
+    { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine" },
+    { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
+    { entity: "sensor.c4", name: "Kühlschränke", icon: "mdi:fridge-outline" },
+  ],
+  // A livelier animation than the defaults: full speed from 1.3 kW instead of
+  // 2 kW, and a pass in 1.1 s instead of 1.8 s. Everything the card draws still
+  // follows its own rule - only the thresholds are set differently.
+  flow: { peak_w: 4000, fast_s: 1.1, slow_s: 4.5 },
+});
+card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
+document.getElementById("host").appendChild(card);
+await card.updateComplete;
+await new Promise((r) => setTimeout(r, 400));
+// A pending playback rate only becomes the real one once the animation is
+// ready. Reading it before that gives 1 for every dot - every speed the card
+// encodes would silently collapse into one.
+await Promise.all(card.shadowRoot.getAnimations().map((a) => a.ready.catch(() => {})));
+await new Promise((r) => requestAnimationFrame(() => r()));
+
+/* ------------------------------------------------------------------ export
+ * Walks the rendered card and writes one standalone SVG: geometry and text
+ * come from measured boxes and computed styles, the dots become SMIL along the
+ * very paths the card animates them on. Nothing is drawn by hand, and nothing
+ * is a screen recording - so the speeds are the card's own and every dot
+ * repeats on its own period, which no shared loop could do.
+ */
+const root = card.shadowRoot;
+/* updatePlaybackRate() sets a *pending* rate that only takes effect once the
+ * animation is ready - which never happens under a headless virtual clock, so
+ * every dot would read back as rate 1 and be exported at the same speed.
+ * Pausing applies the pending rate, and a paused animation is what we want to
+ * read anyway. */
+for (const a of root.getAnimations()) a.pause();
+
+
+const card0 = card.getBoundingClientRect();
+const X = (v) => +(v - card0.left).toFixed(1);
+const Y = (v) => +(v - card0.top).toFixed(1);
+const cs = (el, prop) => getComputedStyle(el).getPropertyValue(prop);
+/* The box of a text element is not the width of its text - a flex row makes it
+ * as wide as the column. A range over the contents gives the ink itself, which
+ * is what textLength has to pin down. */
+const inkRect = (el) => {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const r = range.getBoundingClientRect();
+  return r.width > 0 ? r : el.getBoundingClientRect();
+};
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const out = [];
+
+// Background of the card itself.
+// The card element itself is transparent - the background belongs to ha-card.
+const shell = root.querySelector("ha-card");
+out.push(`<rect x="0" y="0" width="${card0.width.toFixed(1)}" height="${card0.height.toFixed(1)}" rx="12" fill="${cs(shell ?? card, "background-color")}"/>`);
+
+// --- the cross: its SVG is in viewBox units, so it gets one transform -------
+const plot = root.querySelector(".plot svg");
+const plotBox = plot.getBoundingClientRect();
+const vb = plot.getAttribute("viewBox").split(/\s+/).map(Number);
+const scale = plotBox.width / vb[2];
+const gAttrs = `transform="translate(${X(plotBox.left)},${Y(plotBox.top)}) scale(${scale.toFixed(4)})"`;
+const links = [...plot.querySelectorAll("path.link")].map((p) => {
+  const style = getComputedStyle(p);
+  return `<path d="${p.getAttribute("d")}" fill="none" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round" opacity="${style.opacity}"/>`;
+});
+
+// Dots on the cross: same coordinate system as the links.
+const crossDots = [];
+for (const dot of plot.querySelectorAll("g.dots circle")) {
+  const anim = dot.getAnimations()[0];
+  if (!anim) continue;
+  const path = (cs(dot, "offset-path").match(/path\(["']?(.+?)["']?\)/) || [])[1];
+  if (!path) continue;
+  const seconds = 5 / anim.playbackRate;                 // keyframes are 5 s
+  const begin = -(Number(anim.currentTime ?? 0) / 5000) * seconds;
+  crossDots.push(`<circle r="${dot.getAttribute("r")}" fill="${cs(dot, "fill")}">` +
+    `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" ` +
+    `begin="${begin.toFixed(2)}s" path="${path}" rotate="0"/></circle>`);
+}
+out.push(`<g ${gAttrs}>${links.join("")}${crossDots.join("")}</g>`);
+
+// --- the fan: already in CSS pixels, only shifted by the overlay ------------
+const fan = root.querySelector("svg.fan");
+if (fan) {
+  const fanBox = fan.getBoundingClientRect();
+  const inner = [];
+  for (const p of fan.querySelectorAll("path.fan-line")) {
+    const style = getComputedStyle(p);
+    inner.push(`<path d="${p.getAttribute("d")}" fill="none" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round" opacity="${style.opacity}"/>`);
+  }
+  for (const dot of fan.querySelectorAll("circle")) {
+    const anim = dot.getAnimations()[0];
+    if (!anim) continue;
+    const path = (cs(dot, "offset-path").match(/path\(["']?(.+?)["']?\)/) || [])[1];
+    if (!path) continue;
+    const seconds = 5 / anim.playbackRate;
+    const begin = -(Number(anim.currentTime ?? 0) / 5000) * seconds;
+    inner.push(`<circle r="${dot.getAttribute("r")}" fill="${cs(dot, "fill")}">` +
+      `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" ` +
+      `begin="${begin.toFixed(2)}s" path="${path}" rotate="0"/></circle>`);
+  }
+  out.push(`<g transform="translate(${X(fanBox.left)},${Y(fanBox.top)})">${inner.join("")}</g>`);
+}
+
+// --- an ha-icon becomes its path, scaled from the 24-unit grid --------------
+function iconOf(host, colour) {
+  const svg = host?.querySelector("svg");
+  const path = svg?.querySelector("path");
+  if (!path) return "";
+  const b = host.getBoundingClientRect();
+  const s = b.width / 24;
+  return `<g transform="translate(${X(b.left)},${Y(b.top)}) scale(${s.toFixed(4)})"><path d="${path.getAttribute("d")}" fill="${colour}"/></g>`;
+}
+
+function textOf(el, anchor = "middle") {
+  if (!el) return "";
+  const b = el.getBoundingClientRect();
+  const style = getComputedStyle(el);
+  const x = anchor === "middle" ? X(b.left + b.width / 2) : X(b.left);
+  // Lines inside one element (the two-line labels) are drawn one by one.
+  const parts = [...el.childNodes].filter((n) => n.nodeType === 1 || (n.textContent || "").trim());
+  const lines = el.querySelectorAll("span").length
+    ? [...el.querySelectorAll("span")]
+    : [el];
+  return lines.map((line) => {
+    const lb = inkRect(line);
+    const ls = getComputedStyle(line);
+    const lx = anchor === "middle" ? X(lb.left + lb.width / 2) : X(lb.left);
+    const baseline = Y(lb.top + lb.height / 2 + parseFloat(ls.fontSize) * 0.35);
+    // textLength pins each string to the width it was measured at. Without it a
+    // reader whose font differs - the GitHub app substitutes one - lays the
+    // glyphs out wider and the name runs into the figure beside it.
+    return `<text x="${lx}" y="${baseline}" text-anchor="${anchor}" font-size="${parseFloat(ls.fontSize).toFixed(1)}" font-weight="${ls.fontWeight}" fill="${ls.color}" font-family="Roboto, system-ui, sans-serif" textLength="${lb.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(line.textContent.trim())}</text>`;
+  }).join("");
+}
+
+// --- nodes: circle, ring, fill, icon, figure, label ------------------------
+for (const node of root.querySelectorAll(".node")) {
+  const b = node.getBoundingClientRect();
+  const style = getComputedStyle(node);
+  const cx = X(b.left + b.width / 2), cy = Y(b.top + b.height / 2);
+  const r = b.width / 2 - parseFloat(style.borderTopWidth) / 2;
+  out.push(`<circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="${style.backgroundColor}" stroke="${style.borderTopColor}" stroke-width="${parseFloat(style.borderTopWidth)}"/>`);
+
+  // State of charge: a clipped rectangle rising from the bottom.
+  const fill = node.querySelector(".fill");
+  if (fill) {
+    const fb = fill.getBoundingClientRect();
+    const id = `clip${Math.random().toString(36).slice(2, 7)}`;
+    out.push(`<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}"/></clipPath>` +
+      `<rect clip-path="url(#${id})" x="${X(fb.left)}" y="${Y(fb.top)}" width="${fb.width.toFixed(1)}" height="${fb.height.toFixed(1)}" fill="${getComputedStyle(fill).backgroundColor}" opacity="${getComputedStyle(fill).opacity}"/>`);
+  }
+
+  // The consumer ring lives in its own viewBox inside the node.
+  const ring = node.querySelector("svg");
+  if (ring && ring.getAttribute("viewBox")) {
+    const rb = ring.getBoundingClientRect();
+    const rvb = ring.getAttribute("viewBox").split(/\s+/).map(Number);
+    const rs = rb.width / rvb[2];
+    const parts = [...ring.querySelectorAll("circle")].map((c) => {
+      const s = getComputedStyle(c);
+      return `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${s.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? s.strokeWidth}" stroke-dasharray="${c.getAttribute("stroke-dasharray") ?? ""}" stroke-dashoffset="${c.getAttribute("stroke-dashoffset") ?? 0}" stroke-linecap="${s.strokeLinecap}" transform="${c.getAttribute("transform") ?? ""}"/>`;
+    });
+    out.push(`<g transform="translate(${X(rb.left)},${Y(rb.top)}) scale(${rs.toFixed(4)})">${parts.join("")}</g>`);
+  }
+
+  const icon = node.querySelector("ha-icon");
+  if (icon) out.push(iconOf(icon, getComputedStyle(icon).color));
+  for (const v of node.querySelectorAll(".value")) out.push(textOf(v));
+  out.push(textOf(node.querySelector(".label")));
+}
+
+// --- header: title and the mode chips --------------------------------------
+const title = root.querySelector(".title");
+if (title) out.push(textOf(title, "start"));
+for (const chip of root.querySelectorAll(".mode, .filter-toggle")) {
+  const b = chip.getBoundingClientRect();
+  const s = getComputedStyle(chip);
+  // A pill is written as a huge radius in CSS. SVG clamps rx and ry on their
+  // own axis, so passing 999 gives a wide-but-flat corner instead of a pill -
+  // both have to be given, clamped to half the box.
+  const radius = Math.min(parseFloat(s.borderTopLeftRadius) || 0, b.width / 2, b.height / 2);
+  out.push(`<rect x="${X(b.left)}" y="${Y(b.top)}" width="${b.width.toFixed(1)}" height="${b.height.toFixed(1)}" rx="${radius.toFixed(1)}" ry="${radius.toFixed(1)}" fill="${s.backgroundColor}" stroke="${s.borderTopColor}" stroke-width="${parseFloat(s.borderTopWidth)}"/>`);
+  if (chip.classList.contains("mode")) out.push(textOf(chip));
+  else out.push(iconOf(chip.querySelector("ha-icon"), s.color));
+}
+
+// --- list rows -------------------------------------------------------------
+for (const row of root.querySelectorAll(".row")) {
+  const swatch = row.querySelector(".swatch");
+  if (swatch?.tagName === "HA-ICON") out.push(iconOf(swatch, getComputedStyle(swatch).color));
+  else if (swatch) {
+    const b = swatch.getBoundingClientRect();
+    out.push(`<circle cx="${X(b.left + b.width / 2)}" cy="${Y(b.top + b.height / 2)}" r="5" fill="${getComputedStyle(swatch).color}"/>`);
+  }
+  out.push(textOf(row.querySelector(".name"), "start"));
+  const value = row.querySelector(".row-value");
+  if (value) {
+    const b = inkRect(value);
+    const s = getComputedStyle(value);
+    out.push(`<text x="${X(b.right)}" y="${Y(b.top + b.height / 2 + parseFloat(s.fontSize) * 0.35)}" text-anchor="end" font-size="${parseFloat(s.fontSize).toFixed(1)}" font-weight="${s.fontWeight}" fill="${s.color}" font-family="Roboto, system-ui, sans-serif" textLength="${b.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(value.textContent.trim())}</text>`);
+  }
+}
+
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;
+document.getElementById("out").textContent = svg;
+document.title = `svg ${svg.length}`;
+</script></body></html>
