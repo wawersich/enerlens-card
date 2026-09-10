@@ -137,13 +137,24 @@ async function settle() {
     pause(1500),
   ]);
   await pause(50);
-  for (const a of root.getAnimations()) {
-    // Only the dots repeat forever; those get frozen so their phase can be
-    // read. A row glide has to be *finished* instead - pausing it leaves the
-    // row at its old place and the snapshot would see no re-sorting at all.
-    if (a.effect?.getTiming?.().iterations === Infinity) a.pause();
-    else a.finish();
-  }
+  const freeze = () => {
+    for (const a of root.getAnimations()) {
+      // Only the dots repeat forever; those get frozen so their phase can be
+      // read. A row glide has to be *finished* instead - pausing it leaves the
+      // row at its old place and the snapshot would see no re-sorting at all.
+      if (a.effect?.getTiming?.().iterations === Infinity) a.pause();
+      else a.finish();
+    }
+  };
+  freeze();
+  /* The fan is drawn from measured row positions, and the card measures them
+   * while the rows are still gliding. Once they have arrived it has to draw
+   * again - otherwise the lines keep pointing at the old order, and after the
+   * swap a line ends at an icon of a different colour. */
+  card.requestUpdate();
+  await card.updateComplete;
+  await pause(50);
+  freeze();
 }
 
 
@@ -250,21 +261,16 @@ function snapshot() {
   return { rows, fan, ring };
 }
 
-document.title = "step:vor-A";
 const A = snapshot();
-document.title = "step:A-fertig";
 let B = A;
 card.hass = { states: scene(1), locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 // The list re-sorts on the beat, not on the reading (REQ L-7), so the second
 // snapshot has to wait for one - otherwise both scenes come out identical.
 if (RESORT) {
-  document.title = "step:szene-B-gesetzt";
-  for (const a of root.getAnimations()) a.play();
+    for (const a of root.getAnimations()) a.play();
   await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
-  document.title = "step:warte-settle";
-  await settle();
-  document.title = "step:settle-fertig";
-  B = snapshot();
+    await settle();
+    B = snapshot();
 }
 
 /* Back to scene A before anything is written: the shapes are emitted from the
@@ -278,7 +284,6 @@ setScene(0);
 for (const a of root.getAnimations()) a.play();
 await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
 await settle();
-document.title = "step:B-fertig";
 {
   const rows = Object.keys(A.rows).map((k) => `${k}: ${A.rows[k].y.toFixed(0)}/${A.rows[k].value} -> ${B.rows[k]?.y.toFixed(0)}/${B.rows[k]?.value}`);
   console.log("ROWS " + JSON.stringify(rows));
@@ -318,21 +323,18 @@ if (fanSvg) {
   for (const key of Object.keys(A.fan)) {
     const a = A.fan[key];
     const b = B.fan[key] ?? a;
-    inner.push(`<path d="${a.d}" fill="none" stroke="${a.stroke}" stroke-width="${a.width}" stroke-linecap="round" opacity="${a.opacity}">${tween("d", a.d, b.d)}</path>`);
-    // A dot cannot follow a path that is itself moving, so each scene brings
-    // its own set and they trade places during the glide.
-    const sets = RESORT ? [[true, a], [false, b]] : [[true, a]];
-    for (const [scene, spec] of sets) {
-      spec.dots.forEach((dot, i) => {
-        // The same phase in both scenes: at the swap the dot of the other set
-        // is at the same point along its line, so it lands where the first one
-        // stood instead of somewhere else on the curve.
-        const phase = (a.dots[i] ?? dot).begin;
-        inner.push(`<circle r="${dot.r}" fill="${dot.fill}" opacity="${scene ? 1 : 0}">` +
-          `<animateMotion dur="${dot.dur.toFixed(2)}s" repeatCount="indefinite" begin="${phase.toFixed(2)}s" path="${spec.d}" rotate="0"/>` +
-          `${RESORT ? showIn(scene) : ""}</circle>`);
-      });
-    }
+    const id = `line-${key.replace(/[^a-z0-9]+/gi, "-")}`;
+    inner.push(`<path id="${id}" d="${a.d}" fill="none" stroke="${a.stroke}" stroke-width="${a.width}" stroke-linecap="round" opacity="${a.opacity}">${tween("d", a.d, b.d)}</path>`);
+    /* The dots ride the line by reference, not by a copy of its path: <mpath>
+     * points at the element above, whose `d` is animating, so a dot follows
+     * the line while it moves - which is what the card does when it rewrites
+     * each dot's offset-path every frame of the glide. A copied path would
+     * leave the dots on the old course and make them jump at the end. */
+    a.dots.forEach((dot) => {
+      inner.push(`<circle r="${dot.r}" fill="${dot.fill}">` +
+        `<animateMotion dur="${dot.dur.toFixed(2)}s" repeatCount="indefinite" begin="${dot.begin.toFixed(2)}s" rotate="0">` +
+        `<mpath href="#${id}" xlink:href="#${id}"/></animateMotion></circle>`);
+    });
   }
   out.push(`<g transform="translate(${X(fanBox.left)},${Y(fanBox.top)})">${inner.join("")}</g>`);
 }
@@ -455,7 +457,7 @@ for (const row of root.querySelectorAll(".row")) {
   out.push(`<g>${glide}${parts.join("")}</g>`);
 }
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;
 document.getElementById("out").textContent = svg;
 document.title = `svg ${svg.length}`;
 </script></body></html>
