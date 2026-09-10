@@ -5,6 +5,8 @@ and battery — plus a breakdown of what the house figure is actually made of.
 
 *[Deutsche Fassung dieser Seite](README.de.md)*
 
+<img src="docs/images/hero.svg" alt="EnerLens Card in motion" width="690">
+
 ![EnerLens in a light theme](docs/images/light.png)
 ![EnerLens in a dark theme](docs/images/dark.png)
 

@@ -6,6 +6,8 @@ besteht.
 
 *[English version of this page](README.md)*
 
+<img src="docs/images/hero.svg" alt="EnerLens Card in Bewegung" width="690">
+
 ![EnerLens im hellen Design](docs/images/light.png)
 ![EnerLens im dunklen Design](docs/images/dark.png)
 
