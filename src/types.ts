@@ -338,7 +338,9 @@ export interface Segment {
 }
 
 export interface Breakdown {
+  /** Rows of the list. Follows the filter button (REQ L-12). */
   entries: ListEntry[];
+  /** One per entry whose line carries something - the rest get none (REQ R-2). */
   segments: Segment[];
 }
 

@@ -24,9 +24,16 @@ export const RING_INSET_PX = -RING_STROKE_PX / 2;
 
 /** Gap between segments and the shortest arc, as fractions of the circumference
  *  (REQ R-2). A hairline segment reads as a rendering artefact; the share it
- *  borrows comes off the largest segment, so the ring still closes. */
+ *  borrows comes off the largest segment, so the ring still closes.
+ *
+ *  The floor went from 1.7 % to 1.4 % on 12.09.2026: since the ring describes
+ *  the filtered selection, its smallest segment is at least `min_consumer_w`
+ *  and no longer a stray watt, so less inflation is needed. It stays clearly
+ *  wider than a gap (1.4 % = 5.0 deg against 0.85 % = 3.1 deg) - below about
+ *  1 % a minimum segment stops reading as a segment and starts reading as the
+ *  gap next to it. Less borrowing also distorts the largest segment less. */
 const GAP_FRACTION = 0.0085;
-const MIN_ARC_FRACTION = 0.017;
+const MIN_ARC_FRACTION = 0.014;
 
 /**
  * Stroke width and radius in the ring's own 100-unit viewBox, from the node's

@@ -414,6 +414,26 @@ describe("show-all toggle (REQ L-12)", () => {
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector(".filter-toggle")).toBeNull();
   });
+
+  it("gives a row with a grey line no ring segment (REQ R-2, 12.09.2026)", async () => {
+    const el = await mountWithConsumers();
+    const segmentKeys = () =>
+      Array.from(el.shadowRoot?.querySelectorAll("circle.ring-seg") ?? []).map((c) =>
+        c.getAttribute("data-key"),
+      );
+
+    const before = segmentKeys();
+    expect(before.length, "no ring drawn").toBeGreaterThan(0);
+    expect(before).not.toContain("sensor.idle");
+
+    (el.shadowRoot?.querySelector(".filter-toggle") as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    // The row appeared - but at 3 W its line is drawn grey and dotless, so it
+    // gets no segment. The ring shows what is flowing, not what is listed.
+    expect(names(el)).toContain("Idle");
+    expect(segmentKeys()).toEqual(before);
+  });
 });
 
 describe("consumer icons (REQ L-2)", () => {

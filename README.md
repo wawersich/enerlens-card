@@ -28,7 +28,9 @@ slide to their new position instead of jumping. Values update immediately; only
 the order waits for the beat, because a jumping figure does not disturb but a
 jumping row does. A small filter button beside the view chips shows every consumer
 regardless of power — for tapping the history of a device that has just gone
-quiet. Like the selected view, the button survives a reload.
+quiet. Like the selected view, the button survives a reload. **The ring only
+shows what is flowing:** a row drawn with a grey line gets no segment, or a
+device drawing a single watt would get one like a real consumer.
 
 **Measurements are never quietly changed.** Sensors update at different rates,
 so the individually measured consumers can briefly add up to more than the
@@ -263,7 +265,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.remember` | `true` | Remember the view and the filter button per browser |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
-| `flow.min_w` | `10` | Below this nothing moves, and grid and battery show no state word |
+| `flow.min_w` | `10` | Below this nothing moves, grid and battery show no state word, and no ring segment is drawn |
 | `flow.peak_w` | `6000` | One knob for the motion: the power at which dots peak; the three thresholds below default to 1/12, 1/3 and 1/1 of it |
 | `flow.slow_below_w` | `500` | One slow dot up to here |
 | `flow.full_speed_w` | = `more_dots_above_w` | Where the single dot reaches full speed; set it apart from `more_dots_above_w` to separate speed from count |
@@ -316,8 +318,9 @@ entry fails the build rather than surfacing as a raw key in someone's dashboard.
 - Individual consumers become the `consumers` list, and they are a *breakdown*
   of the house value rather than additional nodes. The remainder shows what is
   left.
-- There is no `watt_threshold`; use `min_consumer_w` for the list and
-  `flow.min_w` for the animation. They are deliberately separate.
+- There is no `watt_threshold`; there are two deliberately separate thresholds:
+  `min_consumer_w` decides whether a row appears in the list at all,
+  `flow.min_w` decides about its line, its dots and its ring segment.
 
 ## Development
 

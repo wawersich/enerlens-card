@@ -30,7 +30,9 @@ Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
 Zahl stört nicht, eine springende Zeile schon. Ein kleiner Filter-Knopf neben
 den Ansichts-Chips zeigt alle Verbraucher unabhängig von ihrer Leistung — um den Verlauf
 eines Geräts anzutippen, das gerade still geworden ist. Der Knopf bleibt wie die
-gewählte Ansicht über einen Neuladen hinweg gesetzt.
+gewählte Ansicht über einen Neuladen hinweg gesetzt. **Der Ring zeigt dabei nur,
+was auch fließt:** Eine Zeile mit grauer Linie bekommt kein Segment — sonst
+erhielte ein Gerät mit einem Watt eines wie ein echter Verbraucher.
 
 **Messwerte werden nie stillschweigend verändert.** Sensoren aktualisieren
 unterschiedlich schnell, deshalb kann die Summe der einzeln gemessenen
@@ -276,7 +278,7 @@ zusätzliche Abfrage.
 | `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
-| `flow.min_w` | `10` | Darunter bewegt sich nichts; Netz und Batterie zeigen kein Zustandswort |
+| `flow.min_w` | `10` | Darunter bewegt sich nichts, Netz und Batterie zeigen kein Zustandswort, und es wird kein Ring-Segment gezeichnet |
 | `flow.peak_w` | `6000` | Ein Regler für die Bewegung: Leistung, bei der die Punkte ihr Maximum erreichen; die drei Schwellen darunter sind standardmäßig 1/12, 1/3 und 1/1 davon |
 | `flow.slow_below_w` | `500` | Bis hier ein langsamer Punkt |
 | `flow.full_speed_w` | = `more_dots_above_w` | Ab hier hat der einzelne Punkt sein Höchsttempo; getrennt von `more_dots_above_w` setzen, um Tempo und Anzahl zu entkoppeln |
@@ -332,8 +334,9 @@ statt in irgendeinem Dashboard als roher Schlüssel aufzutauchen.
 - Aus den einzelnen Verbrauchern wird die `consumers`-Liste, und sie sind eine
   *Aufschlüsselung* des Hauswerts statt zusätzlicher Knoten. Der Rest zeigt,
   was übrig bleibt.
-- `watt_threshold` gibt es nicht; stattdessen `min_consumer_w` für die Liste
-  und `flow.min_w` für die Animation. Die beiden sind bewusst getrennt.
+- `watt_threshold` gibt es nicht; stattdessen zwei bewusst getrennte Schwellen:
+  `min_consumer_w` entscheidet, ob eine Zeile überhaupt in der Liste steht,
+  `flow.min_w` entscheidet über Linie, Punkte und Ring-Segment.
 
 ## Entwicklung
 

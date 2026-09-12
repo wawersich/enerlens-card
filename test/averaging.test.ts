@@ -2,6 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { AveragingBuffer, fetchHistory } from "../src/averaging";
+import { normalizeConfig } from "../src/config";
+import { buildBreakdown } from "../src/consumers";
+import { buildModel } from "../src/model";
 import type { HomeAssistant, Sample } from "../src/types";
 
 const MIN = 60_000;
@@ -461,5 +464,100 @@ if (HAS_FIXTURE)
         expect(house as number).toBeCloseTo(expectedCase.house, 6);
         expect(consumers).toBeCloseTo(expectedCase.sum_all_consumers, 6);
       }
+    });
+  });
+
+// ---------------------------------------------------------------------------
+// Abnahme R against the same reference data (REQ 2.4, R-2, 5.1).
+//
+// It lives in this file because the fixture plumbing does. The two scenarios in
+// the requirements cannot check R-2: there every shown consumer is above
+// flow.min_w, so no row is ever drawn grey. This one is built so that both
+// thresholds bite at once - the constellation Markus hit on 12.09.2026.
+// ---------------------------------------------------------------------------
+
+if (HAS_FIXTURE)
+  describe("Abnahme R - reference data (REQ 2.4, R-2, 5.1)", () => {
+    const fixture: Fixture = JSON.parse(readFileSync(FIXTURE_FILE, "utf8"));
+
+    /** The value the card would show: the last sample at or before `now`. */
+    function valueAt(role: string, now: number): number | null {
+      let last: number | null = null;
+      for (const p of fixture.series[role]?.points ?? []) {
+        if (Date.parse(p.t) > now) break;
+        const v = Number.parseFloat(p.v);
+        last = Number.isFinite(v) ? v : null;
+      }
+      return last;
+    }
+
+    function hassAt(now: number): HomeAssistant {
+      const states: HomeAssistant["states"] = {};
+      const put = (id: string, w: number | null) => {
+        states[id] = {
+          entity_id: id,
+          state: w === null ? "unavailable" : String(w),
+          attributes: { unit_of_measurement: "W", device_class: "power" },
+          last_changed: "",
+          last_updated: "",
+        } as HomeAssistant["states"][string];
+      };
+      for (const role of [HOUSE_ROLE, ...CONSUMER_ROLES]) put(`sensor.${role}`, valueAt(role, now));
+      put("sensor.solar", 0);
+      put("sensor.grid", 0);
+      return {
+        states,
+        locale: { language: "de", number_format: "language" },
+        language: "de",
+        callWS: async () => ({}) as never,
+      } as HomeAssistant;
+    }
+
+    // Thresholds of the reference installation: 10 W for the list, 20 W for the
+    // flow, and the heat pump carries its own 40 W because of its standby.
+    const config = normalizeConfig({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid", house: `sensor.${HOUSE_ROLE}` },
+      min_consumer_w: 10,
+      flow: { min_w: 20 },
+      consumers: [
+        { entity: "sensor.heatpump", name: "Waermepumpe", min_w: 40 },
+        { entity: "sensor.ac_storage", name: "Klima Speicher" },
+        { entity: "sensor.storage", name: "Speicher" },
+        { entity: "sensor.fridges", name: "Kuehlschraenke" },
+        { entity: "sensor.dryer", name: "Trockner" },
+        { entity: "sensor.washer", name: "Waschmaschine" },
+        { entity: "sensor.dishwasher", name: "Spuelmaschine" },
+      ],
+    });
+
+    const NOW = Date.parse("2026-09-05T12:46:04+02:00");
+
+    it("holds the documented figures", () => {
+      expect(valueAt(HOUSE_ROLE, NOW)).toBeCloseTo(2340, 0);
+      expect(valueAt("heatpump", NOW)).toBeCloseTo(25, 0);
+      expect(valueAt("ac_storage", NOW)).toBeCloseTo(1, 0);
+    });
+
+    it("gives the 1 W consumer a row but no segment, with the filter lifted", () => {
+      const breakdown = buildBreakdown(buildModel(hassAt(NOW), config), config, true);
+
+      // Listed, because the button lifts min_consumer_w (REQ L-12) ...
+      expect(breakdown.entries.map((e) => e.name)).toContain("Klima Speicher");
+      // ... but its line is grey, so the ring leaves it out (REQ R-2).
+      expect(breakdown.segments.map((seg) => seg.key)).not.toContain("sensor.ac_storage");
+
+      // The heat pump is the other way round: filtered out by its own 40 W, but
+      // above flow.min_w, so once it is visible it does get a segment.
+      expect(breakdown.entries.map((e) => e.name)).toContain("Waermepumpe");
+      expect(breakdown.segments.map((seg) => seg.key)).toContain("sensor.heatpump");
+    });
+
+    it("drops the heat pump from both while the filter is on", () => {
+      const breakdown = buildBreakdown(buildModel(hassAt(NOW), config), config);
+      expect(breakdown.entries.map((e) => e.name)).not.toContain("Waermepumpe");
+      expect(breakdown.segments.map((seg) => seg.key)).not.toContain("sensor.heatpump");
+      // Every remaining row carries something, so list and ring match here.
+      expect(breakdown.segments).toHaveLength(breakdown.entries.length);
     });
   });

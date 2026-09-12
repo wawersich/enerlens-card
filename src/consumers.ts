@@ -2,19 +2,27 @@
  * Filter, limit, rest entry, sorting, ring shares.
  * Owner: agent 3. REQ 4.4, L-3 - L-6, R-2, R-3.
  */
-import { type Breakdown, type Config, type ListEntry, type Model, REST_KEY } from "./types";
+import { dotParams } from "./flow";
+import {
+  type Breakdown,
+  type Config,
+  type ListEntry,
+  type Model,
+  REST_KEY,
+  type Segment,
+} from "./types";
 
 /**
- * Applies REQ 4.4 in order: filter by `minConsumerW`, keep the strongest
- * `maxConsumers`, compute the rest, sort descending, derive ring shares.
- * Entries and segments always describe the same set in the same order (REQ R-2).
+ * One selection: filter by threshold, keep the strongest `maxConsumers`, add
+ * the rest, sort descending (REQ 4.4, L-3 to L-6).
+ *
+ * `showAll` lifts threshold and limit (REQ L-12): a consumer that was busy a
+ * minute ago is otherwise gone from the list before one can tap its history.
  */
-export function buildBreakdown(model: Model, config: Config, showAll = false): Breakdown {
+function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   // 1. Candidates: available and at or above the threshold - the consumer's
   // own if it has one, else the global one (REQ L-3). A standby draw that is
   // real but uninteresting (a heat pump idling at 25 W) is hidden this way.
-  // `showAll` lifts threshold and limit (REQ L-12): a consumer that was busy a
-  // minute ago is otherwise gone from the list before one can tap its history.
   const candidates: ListEntry[] = [];
   for (const consumer of model.consumers) {
     if (!consumer.reading.available) continue;
@@ -56,20 +64,43 @@ export function buildBreakdown(model: Model, config: Config, showAll = false): B
 
   // 4. The rest is sorted in like any other entry (REQ L-6). It was appended
   // last, so on a tie it lands behind consumers of equal power.
-  sortDescending(entries);
+  return sortDescending(entries);
+}
 
-  // 5. Shares over the sum of all entries - without a rest that scales the
-  // ring to 100 % on its own (REQ R-3).
-  const total = entries.reduce((sum, entry) => sum + entry.w, 0);
-  const segments = entries.map((entry) => ({
+/**
+ * Segments for the rows whose line is actually carrying something.
+ *
+ * A row below `flow.min_w` is drawn with a grey, dotless line - it is present,
+ * but nothing flows on it. Giving it a coloured ring segment said the opposite,
+ * and the minimum arc made a single watt as wide as a real contributor
+ * (REQ R-2, changed 12.09.2026). The test is `dotParams`, the same call that
+ * decides whether the line runs, so the two can never drift apart.
+ *
+ * Shares are taken over the sum of the segments themselves - without a rest
+ * that scales the ring to 100 % on its own (REQ R-3).
+ */
+function toSegments(entries: ListEntry[], config: Config): Segment[] {
+  const active = entries.filter((entry) => dotParams(entry.w, config) !== null);
+  const total = active.reduce((sum, entry) => sum + entry.w, 0);
+  return active.map((entry) => ({
     key: entry.key,
     share: total > 0 ? entry.w / total : 0,
     color: entry.color,
     entity: entry.entity,
     isRest: entry.isRest,
   }));
+}
 
-  return { entries, segments };
+/**
+ * List rows and ring segments for one tick.
+ *
+ * One selection, two views of it: every row the filter lets through goes into
+ * the list, and those of them that carry something also get a ring segment
+ * (see `toSegments`).
+ */
+export function buildBreakdown(model: Model, config: Config, showAll = false): Breakdown {
+  const entries = select(model, config, showAll);
+  return { entries, segments: toSegments(entries, config) };
 }
 
 function sortDescending(entries: ListEntry[]): ListEntry[] {
@@ -83,9 +114,14 @@ function sortDescending(entries: ListEntry[]): ListEntry[] {
  * The list therefore shows live values while rows only move on the tick
  * (REQ L-7): a reading may change every second without the rows reshuffling,
  * and a consumer that drops below the threshold stays visible until the next
- * tick re-selects.
+ * tick re-selects. Its segment does go, though, at the same moment its line
+ * turns grey - ring and line always tell the same story.
  */
-export function refreshBreakdownValues(breakdown: Breakdown, model: Model): Breakdown {
+export function refreshBreakdownValues(
+  breakdown: Breakdown,
+  model: Model,
+  config: Config,
+): Breakdown {
   const live = new Map<string, number>();
   for (const consumer of model.consumers) {
     if (consumer.reading.available) live.set(consumer.key, consumer.reading.w);
@@ -103,14 +139,5 @@ export function refreshBreakdownValues(breakdown: Breakdown, model: Model): Brea
     entries[restIndex] = { ...entries[restIndex], w: Math.max(0, rest) };
   }
 
-  const total = entries.reduce((sum, e) => sum + e.w, 0);
-  const segments = entries.map((entry) => ({
-    key: entry.key,
-    share: total > 0 ? entry.w / total : 0,
-    color: entry.color,
-    entity: entry.entity,
-    isRest: entry.isRest,
-  }));
-
-  return { entries, segments };
+  return { entries, segments: toSegments(entries, config) };
 }

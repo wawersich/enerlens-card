@@ -35,7 +35,14 @@ function model(house: Reading, consumers: ConsumerReading[]): Model {
   };
 }
 
-function config(over: { minConsumerW?: number; maxConsumers?: number; restLabel?: string } = {}) {
+function config(
+  over: {
+    minConsumerW?: number;
+    maxConsumers?: number;
+    restLabel?: string;
+    flowMinW?: number;
+  } = {},
+) {
   const cfg: Config = {
     sources: {
       solar: { kind: "absent" },
@@ -57,7 +64,7 @@ function config(over: { minConsumerW?: number; maxConsumers?: number; restLabel?
       remember: true,
     },
     flow: {
-      minW: 10,
+      minW: over.flowMinW ?? 10,
       slowBelowW: 500,
       fullSpeedW: 2000,
       moreDotsAboveW: 2000,
@@ -126,8 +133,11 @@ describe("buildBreakdown - filter (REQ L-3, 4.4 step 1)", () => {
     // The rest (1000 - 325 = 675 W) sorts to the top like any other entry.
     expect(names).toEqual(["", "tv", "heatpump", "idle"]);
     expect(all.entries[0].isRest).toBe(true);
-    // The zero entry has no share; the ring skips it (see renderRing).
-    expect(all.segments.find((s) => s.key === "sensor.idle")?.share).toBe(0);
+    expect(all.entries[0].w).toBe(675);
+    // Segments follow the lines, not the filter (REQ R-2): the heat pump at
+    // 25 W is above flow.min_w and gets one, "idle" at 0 W is drawn grey and
+    // does not.
+    expect(all.segments.map((s) => s.key)).toEqual([REST_KEY, "sensor.tv", "sensor.heatpump"]);
   });
 
   it("drops unavailable consumers", () => {
@@ -384,7 +394,7 @@ describe("refreshBreakdownValues (REQ L-7)", () => {
 
     // B overtakes A, but the order must hold until the next tick.
     const live = model(reading(1000), [consumer("a", 100), consumer("b", 800)]);
-    const refreshed = refreshBreakdownValues(breakdown, live);
+    const refreshed = refreshBreakdownValues(breakdown, live, cfg);
     expect(refreshed.entries.map((e) => e.key)).toEqual(["sensor.a", "sensor.b", REST_KEY]);
     expect(refreshed.entries[0].w).toBe(100);
     expect(refreshed.entries[1].w).toBe(800);
@@ -396,11 +406,99 @@ describe("refreshBreakdownValues (REQ L-7)", () => {
   it("keeps a consumer visible until the next tick even below the threshold", () => {
     const cfg = config({ minConsumerW: 10 });
     const breakdown = buildBreakdown(model(reading(500), [consumer("a", 200)]), cfg);
-    const refreshed = refreshBreakdownValues(breakdown, model(reading(500), [consumer("a", 2)]));
+    const refreshed = refreshBreakdownValues(
+      breakdown,
+      model(reading(500), [consumer("a", 2)]),
+      cfg,
+    );
     expect(
       refreshed.entries.some((e) => e.key === "sensor.a"),
       "row vanished mid-tick",
     ).toBe(true);
     expect(refreshed.entries.find((e) => e.key === "sensor.a")?.w).toBe(2);
+  });
+});
+
+describe("the ring takes the rows whose line carries something (REQ R-2, 12.09.2026)", () => {
+  /**
+   * The constellation from the screenshot of 12.09.2026, 22:49. The heat pump
+   * draws 25 W: below its own min_w of 40, so the filter hides it, but above
+   * flow.min_w of 20, so its line is drawn in colour once it is visible.
+   */
+  const m = model(reading(860), [
+    consumer("heatpump", 25, 40),
+    consumer("buffer", 206),
+    consumer("fridges", 132),
+    consumer("ac_buffer", 1),
+    consumer("dryer", 0),
+    consumer("gone", null),
+  ]);
+  const cfg = () => config({ minConsumerW: 10, flowMinW: 20 });
+
+  it("gives a segment to every visible row with a coloured line", () => {
+    const lifted = buildBreakdown(m, cfg(), true);
+
+    // Rest = 860 - (25 + 206 + 132 + 1 + 0) = 496, sorted to the top.
+    expect(lifted.entries.map((e) => e.name)).toEqual([
+      "",
+      "buffer",
+      "fridges",
+      "heatpump",
+      "ac_buffer",
+      "dryer",
+    ]);
+    // Four coloured lines, four segments. The 1 W and the 0 W rows are drawn
+    // grey and get none - that was the whole complaint.
+    expect(lifted.segments.map((s) => s.key)).toEqual([
+      REST_KEY,
+      "sensor.buffer",
+      "sensor.fridges",
+      "sensor.heatpump",
+    ]);
+  });
+
+  it("drops the heat pump from both when the filter is on", () => {
+    const filtered = buildBreakdown(m, cfg());
+
+    // 25 W is below its own 40 W threshold, so the row is gone ...
+    expect(filtered.entries.map((e) => e.name)).toEqual(["", "buffer", "fridges"]);
+    // ... and with the row the segment. Rest = 860 - 338 = 522.
+    expect(filtered.segments.map((s) => s.key)).toEqual([
+      REST_KEY,
+      "sensor.buffer",
+      "sensor.fridges",
+    ]);
+    expect(filtered.entries[0].w).toBe(522);
+  });
+
+  it("keeps one rest for list and ring", () => {
+    const lifted = buildBreakdown(m, cfg(), true);
+    const rest = lifted.entries.find((e) => e.isRest);
+    expect(rest?.w).toBe(496);
+    // The ring reads the same entry - no second rest of its own.
+    expect(lifted.segments.find((seg) => seg.isRest)?.share).toBeCloseTo(
+      496 / (496 + 206 + 132 + 25),
+      10,
+    );
+  });
+
+  it("counts the threshold itself as carrying (>=)", () => {
+    const edge = model(reading(100), [consumer("exact", 20), consumer("under", 19)]);
+    const b = buildBreakdown(edge, config({ minConsumerW: 10, flowMinW: 20 }));
+    expect(b.entries.map((e) => e.name)).toContain("under");
+    expect(b.segments.map((seg) => seg.key)).not.toContain("sensor.under");
+    expect(b.segments.map((seg) => seg.key)).toContain("sensor.exact");
+  });
+
+  it("loses the segment mid-tick when the line turns grey, but keeps the row", () => {
+    const cfgEdge = config({ minConsumerW: 10, flowMinW: 20 });
+    const built = buildBreakdown(model(reading(500), [consumer("a", 200)]), cfgEdge);
+    expect(built.segments.map((seg) => seg.key)).toContain("sensor.a");
+
+    const fresh = refreshBreakdownValues(built, model(reading(500), [consumer("a", 2)]), cfgEdge);
+    // The row stays until the next tick (REQ L-7) ...
+    expect(fresh.entries.map((e) => e.key)).toContain("sensor.a");
+    // ... but ring and line turn at the same moment.
+    expect(fresh.segments.map((seg) => seg.key)).not.toContain("sensor.a");
   });
 });

@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **A row whose line carries nothing no longer gets a ring segment.** The ring
+  now shows exactly the entries drawn with a coloured, moving line - everything
+  from `flow.min_w` upwards, the rest entry included. Before, lifting the
+  filter could put a consumer drawing a single watt into the ring as a fully
+  coloured segment next to its own grey, dotless line, and the minimum arc blew
+  0.04 % up to the width of a real contributor. The test is `dotParams`, the
+  same call that decides whether the line runs, so ring and line cannot drift
+  apart. With the filter on, nothing changes for a consumer above the
+  threshold.
+- The shortest ring segment is now 1.4 % of the circumference instead of 1.7 %.
+  The smallest possible segment now sits at `flow.min_w`, so less inflation is
+  needed, and the largest segment gives up less of its length for it.
+
 ## [0.2.0] - 2026-09-09
 
 ### Added

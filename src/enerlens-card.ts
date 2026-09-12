@@ -545,6 +545,7 @@ class EnerLensCard extends LitElement {
     const breakdown = refreshBreakdownValues(
       buildBreakdown(ticked, this._config, this._showAll),
       model,
+      this._config,
     );
     // Lines carry the colour of the flow on them, dimmed by CSS (REQ P-5).
     const plans = planDots(computeFlows(ticked), this._config);
