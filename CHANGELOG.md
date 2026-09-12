@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   themselves.
 
 ### Changed
+- **The short averaging window now defaults to 2 minutes instead of 5.** Close
+  enough to the current reading to still answer "what is happening right now",
+  far enough from it to take the peaks out. The long window stays at 15
+  minutes, and a configured `view.avg_short_minutes` is untouched.
 - **A row whose line carries nothing no longer gets a ring segment.** The ring
   now shows exactly the entries drawn with a coloured, moving line - everything
   from `flow.min_w` upwards, the rest entry included. Before, lifting the

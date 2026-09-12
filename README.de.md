@@ -273,7 +273,7 @@ zusätzliche Abfrage.
 | `list.always_below` | `false` | Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre |
 | `ring.enabled` | an mit Verbrauchern | Ring anzeigen |
 | `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
-| `view.avg_short_minutes` | `5` | Kurzes Mittelungsfenster |
+| `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
 | `view.show_selector` | `true` | Umschalter anzeigen |
 | `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |

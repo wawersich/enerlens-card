@@ -260,7 +260,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `list.always_below` | `false` | Keep the list under the cross even when there is room beside it |
 | `ring.enabled` | on with consumers | Show the ring |
 | `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
-| `view.avg_short_minutes` | `5` | Short averaging window |
+| `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
 | `view.show_selector` | `true` | Show the mode chips |
 | `view.remember` | `true` | Remember the view and the filter button per browser |

@@ -577,7 +577,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
 
   const rawView = rawRecord.view === undefined ? {} : requireRecord(rawRecord.view, "view", hass);
   const avgShortMinutes = inRange(
-    readInteger(rawView.avg_short_minutes, "view.avg_short_minutes", 5, hass),
+    readInteger(rawView.avg_short_minutes, "view.avg_short_minutes", 2, hass),
     1,
     120,
     "view.avg_short_minutes",

@@ -494,7 +494,7 @@ describe("defaults (section 3)", () => {
     expect(config.updateIntervalS).toBe(5);
     expect(config.view).toEqual({
       defaultMode: "current",
-      avgShortMinutes: 5,
+      avgShortMinutes: 2,
       avgLongMinutes: 15,
       showSelector: true,
       remember: true,
