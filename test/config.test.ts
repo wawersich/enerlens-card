@@ -429,6 +429,18 @@ describe("list and ring defaults (L-1, R-1)", () => {
     expect(config.ring.enabled).toBe(false);
   });
 
+  it("keeps the list beside the cross unless asked otherwise", () => {
+    const config = normalizeConfig(cfg({ consumers: [{ entity: "sensor.a" }] }));
+    expect(config.list.alwaysBelow).toBe(false);
+  });
+
+  it("reads the switch that forces the list below the cross", () => {
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a" }], list: { always_below: true } }),
+    );
+    expect(config.list.alwaysBelow).toBe(true);
+  });
+
   it("lets an explicit false win over the consumer default (R-6)", () => {
     const config = normalizeConfig(
       cfg({

@@ -53,7 +53,7 @@ function configOf(
     minConsumerW: 10,
     maxConsumers: Number.POSITIVE_INFINITY,
     updateIntervalS: 5,
-    list: { enabled: true },
+    list: { enabled: true, alwaysBelow: false },
     ring: { enabled: true },
     view: {
       defaultMode: "current",

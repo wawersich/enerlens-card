@@ -122,6 +122,28 @@ describe("enerlens-card element", () => {
     );
   });
 
+  it("leaves the layout to the available width by default", async () => {
+    const el = await mount();
+    expect(el.shadowRoot?.querySelector(".body")?.classList.contains("force-below")).toBe(false);
+  });
+
+  it("forces the list below the cross when asked to, and back again (REQ L-14)", async () => {
+    const el = await mount();
+    el.setConfig({ ...CONFIG, list: { always_below: true } });
+    await el.updateComplete;
+    const body = el.shadowRoot?.querySelector(".body");
+    expect(body?.classList.contains("force-below"), "switch did not reach the layout").toBe(true);
+
+    // The switch acts on the stylesheet only: the stacked class stays what the
+    // measurement makes of it, so nothing in the card writes it twice.
+    el.setConfig({ ...CONFIG, list: { always_below: false } });
+    await el.updateComplete;
+    expect(
+      el.shadowRoot?.querySelector(".body")?.classList.contains("force-below"),
+      "switch did not take effect without a reload",
+    ).toBe(false);
+  });
+
   it("re-renders when hass changes", async () => {
     const el = await mount();
     el.hass = fakeHass({ ...STATES, "sensor.solar": "1234" });

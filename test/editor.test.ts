@@ -281,6 +281,17 @@ describe("editor - colours, icons and thresholds", () => {
     expect(saved.colors).toBeUndefined();
   });
 
+  it("writes the switch for the list below the cross, and reads it back", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true },
+    });
+    const saved = await change(el, { list_always_below: true });
+    expect(saved.list).toEqual({ enabled: true, always_below: true });
+    expect(form(el).data.list_always_below).toBe(true);
+  });
+
   it("writes flow.min_w next to the other flow options", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

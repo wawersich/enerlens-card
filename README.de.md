@@ -270,6 +270,7 @@ zusätzliche Abfrage.
 | `list.enabled` | an mit Verbrauchern | Liste anzeigen |
 | `list.rest_label` | lokalisiert | Bezeichnung des Rests |
 | `list.title` | — | Überschrift über der Liste |
+| `list.always_below` | `false` | Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre |
 | `ring.enabled` | an mit Verbrauchern | Ring anzeigen |
 | `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
 | `view.avg_short_minutes` | `5` | Kurzes Mittelungsfenster |

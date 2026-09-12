@@ -257,6 +257,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `list.enabled` | on with consumers | Show the list |
 | `list.rest_label` | localised | Name of the remainder |
 | `list.title` | — | Heading above the list |
+| `list.always_below` | `false` | Keep the list under the cross even when there is room beside it |
 | `ring.enabled` | on with consumers | Show the ring |
 | `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
 | `view.avg_short_minutes` | `5` | Short averaging window |

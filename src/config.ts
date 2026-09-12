@@ -677,6 +677,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       enabled: readBoolean(rawList.enabled, "list.enabled", hasConsumers, hass),
       restLabel: readString(rawList.rest_label, "list.rest_label", hass),
       title: readString(rawList.title, "list.title", hass),
+      alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
     },
     ring: { enabled: readBoolean(rawRing.enabled, "ring.enabled", hasConsumers, hass) },
     view: {

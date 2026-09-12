@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **"List always below".** The card decided on its own where the consumer list
+  goes: beside the cross while there is room, under it when there is not. The
+  new `list.always_below` keeps it under the cross whichever width the card
+  has - for a bigger, quieter cross, or so several cards below one another look
+  alike. Off by default, and off it changes nothing. On a wide card the cross
+  then grows to the 400 px it is allowed when it has the row to itself. The
+  switch forces the wrap in the stylesheet rather than setting the stacked flag
+  itself: that flag stays measured, so the fan lines and the spacing follow by
+  themselves.
+
 ### Changed
 - **A row whose line carries nothing no longer gets a ring segment.** The ring
   now shows exactly the entries drawn with a coloured, moving line - everything

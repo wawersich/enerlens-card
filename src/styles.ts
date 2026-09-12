@@ -625,6 +625,20 @@ export const styles = css`
     display: none;
   }
 
+  /* "List always below" (REQ L-14): the wrap is forced instead of left to the
+     width. The switch deliberately does not set the stacked flag - that flag
+     is measured (_checkStacked in enerlens-card.ts), and a second source for
+     it would drift apart from the flex bases above, exactly what the
+     measurement exists to avoid. Giving the list a whole line is enough: the
+     measurement then sees the wrapped layout, and everything that hangs off
+     it - the .stacked class, the row grid, the fan lines - follows by itself.
+     Needs the basis in both states, so the list does not climb back up once
+     .stacked drops the rule above. */
+  .body.force-below .list {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
   .row .row-value {
     font-weight: 500;
     color: var(--primary-text-color);

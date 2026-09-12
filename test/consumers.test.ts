@@ -54,7 +54,7 @@ function config(
     minConsumerW: over.minConsumerW ?? 10,
     maxConsumers: over.maxConsumers ?? Number.POSITIVE_INFINITY,
     updateIntervalS: 5,
-    list: { enabled: true, restLabel: over.restLabel },
+    list: { enabled: true, restLabel: over.restLabel, alwaysBelow: false },
     ring: { enabled: true },
     view: {
       defaultMode: "current",

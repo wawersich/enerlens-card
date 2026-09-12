@@ -569,7 +569,11 @@ class EnerLensCard extends LitElement {
           () => this._toggleShowAll(),
         )}
         ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
-        <div class="body ${this._stacked ? "stacked" : ""}">
+        <div
+          class="body ${this._stacked ? "stacked" : ""} ${
+            this._config.list.alwaysBelow ? "force-below" : ""
+          }"
+        >
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(
             model,

@@ -70,6 +70,7 @@
     "update_interval_s": "Takt (Sekunden)",
     "rest_label": "Bezeichnung für den Rest",
     "list_enabled": "Liste anzeigen",
+    "list_always_below": "Liste immer unten",
     "ring_enabled": "Ring anzeigen",
     "view": "Ansicht",
     "default_mode": "Startansicht",

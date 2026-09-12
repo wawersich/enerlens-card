@@ -121,7 +121,7 @@ export interface RawConfig extends LovelaceCardConfig {
   min_consumer_w?: number;
   max_consumers?: number;
   update_interval_s?: number;
-  list?: { enabled?: boolean; rest_label?: string; title?: string };
+  list?: { enabled?: boolean; rest_label?: string; title?: string; always_below?: boolean };
   ring?: { enabled?: boolean };
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
   power?: { unit?: PowerUnit; decimals?: number };
@@ -208,7 +208,7 @@ export interface Config {
   minConsumerW: number;
   maxConsumers: number;
   updateIntervalS: number;
-  list: { enabled: boolean; restLabel?: string; title?: string };
+  list: { enabled: boolean; restLabel?: string; title?: string; alwaysBelow: boolean };
   ring: { enabled: boolean };
   view: {
     defaultMode: ViewMode;

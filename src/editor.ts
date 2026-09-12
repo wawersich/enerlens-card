@@ -85,6 +85,7 @@ interface FlatConfig {
   update_interval_s?: number;
   rest_label?: string;
   list_enabled?: boolean;
+  list_always_below?: boolean;
   ring_enabled?: boolean;
   power_unit?: string;
   power_decimals?: number;
@@ -180,6 +181,7 @@ function toFlat(config: RawConfig): FlatConfig {
     update_interval_s: config.update_interval_s,
     rest_label: config.list?.rest_label,
     list_enabled: config.list?.enabled,
+    list_always_below: config.list?.always_below,
     ring_enabled: config.ring?.enabled,
     power_unit: config.power?.unit,
     power_decimals: config.power?.decimals,
@@ -324,7 +326,11 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
     max_consumers: num(flat.max_consumers),
     min_consumer_w: num(flat.min_consumer_w),
     update_interval_s: num(flat.update_interval_s),
-    list: prune({ enabled: flat.list_enabled, rest_label: flat.rest_label }),
+    list: prune({
+      enabled: flat.list_enabled,
+      rest_label: flat.rest_label,
+      always_below: flat.list_always_below,
+    }),
     ring: prune({ enabled: flat.ring_enabled }),
     power: prune({ unit: opt(flat.power_unit), decimals: num(flat.power_decimals) }),
     view: prune({
@@ -494,6 +500,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         },
         { name: "rest_label", selector: { text: {} } },
         { name: "list_enabled", selector: { boolean: {} } },
+        { name: "list_always_below", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },
       ],
     },

@@ -70,6 +70,7 @@
     "update_interval_s": "Update interval (seconds)",
     "rest_label": "Label for the remainder",
     "list_enabled": "Show list",
+    "list_always_below": "List always below",
     "ring_enabled": "Show ring",
     "view": "View",
     "default_mode": "Start view",
