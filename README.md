@@ -19,9 +19,10 @@ installation that is about 45 % of consumption, which is worth seeing rather
 than hiding.
 
 **Three view modes.** A live power diagram jumps by kilowatts within seconds.
-Switch to a 5- or 15-minute moving average and the picture calms down without
-the numbers becoming a lie: the active mode is always named, and clicking any
-element still opens Home Assistant's own dialog with the raw history.
+Switch to a short or long moving average — 2 and 15 minutes by default, both
+configurable — and the picture calms down without the numbers becoming a lie:
+the active mode is always named, and clicking any element still opens Home
+Assistant's own dialog with the raw history.
 
 **The list sorts itself and glides.** Rows reorder by power on a fixed beat and
 slide to their new position instead of jumping. Values update immediately; only

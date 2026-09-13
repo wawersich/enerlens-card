@@ -20,9 +20,10 @@ der Referenzanlage rund 45 % des Verbrauchs, was sichtbar besser aufgehoben ist
 als versteckt.
 
 **Drei Ansichtsmodi.** Ein Live-Leistungsdiagramm springt binnen Sekunden um
-Kilowatt. Ein 5- oder 15-Minuten-Mittel beruhigt das Bild, ohne die Zahlen zu
-verfälschen: Der aktive Modus ist immer benannt, und ein Klick öffnet weiterhin
-den Dialog von Home Assistant mit der echten Historie.
+Kilowatt. Ein kurzes oder langes gleitendes Mittel — voreingestellt 2 und 15
+Minuten, frei einstellbar — beruhigt das Bild, ohne die Zahlen zu verfälschen:
+Der aktive Modus ist immer benannt, und ein Klick öffnet weiterhin den Dialog
+von Home Assistant mit der echten Historie.
 
 **Die Liste sortiert sich und gleitet.** Zeilen ordnen sich im festen Takt nach
 Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
