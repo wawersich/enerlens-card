@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CONSUMER_PALETTE, consumerColor, socColor } from "../src/colors";
+import {
+  DEFAULT_CONSUMER_PALETTE,
+  consumerColor,
+  hexToHsv,
+  hslToHsv,
+  hsvToHex,
+  hsvToHsl,
+  socColor,
+  swatchHex,
+} from "../src/colors";
 import type { Config, SocStop } from "../src/types";
 
 const DEFAULT_STOPS: SocStop[] = [
@@ -115,5 +124,85 @@ describe("consumerColor (REQ C-4)", () => {
     );
     const custom = configWith([{}], ["#aaaaaa", "#bbbbbb"]);
     expect(consumerColor(3, custom)).toBe("#bbbbbb");
+  });
+});
+
+describe("swatchHex (REQ C-1)", () => {
+  it("normalises the notations a colour can be written in", () => {
+    expect(swatchHex("#f90")).toBe("#ff9900");
+    expect(swatchHex("#FF9900")).toBe("#ff9900");
+    expect(swatchHex("rgb(255, 153, 0)")).toBe("#ff9900");
+    expect(swatchHex("rgba(255 153 0 / 0.5)")).toBe("#ff9900");
+  });
+
+  it("has nothing to show for an empty or unreadable value", () => {
+    expect(swatchHex("")).toBeNull();
+    expect(swatchHex("   ")).toBeNull();
+    expect(swatchHex("rebeccapurple")).toBeNull();
+    expect(swatchHex("var(--primary-color)")).toBeNull();
+  });
+
+  it("falls back to the value behind the comma when nothing resolves var()", () => {
+    expect(swatchHex("var(--energy-solar-color, #ff9800)")).toBe("#ff9800");
+    expect(swatchHex("var(--a, var(--b, rgb(1, 2, 3)))")).toBe("#010203");
+  });
+
+  it("prefers what the browser computes, theme variable and all", () => {
+    const probe = (css: string) => (css.startsWith("var(") ? "rgb(0, 128, 0)" : "");
+    // The theme defines the variable, so its own colour wins over the fallback.
+    expect(swatchHex("var(--energy-solar-color, #ff9800)", probe)).toBe("#008000");
+    expect(swatchHex("rebeccapurple", () => "rgb(102, 51, 153)")).toBe("#663399");
+  });
+
+  it("reads the written value when the probe comes back empty", () => {
+    expect(swatchHex("#abcdef", () => "")).toBe("#abcdef");
+    expect(swatchHex("var(--x, #abcdef)", () => "")).toBe("#abcdef");
+  });
+});
+
+describe("hexToHsv / hsvToHex (REQ E-3)", () => {
+  it("round-trips the colours the palette is written in", () => {
+    for (const hex of ["#ff9800", "#488fc2", "#f06292", "#7d7d7d", "#000000", "#ffffff"]) {
+      expect(hsvToHex(hexToHsv(hex))).toBe(hex);
+    }
+  });
+
+  it("puts the primaries where they belong on the wheel", () => {
+    expect(hexToHsv("#ff0000")).toEqual({ h: 0, s: 1, v: 1 });
+    expect(hexToHsv("#00ff00")).toEqual({ h: 120, s: 1, v: 1 });
+    expect(hexToHsv("#0000ff")).toEqual({ h: 240, s: 1, v: 1 });
+    expect(hsvToHex({ h: 120, s: 1, v: 1 })).toBe("#00ff00");
+    expect(hsvToHex({ h: 360, s: 1, v: 1 })).toBe("#ff0000");
+  });
+
+  it("keeps the hue of a grey rather than snapping it to red", () => {
+    // A grey has no hue of its own; inventing one would make the strip jump the
+    // moment someone drags the brightness to zero.
+    expect(hexToHsv("#808080", 200).h).toBe(200);
+    expect(hexToHsv("#000000", 200)).toEqual({ h: 200, s: 0, v: 0 });
+  });
+
+  it("stays inside the range whatever it is handed", () => {
+    expect(hsvToHex({ h: -30, s: 2, v: 2 })).toBe("#ff0080");
+    expect(hsvToHex({ h: 400, s: -1, v: 0.5 })).toBe("#808080");
+    expect(hexToHsv("not a colour")).toEqual({ h: 0, s: 0, v: 0 });
+  });
+});
+
+describe("hsvToHsl / hslToHsv (REQ E-3)", () => {
+  it("round-trips through the other model", () => {
+    for (const hex of ["#ff9800", "#1400ff", "#7d7d7d", "#ffffff", "#000000"]) {
+      const hsv = hexToHsv(hex);
+      expect(hsvToHex(hslToHsv(hsvToHsl(hsv)))).toBe(hex);
+    }
+  });
+
+  it("agrees with what CSS means by hsl()", () => {
+    // Pure red: full saturation, half lightness.
+    expect(hsvToHsl({ h: 0, s: 1, v: 1 })).toEqual({ h: 0, s: 1, l: 0.5 });
+    // White and black have no saturation left to speak of.
+    expect(hsvToHsl({ h: 200, s: 0, v: 1 })).toEqual({ h: 200, s: 0, l: 1 });
+    expect(hsvToHsl({ h: 200, s: 0, v: 0 })).toEqual({ h: 200, s: 0, l: 0 });
+    expect(hslToHsv({ h: 120, s: 1, l: 0.5 })).toEqual({ h: 120, s: 1, v: 1 });
   });
 });

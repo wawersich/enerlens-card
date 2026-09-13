@@ -14,10 +14,21 @@
  * source appear beneath it, so the form never has to guess what a half-filled
  * set of pickers means.
  */
-import { LitElement, type TemplateResult, html, nothing } from "lit";
+import { type CSSResultGroup, LitElement, type TemplateResult, css, html, nothing } from "lit";
+import {
+  DEFAULT_COLORS,
+  DEFAULT_CONSUMER_PALETTE,
+  DEFAULT_SOC_STOPS,
+  type Hsv,
+  hexToHsv,
+  hslToHsv,
+  hsvToHex,
+  hsvToHsl,
+  swatchHex,
+} from "./colors";
 import { EDITOR_NAME } from "./const";
 import { localize } from "./localize";
-import type { EntityRef, HomeAssistant, RawConfig } from "./types";
+import type { ColorKey, EntityRef, HomeAssistant, RawConfig, SocStop } from "./types";
 
 /** Power sensors, plus anything measured in W or kW - many template sensors
  *  carry no device_class and would otherwise be unpickable (REQ E-3). */
@@ -117,7 +128,7 @@ interface FlatConfig {
   icon_battery?: string;
 }
 
-const COLOR_KEYS = [
+const COLOR_KEYS: readonly ColorKey[] = [
   "solar",
   "house",
   "grid_import",
@@ -125,9 +136,13 @@ const COLOR_KEYS = [
   "battery_charge",
   "battery_discharge",
   "rest",
-] as const;
+];
 
 type FlatRecord = Record<string, unknown>;
+
+/** Shown when neither the browser nor our parser makes sense of a value - the
+ *  text field still holds it, so nothing is lost, the swatch just says nothing. */
+const UNREADABLE = "#888888";
 
 // ---------------------------------------------------------------------------
 // Config <-> flat form data
@@ -204,6 +219,7 @@ function toFlat(config: RawConfig): FlatConfig {
   for (const quantity of QUANTITIES) flattenQuantity(quantity, e[quantity], out);
   const colors = (config.colors ?? {}) as Record<string, unknown>;
   for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
+  out.soc_stops = colors.soc_stops;
   const icons = (config.icons ?? {}) as Record<string, unknown>;
   for (const key of QUANTITIES) out[`icon_${key}`] = icons[key];
   return out as FlatConfig;
@@ -353,10 +369,13 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       slow_s: num(flat.slow_s),
       fast_s: num(flat.fast_s),
     }),
-    // soc_stops and consumer_palette have no fields; they ride along untouched.
+    // consumer_palette has no fields of its own; it rides along untouched.
     colors: prune({
       ...previous.colors,
       ...Object.fromEntries(COLOR_KEYS.map((key) => [key, f[`color_${key}`]])),
+      // Only once they have been touched - an absent key must not overwrite
+      // what the YAML already says.
+      ...(f.soc_stops !== undefined ? { soc_stops: f.soc_stops } : {}),
     }),
     icons: prune(Object.fromEntries(QUANTITIES.map((key) => [key, f[`icon_${key}`]]))),
   } as RawConfig;
@@ -457,7 +476,8 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
               required: true,
             },
             name: { label: t("name"), selector: { text: {} } },
-            color: { label: t("color"), selector: { text: {} } },
+            // No colour here: it has a row with a swatch under "Colours", and
+            // two places to set one thing is one place too many.
             icon: { label: t("icon"), selector: { icon: {} } },
             min_w: { label: t("min_w"), selector: { number: { min: 0, max: 10000, mode: "box" } } },
           },
@@ -594,15 +614,6 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       ],
     },
     {
-      name: "colors",
-      type: "expandable",
-      flatten: true,
-      title: t("colors"),
-      // Text rather than a colour picker: HA's pickers know RGB triples, not
-      // theme variables, and var(--energy-solar-color) is the point (REQ C-1).
-      schema: COLOR_KEYS.map((key) => ({ name: `color_${key}`, selector: { text: {} } })),
-    },
-    {
       name: "icons",
       type: "expandable",
       flatten: true,
@@ -621,6 +632,9 @@ class EnerLensCardEditor extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _flat: { state: true },
+    _openColors: { state: true },
+    _picker: { state: true },
+    _pickerMode: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -630,6 +644,19 @@ class EnerLensCardEditor extends LitElement {
   private _flat?: FlatConfig;
   /** What we last emitted, to tell our own echo from an outside edit. */
   private _emitted?: string;
+  /** Colour rows with their CSS field folded out. Every keystroke re-renders the
+   *  list, so this cannot live in the DOM - it would fold shut mid-word. */
+  private _openColors: ReadonlySet<string> = new Set();
+  /**
+   * The open colour wheel, if any. It lives in our own shadow root rather than
+   * in <input type="color">: that one opens an operating-system popup outside
+   * the document, and every pointer event in it reaches the card editor's
+   * ha-dialog as a click on nothing, which closes the dialog mid-pick.
+   */
+  private _picker?: { id: string; hsv: Hsv };
+  /** Which notation the wheel is being read in. It outlives a single pick, so
+   *  someone who works in RGB is not put back on hex at every row. */
+  private _pickerMode: "hex" | "rgb" | "hsl" = "hex";
 
   setConfig(config: RawConfig): void {
     this._config = config;
@@ -666,30 +693,1078 @@ class EnerLensCardEditor extends LitElement {
   };
 
   private _valueChanged(ev: CustomEvent<{ value: FlatConfig }>): void {
-    if (!this._config) return;
     // The form keeps exactly what was typed - never a value the editor made up
     // mid-keystroke (see fromFlat).
-    this._flat = ev.detail.value;
-    const config = fromFlat(this._flat, this._config);
+    this._emit(ev.detail.value);
+  }
+
+  private _emit(flat: FlatConfig): void {
+    if (!this._config) return;
+    this._flat = flat;
+    const config = fromFlat(flat, this._config);
     this._emitted = JSON.stringify(config);
     this.dispatchEvent(
       new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }),
     );
   }
 
+  /** One colour changed. An empty field is no colour at all, not an empty one -
+   *  that is what puts the default, theme variable and all, back in charge. */
+  private _setColor(key: ColorKey, value: string): void {
+    if (!this._flat) return;
+    const next = value.trim() === "" ? undefined : value;
+    this._emit({ ...(this._flat as FlatRecord), [`color_${key}`]: next } as FlatConfig);
+  }
+
+  /**
+   * The browser's own reading of a CSS colour: put on a real element, read back
+   * computed. Named colours and theme variables resolve in one step that way,
+   * including the fallback behind the comma - no parser of ours would know
+   * whether the theme defines --energy-solar-color.
+   */
+  private _probe = (cssColor: string): string => {
+    const root = this.shadowRoot;
+    if (!root || typeof getComputedStyle === "undefined") return "";
+    const probe = document.createElement("span");
+    probe.style.display = "none";
+    probe.style.color = cssColor;
+    // A value CSS cannot parse leaves the property untouched, and the computed
+    // colour would then be the inherited one - an answer to a different question.
+    if (probe.style.color === "") return "";
+    root.appendChild(probe);
+    const computed = getComputedStyle(probe).color;
+    probe.remove();
+    return computed;
+  };
+
+  /**
+   * The colours, as a panel of our own rather than an ha-form section: no
+   * ha-form row carries both a swatch and the text field a theme variable needs,
+   * and dropping the text would cost var(--energy-solar-color) (REQ C-1).
+   */
+  /**
+   * Every colour the card has, in one panel: the seven nodes, one row per
+   * consumer, and the state-of-charge gradient. ha-form has no row that carries
+   * a swatch next to the text a theme variable needs (REQ C-1), and the object
+   * selector behind the consumer list renders its own fields - so the colours
+   * are gathered here instead of being spread across three editors.
+   */
+  private _renderColors(): TemplateResult {
+    const t = (key: string) => localize(`editor.${key}`, this.hass);
+    return html`
+      <ha-expansion-panel outlined>
+        <div slot="header" role="heading" aria-level="3">${t("colors")}</div>
+        <div class="colors">
+          ${
+            this._picker
+              ? html`<div
+                  class="scrim"
+                  @pointerdown=${(ev: Event) => {
+                    ev.stopPropagation();
+                    this._picker = undefined;
+                  }}
+                ></div>`
+              : ""
+          }
+          <p class="hint">${localize("editor_help.color", this.hass)}</p>
+          ${COLOR_KEYS.map((key) => this._renderNodeColor(key))}
+          ${this._renderConsumerColors()} ${this._renderSocStops()}
+        </div>
+      </ha-expansion-panel>
+    `;
+  }
+
+  private _group(title: string): TemplateResult {
+    return html`<p class="group">${title}</p>`;
+  }
+
+  private _renderNodeColor(key: ColorKey): TemplateResult {
+    const raw = (this._flat as FlatRecord | undefined)?.[`color_${key}`];
+    const label = localize(`editor.color_${key}`, this.hass);
+    return this._colorRow({
+      id: `node:${key}`,
+      label,
+      name: label,
+      value: typeof raw === "string" ? raw : "",
+      preset: DEFAULT_COLORS[key],
+    });
+  }
+
+  /** One row per configured consumer. The preset is the palette colour that
+   *  consumer would get anyway, so the swatch shows the list as it looks now. */
+  private _renderConsumerColors(): TemplateResult {
+    // A cleared list comes back as "" from the object selector, not as [] (REQ E-1).
+    const raw = (this._flat as FlatRecord | undefined)?.consumers;
+    const rows = (Array.isArray(raw) ? raw : []).filter((entry) => isRecord(entry));
+    if (rows.length === 0) return html``;
+    const palette = DEFAULT_CONSUMER_PALETTE;
+    return html`
+      ${this._group(localize("editor.colors_consumers", this.hass))}
+      ${rows.map((entry, index) => {
+        const name =
+          (typeof entry.name === "string" && entry.name.trim()) ||
+          (typeof entry.entity === "string" ? entry.entity : `#${index + 1}`);
+        return this._colorRow({
+          id: `consumer:${index}`,
+          label: name,
+          name,
+          value: typeof entry.color === "string" ? entry.color : "",
+          preset: palette[index % palette.length],
+        });
+      })}
+    `;
+  }
+
+  /**
+   * The gradient behind the battery's fill. The card refuses a list that does
+   * not run from 0 to 100 (REQ C-3), so the two ends are fixed here: their
+   * colour is editable, their percentage is not, and neither can be removed.
+   */
+  private _renderSocStops(): TemplateResult {
+    const stops = this._socStops();
+    const last = stops.length - 1;
+    return html`
+      ${this._group(localize("editor.colors_soc", this.hass))}
+      ${stops.map((stop, index) => {
+        const fixed = index === 0 || index === last;
+        return this._colorRow({
+          id: `stop:${index}`,
+          label: `${stop.at} %`,
+          name: html`
+            <span class="at">
+              ${
+                fixed
+                  ? html`<span class="fixed">${stop.at}</span>`
+                  : html`<input
+                      class="percent"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      .value=${String(stop.at)}
+                      aria-label=${localize("editor.color_at", this.hass)}
+                      @change=${(ev: Event) =>
+                        this._setStopAt(index, Number((ev.target as HTMLInputElement).value))}
+                    />`
+              }
+              <span class="unit">%</span>
+            </span>
+          `,
+          value: stop.color,
+          preset: stop.color,
+          trail: fixed
+            ? undefined
+            : html`<button
+                class="reset"
+                title=${localize("editor.color_remove", this.hass)}
+                aria-label=${localize("editor.color_remove", this.hass)}
+                @click=${() => this._removeStop(index)}
+              >
+                <ha-icon icon="mdi:close"></ha-icon>
+              </button>`,
+        });
+      })}
+      <button class="add" @click=${this._addStop}>
+        <ha-icon icon="mdi:plus"></ha-icon>${localize("editor.color_add_stop", this.hass)}
+      </button>
+    `;
+  }
+
+  /** The shared row: swatch, what it belongs to, the value, and the CSS field
+   *  folded away underneath. */
+  private _colorRow(opts: {
+    id: string;
+    label: string;
+    name: string | TemplateResult;
+    value: string;
+    preset: string;
+    trail?: TemplateResult;
+  }): TemplateResult {
+    const { id, label, name, value, preset, trail } = opts;
+    const open = this._openColors.has(id);
+    const picking = this._picker?.id === id;
+    const fieldId = `color-field-${id.replace(":", "-")}`;
+    // The swatch shows what the card paints: the configured value where there is
+    // one, otherwise the default the empty field stands for. While the wheel is
+    // being dragged it shows that instead, so the colour follows the thumb.
+    const hex = picking
+      ? hsvToHex((this._picker as { hsv: Hsv }).hsv)
+      : (swatchHex(value || preset, this._probe) ?? UNREADABLE);
+    return html`
+      <div class="color ${open ? "open" : ""} ${picking ? "picking" : ""}">
+        <div class="head">
+          <button
+            class="swatch"
+            data-key=${id}
+            style="background:${hex}"
+            aria-label=${`${label} - ${localize("editor.color_pick", this.hass)}`}
+            aria-haspopup="dialog"
+            aria-expanded=${picking ? "true" : "false"}
+            @click=${() => this._togglePicker(id, hex)}
+          ></button>
+          <span class="name">${name}</span>
+          <span class="css">${value || localize("editor.color_default", this.hass)}</span>
+          <button
+            class="more"
+            aria-expanded=${open ? "true" : "false"}
+            aria-controls=${fieldId}
+            @click=${() => this._toggleColor(id)}
+          >
+            ${localize("editor.color_css", this.hass)} ${open ? "\u25b4" : "\u25be"}
+          </button>
+          ${trail ?? ""}
+        </div>
+        ${picking ? this._renderPicker(hex) : ""}
+        <div class="body" id=${fieldId} ?hidden=${!open}>
+          <ha-textfield
+            .label=${label}
+            .value=${value}
+            .placeholder=${preset}
+            @input=${(ev: Event) => this._applyColor(id, (ev.target as HTMLInputElement).value)}
+          ></ha-textfield>
+          <button
+            class="reset"
+            ?disabled=${value === ""}
+            title=${localize("editor.color_reset", this.hass)}
+            aria-label=${localize("editor.color_reset", this.hass)}
+            @click=${() => this._applyColor(id, "")}
+          >
+            <ha-icon icon="mdi:backup-restore"></ha-icon>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** The wheel itself: a saturation/value field over a hue strip. */
+  private _renderPicker(hex: string): TemplateResult {
+    const { h, s: sat, v } = (this._picker as { hsv: Hsv }).hsv;
+    return html`
+      <div
+        class="picker"
+        role="dialog"
+        aria-label=${localize("editor.color_pick", this.hass)}
+        @keydown=${this._pickerKeydown}
+      >
+        <div
+          class="sv"
+          tabindex="0"
+          role="group"
+          aria-label=${localize("editor.color_sv", this.hass)}
+          style="--hue:${h}"
+          @pointerdown=${(ev: PointerEvent) => this._drag(ev, "sv")}
+        >
+          <span class="knob" style="left:${sat * 100}%;top:${(1 - v) * 100}%"></span>
+        </div>
+        <div
+          class="hue"
+          tabindex="0"
+          role="slider"
+          aria-label=${localize("editor.color_hue", this.hass)}
+          aria-valuemin="0"
+          aria-valuemax="360"
+          aria-valuenow=${Math.round(h)}
+          @pointerdown=${(ev: PointerEvent) => this._drag(ev, "hue")}
+        >
+          <span class="knob" style="left:${(h / 360) * 100}%"></span>
+        </div>
+        <div class="foot">
+          <span class="chip" style="background:${hex}"></span>
+          ${
+            this._pickerMode === "hex"
+              ? html`<input
+                  class="hex"
+                  type="text"
+                  spellcheck="false"
+                  .value=${hex}
+                  aria-label=${localize("editor.color_hex", this.hass)}
+                  @change=${this._hexTyped}
+                />`
+              : html`<code class="reading">${hex}</code>`
+          }
+          <div class="modes" role="group" aria-label=${localize("editor.color_mode", this.hass)}>
+            ${(["hex", "rgb", "hsl"] as const).map(
+              (mode) => html`<button
+                class="mode"
+                aria-pressed=${this._pickerMode === mode ? "true" : "false"}
+                @click=${() => {
+                  this._pickerMode = mode;
+                }}
+              >
+                ${mode.toUpperCase()}
+              </button>`,
+            )}
+          </div>
+        </div>
+        ${this._pickerMode === "hex" ? "" : this._renderChannels()}
+        ${this._renderInUse()}
+      </div>
+    `;
+  }
+
+  /**
+   * One slider and one number per channel - the other way people reach for a
+   * colour, and the one the native picker offered before it had to go.
+   */
+  private _renderChannels(): TemplateResult {
+    const hsv = (this._picker as { hsv: Hsv }).hsv;
+    const rgb = this._pickerMode === "rgb";
+    const hsl = hsvToHsl(hsv);
+    const channels: Array<{ key: string; label: string; value: number; max: number }> = rgb
+      ? (() => {
+          const parsed = /^#(..)(..)(..)$/.exec(hsvToHex(hsv));
+          const [r, g, b] = parsed
+            ? [1, 2, 3].map((i) => Number.parseInt(parsed[i], 16))
+            : [0, 0, 0];
+          return [
+            { key: "r", label: "R", value: r, max: 255 },
+            { key: "g", label: "G", value: g, max: 255 },
+            { key: "b", label: "B", value: b, max: 255 },
+          ];
+        })()
+      : [
+          { key: "h", label: "H", value: Math.round(hsl.h), max: 360 },
+          { key: "s", label: "S", value: Math.round(hsl.s * 100), max: 100 },
+          { key: "l", label: "L", value: Math.round(hsl.l * 100), max: 100 },
+        ];
+
+    return html`
+      <div class="channels">
+        ${channels.map(
+          (channel) => html`
+            <label class="channel">
+              <span class="tag">${channel.label}</span>
+              <input
+                class="range"
+                type="range"
+                min="0"
+                max=${channel.max}
+                step="1"
+                .value=${String(channel.value)}
+                @input=${(ev: Event) =>
+                  this._setChannel(
+                    channel.key,
+                    Number((ev.target as HTMLInputElement).value),
+                    false,
+                  )}
+                @change=${(ev: Event) =>
+                  this._setChannel(
+                    channel.key,
+                    Number((ev.target as HTMLInputElement).value),
+                    true,
+                  )}
+              />
+              <input
+                class="number"
+                type="number"
+                min="0"
+                max=${channel.max}
+                step="1"
+                .value=${String(channel.value)}
+                @change=${(ev: Event) =>
+                  this._setChannel(
+                    channel.key,
+                    Number((ev.target as HTMLInputElement).value),
+                    true,
+                  )}
+              />
+            </label>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  /** `commit` separates dragging from letting go: the wheel repaints all the
+   *  way along, the configuration is written once at the end. */
+  private _setChannel(key: string, value: number, commit: boolean): void {
+    if (!this._picker || !Number.isFinite(value)) return;
+    const hsv = this._picker.hsv;
+    let next: Hsv;
+    if (key === "r" || key === "g" || key === "b") {
+      const parsed = /^#(..)(..)(..)$/.exec(hsvToHex(hsv));
+      const rgb = parsed ? [1, 2, 3].map((i) => Number.parseInt(parsed[i], 16)) : [0, 0, 0];
+      rgb["rgb".indexOf(key)] = Math.min(255, Math.max(0, Math.round(value)));
+      const hex = `#${rgb.map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+      // Keep the hue on screen: #000000 and #ffffff carry none of their own.
+      next = hexToHsv(hex, hsv.h);
+    } else {
+      const hsl = hsvToHsl(hsv);
+      const clamped = Math.max(0, value);
+      if (key === "h") hsl.h = Math.min(360, clamped) % 360;
+      if (key === "s") hsl.s = Math.min(100, clamped) / 100;
+      if (key === "l") hsl.l = Math.min(100, clamped) / 100;
+      next = { ...hslToHsv(hsl), h: hsl.h };
+    }
+    this._picker = { id: this._picker.id, hsv: next };
+    if (commit) this._commitPicker();
+  }
+
+  /**
+   * The colours this card already uses, as one click each. Two air conditioners
+   * are meant to share a blue, and typing the same value twice is how they end
+   * up almost sharing one.
+   */
+  private _renderInUse(): TemplateResult {
+    const used = this._coloursInUse();
+    if (used.length === 0) return html``;
+    return html`
+      <div class="used">
+        <span class="cap">${localize("editor.color_used", this.hass)}</span>
+        <div class="chips">
+          ${used.map(
+            (entry) => html`<button
+              class="chip"
+              style="background:${entry.hex}"
+              title=${entry.value}
+              aria-label=${entry.value}
+              @click=${() => this._takeColour(entry.value, entry.hex)}
+            ></button>`,
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  /** Deduplicated by what they resolve to - five greys that look alike are one
+   *  suggestion, and the notation of the first one wins. */
+  private _coloursInUse(): Array<{ value: string; hex: string }> {
+    const flat = (this._flat ?? {}) as FlatRecord;
+    const out: Array<{ value: string; hex: string }> = [];
+    const seen = new Set<string>();
+    const add = (value: unknown): void => {
+      if (typeof value !== "string" || value.trim() === "") return;
+      const hex = swatchHex(value, this._probe);
+      if (!hex || seen.has(hex)) return;
+      seen.add(hex);
+      out.push({ value, hex });
+    };
+
+    for (const key of COLOR_KEYS) add(flat[`color_${key}`] ?? DEFAULT_COLORS[key]);
+    const consumers = Array.isArray(flat.consumers) ? flat.consumers : [];
+    consumers.forEach((entry, index) => {
+      if (!isRecord(entry)) return;
+      add(entry.color ?? DEFAULT_CONSUMER_PALETTE[index % DEFAULT_CONSUMER_PALETTE.length]);
+    });
+    for (const stop of this._socStops()) add(stop.color);
+    // Long enough to cover a card, short enough to stay one glance.
+    return out.slice(0, 12);
+  }
+
+  /** A suggestion is taken as written, so a theme variable stays one. */
+  private _takeColour(value: string, hex: string): void {
+    if (!this._picker) return;
+    this._picker = { id: this._picker.id, hsv: hexToHsv(hex, this._picker.hsv.h) };
+    this._applyColor(this._picker.id, value);
+  }
+
+  private _hexTyped = (ev: Event): void => {
+    const input = ev.target as HTMLInputElement;
+    const hex = swatchHex(input.value);
+    if (!hex || !this._picker) {
+      // Put back by hand, not by re-rendering: lit compares against the value it
+      // last wrote, which has not changed, so it would leave the typed text
+      // standing there looking accepted.
+      if (this._picker) input.value = hsvToHex(this._picker.hsv);
+      return;
+    }
+    this._picker = { id: this._picker.id, hsv: hexToHsv(hex, this._picker.hsv.h) };
+    this._applyColor(this._picker.id, hex);
+  };
+
+  // -------------------------------------------------------------------------
+  // Writing a colour back, wherever it belongs
+  // -------------------------------------------------------------------------
+
+  /** An empty value is no colour at all, not an empty one - that is what puts
+   *  the default, theme variable and all, back in charge. */
+  private _applyColor(id: string, value: string): void {
+    const separator = id.indexOf(":");
+    const kind = id.slice(0, separator);
+    const rest = id.slice(separator + 1);
+    if (kind === "node") this._setColor(rest as ColorKey, value);
+    else if (kind === "consumer") this._setConsumerColor(Number(rest), value);
+    else if (kind === "stop") this._setStopColor(Number(rest), value);
+  }
+
+  private _setConsumerColor(index: number, value: string): void {
+    if (!this._flat) return;
+    const flat = this._flat as FlatRecord;
+    const list = Array.isArray(flat.consumers) ? [...(flat.consumers as unknown[])] : [];
+    if (!isRecord(list[index])) return;
+    // Rebuilt without the key rather than with an empty one: an empty colour is
+    // a colour, and the palette would stop being the fallback (REQ C-4).
+    const { color: _previous, ...rest } = list[index] as Record<string, unknown>;
+    list[index] = value.trim() === "" ? rest : { ...rest, color: value };
+    this._emit({ ...flat, consumers: list } as FlatConfig);
+  }
+
+  /** The stops as they are, or the built-in gradient while none are configured. */
+  private _socStops(): SocStop[] {
+    const raw = (this._flat as FlatRecord | undefined)?.soc_stops;
+    if (Array.isArray(raw) && raw.length >= 2) return raw as SocStop[];
+    return DEFAULT_SOC_STOPS.map((stop) => ({ ...stop }));
+  }
+
+  private _writeStops(stops: SocStop[]): void {
+    if (!this._flat) return;
+    this._emit({ ...(this._flat as FlatRecord), soc_stops: stops } as FlatConfig);
+  }
+
+  private _setStopColor(index: number, value: string): void {
+    // A stop without a colour is not a stop the card accepts, so an emptied
+    // field keeps the one it had rather than writing nothing.
+    if (value.trim() === "") return;
+    this._writeStops(this._socStops().map((s, i) => (i === index ? { ...s, color: value } : s)));
+  }
+
+  /** Percentages stay in order: the card refuses a list that runs backwards. */
+  private _setStopAt(index: number, at: number): void {
+    const stops = this._socStops();
+    if (!Number.isFinite(at) || index <= 0 || index >= stops.length - 1) return;
+    const low = stops[index - 1].at;
+    const high = stops[index + 1].at;
+    const clamped = Math.min(high, Math.max(low, Math.round(at)));
+    this._writeStops(stops.map((s, i) => (i === index ? { ...s, at: clamped } : s)));
+  }
+
+  private _removeStop(index: number): void {
+    const stops = this._socStops();
+    // Two stops are the fewest a gradient can be made of (REQ C-3).
+    if (stops.length <= 2 || index === 0 || index === stops.length - 1) return;
+    this._writeStops(stops.filter((_, i) => i !== index));
+  }
+
+  private _addStop = (): void => {
+    const stops = this._socStops();
+    const last = stops.length - 1;
+    // Halfway into the widest gap, so a new stop never lands on top of another.
+    let at = 50;
+    let index = last;
+    let widest = -1;
+    for (let i = 1; i <= last; i++) {
+      const gap = stops[i].at - stops[i - 1].at;
+      if (gap > widest) {
+        widest = gap;
+        index = i;
+        at = Math.round((stops[i].at + stops[i - 1].at) / 2);
+      }
+    }
+    const next = [...stops];
+    next.splice(index, 0, { at, color: stops[index].color });
+    this._writeStops(next);
+  };
+
+  private _togglePicker(id: string, hex: string): void {
+    if (this._picker?.id === id) {
+      this._picker = undefined;
+      return;
+    }
+    // The hue of a grey is arbitrary; keeping the one on screen stops the strip
+    // from jumping to red the moment someone drags the value down to black.
+    this._picker = { id, hsv: hexToHsv(hex, this._picker?.hsv.h ?? 0) };
+  }
+
+  /**
+   * Dragging on the field or the strip. The pointer is captured so the value
+   * keeps following it outside the element, every event is kept to ourselves so
+   * the surrounding dialog never sees a stray click, and the configuration is
+   * written once on release rather than on every pixel.
+   */
+  private _drag(ev: PointerEvent, kind: "sv" | "hue"): void {
+    const target = ev.currentTarget as HTMLElement;
+    ev.preventDefault();
+    ev.stopPropagation();
+    target.setPointerCapture?.(ev.pointerId);
+
+    const apply = (move: PointerEvent) => {
+      if (!this._picker) return;
+      const box = target.getBoundingClientRect();
+      const x = box.width ? Math.min(1, Math.max(0, (move.clientX - box.left) / box.width)) : 0;
+      const y = box.height ? Math.min(1, Math.max(0, (move.clientY - box.top) / box.height)) : 0;
+      const hsv = this._picker.hsv;
+      this._picker = {
+        id: this._picker.id,
+        // A grey has no hue to move and a black has no hue to show: dragging the
+        // strip would do visibly nothing, which reads as a broken control. Asking
+        // for a hue is asking for a colour, so the other two axes come along.
+        hsv:
+          kind === "hue"
+            ? { h: x * 360, s: hsv.s || 1, v: hsv.v || 1 }
+            : { ...hsv, s: x, v: 1 - y },
+      };
+    };
+
+    const stop = () => {
+      target.removeEventListener("pointermove", apply);
+      target.removeEventListener("pointerup", stop);
+      target.removeEventListener("pointercancel", stop);
+      this._commitPicker();
+    };
+    target.addEventListener("pointermove", apply);
+    target.addEventListener("pointerup", stop);
+    target.addEventListener("pointercancel", stop);
+    apply(ev);
+  }
+
+  /** Arrow keys move the same two axes; Escape puts the wheel away. */
+  private _pickerKeydown(ev: KeyboardEvent): void {
+    if (ev.key === "Escape") {
+      this._picker = undefined;
+      ev.stopPropagation();
+      return;
+    }
+    if (!this._picker) return;
+    const onHue = (ev.target as HTMLElement).classList.contains("hue");
+    const step = ev.shiftKey ? 10 : 1;
+    const hsv = { ...this._picker.hsv };
+    switch (ev.key) {
+      case "ArrowLeft":
+        if (onHue) hsv.h -= step;
+        else hsv.s -= step / 100;
+        break;
+      case "ArrowRight":
+        if (onHue) hsv.h += step;
+        else hsv.s += step / 100;
+        break;
+      case "ArrowUp":
+        if (onHue) return;
+        hsv.v += step / 100;
+        break;
+      case "ArrowDown":
+        if (onHue) return;
+        hsv.v -= step / 100;
+        break;
+      default:
+        return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    this._picker = {
+      id: this._picker.id,
+      hsv: {
+        h: ((hsv.h % 360) + 360) % 360,
+        s: Math.min(1, Math.max(0, onHue ? hsv.s || 1 : hsv.s)),
+        v: Math.min(1, Math.max(0, onHue ? hsv.v || 1 : hsv.v)),
+      },
+    };
+    this._commitPicker();
+  }
+
+  private _commitPicker(): void {
+    if (this._picker) this._applyColor(this._picker.id, hsvToHex(this._picker.hsv));
+  }
+
+  private _toggleColor(id: string): void {
+    const next = new Set(this._openColors);
+    if (!next.delete(id)) next.add(id);
+    this._openColors = next;
+  }
+
   render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config || !this._flat) return nothing;
-    return html`
+    const fields = schema(this.hass, this._flat as FlatRecord);
+    // The colours keep the place they always had, between the flow settings and
+    // the icons - they are simply not part of the schema any more. Both forms
+    // carry the same data, so either one may report any field.
+    const cut = fields.findIndex((item) => item.name === "icons");
+    const split = cut === -1 ? fields.length : cut;
+    const form = (items: typeof fields) => html`
       <ha-form
         .hass=${this.hass}
         .data=${this._flat}
-        .schema=${schema(this.hass, this._flat as FlatRecord)}
+        .schema=${items}
         .computeLabel=${this._label}
         .computeHelper=${this._helper}
         @value-changed=${this._valueChanged}
       ></ha-form>
     `;
+    return html`${form(fields.slice(0, split))}${this._renderColors()}${form(fields.slice(split))}`;
   }
+
+  static styles: CSSResultGroup = css`
+    ha-form {
+      display: block;
+    }
+
+    .colors {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 0 4px;
+    }
+
+    .hint {
+      margin: 0 0 4px;
+      color: var(--secondary-text-color);
+      font-size: 0.85em;
+    }
+
+    /* Name and colour first; the CSS field folds out under them. Seven text
+       fields at once are a wall - and most of them are never touched. */
+    /* Which of the three kinds of colour follows. */
+    .group {
+      margin: 14px 0 2px;
+      color: var(--secondary-text-color);
+      font-size: 0.8em;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .at {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .at .percent {
+      width: 3.4em;
+      padding: 2px 4px;
+      border: none;
+      border-bottom: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 4px 4px 0 0;
+      background: var(--secondary-background-color, rgba(127, 127, 127, 0.1));
+      color: var(--primary-text-color);
+      font: inherit;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .at .fixed {
+      display: inline-block;
+      width: 3.4em;
+      padding: 2px 4px;
+      color: var(--secondary-text-color);
+    }
+
+    .at .unit {
+      color: var(--secondary-text-color);
+    }
+
+    .add {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 6px 10px 6px 6px;
+      border: none;
+      border-radius: 16px;
+      background: none;
+      color: var(--primary-color);
+      font: inherit;
+      font-size: 0.9em;
+      cursor: pointer;
+    }
+
+    .add:hover {
+      background: var(--divider-color, rgba(0, 0, 0, 0.08));
+    }
+
+    .add ha-icon {
+      --mdc-icon-size: 18px;
+    }
+
+    .color {
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+      padding-bottom: 6px;
+    }
+
+    .color:last-child {
+      border-bottom: none;
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .head .name {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* What is set, in the notation it was written in - so a theme variable is
+       readable without folding the row out. */
+    .head .css {
+      max-width: 42%;
+      color: var(--secondary-text-color);
+      font-family: var(--code-font-family, ui-monospace, monospace);
+      font-size: 0.8em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .more {
+      flex: none;
+      padding: 4px 2px;
+      border: none;
+      background: none;
+      color: var(--primary-color);
+      font: inherit;
+      font-size: 0.8em;
+      font-family: var(--code-font-family, ui-monospace, monospace);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .body {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0 2px 40px;
+    }
+
+    /* Wins over the display above, which the UA rule alone would not. */
+    .body[hidden] {
+      display: none;
+    }
+
+    .body ha-textfield {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* The swatch is a button now: it opens the wheel below, in this shadow root,
+       where the surrounding dialog can see what is going on. */
+    .swatch {
+      flex: none;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 7px;
+      cursor: pointer;
+    }
+
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* Only the row being picked is lifted over the scrim. */
+    .color.picking {
+      position: relative;
+      z-index: 2;
+    }
+
+    .picker {
+      margin: 8px 0 2px;
+      padding: 10px;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 10px;
+      background: var(--card-background-color, var(--ha-card-background, #fff));
+      box-shadow: var(--ha-card-box-shadow, 0 4px 14px rgba(0, 0, 0, 0.22));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      touch-action: none;
+    }
+
+    .picker .sv {
+      position: relative;
+      height: 128px;
+      border-radius: 7px;
+      cursor: crosshair;
+      background:
+        linear-gradient(to top, #000, transparent),
+        linear-gradient(to right, #fff, hsl(var(--hue) 100% 50%));
+    }
+
+    .picker .hue {
+      position: relative;
+      height: 15px;
+      border-radius: 8px;
+      cursor: ew-resize;
+      background: linear-gradient(
+        to right,
+        #f00 0%,
+        #ff0 17%,
+        #0f0 33%,
+        #0ff 50%,
+        #00f 67%,
+        #f0f 83%,
+        #f00 100%
+      );
+    }
+
+    .picker .knob {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      margin: -7px 0 0 -7px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+    }
+
+    .picker .hue .knob {
+      top: 50%;
+    }
+
+    .picker :is(.sv, .hue):focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    .picker .foot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .picker .foot .chip {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1px solid var(--divider-color, #c8c8c8);
+    }
+
+    .picker .foot .hex {
+      flex: 1;
+      min-width: 0;
+      padding: 4px 6px;
+      border: none;
+      border-bottom: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 4px 4px 0 0;
+      background: var(--secondary-background-color, rgba(127, 127, 127, 0.1));
+      color: var(--primary-text-color);
+      font-family: var(--code-font-family, ui-monospace, monospace);
+      font-size: 0.85em;
+    }
+
+    .picker .foot .hex:focus {
+      outline: none;
+      border-bottom-color: var(--primary-color);
+    }
+
+    .picker .foot .reading {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--code-font-family, ui-monospace, monospace);
+      font-size: 0.85em;
+      color: var(--secondary-text-color);
+    }
+
+    .modes {
+      flex: none;
+      display: flex;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .mode {
+      padding: 3px 7px;
+      border: none;
+      background: none;
+      color: var(--secondary-text-color);
+      font: inherit;
+      font-size: 0.7em;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+
+    .mode[aria-pressed="true"] {
+      background: var(--primary-color);
+      color: var(--text-primary-color, #fff);
+    }
+
+    .channels {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .channel {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .channel .tag {
+      flex: none;
+      width: 1.2em;
+      color: var(--secondary-text-color);
+      font-size: 0.85em;
+      text-align: center;
+    }
+
+    .channel .range {
+      flex: 1;
+      min-width: 0;
+      accent-color: var(--primary-color);
+    }
+
+    .channel .number {
+      flex: none;
+      width: 3.6em;
+      padding: 2px 4px;
+      border: none;
+      border-bottom: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 4px 4px 0 0;
+      background: var(--secondary-background-color, rgba(127, 127, 127, 0.1));
+      color: var(--primary-text-color);
+      font: inherit;
+      font-size: 0.85em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .used .cap {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--secondary-text-color);
+      font-size: 0.75em;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .used .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .used .chip {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .used .chip:hover {
+      transform: scale(1.12);
+    }
+
+    .reset {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: none;
+      color: var(--secondary-text-color);
+      cursor: pointer;
+    }
+
+    .reset:hover:not([disabled]) {
+      background: var(--divider-color, rgba(0, 0, 0, 0.1));
+    }
+
+    .reset[disabled] {
+      opacity: 0.3;
+      cursor: default;
+    }
+  `;
 }
 
 if (!customElements.get(EDITOR_NAME)) {

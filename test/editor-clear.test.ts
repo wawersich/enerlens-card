@@ -101,7 +101,10 @@ describe("editor: clearing fields never yields an invalid configuration (REQ E-1
     await import("../src/editor");
   });
 
-  it("each field on its own", async () => {
+  // One editor per field per way of emptying it, and the colour panel now draws
+  // a row for every consumer and every gradient stop. The default five seconds
+  // are not enough for that many mounts on a loaded machine.
+  it("each field on its own", { timeout: 30000 }, async () => {
     const el = await mount(FULL);
     const form = el.shadowRoot?.querySelector("ha-form") as Form;
     const fields = Object.keys(form.data).filter(

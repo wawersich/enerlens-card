@@ -19,6 +19,7 @@ import { styles } from "./styles";
 import {
   type Config,
   ConfigError,
+  type GridStatusSpec,
   type HomeAssistant,
   type Model,
   type OutageState,
@@ -47,6 +48,15 @@ function load(key: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Whether two grid-status settings mean the same thing - the entity and the
+ *  state names, in order, which is all a latched outage depends on. */
+function sameStatus(a?: GridStatusSpec, b?: GridStatusSpec): boolean {
+  if (!a || !b) return a === b;
+  const same = (x: string[], y: string[]) =>
+    x.length === y.length && x.every((value, i) => value === y[i]);
+  return a.entity === b.entity && same(a.outage, b.outage) && same(a.ok, b.ok);
 }
 
 class EnerLensCard extends LitElement {
@@ -88,6 +98,12 @@ class EnerLensCard extends LitElement {
   private _visible = true;
   /** True while the list wraps below the cross - the lanes only run there. */
   private _stacked = false;
+  /**
+   * False until a measurement has left the layout alone. The first one can move
+   * the list from beside the cross to below it, which is a jump of most of the
+   * card - gliding through it is a lurch, not a transition (REQ P-6).
+   */
+  private _settled = false;
   /** Filter lifted by the toggle above the list (REQ L-12). Kept per browser
    *  like the view mode, unless view.remember is off. */
   private _showAll = false;
@@ -143,29 +159,54 @@ class EnerLensCard extends LitElement {
     return false;
   }
 
+  /**
+   * The GUI editor calls this on every keystroke and every drag of the colour
+   * wheel, so it resets only what the new configuration actually changed.
+   * Rebuilding the averaging buffer or jumping back to the start view would
+   * move every value at once, the list would reorder, and all of it would glide
+   * - a lurch on the preview for a change that was only about a colour.
+   */
   setConfig(config: RawConfig): void {
+    const previous = this._config;
     // Structural problems throw so HA shows its error card; runtime problems
     // never do - they are rendered inside the card (REQ E-1).
     this._config = normalizeConfig(config, this._hass);
     this._rawConfig = config;
     this._entityIds = collectEntityIds(this._config);
-    this._buffer = new AveragingBuffer(this._config.view.avgLongMinutes * 60_000);
-    this._mode = this._config.view.defaultMode;
-    this._outage = undefined;
-    this._outagePrefilled = false;
-    if (this._config.view.remember) {
-      const stored = load(MODE_KEY);
-      if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
-        this._mode = stored;
-      }
-      this._showAll = load(SHOW_ALL_KEY) === "1";
+
+    const view = this._config.view;
+    if (!previous || previous.view.avgLongMinutes !== view.avgLongMinutes) {
+      this._buffer = new AveragingBuffer(view.avgLongMinutes * 60_000);
     }
-    if (this._mode !== "current") void this._prefill();
+
+    // The view the user is on is theirs until the configured start view itself
+    // changes - not something an unrelated edit takes away from them.
+    if (!previous || previous.view.defaultMode !== view.defaultMode) {
+      this._mode = view.defaultMode;
+      if (view.remember) {
+        const stored = load(MODE_KEY);
+        if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
+          this._mode = stored;
+        }
+      }
+      if (this._mode !== "current") void this._prefill();
+    }
+    if (view.remember && !previous) this._showAll = load(SHOW_ALL_KEY) === "1";
+
+    // A latched outage is history, not configuration; only a different status
+    // entity makes what we latched meaningless.
+    if (!previous || !sameStatus(previous.gridStatus, this._config.gridStatus)) {
+      this._outage = undefined;
+      this._outagePrefilled = false;
+    }
+
     if (this._hass) {
       this._model = buildModel(this._hass, this._config);
       this._tickModel = this._model;
     }
-    this._restartTick();
+    if (!previous || previous.updateIntervalS !== this._config.updateIntervalS) {
+      this._restartTick();
+    }
   }
 
   connectedCallback(): void {
@@ -337,7 +378,9 @@ class EnerLensCard extends LitElement {
    * itself: with the list beside the cross the SVG is only about half the
    * card's width, and measuring the card would leave lines and dots too thin.
    */
-  private _measure(): void {
+  /** Returns true when the measurement moved the layout, so the caller knows
+   *  the picture is not settled yet. */
+  private _measure(): boolean {
     const plot = this.renderRoot?.querySelector(".plot") as HTMLElement | null;
     const width = plot?.getBoundingClientRect().width ?? 0;
     if (width > 0) {
@@ -347,7 +390,7 @@ class EnerLensCard extends LitElement {
       // Only a real change re-renders; sub-pixel noise from the observer does not.
       if (Math.abs(scale - this._scale) > 0.005) this._scale = scale;
     }
-    this._checkStacked();
+    return this._checkStacked();
   }
 
   /**
@@ -355,14 +398,15 @@ class EnerLensCard extends LitElement {
    * a width threshold: the flex bases live in the stylesheet, and a number
    * duplicated here would silently drift apart from them.
    */
-  private _checkStacked(): void {
+  private _checkStacked(): boolean {
     const cross = this.renderRoot?.querySelector(".cross") as HTMLElement | null;
     const list = this.renderRoot?.querySelector(".list") as HTMLElement | null;
-    if (!cross || !list) return;
+    if (!cross || !list) return false;
     const stacked = list.offsetTop >= cross.offsetTop + cross.offsetHeight / 2;
-    if (stacked === this._stacked) return;
+    if (stacked === this._stacked) return false;
     this._stacked = stacked;
     this.requestUpdate();
+    return true;
   }
 
   /**
@@ -472,7 +516,10 @@ class EnerLensCard extends LitElement {
   }
 
   protected updated(): void {
-    this._rows.play(this.renderRoot.querySelector(".body"), this._animationsWanted);
+    this._rows.play(
+      this.renderRoot.querySelector(".body"),
+      this._animationsWanted && this._settled,
+    );
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
@@ -487,7 +534,9 @@ class EnerLensCard extends LitElement {
     this._dots.update(plans, this._config, this._animationsWanted);
     this._updateFan();
     this._syncPlayState();
-    this._measure();
+    // Rows only glide once a measurement has left the layout where it was: the
+    // move that settles it is not one the eye should have to follow.
+    if (!this._measure()) this._settled = true;
   }
 
   disconnectedCallback(): void {

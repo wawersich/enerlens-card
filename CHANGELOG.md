@@ -4,6 +4,45 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **A colour picker, on every colour the card has.** Colours were typed as text.
+  The editor now gathers all of them under "Colours" in three groups - the seven
+  nodes, one row per consumer, and the stops of the charge gradient - and each
+  row opens a picker: a saturation and brightness field over a hue strip, the
+  value as hex or as RGB/HSL sliders, and one click on any colour the card
+  already uses so two devices end up sharing a colour instead of nearly sharing
+  one. The text field stays, folded away behind "CSS": a picker can only produce
+  `#rrggbb`, and `var(--energy-solar-color, …)` is the point of the defaults.
+- **The charge gradient is editable in the GUI.** It was YAML-only. Its ends are
+  pinned at 0 and 100 because the card refuses a gradient that does not run the
+  whole scale; stops in between can be moved, added and removed.
+
+### Changed
+- **A consumer's colour moved out of its card, into "Colours".** The object
+  selector renders its own fields, so a swatch cannot be put next to one of
+  them. Two places for one setting would have been one too many - and side by
+  side, the colours of a card can actually be compared.
+- Dragging the wheel repaints the card but writes the configuration once, on
+  release, rather than on every pixel.
+
+### Fixed
+- **The card editor closed while a colour was being picked.** `<input
+  type="color">` opens an operating-system popup outside the document, and every
+  pointer event in it reaches the editor's `ha-dialog` as a click on nothing.
+  The wheel now lives in the card's own shadow root, inside the dialog.
+- **Every edit in the editor made the consumer list glide across the card.**
+  Two causes: `setConfig` - which the editor calls on every keystroke - rebuilt
+  the averaging buffer, dropped back to the configured start view and forgot a
+  latched outage, so every value moved at once and the list reordered; and the
+  first measurement, which can move the list from beside the cross to below it,
+  was animated as though it were a reorder. `setConfig` now resets only what the
+  new configuration actually changed, and rows glide only once the layout has
+  settled.
+- Dragging the hue strip on a grey or a black did visibly nothing, since neither
+  has a hue to move. Asking for a hue now brings saturation and brightness along.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added

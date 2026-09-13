@@ -2,7 +2,7 @@
  * Turns the YAML the user wrote into a `Config` with every default filled in.
  * Owner: agent 1. REQ section 3, E-1, E-2, A-1.
  */
-import { DEFAULT_CONSUMER_PALETTE } from "./colors";
+import { DEFAULT_COLORS, DEFAULT_CONSUMER_PALETTE, DEFAULT_SOC_STOPS } from "./colors";
 import { localize } from "./localize";
 import { normalizeState, warnUnusable } from "./outage";
 import {
@@ -31,22 +31,6 @@ const COLOR_KEYS: readonly ColorKey[] = [
   "battery_charge",
   "battery_discharge",
   "rest",
-];
-
-const DEFAULT_COLORS: Record<ColorKey, string> = {
-  solar: "var(--energy-solar-color, #ff9800)",
-  house: "var(--primary-color)",
-  grid_import: "var(--energy-grid-consumption-color, #488fc2)",
-  grid_export: "var(--energy-grid-return-color, #8353d1)",
-  battery_charge: "var(--energy-battery-in-color, #f06292)",
-  battery_discharge: "var(--energy-battery-out-color, #4db6ac)",
-  rest: "#7d7d7d",
-};
-
-const DEFAULT_SOC_STOPS: readonly SocStop[] = [
-  { at: 0, color: "#e53935" },
-  { at: 50, color: "#fdd835" },
-  { at: 100, color: "#43a047" },
 ];
 
 /** `battery` is deliberately absent: without a value it follows the state of charge. */

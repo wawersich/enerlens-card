@@ -3,7 +3,7 @@
  * (REQ K-1 to K-6, ENT-20).
  */
 import { type TemplateResult, html, svg } from "lit";
-import { socColor } from "../colors";
+import { resolveCssColor, socColor } from "../colors";
 import { formatPower, formatSoc } from "../format";
 import { localize } from "../localize";
 import type {
@@ -18,14 +18,6 @@ import type {
 } from "../types";
 import { DRAWN_CONNECTIONS, PATHS, VIEW_H, VIEW_W, nodePercent } from "./geometry";
 import { renderRing } from "./ring";
-
-/** Resolves var(--x) against the document so the gradient can mix real colours. */
-function resolveCssColor(value: string): string {
-  const match = /^var\((--[^,)]+)/.exec(value.trim());
-  if (!match || typeof getComputedStyle === "undefined") return value;
-  const resolved = getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim();
-  return resolved || value;
-}
 
 /**
  * Which way a signed quantity is running, as one answer for the label and the

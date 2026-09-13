@@ -59,8 +59,8 @@ disappears and the ring shows shares of the consumer sum instead.
 
 The card ships a GUI editor. Every entity form below — a single entity, an
 inverted one, two entities, or a derived quantity — is a choice in the form, so
-YAML is never required. Only the charge gradient and the consumer palette stay
-YAML-only. The YAML is documented for people who prefer it.
+YAML is never required. Only the consumer palette stays YAML-only. The YAML is
+documented for people who prefer it.
 
 ### Minimal
 
@@ -284,6 +284,29 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 setting lives in the operating system, not in Home Assistant.
 
 ### Colours
+
+Every colour the card has sits under **Colours** in the editor, in three groups:
+the seven nodes, one row per consumer, and the stops of the state-of-charge
+gradient. Each row shows the colour the card is painting on the left and the
+configured value on the right — `Default` while none is set.
+
+Clicking the swatch opens the picker: a saturation and brightness field over a
+hue strip, with the value below it as hex or, switched over, as sliders for RGB
+or HSL. Next to those sit the colours this card already uses — one click, and
+two air conditioners get the same blue rather than two similar ones.
+
+`CSS ▾` folds out a text field. That is the way in for anything that is not a
+hex value: `var(--primary-color)` stays bound to the theme instead of being
+frozen to a fixed value. That is why the field stayed — a picker on its own can
+only do `#rrggbb`.
+
+A consumer's colour therefore lives here, not on the consumer's own card. Two
+places for one setting would be one too many.
+
+The ends of the gradient are pinned: at 0% and 100% the colour can be changed,
+the percentage cannot, and neither can be removed — the card refuses a gradient
+that does not run the whole scale. Stops in between can be moved, added and
+removed, as long as two remain.
 
 Defaults come from Home Assistant's energy theme variables, so the card matches
 the energy dashboard without configuration. To colour by good and bad instead:

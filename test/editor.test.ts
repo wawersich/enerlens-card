@@ -6,6 +6,7 @@
  * empty (REQ E-1, A-1, A-5, G-5).
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { DEFAULT_CONSUMER_PALETTE, swatchHex } from "../src/colors";
 import { normalizeConfig } from "../src/config";
 import type { HomeAssistant, RawConfig } from "../src/types";
 
@@ -485,5 +486,684 @@ describe("editor - grid status", () => {
     expect(select.multiple).toBe(true);
     // Typing a state the entity does not publish stays possible.
     expect(select.custom_value).toBe(true);
+  });
+});
+
+describe("editor - the colour rows (REQ C-1, E-3)", () => {
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  type Row = {
+    swatch: HTMLButtonElement;
+    text: HTMLElement & { value?: string; placeholder?: string };
+    reset: HTMLButtonElement;
+  };
+
+  function rows(el: Editor): Record<string, Row> {
+    const out: Record<string, Row> = {};
+    for (const node of el.shadowRoot?.querySelectorAll(".color") ?? []) {
+      const swatch = node.querySelector("button.swatch") as HTMLButtonElement;
+      const id = swatch.getAttribute("data-key") ?? "";
+      if (!id.startsWith("node:")) continue;
+      out[id.slice(5)] = {
+        swatch,
+        text: node.querySelector("ha-textfield") as Row["text"],
+        reset: node.querySelector("button.reset") as HTMLButtonElement,
+      };
+    }
+    return out;
+  }
+
+  /** The swatch paints its colour inline; normalise it back to plain hex. */
+  const shown = (row: Row): string | null => swatchHex(row.swatch.style.background);
+
+  /** Fires what an element hands back after the user changed it, then feeds the
+   *  emitted config through setConfig the way Home Assistant does. */
+  async function act(el: Editor, run: () => void): Promise<RawConfig> {
+    let saved: RawConfig | undefined;
+    const listener = (ev: Event) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    };
+    el.addEventListener("config-changed", listener);
+    run();
+    el.removeEventListener("config-changed", listener);
+    if (!saved) throw new Error("no config-changed event");
+    el.setConfig(saved);
+    await el.updateComplete;
+    return saved;
+  }
+
+  it("offers one row per colour and keeps them out of the form schema", async () => {
+    const el = await mount(BASE);
+    expect(Object.keys(rows(el))).toEqual([
+      "solar",
+      "house",
+      "grid_import",
+      "grid_export",
+      "battery_charge",
+      "battery_discharge",
+      "rest",
+    ]);
+    // Colours are ours to render now, but the data stays in the form's hands -
+    // that is what keeps a cleared field from writing an empty colour (REQ E-1).
+    const sections = [...(el.shadowRoot?.querySelectorAll("ha-form") ?? [])].flatMap(
+      (f) => (f as Form).schema,
+    );
+    expect(sections.find((s) => s.name === "colors")).toBeUndefined();
+    expect(form(el).data).toHaveProperty("color_solar");
+  });
+
+  it("never uses the native colour input, which would take the dialog with it", async () => {
+    // <input type="color"> opens an operating-system popup outside the document.
+    // Every pointer event in it reaches the card editor's ha-dialog as a click on
+    // nothing, and the dialog closes mid-pick.
+    const el = await mount(BASE);
+    expect(el.shadowRoot?.querySelector('input[type="color"]')).toBeNull();
+  });
+
+  it("shows the default in the swatch while the field is empty", async () => {
+    const el = await mount(BASE);
+    const rest = rows(el).rest;
+    expect(rest.text.value).toBe("");
+    // The placeholder names what the empty field stands for.
+    expect(rest.text.placeholder).toBe("#7d7d7d");
+    expect(shown(rest)).toBe("#7d7d7d");
+    expect(rest.reset.disabled).toBe(true);
+  });
+
+  it("shows the configured colour, whatever notation it is written in", async () => {
+    const el = await mount({ ...BASE, colors: { rest: "rgb(255, 153, 0)" } });
+    const rest = rows(el).rest;
+    expect(rest.text.value).toBe("rgb(255, 153, 0)");
+    expect(shown(rest)).toBe("#ff9900");
+    expect(rest.reset.disabled).toBe(false);
+  });
+
+  it("keeps the text field, so a theme variable can still be typed (REQ C-1)", async () => {
+    const el = await mount(BASE);
+    const text = rows(el).solar.text;
+    const saved = await act(el, () => {
+      text.value = "var(--warning-color)";
+      text.dispatchEvent(new Event("input"));
+    });
+    expect(saved.colors).toEqual({ solar: "var(--warning-color)" });
+    expect(rows(el).solar.text.value).toBe("var(--warning-color)");
+  });
+
+  it("resets a colour to the default instead of writing an empty one", async () => {
+    const el = await mount({ ...BASE, colors: { rest: "#999", solar: "#f90" } });
+    const saved = await act(el, () => rows(el).rest.reset.click());
+    expect(saved.colors).toEqual({ solar: "#f90" });
+    const empty = await act(el, () => rows(el).solar.reset.click());
+    expect(empty.colors).toBeUndefined();
+    expect(rows(el).solar.text.value).toBe("");
+  });
+});
+
+describe("editor - a colour row folds its CSS field out (REQ E-3)", () => {
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  type Parts = {
+    row: HTMLElement;
+    swatch: HTMLButtonElement;
+    css: HTMLElement;
+    more: HTMLButtonElement;
+    body: HTMLElement;
+    text: HTMLElement & { value?: string };
+  };
+
+  function row(el: Editor, key: string): Parts {
+    const swatch = el.shadowRoot?.querySelector(
+      `button.swatch[data-key="node:${key}"]`,
+    ) as HTMLButtonElement;
+    const node = swatch.closest(".color") as HTMLElement;
+    return {
+      row: node,
+      swatch,
+      css: node.querySelector(".css") as HTMLElement,
+      more: node.querySelector("button.more") as HTMLButtonElement,
+      body: node.querySelector(".body") as HTMLElement,
+      text: node.querySelector("ha-textfield") as Parts["text"],
+    };
+  }
+
+  async function click(el: Editor, button: HTMLButtonElement): Promise<void> {
+    button.click();
+    await el.updateComplete;
+  }
+
+  it("keeps the CSS field away until it is asked for", async () => {
+    const el = await mount(BASE);
+    const solar = row(el, "solar");
+    expect(solar.body.hasAttribute("hidden")).toBe(true);
+    expect(solar.more.getAttribute("aria-expanded")).toBe("false");
+    // Folded shut, the row still says what it is set to and still picks colours.
+    expect(solar.css.textContent?.trim()).toBe("Standard");
+    expect(swatchHex(solar.swatch.style.background)).toBe("#ff9800");
+  });
+
+  it("folds out on CSS and back again, one row at a time", async () => {
+    const el = await mount(BASE);
+    await click(el, row(el, "solar").more);
+    expect(row(el, "solar").body.hasAttribute("hidden")).toBe(false);
+    expect(row(el, "solar").more.getAttribute("aria-expanded")).toBe("true");
+    // Its neighbour is unaffected - opening one is not a mode.
+    expect(row(el, "rest").body.hasAttribute("hidden")).toBe(true);
+
+    await click(el, row(el, "solar").more);
+    expect(row(el, "solar").body.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("stays open across a keystroke - the list re-renders on every one", async () => {
+    const el = await mount(BASE);
+    await click(el, row(el, "solar").more);
+
+    const text = row(el, "solar").text;
+    text.value = "var(--warning-color)";
+    text.dispatchEvent(new Event("input"));
+    await el.updateComplete;
+
+    const after = row(el, "solar");
+    expect(after.body.hasAttribute("hidden")).toBe(false);
+    expect(after.text.value).toBe("var(--warning-color)");
+    // The head reports the new value without being folded out for it.
+    expect(after.css.textContent?.trim()).toBe("var(--warning-color)");
+  });
+});
+
+describe("editor - the colour wheel lives inside the dialog (REQ E-3)", () => {
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  const swatchOf = (el: Editor, key: string) =>
+    el.shadowRoot?.querySelector(`button.swatch[data-key="node:${key}"]`) as HTMLButtonElement;
+  const wheel = (el: Editor) => el.shadowRoot?.querySelector(".picker") as HTMLElement | null;
+
+  async function open(el: Editor, key: string): Promise<HTMLElement> {
+    swatchOf(el, key).click();
+    await el.updateComplete;
+    const panel = wheel(el);
+    if (!panel) throw new Error("no picker");
+    return panel;
+  }
+
+  /** happy-dom lays nothing out, so the strip is given a box to measure. */
+  function box(node: Element, width: number, height: number): void {
+    (node as unknown as { getBoundingClientRect: () => DOMRect }).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width, height, right: width, bottom: height }) as DOMRect;
+  }
+
+  function pointer(type: string, x: number, y: number): Event {
+    const ev = new Event(type, { bubbles: true, cancelable: true });
+    Object.assign(ev, { clientX: x, clientY: y, pointerId: 1, button: 0 });
+    return ev;
+  }
+
+  it("opens under the swatch, in our own shadow root", async () => {
+    const el = await mount(BASE);
+    expect(wheel(el)).toBeNull();
+    const panel = await open(el, "solar");
+    // Inside the editor, so the surrounding ha-dialog keeps the pointer events.
+    expect(panel.getAttribute("role")).toBe("dialog");
+    expect(el.shadowRoot?.contains(panel)).toBe(true);
+    expect(swatchOf(el, "solar").getAttribute("aria-expanded")).toBe("true");
+    // It starts on the colour the row actually shows.
+    expect((panel.querySelector(".foot .hex") as HTMLInputElement).value).toBe("#ff9800");
+  });
+
+  it("closes on a second click, on Escape and on a click elsewhere", async () => {
+    const el = await mount(BASE);
+    await open(el, "solar");
+    swatchOf(el, "solar").click();
+    await el.updateComplete;
+    expect(wheel(el)).toBeNull();
+
+    const panel = await open(el, "solar");
+    panel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await el.updateComplete;
+    expect(wheel(el)).toBeNull();
+
+    await open(el, "solar");
+    (el.shadowRoot?.querySelector(".scrim") as HTMLElement).dispatchEvent(
+      new Event("pointerdown", { bubbles: true }),
+    );
+    await el.updateComplete;
+    expect(wheel(el)).toBeNull();
+  });
+
+  it("writes the colour once the drag ends, not on every pixel", async () => {
+    const el = await mount(BASE);
+    const panel = await open(el, "rest");
+    const strip = panel.querySelector(".hue") as HTMLElement;
+    box(strip, 200, 15);
+
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) => {
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config);
+    });
+
+    // A third of the way along the strip is green.
+    strip.dispatchEvent(pointer("pointerdown", 66, 7));
+    await el.updateComplete;
+    strip.dispatchEvent(pointer("pointermove", 100, 7));
+    await el.updateComplete;
+    // Dragging paints, it does not save.
+    expect(seen).toHaveLength(0);
+    expect(swatchHex(swatchOf(el, "rest").style.background)).not.toBe("#7d7d7d");
+
+    strip.dispatchEvent(pointer("pointerup", 100, 7));
+    await el.updateComplete;
+    expect(seen).toHaveLength(1);
+    expect(seen[0].colors?.rest).toMatch(/^#[\da-f]{6}$/);
+  });
+
+  it("moves on the arrow keys, so the wheel is not the only way in", async () => {
+    const el = await mount({ ...BASE, colors: { rest: "#ff0000" } });
+    const panel = await open(el, "rest");
+    const strip = panel.querySelector(".hue") as HTMLElement;
+
+    let saved: RawConfig | undefined;
+    el.addEventListener("config-changed", (ev) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    });
+    const key = new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true });
+    Object.defineProperty(key, "target", { value: strip });
+    panel.dispatchEvent(key);
+    await el.updateComplete;
+
+    // Ten degrees along the wheel from red, and written straight away.
+    expect(saved?.colors?.rest).toBe("#ff2a00");
+  });
+});
+
+describe("editor - every colour the card has (REQ C-1, C-3, C-4)", () => {
+  const WITH_CONSUMERS: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid", battery_soc: "sensor.soc" },
+    consumers: [
+      { entity: "sensor.heat_pump", name: "Wärmepumpe" },
+      { entity: "sensor.fridge", name: "Kühlschränke", color: "#00e81b" },
+      { entity: "sensor.dryer" },
+    ],
+  };
+
+  const idsOf = (el: Editor, kind: string): string[] =>
+    [...(el.shadowRoot?.querySelectorAll("button.swatch") ?? [])]
+      .map((n) => n.getAttribute("data-key") ?? "")
+      .filter((id) => id.startsWith(`${kind}:`));
+
+  const rowOf = (el: Editor, id: string): HTMLElement =>
+    (el.shadowRoot?.querySelector(`button.swatch[data-key="${id}"]`) as HTMLElement).closest(
+      ".color",
+    ) as HTMLElement;
+
+  const swatchOf = (el: Editor, id: string): HTMLButtonElement =>
+    el.shadowRoot?.querySelector(`button.swatch[data-key="${id}"]`) as HTMLButtonElement;
+
+  async function act(el: Editor, run: () => void): Promise<RawConfig> {
+    let saved: RawConfig | undefined;
+    const listener = (ev: Event) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    };
+    el.addEventListener("config-changed", listener);
+    run();
+    el.removeEventListener("config-changed", listener);
+    if (!saved) throw new Error("no config-changed event");
+    // Whatever the editor writes, the card has to accept (REQ E-1).
+    expect(() => normalizeConfig(saved as RawConfig)).not.toThrow();
+    el.setConfig(saved);
+    await el.updateComplete;
+    return saved;
+  }
+
+  const typeInto = (row: HTMLElement, value: string): void => {
+    const field = row.querySelector("ha-textfield") as HTMLElement & { value?: string };
+    field.value = value;
+    field.dispatchEvent(new Event("input"));
+  };
+
+  describe("consumers", () => {
+    it("gives every consumer a row, named the way the list names it", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      expect(idsOf(el, "consumer")).toEqual(["consumer:0", "consumer:1", "consumer:2"]);
+      const names = idsOf(el, "consumer").map((id) =>
+        rowOf(el, id).querySelector(".name")?.textContent?.trim(),
+      );
+      // Without a name of its own a consumer is known by its entity.
+      expect(names).toEqual(["Wärmepumpe", "Kühlschränke", "sensor.dryer"]);
+    });
+
+    it("shows the palette colour a consumer would get anyway", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      // Nothing set: the swatch shows what the card paints, by position.
+      expect(swatchHex(swatchOf(el, "consumer:0").style.background)).toBe(
+        DEFAULT_CONSUMER_PALETTE[0],
+      );
+      expect(swatchHex(swatchOf(el, "consumer:1").style.background)).toBe("#00e81b");
+    });
+
+    it("writes the colour into that consumer and leaves its neighbours alone", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      const saved = await act(el, () => typeInto(rowOf(el, "consumer:0"), "#d400c5"));
+      expect(saved.consumers?.[0]).toEqual({
+        entity: "sensor.heat_pump",
+        name: "Wärmepumpe",
+        color: "#d400c5",
+      });
+      expect(saved.consumers?.[1]).toEqual({
+        entity: "sensor.fridge",
+        name: "Kühlschränke",
+        color: "#00e81b",
+      });
+    });
+
+    it("drops the colour rather than writing an empty one", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      const reset = rowOf(el, "consumer:1").querySelector("button.reset") as HTMLButtonElement;
+      const saved = await act(el, () => reset.click());
+      expect(saved.consumers?.[1]).toEqual({ entity: "sensor.fridge", name: "Kühlschränke" });
+    });
+
+    it("no longer offers a second place to set the same colour", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      const consumers = form(el).schema.find((f) => f.name === "consumers");
+      const fields = (consumers?.selector?.object as { fields: Record<string, unknown> }).fields;
+      expect(Object.keys(fields)).not.toContain("color");
+      expect(Object.keys(fields)).toContain("icon");
+    });
+  });
+
+  describe("state of charge", () => {
+    it("starts from the built-in gradient while none is configured", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      expect(idsOf(el, "stop")).toEqual(["stop:0", "stop:1", "stop:2"]);
+      expect(swatchHex(swatchOf(el, "stop:0").style.background)).toBe("#e53935");
+      expect(swatchHex(swatchOf(el, "stop:2").style.background)).toBe("#43a047");
+    });
+
+    it("pins the two ends, which the card insists on (REQ C-3)", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      // Ends: no percentage field, no way to remove them.
+      for (const id of ["stop:0", "stop:2"]) {
+        expect(rowOf(el, id).querySelector("input.percent")).toBeNull();
+        expect(rowOf(el, id).querySelector(".at .fixed")?.textContent?.trim()).toBe(
+          id === "stop:0" ? "0" : "100",
+        );
+      }
+      expect(rowOf(el, "stop:1").querySelector("input.percent")).not.toBeNull();
+    });
+
+    it("writes the whole gradient when one stop changes colour", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      const saved = await act(el, () => typeInto(rowOf(el, "stop:1"), "#ffcc00"));
+      expect(saved.colors?.soc_stops).toEqual([
+        { at: 0, color: "#e53935" },
+        { at: 50, color: "#ffcc00" },
+        { at: 100, color: "#43a047" },
+      ]);
+    });
+
+    it("keeps a percentage between its neighbours, so the list never runs backwards", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      const percent = rowOf(el, "stop:1").querySelector("input.percent") as HTMLInputElement;
+      const saved = await act(el, () => {
+        percent.value = "180";
+        percent.dispatchEvent(new Event("change"));
+      });
+      expect(saved.colors?.soc_stops?.[1].at).toBe(100);
+    });
+
+    it("adds a stop in the widest gap and removes only the middle ones", async () => {
+      const el = await mount({
+        ...WITH_CONSUMERS,
+        colors: {
+          soc_stops: [
+            { at: 0, color: "#f00" },
+            { at: 20, color: "#ff0" },
+            { at: 100, color: "#0f0" },
+          ],
+        },
+      });
+      const add = el.shadowRoot?.querySelector("button.add") as HTMLButtonElement;
+      const saved = await act(el, () => add.click());
+      // The 20-to-100 gap is the wide one; halfway is 60.
+      expect(saved.colors?.soc_stops?.map((s) => s.at)).toEqual([0, 20, 60, 100]);
+
+      const remove = rowOf(el, "stop:2").querySelector("button.reset") as HTMLButtonElement;
+      const back = await act(el, () => remove.click());
+      expect(back.colors?.soc_stops?.map((s) => s.at)).toEqual([0, 20, 100]);
+    });
+
+    it("will not go below the two stops a gradient needs", async () => {
+      const el = await mount(WITH_CONSUMERS);
+      // The ends carry no remove button at all - there is nothing to press.
+      expect(rowOf(el, "stop:0").querySelectorAll("button.reset")).toHaveLength(1);
+      const middle = rowOf(el, "stop:1").querySelectorAll("button.reset");
+      expect(middle).toHaveLength(2);
+    });
+  });
+});
+
+describe("editor - the other ways into a colour (REQ E-3)", () => {
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+    consumers: [
+      { entity: "sensor.ac_up", name: "Klima OG", color: "#1400ff" },
+      { entity: "sensor.ac_store", name: "Klima Speicher" },
+    ],
+  };
+
+  const swatchOf = (el: Editor, id: string) =>
+    el.shadowRoot?.querySelector(`button.swatch[data-key="${id}"]`) as HTMLButtonElement;
+
+  async function open(el: Editor, id: string): Promise<HTMLElement> {
+    swatchOf(el, id).click();
+    await el.updateComplete;
+    return el.shadowRoot?.querySelector(".picker") as HTMLElement;
+  }
+
+  async function act(el: Editor, run: () => void): Promise<RawConfig> {
+    let saved: RawConfig | undefined;
+    const listener = (ev: Event) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    };
+    el.addEventListener("config-changed", listener);
+    run();
+    el.removeEventListener("config-changed", listener);
+    if (!saved) throw new Error("no config-changed event");
+    el.setConfig(saved);
+    await el.updateComplete;
+    return saved;
+  }
+
+  it("takes a hex value typed straight into the wheel", async () => {
+    const el = await mount(BASE);
+    const panel = await open(el, "node:rest");
+    const hex = panel.querySelector(".hex") as HTMLInputElement;
+    expect(hex.value).toBe("#7d7d7d");
+
+    const saved = await act(el, () => {
+      hex.value = "#3366cc";
+      hex.dispatchEvent(new Event("change"));
+    });
+    expect(saved.colors?.rest).toBe("#3366cc");
+    // The wheel moved with it, rather than staying on the old colour.
+    const after = el.shadowRoot?.querySelector(".picker .hex") as HTMLInputElement;
+    expect(after.value).toBe("#3366cc");
+  });
+
+  it("ignores what it cannot read instead of writing nonsense", async () => {
+    const el = await mount(BASE);
+    const panel = await open(el, "node:rest");
+    const hex = panel.querySelector(".hex") as HTMLInputElement;
+
+    let fired = false;
+    el.addEventListener("config-changed", () => {
+      fired = true;
+    });
+    hex.value = "lila bitte";
+    hex.dispatchEvent(new Event("change"));
+    await el.updateComplete;
+
+    expect(fired).toBe(false);
+    // The field goes back to the colour that still applies.
+    expect((el.shadowRoot?.querySelector(".picker .hex") as HTMLInputElement).value).toBe(
+      "#7d7d7d",
+    );
+  });
+
+  it("offers the colours this card already uses, each of them once", async () => {
+    const el = await mount(BASE);
+    const panel = await open(el, "consumer:1");
+    const chips = [...panel.querySelectorAll(".used .chip")] as HTMLElement[];
+    expect(chips.length).toBeGreaterThan(0);
+
+    // Every suggestion is a different colour.
+    const hexes = chips.map((c) => swatchHex(c.style.background));
+    expect(new Set(hexes).size).toBe(hexes.length);
+    // The blue that is already on the other air conditioner is among them.
+    expect(hexes).toContain("#1400ff");
+  });
+
+  it("takes a suggestion as written, so a theme variable stays one", async () => {
+    const el = await mount(BASE);
+    const panel = await open(el, "consumer:1");
+    const chip = [...panel.querySelectorAll(".used .chip")].find(
+      (c) => c.getAttribute("title") === "#1400ff",
+    ) as HTMLButtonElement;
+
+    const saved = await act(el, () => chip.click());
+    expect(saved.consumers?.[1]).toEqual({
+      entity: "sensor.ac_store",
+      name: "Klima Speicher",
+      color: "#1400ff",
+    });
+
+    // A node colour written as a theme variable is handed on unchanged.
+    const nodePanel = await open(el, "node:rest");
+    const themed = [...nodePanel.querySelectorAll(".used .chip")].find((c) =>
+      c.getAttribute("title")?.startsWith("var("),
+    ) as HTMLButtonElement;
+    const withVar = await act(el, () => themed.click());
+    expect(withVar.colors?.rest).toMatch(/^var\(--/);
+  });
+});
+
+describe("editor - reading a colour by its channels (REQ E-3)", () => {
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+    colors: { rest: "#ff9800" },
+  };
+
+  const swatchOf = (el: Editor, id: string) =>
+    el.shadowRoot?.querySelector(`button.swatch[data-key="${id}"]`) as HTMLButtonElement;
+
+  async function open(el: Editor, id: string): Promise<HTMLElement> {
+    swatchOf(el, id).click();
+    await el.updateComplete;
+    return el.shadowRoot?.querySelector(".picker") as HTMLElement;
+  }
+
+  async function mode(el: Editor, name: string): Promise<HTMLElement> {
+    const button = [...(el.shadowRoot?.querySelectorAll("button.mode") ?? [])].find(
+      (b) => b.textContent?.trim() === name,
+    ) as HTMLButtonElement;
+    button.click();
+    await el.updateComplete;
+    return el.shadowRoot?.querySelector(".picker") as HTMLElement;
+  }
+
+  const numbers = (panel: HTMLElement): number[] =>
+    [...panel.querySelectorAll(".channel .number")].map((n) =>
+      Number((n as HTMLInputElement).value),
+    );
+
+  it("reads the colour out as RGB and as HSL", async () => {
+    const el = await mount(BASE);
+    await open(el, "node:rest");
+    expect(numbers(await mode(el, "RGB"))).toEqual([255, 152, 0]);
+    // The same orange, the way CSS writes hsl(): 36deg, full saturation, half light.
+    expect(numbers(await mode(el, "HSL"))).toEqual([36, 100, 50]);
+  });
+
+  it("writes when the slider is let go, not while it is moving", async () => {
+    const el = await mount(BASE);
+    await open(el, "node:rest");
+    const panel = await mode(el, "RGB");
+    const green = panel.querySelectorAll(".channel .range")[1] as HTMLInputElement;
+
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) => {
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config);
+    });
+
+    green.value = "0";
+    green.dispatchEvent(new Event("input"));
+    await el.updateComplete;
+    expect(seen).toHaveLength(0);
+    // The wheel repaints all the way along, though.
+    expect((el.shadowRoot?.querySelector(".picker .reading") as HTMLElement).textContent).toBe(
+      "#ff0000",
+    );
+
+    green.dispatchEvent(new Event("change"));
+    await el.updateComplete;
+    expect(seen).toHaveLength(1);
+    expect(seen[0].colors?.rest).toBe("#ff0000");
+  });
+
+  it("takes a number typed into a channel straight away", async () => {
+    const el = await mount(BASE);
+    await open(el, "node:rest");
+    const panel = await mode(el, "RGB");
+    const blue = panel.querySelectorAll(".channel .number")[2] as HTMLInputElement;
+
+    let saved: RawConfig | undefined;
+    el.addEventListener("config-changed", (ev) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    });
+    blue.value = "255";
+    blue.dispatchEvent(new Event("change"));
+    await el.updateComplete;
+    expect(saved?.colors?.rest).toBe("#ff98ff");
+  });
+
+  it("stays in the notation it was left in, row after row", async () => {
+    const el = await mount(BASE);
+    await open(el, "node:rest");
+    await mode(el, "HSL");
+    // A different row, opened fresh: still HSL.
+    swatchOf(el, "node:solar").click();
+    await el.updateComplete;
+    const panel = el.shadowRoot?.querySelector(".picker") as HTMLElement;
+    expect(panel.querySelectorAll(".channel")).toHaveLength(3);
+    expect(
+      [...panel.querySelectorAll("button.mode")]
+        .find((b) => b.getAttribute("aria-pressed") === "true")
+        ?.textContent?.trim(),
+    ).toBe("HSL");
+  });
+
+  it("keeps the hue visible when a channel drives the colour to black", async () => {
+    const el = await mount(BASE);
+    await open(el, "node:rest");
+    const panel = await mode(el, "HSL");
+    const light = panel.querySelectorAll(".channel .number")[2] as HTMLInputElement;
+    light.value = "0";
+    light.dispatchEvent(new Event("change"));
+    await el.updateComplete;
+
+    // Black has no hue of its own; the strip must not snap back to red.
+    const after = el.shadowRoot?.querySelector(".picker") as HTMLElement;
+    expect(numbers(after)[0]).toBe(36);
   });
 });

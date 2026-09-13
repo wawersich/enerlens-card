@@ -61,9 +61,9 @@ verschwindet einfach, und der Ring zeigt dann Anteile an der Verbrauchersumme.
 
 Die Karte bringt einen GUI-Editor mit. Jede Entitätsform unten — eine Entität,
 eine mit umgedrehtem Vorzeichen, zwei Entitäten oder eine abgeleitete Größe —
-ist im Formular eine Auswahl; YAML braucht es also nie. Nur der Ladezustands-
-Verlauf und die Verbraucherpalette bleiben dem YAML vorbehalten. Das YAML ist für
-alle dokumentiert, die es vorziehen.
+ist im Formular eine Auswahl; YAML braucht es also nie. Nur die Verbraucher-
+palette bleibt dem YAML vorbehalten. Das YAML ist für alle dokumentiert, die es
+vorziehen.
 
 ### Minimal
 
@@ -297,6 +297,31 @@ zusätzliche Abfrage.
 die steht im Betriebssystem, nicht in Home Assistant.
 
 ### Farben
+
+Alle Farben der Karte stehen im Editor unter **Farben**, in drei Gruppen: die
+sieben Knoten, eine Zeile je Verbraucher und die Stufen des Ladezustands-
+Verlaufs. Jede Zeile zeigt links die Farbe, die die Karte gerade malt, und
+rechts den konfigurierten Wert — `Standard`, solange keiner gesetzt ist.
+
+Ein Klick auf das Farbfeld öffnet den Farbwähler: eine Fläche für Sättigung und
+Helligkeit über einem Streifen für den Farbton, darunter der Wert als Hex oder,
+umgeschaltet, als Schieberegler für RGB beziehungsweise HSL. Daneben liegen die
+Farben, die in dieser Karte schon vorkommen — ein Klick, und zwei Klimageräte
+bekommen wirklich dasselbe Blau statt zwei ähnlicher.
+
+`CSS ▾` klappt ein Textfeld aus. Das ist der Weg für alles, was kein Hex-Wert
+ist: `var(--primary-color)` bleibt so an das Theme gebunden, statt auf einen
+festen Wert eingefroren zu werden. Genau dafür ist das Feld geblieben — ein
+Farbwähler allein kann nur `#rrggbb`.
+
+Die Farbe eines Verbrauchers steht damit nicht mehr in seiner Karteikarte,
+sondern hier. Zwei Orte für dieselbe Einstellung wären einer zu viel.
+
+Beim Ladezustands-Verlauf sind die Enden festgenagelt: Bei 0 % und 100 % lässt
+sich die Farbe ändern, der Prozentwert nicht, und entfernen lassen sie sich auch
+nicht — die Karte weist einen Verlauf zurück, der nicht über die ganze Skala
+läuft. Stufen dazwischen lassen sich verschieben, hinzufügen und löschen,
+solange zwei übrig bleiben.
 
 Die Standardwerte kommen aus den Energie-Theme-Variablen von Home Assistant,
 sodass die Karte ohne Konfiguration zum Energie-Dashboard passt. Wer stattdessen

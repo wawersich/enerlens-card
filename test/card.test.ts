@@ -571,3 +571,116 @@ describe("grid outage on the element (REQ NS-4, NS-5)", () => {
     ).toBeTruthy();
   });
 });
+
+describe("enerlens-card - an edit in the editor is not a reset (REQ P-6)", () => {
+  beforeAll(async () => {
+    (globalThis as unknown as Record<string, unknown>).ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    };
+    await import("../src/enerlens-card");
+  });
+
+  type Card = HTMLElement & {
+    setConfig: (c: unknown) => void;
+    hass: HomeAssistant;
+    updateComplete: Promise<unknown>;
+    shadowRoot: ShadowRoot | null;
+  };
+
+  const WITH_VIEW = {
+    ...CONFIG,
+    view: { default_mode: "current", avg_short_minutes: 2, avg_long_minutes: 15 },
+    consumers: [
+      { entity: "sensor.pump", name: "Wärmepumpe" },
+      { entity: "sensor.fridge", name: "Kühlschränke" },
+    ],
+  };
+
+  const STATES_PLUS = { ...STATES, "sensor.pump": "1789", "sensor.fridge": "69" };
+
+  async function mount(config: unknown): Promise<Card> {
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig(config);
+    el.hass = fakeHass(STATES_PLUS);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    return el;
+  }
+
+  /** The card keeps these across an edit; reading them is how the test sees it. */
+  const guts = (el: Card) => el as unknown as { _mode: string; _buffer: unknown; _outage: unknown };
+
+  it("keeps the view the user is on when only a colour changes", async () => {
+    const el = await mount(WITH_VIEW);
+    guts(el)._mode = "avg_short";
+    const buffer = guts(el)._buffer;
+
+    el.setConfig({ ...WITH_VIEW, colors: { rest: "#123456" } });
+    await el.updateComplete;
+
+    // Same view, same averaging buffer: nothing to re-sort, nothing to glide.
+    expect(guts(el)._mode).toBe("avg_short");
+    expect(guts(el)._buffer).toBe(buffer);
+  });
+
+  it("still follows the start view when that is what changed", async () => {
+    const el = await mount(WITH_VIEW);
+    guts(el)._mode = "avg_short";
+
+    el.setConfig({ ...WITH_VIEW, view: { ...WITH_VIEW.view, default_mode: "avg_long" } });
+    await el.updateComplete;
+    expect(guts(el)._mode).toBe("avg_long");
+  });
+
+  it("rebuilds the averaging buffer only when its window changes", async () => {
+    const el = await mount(WITH_VIEW);
+    const buffer = guts(el)._buffer;
+
+    el.setConfig({ ...WITH_VIEW, title: "Anderer Titel" });
+    await el.updateComplete;
+    expect(guts(el)._buffer).toBe(buffer);
+
+    el.setConfig({ ...WITH_VIEW, view: { ...WITH_VIEW.view, avg_long_minutes: 30 } });
+    await el.updateComplete;
+    expect(guts(el)._buffer).not.toBe(buffer);
+  });
+
+  it("keeps a latched outage unless the status entity itself changes", async () => {
+    const withStatus = {
+      ...WITH_VIEW,
+      entities: {
+        ...WITH_VIEW.entities,
+        grid_status: { entity: "sensor.status", outage: ["not_detected"], ok: ["ok"] },
+      },
+    };
+    const el = await mount(withStatus);
+    (el as unknown as { _outage: unknown })._outage = true;
+
+    el.setConfig({ ...withStatus, colors: { rest: "#123456" } });
+    await el.updateComplete;
+    expect(guts(el)._outage).toBe(true);
+
+    el.setConfig({
+      ...withStatus,
+      entities: {
+        ...withStatus.entities,
+        grid_status: { entity: "sensor.other", outage: ["not_detected"], ok: ["ok"] },
+      },
+    });
+    await el.updateComplete;
+    expect(guts(el)._outage).toBeUndefined();
+  });
+
+  it("does not glide the rows into place while the layout is still settling", async () => {
+    const el = await mount(WITH_VIEW);
+    // Until a measurement leaves the layout alone, gliding is off - the first
+    // one can move the list from beside the cross to below it.
+    const settled = (el as unknown as { _settled: boolean })._settled;
+    expect(settled).toBe(true);
+
+    const fresh = document.createElement("enerlens-card") as Card;
+    fresh.setConfig(WITH_VIEW);
+    expect((fresh as unknown as { _settled: boolean })._settled).toBe(false);
+  });
+});
