@@ -1147,8 +1147,11 @@ class EnerLensCardEditor extends LitElement {
       add(entry.color ?? DEFAULT_CONSUMER_PALETTE[index % DEFAULT_CONSUMER_PALETTE.length]);
     });
     for (const stop of this._socStops()) add(stop.color);
-    // Long enough to cover a card, short enough to stay one glance.
-    return out.slice(0, 12);
+    // No cut: a card with a dozen consumers pushed the last of them out of a
+    // list that claims to show what the card uses. Repeats are already gone,
+    // and the palette cycles, so the list stays short by itself; an extreme
+    // configuration scrolls (.used .chips) instead of losing colours.
+    return out;
   }
 
   /** A suggestion is taken as written, so a theme variable stays one. */
@@ -1727,6 +1730,10 @@ class EnerLensCardEditor extends LitElement {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      /* Five rows of 22 px chips plus their gaps - beyond that it scrolls,
+         so the popup cannot grow past the dialog. */
+      max-height: 140px;
+      overflow-y: auto;
     }
 
     .used .chip {

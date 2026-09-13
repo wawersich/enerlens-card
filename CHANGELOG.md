@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **"Used in this card" left colours out.** The list of colours to click stopped
+  after twelve, and the seven node colours come first - on a card with eight or
+  more consumers the last of them was missing from a list that claims to show
+  what the card uses. It now shows all of them; repeats are still collapsed, and
+  an extreme configuration scrolls rather than growing past the dialog.
+
 ## [0.4.0] - 2026-09-13
 
 ### Added

@@ -1033,6 +1033,28 @@ describe("editor - the other ways into a colour (REQ E-3)", () => {
     expect(hexes).toContain("#1400ff");
   });
 
+  it("keeps the last consumer's colour, however many are configured", async () => {
+    // Seven node colours plus eight own consumer colours used to run past the
+    // twelve the list showed, and the last consumer fell off it silently.
+    const many: RawConfig = {
+      ...BASE,
+      consumers: [
+        { entity: "sensor.c1", name: "One", color: "#1400ff" },
+        { entity: "sensor.c2", name: "Two", color: "#d4c800" },
+        { entity: "sensor.c3", name: "Three", color: "#00e81b" },
+        { entity: "sensor.c4", name: "Four", color: "#aa00aa" },
+        { entity: "sensor.c5", name: "Five", color: "#00aaff" },
+        { entity: "sensor.c6", name: "Six", color: "#884400" },
+        { entity: "sensor.c7", name: "Seven", color: "#ff0066" },
+        { entity: "sensor.c8", name: "Eight", color: "#00e8d7" },
+      ],
+    };
+    const el = await mount(many);
+    const panel = await open(el, "consumer:0");
+    const titles = [...panel.querySelectorAll(".used .chip")].map((c) => c.getAttribute("title"));
+    expect(titles).toContain("#00e8d7");
+  });
+
   it("takes a suggestion as written, so a theme variable stays one", async () => {
     const el = await mount(BASE);
     const panel = await open(el, "consumer:1");
