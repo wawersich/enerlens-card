@@ -15,7 +15,8 @@
     "format": "biome check --write src test",
     "deploy": "./scripts/deploy.sh",
     "check": "./scripts/check.sh",
-    "hero": "node scripts/hero.mjs"
+    "hero": "node scripts/hero.mjs",
+    "leuchtspur": "./scripts/leuchtspur.sh"
   },
   "dependencies": {
     "lit": "3.2.1"

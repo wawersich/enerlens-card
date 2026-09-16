@@ -1,0 +1,1446 @@
+<meta charset="utf-8">
+<title>Leuchtspur-Prüfstand</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #eceff3;
+    --panel: #ffffff;
+    --ink: #101820;
+    --muted: #5a6874;
+    --line: #d2d9e0;
+    --line-soft: #e3e8ed;
+    --accent: #14618f;
+    --accent-ink: #ffffff;
+    --stage: #0a0e13;
+    --stage-line: rgba(255, 255, 255, 0.11);
+    --stage-node: rgba(255, 255, 255, 0.06);
+    --stage-ink: rgba(255, 255, 255, 0.42);
+    --shadow: 0 1px 2px rgba(16, 24, 32, 0.06), 0 8px 24px rgba(16, 24, 32, 0.05);
+    --display: "IBM Plex Sans Condensed", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1319;
+      --panel: #151d25;
+      --ink: #e4ecf3;
+      --muted: #8fa0ae;
+      --line: #26313b;
+      --line-soft: #1d262e;
+      --accent: #4aa3d8;
+      --accent-ink: #08131b;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1319;
+    --panel: #151d25;
+    --ink: #e4ecf3;
+    --muted: #8fa0ae;
+    --line: #26313b;
+    --line-soft: #1d262e;
+    --accent: #4aa3d8;
+    --accent-ink: #08131b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
+  }
+  [data-stage="light"] {
+    --stage: #ffffff;
+    --stage-line: rgba(16, 24, 32, 0.13);
+    --stage-node: rgba(16, 24, 32, 0.05);
+    --stage-ink: rgba(16, 24, 32, 0.45);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding-inline: 20px;
+    padding-block: 28px 56px;
+  }
+  .wrap {
+    max-width: 1120px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  header h1 {
+    font-family: var(--display);
+    font-size: clamp(28px, 4.5vw, 40px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: 0;
+  }
+  header p {
+    margin: 10px 0 0;
+    max-width: 64ch;
+    color: var(--muted);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+  }
+  .controls > summary {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 13px 18px;
+    cursor: pointer;
+  }
+  .controls[open] > summary {
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .ctlgrid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px 26px;
+    padding: 16px 18px;
+  }
+  /* Sticky only where it cannot swallow the view: on a phone the eleven
+     controls stack into a block that would cover the tiles entirely. */
+  @media (min-width: 900px) {
+    .controls {
+      position: sticky;
+      top: 8px;
+      z-index: 5;
+    }
+  }
+  .ctl {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 128px;
+  }
+  .ctl > label,
+  .ctl > .legend {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .scope {
+    color: var(--accent);
+    letter-spacing: 0.13em;
+  }
+  .ctl output {
+    font-family: var(--mono);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    margin: 0;
+  }
+  .seg {
+    display: flex;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .seg button {
+    font: 500 13px var(--body);
+    background: transparent;
+    color: var(--muted);
+    border: 0;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .seg button + button {
+    border-left: 1px solid var(--line);
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  /* Stays readable while scrolling through the tiles - that is the whole point
+     of the number. */
+  .fpsdock {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 10;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 6px 10px;
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .fpsdock b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .presets {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    padding: 14px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px 22px;
+  }
+  .presets input[type="text"] {
+    font: 500 13px var(--body);
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 6px 8px;
+    min-width: 160px;
+  }
+  .btn.warn {
+    border-color: #d3453b;
+    color: #d3453b;
+  }
+  .presets select {
+    font: 500 13px var(--body);
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 6px 8px;
+    min-width: 168px;
+  }
+  .btn {
+    font: 500 13px var(--body);
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn[disabled] {
+    opacity: 0.4;
+    cursor: default;
+    border-color: var(--line);
+    color: var(--muted);
+  }
+  .statebox {
+    margin-left: auto;
+    text-align: right;
+    padding-bottom: 6px;
+  }
+  .src.bad {
+    color: #d3453b;
+  }
+  .src {
+    margin: 2px 0 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .state {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding-bottom: 8px;
+    white-space: nowrap;
+  }
+  .state.dirty {
+    color: var(--accent);
+  }
+
+  .bench {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(252px, 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  .tile {
+    margin: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .tile.chosen {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+  }
+  .tile.chosen .tag {
+    color: var(--accent);
+  }
+  .tile figcaption {
+    padding: 12px 14px 4px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .tile h2 {
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .tile .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  .tile p {
+    margin: 0;
+    padding: 0 14px 12px;
+    font-size: 13px;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .stage {
+    background: var(--stage);
+    border-top: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .stage svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .lane-line {
+    fill: none;
+    stroke: var(--stage-line);
+    stroke-width: 2;
+  }
+  .node {
+    fill: var(--stage-node);
+    stroke: var(--stage-line);
+    stroke-width: 1.5;
+  }
+  .node-label {
+    font-family: var(--mono);
+    fill: var(--stage-ink);
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
+  .notes {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    padding: 4px 18px 18px;
+  }
+  .notes h2 {
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 600;
+    margin: 16px 0 10px;
+  }
+  .notes ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    max-width: 68ch;
+  }
+  .notes li + li {
+    margin-top: 7px;
+  }
+  .notes b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  footer {
+    color: var(--muted);
+    font-size: 12.5px;
+    font-family: var(--mono);
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">enerlens-card · Fluss-Animation</p>
+    <h1>Leuchtspur-Prüfstand</h1>
+    <p>
+      Das Werkzeug, mit dem die Designs entworfen werden, die die Karte später zur Auswahl stellt.
+      Sie stehen in <span class="num">designs.json</span> neben dieser Seite; rechts oben steht, ob
+      sie von dort kommen oder aus der eingebauten Notliste.
+      Ein Design umfasst die Machart, die Form des Schweifs und je einen Wertesatz für hellen und
+      dunklen Grund — der Anwender wählt in der Karte nur den Namen, das Passende zum Thema sucht
+      sie sich selbst heraus. Unten steht dasselbe als JSON, in der Fassung, die ins Repo wandert.
+    </p>
+  </header>
+
+  <section class="presets" aria-label="Designs">
+    <div class="ctl">
+      <label for="preset">Design</label>
+      <select id="preset"></select>
+    </div>
+    <div class="ctl">
+      <span class="legend">Machart</span>
+      <div class="seg" id="variant-seg">
+        <button type="button" data-variant="comet" aria-pressed="true">Komet</button>
+        <button type="button" data-variant="meteor" aria-pressed="false">Meteorit</button>
+        <button type="button" data-variant="ember" aria-pressed="false">Glutkern</button>
+      </div>
+    </div>
+    <button type="button" class="btn" id="reload">Datei neu laden</button>
+    <div class="ctl">
+      <label for="design-name">Name</label>
+      <input type="text" id="design-name" autocomplete="off" spellcheck="false">
+    </div>
+    <button type="button" class="btn" id="save">Speichern</button>
+    <button type="button" class="btn" id="revert">Verwerfen</button>
+    <button type="button" class="btn" id="delete">Löschen</button>
+    <div class="statebox">
+      <p class="state" id="state">unverändert</p>
+      <p class="src" id="source">Quelle: eingebaut</p>
+    </div>
+  </section>
+
+  <details class="controls" id="settings" open>
+    <summary>Einstellungen</summary>
+    <div class="ctlgrid">
+    <div class="ctl">
+      <span class="legend">Hintergrund der Karte</span>
+      <div class="seg" id="stage-seg">
+        <button type="button" id="stage-dark" aria-pressed="true">Dunkel</button>
+        <button type="button" id="stage-light" aria-pressed="false">Hell</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label for="dot">Kreisdurchmesser <span class="scope">(dunkel)</span> <output id="dot-out">10 px</output></label>
+      <input type="range" id="dot" min="4" max="16" step="1" value="10">
+    </div>
+    <div class="ctl">
+      <label for="core">Kerndurchmesser <span class="scope">(dunkel)</span> <output id="core-out">30 %</output></label>
+      <input type="range" id="core" min="0" max="70" step="2" value="30">
+    </div>
+    <div class="ctl">
+      <label for="corelight">Kernhelligkeit <span class="scope">(dunkel)</span> <output id="corelight-out">60 %</output></label>
+      <input type="range" id="corelight" min="0" max="100" step="5" value="60">
+    </div>
+    <div class="ctl">
+      <span class="legend">Glühen <span class="scope">(dunkel)</span></span>
+      <div class="seg" id="glow-seg">
+        <button type="button" data-glow="0" aria-pressed="false">Aus</button>
+        <button type="button" data-glow="1" aria-pressed="true">Dezent</button>
+        <button type="button" data-glow="2" aria-pressed="false">Stark</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label for="speed">Tempo <output id="speed-out">1,00×</output></label>
+      <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
+    </div>
+    <div class="ctl">
+      <label for="bias">Kernposition vorn <output id="bias-out">70 %</output></label>
+      <input type="range" id="bias" min="0" max="100" step="5" value="70">
+    </div>
+    <div class="ctl">
+      <label for="tail">Schweif-Länge <output id="tail-out">16 %</output></label>
+      <input type="range" id="tail" min="0" max="60" step="1" value="16">
+    </div>
+    <div class="ctl">
+      <label for="taper">Schweif-Verjüngung <output id="taper-out">100 %</output></label>
+      <input type="range" id="taper" min="0" max="100" step="5" value="100">
+    </div>
+    <div class="ctl">
+      <label for="fade">Schweif-Deckkraft <span class="scope">(dunkel)</span> <output id="fade-out">40 %</output></label>
+      <input type="range" id="fade" min="5" max="100" step="5" value="40">
+    </div>
+    <div class="ctl">
+      <label for="count">Punkte je Bahn <output id="count-out">3</output></label>
+      <input type="range" id="count" min="1" max="8" step="1" value="3">
+    </div>
+    <div class="ctl" style="min-width: 0">
+      <span class="legend">Lauf</span>
+      <div class="seg">
+        <button type="button" id="playpause" aria-pressed="false">Anhalten</button>
+      </div>
+    </div>
+    </div>
+  </details>
+
+  <p class="fpsdock">Bilder/s <b id="fps">–</b></p>
+
+
+  <div class="bench" id="bench"></div>
+
+  <section class="notes">
+    <h2>Designs</h2>
+    <ul>
+      <li>
+        <b>Ein Design ist eine Datei-Zeile, kein Bildschirmzustand.</b> Es hält fest: die Machart,
+        die drei Formwerte des Schweifs (Länge, Verjüngung, Kernposition) und je fünf Werte für
+        hellen und dunklen Grund. <b>Nicht</b> dazu gehören Tempo und Punkte je Bahn — die kommen in
+        der Karte aus der tatsächlichen Leistung und haben mit dem Aussehen nichts zu tun.
+      </li>
+      <li>
+        <b>Speichern</b> legt das Design unter dem Namen aus dem Namensfeld in diesem Browser ab; es
+        taucht dann im Auswahlfeld unter „Eigene“ auf. Namen ändern und erneut speichern legt eine
+        zweite Fassung an, gleicher Name überschreibt. Das Auswahlfeld allein lädt nichts — dafür
+        ist <b>Laden</b> da, damit ein ungespeicherter Entwurf nicht unbemerkt verloren geht. Das ist ein Zwischenlager — dauerhaft wird ein
+        Design erst, wenn es ins Repo kommt. Dafür ist <b>Alle Designs kopieren</b> da: Es legt
+        alles, mitgeliefert wie selbst gebaut, als eine JSON-Fassung in die Zwischenablage.
+        <b>Ins Projekt speichern</b> ist der kurze Weg: Die Seite schickt alles per POST an einen
+        Home-Assistant-Webhook, der die Datei im Repo schreibt — mit Sicherung der vorherigen
+        Fassung. Geht von jedem Gerät im Heimnetz, auch vom Tablet. Danach stehen die eigenen
+        Designs in der Datei und nicht mehr nur im Browser.
+        <b>Alle in Datei speichern</b> ist der Weg ohne Home Assistant: dieselbe Fassung als
+        <span class="num">designs.json</span> — in Chrome und Edge direkt in die ausgewählte Datei,
+        sonst als Download.
+      </li>
+      <li>
+        Rechts in der Design-Leiste steht, ob der aktuelle Stand noch dem geladenen Design
+        entspricht. <b>Verwerfen</b> holt das geladene Design zurück.
+      </li>
+    </ul>
+
+    <h2>Wie der Schweif gebaut ist</h2>
+    <ul>
+      <li>
+        Jede Bahn wird mehrfach übereinandergelegt, jede Lage als <b>Strichmuster</b> auf der Bahn
+        selbst: ein sichtbares Stück, dann eine Lücke. Die Lagen enden alle am selben Kopf, sind aber
+        unterschiedlich lang <i>und</i> unterschiedlich breit — die weit zurückreichende Lage ist
+        dünn, die am Kopf so dick wie der heutige Punkt. Übereinander ergibt das eine Form, die nach
+        hinten spitz ausläuft und trotzdem auf der Bahn liegt. Weil sich das Muster von allein
+        wiederholt, kostet der zehnte Punkt kein Element mehr als der erste.
+      </li>
+      <li>
+        <b>Schweif</b> ist ein Anteil der Bahnlänge, nicht eine Pixelzahl — das war der Fehler in der
+        ersten Fassung: auf kurzen Bahnen füllte er die ganze Strecke, und übrig blieb eine
+        durchgehende Leuchtlinie.
+      </li>
+      <li>
+        <b>Schweif-Deckkraft</b> ist die Stärke direkt hinter dem Kopf; von dort fällt sie auf null
+        am Ende ab. Der Kopf selbst bleibt immer voll gedeckt. <b>Schweif-Länge</b> ist ein Anteil der
+        Bahnlänge, keine Pixelzahl. <b>Schweif-Verjüngung</b> ist der
+        Exponent, mit dem die Dicke abnimmt: gleich hinter dem Kopf steil, dann ein langer dünner
+        Auslauf.
+      </li>
+      <li>
+        <b>Glühen</b> liegt als ein Weichzeichner auf der ganzen Bahn, nicht auf jedem Teil einzeln.
+        Ein Filter je Bahn statt vierzig, das ist der Unterschied zwischen flüssig und ruckelig.
+      </li>
+    </ul>
+    <h2>Worauf ich beim Schauen achten würde</h2>
+    <ul>
+      <li>
+        <b>Fünf Regler haben zwei Werte</b> — einen für dunklen, einen für hellen Hintergrund:
+        Kreisdurchmesser, Kerndurchmesser, Kernhelligkeit, Schweif-Deckkraft und Glühen. Am Regler
+        steht in Farbe, für welchen der
+        beiden er gerade gilt. Schalte den Hintergrund um, stell ein, schalte zurück — der andere
+        steht noch so, wie Du ihn verlassen hast. Genau so trägt die Karte es später auch: ein
+        Wertesatz je Farbschema. Alles andere — Tempo, Schweiflänge, Verjüngung — ist Form und in
+        hell wie dunkel gleich.
+      </li>
+      <li>
+        <b>Die Weichheit ist kein Regler mehr.</b> Sie stand bei Dir immer am Anschlag und liegt
+        jetzt fest auf 18 Lagen. Dasselbe wird in der Karte mit allem passieren, was Du hier nicht
+        mehr anfassen willst — Regler gibt es nur zum Prüfen.
+      </li>
+      <li>
+        <b>Zwei Namen stimmen nicht überall.</b> <b>Kerndurchmesser</b> ist bei Komet und Glutkern
+        wörtlich der Durchmesser des hellen Flecks, als Anteil des Kreises. Beim <b>Meteoriten</b>
+        gibt es keinen Kreis und damit keinen Kern — dort steuert derselbe Regler, wie weit die Glut
+        vom Kopf nach hinten in den Schweif reicht. <b>Kernposition vorn</b> wirkt dagegen überall:
+        Beim Meteoriten entscheidet sie, wie weit vorne die Glut auf dem Kopf sitzt. Auf
+        <span class="num">0</span> leuchtet die ganze Kugel gleichmäßig — und brennen tut nur, was
+        vorne ankommt.
+      </li>
+      <li>
+        <b>Kreisdurchmesser, Kerndurchmesser und Kernhelligkeit</b> sind drei getrennte Regler. Der
+        Kreis ist der ganze Kopf in Pixeln, der Kern der helle Fleck darin als Anteil davon, die
+        Helligkeit sein Weg
+        Richtung Weiß. <b>Kernposition vorn</b> schiebt den hellen Fleck nach vorne: auf
+        <span class="num">0</span> sitzt er mittig im Kreis, auf <span class="num">100</span> liegt
+        er bündig an der Vorderkante — die helle Bugwelle. Kern auf <span class="num">0</span> macht
+        den Kopf flach. Ganz weiß wird der Kern nie — die Farbe ist es, die in der Karte die Quelle
+        benennt.
+      </li>
+      <li>
+        <b>Hintergrund auf Hell:</b> Das Glühen lebt von Schwarz. Auf Weiß braucht es fast sicher
+        eine eigene, schwächere Einstellung — dafür sind die zwei Wertesätze da.
+      </li>
+      <li>
+        <b>Die Kachel „Heute“ hört nur auf Tempo und Punkte je Bahn.</b> Kreisdurchmesser und
+        Glühen lassen sie kalt — sie zeigt immer die <span class="num">10 px</span> ohne Glühen, die
+        die Karte heute zeichnet. Sonst würde sich der Maßstab mitbewegen, gegen den Du vergleichst.
+      </li>
+      <li>
+        <b>Punkte je Bahn auf <span class="num">6</span>:</b> Ab wann wird die Bahn zur durchgehenden
+        Linie und die Anzahl unlesbar? Anzahl und Tempo tragen in der Karte die Leistung.
+      </li>
+    </ul>
+  </section>
+
+  <footer>Versuchsaufbau · Geometrie aus src/render/geometry.ts · keine Anlagendaten</footer>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+
+    var SVG = "http://www.w3.org/2000/svg";
+    var VIEW = 400;
+    var BASE_MS = 5000;
+
+    // The card's own cross geometry: two curves and one straight run.
+    var LANES = [
+      { id: "solar_house", d: "M200,114 C200,168 232,200 286,200", color: "#ff9800", factor: 0.45 },
+      { id: "grid_house", d: "M114,200 L286,200", color: "#488fc2", factor: 1 },
+      { id: "grid_battery", d: "M114,200 C168,200 200,232 200,286", color: "#f06292", factor: 2.2 },
+    ];
+    var NODES = [
+      { x: 200, y: 58, label: "PV" },
+      { x: 58, y: 200, label: "Netz" },
+      { x: 342, y: 200, label: "Haus" },
+      { x: 200, y: 342, label: "Akku" },
+    ];
+    var GLOW = [null, [3, 8], [5, 14]];
+    /** What the card uses today: the same 10 px as the colour mark in the list. */
+    var DOT_PX_TODAY = 10;
+    /** Thinnest point of the spur as a share of the head - below that it vanishes. */
+    var MIN_W = 0.18;
+
+    // Shape is the same on both grounds; brightness and size are not. Splitting
+    // them here is how the card will carry them too - one set per theme.
+    var state = {
+      speed: 1, tail: 16, steps: 18, count: 3, taper: 100, bias: 70,
+      variant: "comet", stage: "dark", paused: false,
+      ground: {
+        dark: { dot: 10, fade: 40, glow: 1, core: 30, coreLight: 60 },
+        light: { dot: 8, fade: 28, glow: 1, core: 20, coreLight: 40 },
+      },
+    };
+    /** The value set of the ground currently shown. */
+    function cur() {
+      return state.ground[state.stage];
+    }
+    var tiles = [];
+
+    /**
+     * A design, as it will be checked in and as the card will offer it. Speed and
+     * the number of dots are not part of it - those come from the actual power,
+     * not from the design. Each design carries both grounds, so the card can pick
+     * one by theme without the user ever seeing a dark mode setting.
+     */
+    var DESIGNS_URL = "designs.json";
+    /** Home Assistant webhook that writes designs.json into the repository. */
+    var SAVE_URL = "/api/webhook/enerlens-leuchtspur-designs";
+    var BUILTIN = [
+      {
+        id: "comet",
+        name: "Komet",
+        variant: "comet",
+        spur: { tail: 16, taper: 100, bias: 70 },
+        dark: { dot: 10, core: 30, coreLight: 60, fade: 40, glow: 1 },
+        light: { dot: 8, core: 20, coreLight: 40, fade: 28, glow: 1 },
+      },
+      {
+        id: "meteor",
+        name: "Meteorit",
+        variant: "meteor",
+        spur: { tail: 16, taper: 100, bias: 70 },
+        dark: { dot: 10, core: 30, coreLight: 60, fade: 40, glow: 1 },
+        light: { dot: 8, core: 20, coreLight: 40, fade: 28, glow: 1 },
+      },
+      {
+        id: "ember",
+        name: "Glutkern",
+        variant: "ember",
+        spur: { tail: 16, taper: 100, bias: 70 },
+        dark: { dot: 10, core: 30, coreLight: 60, fade: 40, glow: 1 },
+        light: { dot: 8, core: 20, coreLight: 40, fade: 28, glow: 1 },
+      },
+      {
+        id: "plain",
+        name: "Ohne Spur",
+        variant: "comet",
+        spur: { tail: 0, taper: 100, bias: 70 },
+        dark: { dot: 10, core: 0, coreLight: 0, fade: 40, glow: 0 },
+        light: { dot: 10, core: 0, coreLight: 0, fade: 40, glow: 0 },
+      },
+    ];
+
+
+    var GROUND_KEYS = ["dot", "core", "coreLight", "fade", "glow"];
+    var SPUR_KEYS = ["tail", "taper", "bias"];
+
+    /** The design as it stands right now. */
+    function currentDesign(id, name) {
+      var out = { id: id, name: name, variant: state.variant, spur: {}, dark: {}, light: {} };
+      SPUR_KEYS.forEach(function (k) {
+        out.spur[k] = state[k];
+      });
+      ["dark", "light"].forEach(function (g) {
+        GROUND_KEYS.forEach(function (k) {
+          out[g][k] = state.ground[g][k];
+        });
+      });
+      return out;
+    }
+
+    /** Reads a design into the state. Unknown or missing values keep theirs. */
+    function applyDesign(design) {
+      if (!design || typeof design !== "object") return false;
+      if (typeof design.variant === "string" && VARIANTS[design.variant]) {
+        state.variant = design.variant;
+      }
+      if (design.spur) {
+        SPUR_KEYS.forEach(function (k) {
+          if (typeof design.spur[k] === "number") state[k] = design.spur[k];
+        });
+      }
+      ["dark", "light"].forEach(function (g) {
+        if (!design[g]) return;
+        GROUND_KEYS.forEach(function (k) {
+          if (typeof design[g][k] === "number") state.ground[g][k] = design[g][k];
+        });
+      });
+      return true;
+    }
+
+    function sameDesign(a, b) {
+      return JSON.stringify(a) === JSON.stringify(b);
+    }
+
+    /** Mixes a hex colour towards white or black; amount 0..1. */
+    function mix(hex, towards, amount) {
+      var n = parseInt(hex.slice(1), 16);
+      var t = towards === "white" ? 255 : 0;
+      var out = [16, 8, 0].map(function (shift) {
+        var c = (n >> shift) & 255;
+        return Math.round(c + (t - c) * amount);
+      });
+      return "rgb(" + out.join(",") + ")";
+    }
+
+    function el(name, attrs) {
+      var node = document.createElementNS(SVG, name);
+      for (var k in attrs) node.setAttribute(k, attrs[k]);
+      return node;
+    }
+
+    function buildTile(spec) {
+      var fig = document.createElement("figure");
+      fig.className = "tile";
+
+      var cap = document.createElement("figcaption");
+      var h2 = document.createElement("h2");
+      h2.textContent = spec.name;
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = spec.tag;
+      cap.appendChild(h2);
+      cap.appendChild(tag);
+
+      var stage = document.createElement("div");
+      stage.className = "stage";
+      var svg = el("svg", { viewBox: "0 0 " + VIEW + " " + VIEW, role: "img" });
+      svg.setAttribute("aria-label", spec.name);
+
+      NODES.forEach(function (n) {
+        svg.appendChild(el("circle", { class: "node", cx: n.x, cy: n.y, r: 40 }));
+        var t = el("text", { class: "node-label", x: n.x, y: n.y, "font-size": 15 });
+        t.textContent = n.label;
+        svg.appendChild(t);
+      });
+
+      var lanes = LANES.map(function (laneSpec) {
+        svg.appendChild(el("path", { class: "lane-line", d: laneSpec.d }));
+        var group = el("g", {});
+        svg.appendChild(group);
+        var measure = el("path", { d: laneSpec.d });
+        return { spec: laneSpec, group: group, measure: measure, length: 0, parts: [] };
+      });
+
+      // Hidden copies, only there to read getTotalLength().
+      var probe = el("g", { style: "display:none" });
+      lanes.forEach(function (lane) { probe.appendChild(lane.measure); });
+      svg.appendChild(probe);
+      stage.appendChild(svg);
+
+      var note = document.createElement("p");
+      note.textContent = spec.note;
+
+      fig.appendChild(cap);
+      fig.appendChild(stage);
+      fig.appendChild(note);
+      return { spec: spec, root: fig, svg: svg, lanes: lanes, scale: 1, tagEl: tag };
+    }
+
+    /** User units per CSS pixel, so a dot keeps its size when the tile resizes. */
+    function measure(tile) {
+      var w = tile.svg.getBoundingClientRect().width;
+      tile.scale = w > 0 ? VIEW / w : 1;
+    }
+    function dotRadius(tile) {
+      return (cur().dot / 2) * tile.scale;
+    }
+    function durationOf(lane) {
+      return (BASE_MS * lane.spec.factor) / state.speed;
+    }
+    function phaseOf(part) {
+      var t = part && part.anim && part.anim.currentTime;
+      if (typeof t !== "number") return 0;
+      return (((t % BASE_MS) + BASE_MS) % BASE_MS) / BASE_MS;
+    }
+
+    function clear(lane) {
+      lane.parts.forEach(function (p) {
+        if (p.anim) p.anim.cancel();
+        p.el.remove();
+      });
+      lane.parts = [];
+    }
+
+    function applyGlow(tile, lane) {
+      var g = VARIANTS[tile.spec.key].fixed ? null : GLOW[cur().glow];
+      if (!g) {
+        lane.group.style.filter = "";
+        return;
+      }
+      // Lengths are in user units, so the halo keeps its size on screen.
+      var c = lane.spec.color;
+      lane.group.style.filter =
+        "drop-shadow(0 0 " + (g[0] * tile.scale).toFixed(1) + "px " + c + ") " +
+        "drop-shadow(0 0 " + (g[1] * tile.scale).toFixed(1) + "px " + c + ")";
+    }
+
+    function animate(node, from, to, lane, phase) {
+      var anim = node.animate(
+        [{ strokeDashoffset: from }, { strokeDashoffset: to }],
+        { duration: BASE_MS, iterations: Infinity, easing: "linear" },
+      );
+      anim.currentTime = phase * BASE_MS;
+      anim.updatePlaybackRate(BASE_MS / durationOf(lane));
+      return anim;
+    }
+
+    /**
+     * The spur: stacked dash patterns on the lane itself. Every layer is shorter
+     * than the one below and starts its dash at the same head, so the stack adds
+     * up towards the front. `pathLength` normalises every lane to 1000 units.
+     */
+    /**
+     * How each variant is put together:
+     *   circle      - draw the full circle of today's dot on top of the spur
+     *   caps        - what sits inside the head: "two" steps, a "soft" run, or none
+     *   spur        - does it have a tail at all
+     *   solidFront  - the spur closes up to full opacity at its front, so it can
+     *                 carry the head itself without a circle underneath
+     *   heatScale   - how far the spur itself shifts towards white. Kept low where
+     *                 the caps do the lighting, otherwise the whole head goes pale.
+     *   fixed       - ignores the design values and draws what the card draws
+     *                 today: 10 px (REQ K-12) and no glow. A reference has to
+     *                 stay put, or there is nothing to compare against.
+     */
+    var VARIANTS = {
+      comet: { circle: true, caps: "two", spur: true, solidFront: false, heatScale: 0 },
+      meteor: { circle: false, caps: "soft", spur: true, solidFront: true, heatScale: 0.45 },
+      ember: { circle: true, caps: "soft", spur: true, solidFront: false, heatScale: 1 },
+      today: {
+        circle: true, caps: "none", spur: false, solidFront: false, heatScale: 0, fixed: true,
+      },
+    };
+
+    function buildLane(tile, lane, phase) {
+      clear(lane);
+      var v = VARIANTS[tile.spec.key];
+      var r = v.fixed ? (DOT_PX_TODAY / 2) * tile.scale : dotRadius(tile);
+      var period = 1000 / state.count;
+      var head = Math.max(r * 0.35, 0.5);
+      var tail = Math.min((state.tail / 100) * 1000, period * 0.92);
+      var layers = state.tail > 0 && v.spur ? state.steps : 0;
+      var toUnits = 1000 / (lane.length || 1);
+      var bias = state.bias / 100;
+      var core = cur().core / 100;
+      var lightness = cur().coreLight / 100;
+
+      function addLayer(len, opacity, width, color, shift) {
+        var start = len - (shift || 0);
+        var node = el("path", {
+          d: lane.spec.d,
+          pathLength: 1000,
+          fill: "none",
+          stroke: color || lane.spec.color,
+          "stroke-width": width.toFixed(2),
+          "stroke-linecap": "round",
+          "stroke-opacity": opacity.toFixed(3),
+          "stroke-dasharray": len.toFixed(2) + " " + Math.max(period - len, 0.01).toFixed(2),
+        });
+        node.style.strokeDashoffset = String(start - phase * 1000);
+        lane.group.appendChild(node);
+        var part = { el: node, anim: null };
+        if (!state.paused) part.anim = animate(node, start, start - 1000, lane, phase);
+        lane.parts.push(part);
+      }
+
+      /** Glow of the spur at position f, 1 at the front: warmer towards the head. */
+      function heatAt(f) {
+        if (v.heatScale <= 0 || core <= 0) return lane.spec.color;
+        var t = Math.min(Math.max((f - (1 - core)) / core, 0), 1);
+        return mix(lane.spec.color, "white", lightness * v.heatScale * Math.pow(t, 1.4));
+      }
+
+      var decay = (state.taper / 100) * 3.5;
+      var peak = cur().fade / 100;
+      var covered = 0;
+      for (var i = 0; i < layers; i++) {
+        var len = Math.max((tail * (layers - i)) / layers, head);
+        var f = (i + 1) / layers;
+        var thin = MIN_W + (1 - MIN_W) * Math.exp(-decay * (1 - f));
+        var width = Math.max(2 * r * thin, 0.5);
+        var x = (layers - i - 0.5) / layers;
+        // The spur always fades out towards its tip. With no separate circle the
+        // front additionally closes up to full opacity over the last few layers,
+        // so it can carry the head - but that must not lift the whole spur, or
+        // the tail turns into a line of even strength.
+        var base = peak * (1 - x);
+        var wanted = v.solidFront ? base + (1 - base) * Math.pow(f, 10) : base;
+        var alpha = covered >= 1 ? 1 : (wanted - covered) / (1 - covered);
+        covered = wanted;
+        addLayer(len, Math.min(Math.max(alpha, 0.002), 1), width, heatAt(f));
+      }
+
+      // The circle: the same 10 px the card uses today (REQ K-12). The meteor
+      // has none - its head is the front of the spur.
+      if (v.circle) addLayer(head, 1, 2 * r);
+
+      if (v.caps === "two" && core > 0 && lightness > 0) {
+        var midSize = Math.min(core * 1.9, 0.8);
+        addLayer(head, 0.6, 2 * r * midSize, mix(lane.spec.color, "white", lightness * 0.5),
+          bias * r * (1 - midSize) * toUnits);
+        addLayer(head, 0.85, 2 * r * core, mix(lane.spec.color, "white", lightness),
+          bias * r * (1 - core) * toUnits);
+      }
+
+      if (v.caps === "soft" && core > 0 && lightness > 0) {
+        // Six caps from the rim inwards, each smaller, lighter and further
+        // forward. Pushed forward they light only the front of the head, which is
+        // the part of a meteor that actually burns - the back keeps its colour.
+        var steps = 6;
+        for (var k = 1; k <= steps; k++) {
+          var t = k / steps;
+          var size = 1 - t * (1 - core);
+          addLayer(head, 0.3, 2 * r * size, mix(lane.spec.color, "white", lightness * t),
+            bias * r * (1 - size) * toUnits);
+        }
+      }
+
+      applyGlow(tile, lane);
+    }
+
+    function rebuild(tile) {
+      measure(tile);
+      tile.lanes.forEach(function (lane) {
+        lane.length = lane.measure.getTotalLength();
+        var phase = phaseOf(lane.parts[lane.parts.length - 1]);
+        buildLane(tile, lane, phase);
+      });
+    }
+    function rebuildAll() {
+      tiles.forEach(rebuild);
+    }
+    function applySpeed() {
+      tiles.forEach(function (tile) {
+        tile.lanes.forEach(function (lane) {
+          var rate = BASE_MS / durationOf(lane);
+          lane.parts.forEach(function (p) {
+            if (p.anim) p.anim.updatePlaybackRate(rate);
+          });
+        });
+      });
+    }
+    function eachAnim(fn) {
+      tiles.forEach(function (tile) {
+        tile.lanes.forEach(function (lane) {
+          lane.parts.forEach(function (p) {
+            if (p.anim) fn(p.anim);
+          });
+        });
+      });
+    }
+
+    // --- build ------------------------------------------------------------
+    var bench = document.getElementById("bench");
+    [
+      {
+        key: "comet",
+        name: "Komet",
+        tag: "Stand von eben",
+        note: "Kreis mit zwei hellen Kappen darin, nach vorn versetzt, dahinter der Schweif. Der Stand, den Du behalten wolltest.",
+      },
+      {
+        key: "meteor",
+        name: "Meteorit",
+        tag: "ein Körper",
+        note: "Kein eigener Kreis: Die Front des Schweifs ist der Kopf. Hell glüht nur dessen Vorderseite, hinten bleibt die Bahnfarbe stehen — ein Körper statt Punkt mit Anhang.",
+      },
+      {
+        key: "ember",
+        name: "Glutkern",
+        tag: "Kreis bleibt",
+        note: "Der Kreis bleibt als Punkt erhalten, sein Inneres ist aber ein Verlauf aus fünf Kappen statt zweier Stufen. Der Schweif glüht vorn mit.",
+      },
+      {
+        key: "today",
+        name: "Heute",
+        tag: "Vergleich",
+        note: "Der heutige Punkt: 10 px, kein Glühen. Fest, damit der Vergleich einen festen Maßstab hat — nur Tempo und Punktzahl gelten auch hier, denn das ist die Szene, nicht das Design.",
+      },
+    ].forEach(function (spec) {
+      var tile = buildTile(spec);
+      tiles.push(tile);
+      bench.appendChild(tile.root);
+    });
+
+    // --- wiring -----------------------------------------------------------
+    var speedIn = document.getElementById("speed");
+    var speedOut = document.getElementById("speed-out");
+    var tailIn = document.getElementById("tail");
+    var tailOut = document.getElementById("tail-out");
+    var taperIn = document.getElementById("taper");
+    var taperOut = document.getElementById("taper-out");
+    var fadeIn = document.getElementById("fade");
+    var fadeOut = document.getElementById("fade-out");
+    var dotIn = document.getElementById("dot");
+    var dotOut = document.getElementById("dot-out");
+    var biasIn = document.getElementById("bias");
+    var biasOut = document.getElementById("bias-out");
+    var coreIn = document.getElementById("core");
+    var coreOut = document.getElementById("core-out");
+    var coreLightIn = document.getElementById("corelight");
+    var coreLightOut = document.getElementById("corelight-out");
+    var countIn = document.getElementById("count");
+    var countOut = document.getElementById("count-out");
+    var playpause = document.getElementById("playpause");
+    var stageDark = document.getElementById("stage-dark");
+    var stageLight = document.getElementById("stage-light");
+
+    var scopeLabels = Array.prototype.slice.call(document.querySelectorAll(".scope"));
+
+    /** Puts the current ground's values back into the controls. */
+    function syncControls() {
+      var v = cur();
+      // Say on the label itself which of the two grounds is being edited.
+      scopeLabels.forEach(function (n) {
+        n.textContent = state.stage === "dark" ? "(dunkel)" : "(hell)";
+      });
+      dotIn.value = String(v.dot);
+      dotOut.textContent = v.dot + " px";
+      fadeIn.value = String(v.fade);
+      fadeOut.textContent = v.fade + " %";
+      coreIn.value = String(v.core);
+      coreOut.textContent = v.core + " %";
+      coreLightIn.value = String(v.coreLight);
+      coreLightOut.textContent = v.coreLight + " %";
+      glowButtons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(parseInt(b.dataset.glow, 10) === v.glow));
+      });
+    }
+
+    function setStage(mode) {
+      state.stage = mode;
+      document.documentElement.setAttribute("data-stage", mode);
+      stageDark.setAttribute("aria-pressed", String(mode === "dark"));
+      stageLight.setAttribute("aria-pressed", String(mode === "light"));
+      if (tiles.length) {
+        syncControls();
+        rebuildAll();
+        if (typeof refreshDesignState === "function" && presetSel) refreshDesignState();
+      }
+    }
+    stageDark.addEventListener("click", function () { setStage("dark"); });
+    stageLight.addEventListener("click", function () { setStage("light"); });
+
+    var glowButtons = Array.prototype.slice.call(
+      document.querySelectorAll("#glow-seg button"),
+    );
+    glowButtons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        cur().glow = parseInt(b.dataset.glow, 10);
+        glowButtons.forEach(function (o) {
+          o.setAttribute("aria-pressed", String(o === b));
+        });
+        tiles.forEach(function (tile) {
+          tile.lanes.forEach(function (lane) { applyGlow(tile, lane); });
+        });
+        refreshDesignState();
+      });
+    });
+
+    speedIn.addEventListener("input", function () {
+      state.speed = parseFloat(speedIn.value);
+      speedOut.textContent = state.speed.toFixed(2).replace(".", ",") + "×";
+      applySpeed();
+    });
+    tailIn.addEventListener("input", function () {
+      state.tail = parseInt(tailIn.value, 10);
+      tailOut.textContent = state.tail + " %";
+      changed();
+    });
+    taperIn.addEventListener("input", function () {
+      state.taper = parseInt(taperIn.value, 10);
+      taperOut.textContent = state.taper + " %";
+      changed();
+    });
+    fadeIn.addEventListener("input", function () {
+      cur().fade = parseInt(fadeIn.value, 10);
+      fadeOut.textContent = cur().fade + " %";
+      changed();
+    });
+    dotIn.addEventListener("input", function () {
+      cur().dot = parseInt(dotIn.value, 10);
+      dotOut.textContent = cur().dot + " px";
+      changed();
+    });
+    biasIn.addEventListener("input", function () {
+      state.bias = parseInt(biasIn.value, 10);
+      biasOut.textContent = state.bias + " %";
+      changed();
+    });
+    coreIn.addEventListener("input", function () {
+      cur().core = parseInt(coreIn.value, 10);
+      coreOut.textContent = cur().core + " %";
+      changed();
+    });
+    coreLightIn.addEventListener("input", function () {
+      cur().coreLight = parseInt(coreLightIn.value, 10);
+      coreLightOut.textContent = cur().coreLight + " %";
+      changed();
+    });
+    countIn.addEventListener("input", function () {
+      state.count = parseInt(countIn.value, 10);
+      countOut.textContent = String(state.count);
+      rebuildAll();
+    });
+    playpause.addEventListener("click", function () {
+      state.paused = !state.paused;
+      playpause.textContent = state.paused ? "Weiter" : "Anhalten";
+      playpause.setAttribute("aria-pressed", String(state.paused));
+      if (state.paused) eachAnim(function (a) { a.pause(); });
+      else {
+        rebuildAll();
+        eachAnim(function (a) { a.play(); });
+      }
+    });
+
+    // Reduced motion: everything is drawn, the clock just does not run.
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      state.paused = true;
+      playpause.textContent = "Weiter";
+      playpause.setAttribute("aria-pressed", "true");
+    }
+
+    // Also does syncControls() and rebuildAll(); every control exists by now.
+    setStage("dark");
+
+    // --- designs ----------------------------------------------------------
+    var presetSel = document.getElementById("preset");
+    var reloadBtn = document.getElementById("reload");
+    var nameIn = document.getElementById("design-name");
+    var saveBtn = document.getElementById("save");
+    var revertBtn = document.getElementById("revert");
+    var deleteBtn = document.getElementById("delete");
+    var stateOut = document.getElementById("state");
+    var sourceOut = document.getElementById("source");
+    var variantButtons = Array.prototype.slice.call(
+      document.querySelectorAll("#variant-seg button"),
+    );
+
+    /** id of the design that is loaded; the state may have drifted from it. */
+    var loadedId = BUILTIN[0].id;
+    /** Second click of the delete button; window.confirm is blocked in a frame. */
+    var armedDelete = false;
+    var deleteTimer = 0;
+    var sourceText = "Quelle: eingebaut";
+    var msgTimer = 0;
+
+    /** Short message where the source line sits; it comes back on its own. */
+    function say(text, bad) {
+      clearTimeout(msgTimer);
+      sourceOut.textContent = text;
+      sourceOut.classList.toggle("bad", !!bad);
+      msgTimer = setTimeout(function () {
+        sourceOut.textContent = sourceText;
+        sourceOut.classList.remove("bad");
+      }, 5000);
+    }
+
+    function designById(id) {
+      var hit = null;
+      BUILTIN.forEach(function (d) {
+        if (d.id === id) hit = d;
+      });
+      return hit;
+    }
+
+    function nameOf(id) {
+      var d = designById(id);
+      return d ? d.name || id : id;
+    }
+
+    function fillPresetList() {
+      presetSel.innerHTML = "";
+      BUILTIN.forEach(function (d) {
+        var o = document.createElement("option");
+        o.value = d.id;
+        o.textContent = d.name || d.id;
+        presetSel.appendChild(o);
+      });
+      presetSel.value = designById(loadedId) ? loadedId : BUILTIN[0].id;
+    }
+
+    function disarmDelete() {
+      armedDelete = false;
+      clearTimeout(deleteTimer);
+      deleteBtn.textContent = "Löschen";
+      deleteBtn.classList.remove("warn");
+    }
+
+    /** Says whether the state still matches the loaded design. */
+    function refreshDesignState() {
+      var base = designById(loadedId);
+      var dirty = !base || !sameDesign(currentDesign(loadedId, base.name), base);
+      stateOut.textContent = "geladen: " + nameOf(loadedId) + (dirty ? " · geändert" : "");
+      stateOut.classList.toggle("dirty", dirty);
+      revertBtn.disabled = !dirty || !base;
+      // The file may never end up empty, so the last design cannot be deleted.
+      deleteBtn.disabled = BUILTIN.length < 2;
+      if (deleteBtn.disabled) disarmDelete();
+      variantButtons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.dataset.variant === state.variant));
+      });
+      tiles.forEach(function (tile) {
+        var chosen = tile.spec.key === state.variant;
+        tile.root.classList.toggle("chosen", chosen);
+        tile.tagEl.textContent = chosen ? "gewählt" : tile.spec.tag;
+      });
+    }
+
+    /** Every control change funnels through here. */
+    function changed() {
+      syncControls();
+      rebuildAll();
+      refreshDesignState();
+    }
+
+    function loadDesign(id) {
+      var d = designById(id);
+      if (!d) return;
+      applyDesign(d);
+      loadedId = id;
+      presetSel.value = id;
+      nameIn.value = d.name || id;
+      disarmDelete();
+      changed();
+    }
+
+    /** Reads designs.json and takes it as the list. Resolves with the count. */
+    function readFile() {
+      return fetch(DESIGNS_URL, { cache: "no-store" })
+        .then(function (r) {
+          return r.ok ? r.json() : null;
+        })
+        .then(function (data) {
+          if (!data || !Array.isArray(data.designs) || !data.designs.length) return 0;
+          BUILTIN.length = 0;
+          data.designs.forEach(function (d) {
+            BUILTIN.push(d);
+          });
+          sourceText = "Quelle: designs.json";
+          fillPresetList();
+          return BUILTIN.length;
+        });
+    }
+
+    /**
+     * Posts a list of designs to Home Assistant, which writes the file, then
+     * reads it back. The webhook answers 200 whatever happens - even for an id
+     * nobody listens to - so reading back is the only honest confirmation.
+     */
+    function writeFile(list, okMsg, keepId) {
+      say("Wird gespeichert …");
+      return fetch(SAVE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designs: list }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return new Promise(function (done) {
+            setTimeout(done, 600);
+          });
+        })
+        .then(readFile)
+        .then(function (count) {
+          if (count !== list.length) {
+            throw new Error("die Datei zeigt " + count + " statt " + list.length);
+          }
+          loadDesign(designById(keepId) ? keepId : BUILTIN[0].id);
+          say(okMsg);
+        })
+        .catch(function (err) {
+          say("Speichern ging nicht: " + err.message, true);
+        });
+    }
+
+    // Picking a design loads it. An unsaved change is gone then - the state line
+    // said so, and a dialog on top of that would only be in the way.
+    presetSel.addEventListener("change", function () {
+      var base = designById(loadedId);
+      var dirty = base && !sameDesign(currentDesign(loadedId, base.name), base);
+      loadDesign(presetSel.value);
+      if (dirty) say("Ungespeicherte Änderung verworfen.");
+    });
+
+    reloadBtn.addEventListener("click", function () {
+      readFile()
+        .then(function (count) {
+          if (!count) throw new Error("keine Designs in der Datei");
+          loadDesign(designById(loadedId) ? loadedId : BUILTIN[0].id);
+          say(count + " Designs aus der Datei geladen.");
+        })
+        .catch(function (err) {
+          say("Datei nicht lesbar: " + err.message, true);
+        });
+    });
+
+    variantButtons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        state.variant = b.dataset.variant;
+        refreshDesignState();
+      });
+    });
+
+    saveBtn.addEventListener("click", function () {
+      var name = nameIn.value.trim();
+      if (!name) {
+        nameIn.focus();
+        say("Erst einen Namen eingeben.", true);
+        return;
+      }
+      var id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      if (!id) {
+        say("Aus dem Namen lässt sich keine Kennung bilden.", true);
+        return;
+      }
+      // Same name replaces, a new one is appended at the end.
+      var list = BUILTIN.filter(function (d) {
+        return d.id !== id;
+      });
+      list.push(currentDesign(id, name));
+      writeFile(list, "„" + name + "“ gespeichert.", id);
+    });
+
+    revertBtn.addEventListener("click", function () {
+      loadDesign(loadedId);
+    });
+
+    // Two clicks instead of a confirm dialog, which a frame does not allow.
+    deleteBtn.addEventListener("click", function () {
+      var id = presetSel.value;
+      if (!designById(id) || BUILTIN.length < 2) return;
+      if (!armedDelete) {
+        armedDelete = true;
+        deleteBtn.textContent = "Wirklich löschen?";
+        deleteBtn.classList.add("warn");
+        deleteTimer = setTimeout(disarmDelete, 4000);
+        return;
+      }
+      var gone = nameOf(id);
+      disarmDelete();
+      var list = BUILTIN.filter(function (d) {
+        return d.id !== id;
+      });
+      writeFile(list, "„" + gone + "“ gelöscht.", loadedId === id ? list[0].id : loadedId);
+    });
+
+    fillPresetList();
+    nameIn.value = nameOf(loadedId);
+    refreshDesignState();
+
+    // The file next to this page is the truth; the list in the code is only the
+    // fallback for when it is missing, as in a standalone copy of this tool.
+    readFile()
+      .then(function (count) {
+        if (!count) return;
+        sourceOut.textContent = sourceText;
+        loadDesign(designById(loadedId) ? loadedId : BUILTIN[0].id);
+      })
+      .catch(function () {
+        /* opened without the file next to it: the built-in list stands */
+      });
+
+    // A phone has no room for an open panel above the tiles.
+    if (window.innerWidth < 900) document.getElementById("settings").open = false;
+
+    var resizeTimer = 0;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(rebuildAll, 150);
+    });
+
+    var fpsOut = document.getElementById("fps");
+    var frames = 0;
+    var last = performance.now();
+    (function tick(now) {
+      frames++;
+      if (now - last >= 1000) {
+        fpsOut.textContent = String(Math.round((frames * 1000) / (now - last)));
+        frames = 0;
+        last = now;
+      }
+      requestAnimationFrame(tick);
+    })(performance.now());
+  })();
+</script>

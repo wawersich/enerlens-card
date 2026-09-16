@@ -1,0 +1,100 @@
+{
+  "designs": [
+    {
+      "id": "comet",
+      "name": "Komet",
+      "variant": "comet",
+      "spur": {
+        "tail": 16,
+        "taper": 100,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 10,
+        "core": 30,
+        "coreLight": 60,
+        "fade": 40,
+        "glow": 1
+      },
+      "light": {
+        "dot": 8,
+        "core": 20,
+        "coreLight": 40,
+        "fade": 28,
+        "glow": 1
+      }
+    },
+    {
+      "id": "meteor",
+      "name": "Meteorit",
+      "variant": "meteor",
+      "spur": {
+        "tail": 16,
+        "taper": 100,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 10,
+        "core": 30,
+        "coreLight": 60,
+        "fade": 40,
+        "glow": 1
+      },
+      "light": {
+        "dot": 8,
+        "core": 20,
+        "coreLight": 40,
+        "fade": 28,
+        "glow": 1
+      }
+    },
+    {
+      "id": "ember",
+      "name": "Glutkern",
+      "variant": "ember",
+      "spur": {
+        "tail": 16,
+        "taper": 100,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 10,
+        "core": 30,
+        "coreLight": 60,
+        "fade": 40,
+        "glow": 1
+      },
+      "light": {
+        "dot": 8,
+        "core": 20,
+        "coreLight": 40,
+        "fade": 28,
+        "glow": 1
+      }
+    },
+    {
+      "id": "plain",
+      "name": "Ohne Spur",
+      "variant": "comet",
+      "spur": {
+        "tail": 0,
+        "taper": 100,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 10,
+        "core": 0,
+        "coreLight": 0,
+        "fade": 40,
+        "glow": 0
+      },
+      "light": {
+        "dot": 10,
+        "core": 0,
+        "coreLight": 0,
+        "fade": 40,
+        "glow": 0
+      }
+    }
+  ]
+}
