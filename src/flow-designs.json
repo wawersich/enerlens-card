@@ -3,97 +3,129 @@
     {
       "id": "comet",
       "name": "Komet",
-      "variant": "comet",
+      "shape": {
+        "circle": true,
+        "caps": 2,
+        "solidFront": false,
+        "heat": 0
+      },
       "spur": {
         "tail": 16,
         "taper": 100,
-        "bias": 70
+        "bias": 70,
+        "steps": 18
       },
       "dark": {
         "dot": 10,
         "core": 30,
         "coreLight": 60,
         "fade": 40,
-        "glow": 1
+        "glow": 1,
+        "glowStrength": 60
       },
       "light": {
         "dot": 8,
         "core": 20,
         "coreLight": 40,
         "fade": 28,
-        "glow": 1
+        "glow": 1,
+        "glowStrength": 35
       }
     },
     {
       "id": "meteor",
       "name": "Meteorit",
-      "variant": "meteor",
+      "shape": {
+        "circle": false,
+        "caps": 6,
+        "solidFront": true,
+        "heat": 45
+      },
       "spur": {
         "tail": 16,
         "taper": 100,
-        "bias": 70
+        "bias": 70,
+        "steps": 18
       },
       "dark": {
         "dot": 10,
         "core": 30,
         "coreLight": 60,
         "fade": 40,
-        "glow": 1
+        "glow": 1,
+        "glowStrength": 60
       },
       "light": {
         "dot": 8,
         "core": 20,
         "coreLight": 40,
         "fade": 28,
-        "glow": 1
+        "glow": 1,
+        "glowStrength": 35
       }
     },
     {
       "id": "ember",
       "name": "Glutkern",
-      "variant": "ember",
+      "shape": {
+        "circle": true,
+        "caps": 6,
+        "solidFront": false,
+        "heat": 100
+      },
       "spur": {
         "tail": 16,
         "taper": 100,
-        "bias": 70
+        "bias": 70,
+        "steps": 18
       },
       "dark": {
         "dot": 10,
         "core": 30,
         "coreLight": 60,
         "fade": 40,
-        "glow": 1
+        "glow": 1,
+        "glowStrength": 60
       },
       "light": {
         "dot": 8,
         "core": 20,
         "coreLight": 40,
         "fade": 28,
-        "glow": 1
+        "glow": 1,
+        "glowStrength": 35
       }
     },
     {
       "id": "plain",
       "name": "Ohne Spur",
-      "variant": "comet",
+      "shape": {
+        "circle": true,
+        "caps": 2,
+        "solidFront": false,
+        "heat": 0
+      },
       "spur": {
         "tail": 0,
         "taper": 100,
-        "bias": 70
+        "bias": 70,
+        "steps": 18
       },
       "dark": {
         "dot": 10,
         "core": 0,
         "coreLight": 0,
         "fade": 40,
-        "glow": 0
+        "glow": 0,
+        "glowStrength": 60
       },
       "light": {
         "dot": 10,
         "core": 0,
         "coreLight": 0,
         "fade": 40,
-        "glow": 0
+        "glow": 0,
+        "glowStrength": 35
       }
     }
   ]

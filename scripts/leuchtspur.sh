@@ -10,8 +10,11 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$REPO/tools/leuchtspur"
 TARGET="/homeassistant/www/leuchtspur"
 
+# The designs live in src/, because the card imports them at build time; the
+# tool gets a copy under the name it fetches.
 mkdir -p "$TARGET"
-cp "$SRC/index.html" "$SRC/designs.json" "$TARGET/"
+cp "$SRC/index.html" "$TARGET/"
+cp "$REPO/src/flow-designs.json" "$TARGET/designs.json"
 VERSION="$(md5sum "$TARGET/index.html" | cut -c1-8)"
 COUNT="$(node -e 'const d=require("'"$TARGET"'/designs.json");console.log(d.designs.length)')"
 echo "Kopiert nach $TARGET ($COUNT Designs)"

@@ -1,8 +1,8 @@
 """
-Takes designs.json from the design tool and writes it into this repository.
+Takes the designs from the design tool and writes them into this repository.
 
 A browser cannot write files, so the tool posts the designs to a Home Assistant
-webhook and this handler puts them on disk. The webhook is local_only, so it is
+webhook and this handler puts them on disk, into src/ where the card imports them. The webhook is local_only, so it is
 reachable from the home network and not from outside.
 
 Deliberately narrow: the path is fixed here and is not a parameter, the payload
@@ -24,7 +24,7 @@ import shutil
 import time
 
 WEBHOOK_ID = "enerlens-leuchtspur-designs"
-TARGET = pathlib.Path("/config/prj/enerlens-card/tools/leuchtspur/designs.json")
+TARGET = pathlib.Path("/config/prj/enerlens-card/src/flow-designs.json")
 # The copy the page is served from, so a reload shows the new state at once.
 DEPLOYED = pathlib.Path("/config/www/leuchtspur/designs.json")
 
@@ -41,9 +41,7 @@ def _looks_like_designs(payload):
             return False
         if not isinstance(entry.get("id"), str) or not entry["id"]:
             return False
-        if not isinstance(entry.get("variant"), str):
-            return False
-        for part in ("spur", "dark", "light"):
+        for part in ("shape", "spur", "dark", "light"):
             if not isinstance(entry.get(part), dict):
                 return False
     return True
