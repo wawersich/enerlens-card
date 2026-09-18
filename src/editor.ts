@@ -27,6 +27,7 @@ import {
   swatchHex,
 } from "./colors";
 import { EDITOR_NAME } from "./const";
+import { NO_DESIGN, flowDesigns } from "./designs";
 import { localize } from "./localize";
 import type { ColorKey, EntityRef, HomeAssistant, RawConfig, SocStop } from "./types";
 
@@ -106,6 +107,7 @@ interface FlatConfig {
   show_selector?: boolean;
   inactive_lines?: string;
   animation?: string;
+  design?: string;
   min_w?: number;
   peak_w?: number;
   slow_below_w?: number;
@@ -206,6 +208,7 @@ function toFlat(config: RawConfig): FlatConfig {
     show_selector: config.view?.show_selector,
     inactive_lines: config.flow?.inactive_lines,
     animation: config.flow?.animation,
+    design: config.flow?.design,
     min_w: config.flow?.min_w,
     peak_w: config.flow?.peak_w,
     slow_below_w: config.flow?.slow_below_w,
@@ -359,6 +362,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       ...previous.flow,
       inactive_lines: flat.inactive_lines,
       animation: flat.animation,
+      design: flat.design,
       min_w: num(flat.min_w),
       peak_w: num(flat.peak_w),
       slow_below_w: num(flat.slow_below_w),
@@ -589,6 +593,20 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 { value: "auto", label: t("anim_auto") },
                 { value: "on", label: t("anim_on") },
                 { value: "off", label: t("anim_off") },
+              ],
+            },
+          },
+        },
+        {
+          name: "design",
+          selector: {
+            select: {
+              mode: "dropdown",
+              // Built from the designs this build carries, so the editor can
+              // never offer one the card would not find (E-1).
+              options: [
+                { value: NO_DESIGN, label: t("design_none") },
+                ...flowDesigns().map((design) => ({ value: design.id, label: design.name })),
               ],
             },
           },

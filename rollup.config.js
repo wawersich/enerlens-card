@@ -36,7 +36,10 @@ const applyNameSuffix = () => ({
     return code
       .replace('"enerlens-card"', `"enerlens-card${suffix}"`)
       .replace('"enerlens-card-editor"', `"enerlens-card${suffix}-editor"`)
-      .replace('"EnerLens Card"', `"EnerLens Card (${suffix.replace(/^-/, "")})"`);
+      .replace('"EnerLens Card"', `"EnerLens Card (${suffix.replace(/^-/, "")})"`)
+      // Only the local build reloads designs from disk; see LIVE_DESIGNS_URL.
+      .replace('export const LIVE_DESIGNS_URL = ""', 
+        'export const LIVE_DESIGNS_URL = "/local/leuchtspur/designs.json"');
   },
 });
 

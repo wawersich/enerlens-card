@@ -681,6 +681,10 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       slowS: slowSFixed,
       fastS,
       animation: readEnum(rawFlow.animation, ANIMATION_MODES, "flow.animation", "auto", hass),
+      // Deliberately not readEnum: an id that is not in this build - because a
+      // design was renamed or dropped - falls back to the plain dots instead of
+      // making the card refuse its own configuration (P-10).
+      design: typeof rawFlow.design === "string" ? rawFlow.design : "none",
       inactiveLines: readEnum(
         rawFlow.inactive_lines,
         INACTIVE_LINES,

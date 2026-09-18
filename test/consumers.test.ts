@@ -74,6 +74,7 @@ function config(
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      design: "none",
     },
     colors: {
       solar: "solar",

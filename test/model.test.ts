@@ -73,6 +73,7 @@ function configOf(
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      design: "none",
     },
     colors: {
       solar: "#ff9800",

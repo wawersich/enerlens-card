@@ -8,3 +8,10 @@ export const CARD_VERSION = "0.4.1";
 export const REPO_URL = "https://github.com/wawersich/enerlens-card";
 /** Replaced by the build with the git revision; stays a placeholder in tests. */
 export const BUILD_ID = "__BUILD_ID__";
+/**
+ * Where the local build fetches flow designs from, so a design saved in the
+ * tool shows up after a reload without rebuilding. Empty in a release build:
+ * there the designs are compiled in, and a request that could only fail has no
+ * business running on someone else's dashboard.
+ */
+export const LIVE_DESIGNS_URL = "";

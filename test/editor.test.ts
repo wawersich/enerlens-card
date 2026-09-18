@@ -8,6 +8,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONSUMER_PALETTE, swatchHex } from "../src/colors";
 import { normalizeConfig } from "../src/config";
+import { NO_DESIGN, flowDesigns } from "../src/designs";
 import type { HomeAssistant, RawConfig } from "../src/types";
 
 type Editor = HTMLElement & {
@@ -50,6 +51,19 @@ async function mount(config: RawConfig): Promise<Editor> {
 }
 
 const form = (el: Editor): Form => el.shadowRoot?.querySelector("ha-form") as Form;
+
+/** A field anywhere in the nested schema, by name. */
+function findField(el: Editor, name: string): Field | undefined {
+  let hit: Field | undefined;
+  const walk = (fields: Field[]) => {
+    for (const field of fields) {
+      if (field.name === name && !field.schema) hit = field;
+      if (field.schema) walk(field.schema);
+    }
+  };
+  walk(form(el).schema);
+  return hit;
+}
 
 /** Names of all fields under "entities", grids flattened. */
 function entityFields(el: Editor): string[] {
@@ -354,6 +368,37 @@ describe("editor - never writes what the card would refuse (REQ E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(() => normalizeConfig(saved)).not.toThrow();
     warn.mockRestore();
+  });
+});
+
+describe("editor - flow design (P-10)", () => {
+  const base: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  it("offers every design this build carries, plus the plain dots", async () => {
+    const el = await mount(base);
+    const field = findField(el, "design");
+    const select = field?.selector?.select as { options: { value: string }[] } | undefined;
+    const values = (select?.options ?? []).map((option) => option.value);
+    expect(values[0]).toBe(NO_DESIGN);
+    for (const design of flowDesigns()) expect(values).toContain(design.id);
+    // Every offered value has to survive the card, or the editor breaks E-1.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const value of values) {
+      const saved = await change(el, { design: value });
+      expect(() => normalizeConfig(saved)).not.toThrow();
+    }
+    warn.mockRestore();
+  });
+
+  it("writes the chosen design and reads it back", async () => {
+    const el = await mount(base);
+    const design = flowDesigns()[0];
+    const saved = await change(el, { design: design.id });
+    expect(saved.flow?.design).toBe(design.id);
+    expect(form(el).data.design).toBe(design.id);
   });
 });
 

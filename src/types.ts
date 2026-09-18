@@ -64,6 +64,54 @@ export interface LovelaceCardConfig {
 
 export type ViewMode = "current" | "avg_short" | "avg_long";
 export type AnimationMode = "auto" | "on" | "off";
+
+/**
+ * A flow design: everything about how the dots look, and nothing about how they
+ * move - speed and count come from the power (P-3). Designed in
+ * tools/leuchtspur/ and kept in src/flow-designs.json (P-10, P-11).
+ */
+export interface FlowDesignShape {
+  /** Draw the full circle of the plain dot on top of the spur. */
+  circle: boolean;
+  /** Lighter caps inside the head, 0 for none. */
+  caps: number;
+  /** The spur closes to full opacity at its front and carries the head itself. */
+  solidFront: boolean;
+  /** How far the spur shifts towards white, in percent. */
+  heat: number;
+}
+
+export interface FlowDesignSpur {
+  /** Length as a percentage of the lane. 0 leaves the plain dot. */
+  tail: number;
+  /** Exponent of the taper, in percent. */
+  taper: number;
+  /** How far forward the bright core sits, in percent. */
+  bias: number;
+  /** Layers the spur is built from. */
+  steps: number;
+}
+
+/** The values that depend on the ground the card sits on. */
+export interface FlowDesignGround {
+  /** Dot diameter in CSS pixels. */
+  dot: number;
+  core: number;
+  coreLight: number;
+  fade: number;
+  /** 0 none, 1 blur filter, 2 drawn gradient. */
+  glow: number;
+  glowStrength: number;
+}
+
+export interface FlowDesign {
+  id: string;
+  name: string;
+  shape: FlowDesignShape;
+  spur: FlowDesignSpur;
+  dark: FlowDesignGround;
+  light: FlowDesignGround;
+}
 /** How connections without flow are drawn (REQ P-9). */
 export type InactiveLines = "show" | "dim" | "hide";
 export type NodeKey = "solar" | "grid" | "house" | "battery";
@@ -147,6 +195,8 @@ export interface RawConfig extends LovelaceCardConfig {
     fast_s?: number;
     animation?: AnimationMode;
     inactive_lines?: InactiveLines;
+    /** Id from flow-designs.json, or "none" for the plain dots (P-10). */
+    design?: string;
   };
   colors?: Partial<Record<ColorKey, string>> & {
     soc_stops?: SocStop[];
@@ -228,6 +278,7 @@ export interface Config {
     fastS: number;
     animation: AnimationMode;
     inactiveLines: InactiveLines;
+    design: string;
   };
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
   icons: Partial<Record<NodeKey, string>>;

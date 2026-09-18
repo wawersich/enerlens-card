@@ -297,6 +297,23 @@ describe("power format (K-7)", () => {
   });
 });
 
+describe("flow design (P-10)", () => {
+  it("defaults to none and takes an id as written", () => {
+    expect(normalizeConfig(cfg()).flow.design).toBe("none");
+    expect(normalizeConfig(cfg({ flow: { design: "ember" } })).flow.design).toBe("ember");
+  });
+
+  it("keeps an unknown id instead of refusing the config", () => {
+    // A design may be renamed or dropped between versions. The card falls back
+    // to the plain dots when it cannot find one, rather than failing to load.
+    expect(normalizeConfig(cfg({ flow: { design: "was-here-once" } })).flow.design).toBe(
+      "was-here-once",
+    );
+    expect(() => normalizeConfig(cfg({ flow: { design: 42 } }))).not.toThrow();
+    expect(normalizeConfig(cfg({ flow: { design: 42 } })).flow.design).toBe("none");
+  });
+});
+
 describe("consumers (C-4, L-4)", () => {
   it("treats a cleared optional text as absent, not as an error (REQ E-1)", () => {
     // What the editor's object selector leaves behind after clearing a field.
@@ -510,6 +527,7 @@ describe("defaults (section 3)", () => {
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show",
+      design: "none",
     });
   });
 
@@ -728,6 +746,7 @@ describe("numeric ranges (schema rules)", () => {
       fastS: 1,
       animation: "off",
       inactiveLines: "show",
+      design: "none",
     });
   });
 
