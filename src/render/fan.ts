@@ -11,6 +11,7 @@ import type { FlowDesign, FlowDesignGround } from "../types";
  * re-render would recreate them and restart every animation (REQ P-6).
  */
 import { GLOW_DRAWN, HALO_R, dotRings, glowFilter, haloStops } from "./dot-shape";
+import { resolveColour } from "./ground";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const BASE_MS = 5000;
@@ -44,6 +45,8 @@ export class FanLayer {
   private dotRadius = 5;
   private design?: FlowDesign;
   private dark = true;
+  /** One colour for every dot, or undefined to follow each row (P-13). */
+  private dotColor?: string;
   private defs?: SVGDefsElement;
 
   constructor(private readonly svg: SVGSVGElement) {}
@@ -55,6 +58,13 @@ export class FanLayer {
     this.dark = dark;
     // The dots are repainted on the next update, which happens on every tick
     // anyway; clearing the key is what makes that update notice.
+    for (const line of this.lines.values()) line.paintKey = undefined;
+  }
+
+  /** One colour for every dot on the card, or undefined to follow the row. */
+  setDotColor(colour: string | undefined): void {
+    if (colour === this.dotColor) return;
+    this.dotColor = colour;
     for (const line of this.lines.values()) line.paintKey = undefined;
   }
 
@@ -102,17 +112,22 @@ export class FanLayer {
 
       // Repainting means rebuilding a handful of circles, so it is done when
       // something they depend on moved - not on every tick.
-      const paintKey = [row.color, this.dotRadius, ground ? this.design?.id : "", this.dark].join(
+      // The line keeps the flow's colour; only the dots on it may differ.
+      const dotColour = this.dotColor ?? row.color;
+      const paintKey = [dotColour, this.dotRadius, ground ? this.design?.id : "", this.dark].join(
         "|",
       );
       const repaint = line.paintKey !== paintKey;
       line.paintKey = paintKey;
-      if (repaint) this.applyGlow(line, row.color, ground);
+      // Read once per repaint, not per dot: the answer is the same for all
+      // of them and asking costs a layout.
+      const mixFrom = repaint ? resolveColour(this.svg, dotColour) : dotColour;
+      if (repaint) this.applyGlow(line, dotColour, ground);
 
       const countChanged = line.count !== row.count;
       const rate = BASE_MS / 1000 / Math.max(row.durationS, 0.01);
       for (const [i, dot] of line.dots.entries()) {
-        if (repaint) this.paintDot(dot, row.color, ground);
+        if (repaint) this.paintDot(dot, dotColour, ground, mixFrom);
         // The path changes with every relayout, so it is set on the element
         // rather than kept in a stylesheet. `auto` turns the dot with the row,
         // so a ring pushed forward is pushed along it.
@@ -223,7 +238,12 @@ export class FanLayer {
    * The circles one dot is made of. Without a design that is a single one -
    * the same plain dot the rows have always carried.
    */
-  private paintDot(dot: SVGGElement, colour: string, ground: FlowDesignGround | undefined): void {
+  private paintDot(
+    dot: SVGGElement,
+    colour: string,
+    ground: FlowDesignGround | undefined,
+    mixFrom: string,
+  ): void {
     while (dot.firstChild) dot.removeChild(dot.firstChild);
     // The size comes from the design, as it does on the cross - not from the
     // layer's own default, or the rows would carry different dots.
@@ -243,6 +263,7 @@ export class FanLayer {
       coreLight: (ground?.coreLight ?? 0) / 100,
       bias: (this.design?.shape.bias ?? 0) / 100,
       colour,
+      mixFrom,
     })) {
       const circle = document.createElementNS(SVG_NS, "circle");
       circle.setAttribute("cx", ring.forward.toFixed(2));

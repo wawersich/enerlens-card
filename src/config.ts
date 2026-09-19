@@ -690,6 +690,12 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       // design was renamed or dropped - falls back to the plain dots instead of
       // making the card refuse its own configuration (P-10).
       design: typeof rawFlow.design === "string" ? rawFlow.design : "none",
+      // An empty field in the editor means "no colour of its own", not the
+      // empty string - which would paint every dot with nothing.
+      dotColor:
+        typeof rawFlow.dot_color === "string" && rawFlow.dot_color.trim()
+          ? rawFlow.dot_color.trim()
+          : undefined,
       inactiveLines: readEnum(
         rawFlow.inactive_lines,
         INACTIVE_LINES,

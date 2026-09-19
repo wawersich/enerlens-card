@@ -34,16 +34,48 @@ export interface DotInput {
   /** How far the core sits towards the front of the dot, 0..1. */
   bias: number;
   colour: string;
+  /**
+   * The colour to mix the core from, when `colour` is one nothing can read -
+   * `var(--energy-solar-color)` is the normal case in the card, and mixing it
+   * towards white is not something a string can do. The caller asks the
+   * browser what it resolves to and passes the answer here; the dot itself
+   * keeps `colour`, so it still follows the theme.
+   */
+  mixFrom?: string;
 }
 
-/** Mixes a colour towards white; amount 0..1. Anything but #rrggbb passes through. */
+/**
+ * The three channels of a colour, or undefined for one this cannot read.
+ *
+ * Two forms turn up: the hex a design tool writes, and the rgb() a browser
+ * answers with when asked what `var(--energy-solar-color)` actually is. The
+ * card only ever sees the second, which is why reading it matters.
+ */
+function channels(colour: string): [number, number, number] | undefined {
+  const hex = colour.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    const digits =
+      hex[1].length === 3
+        ? hex[1]
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : hex[1];
+    const value = Number.parseInt(digits, 16);
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+  }
+  const rgb = colour.match(/^rgba?\(([^)]+)\)/i);
+  if (!rgb) return undefined;
+  const parts = rgb[1].split(/[,\s/]+/).map(Number);
+  if (parts.length < 3 || parts.slice(0, 3).some((n) => !Number.isFinite(n))) return undefined;
+  return [parts[0], parts[1], parts[2]];
+}
+
+/** Mixes a colour towards white; amount 0..1. An unreadable one passes through. */
 export function lighten(colour: string, amount: number): string {
-  if (!/^#[0-9a-f]{6}$/i.test(colour)) return colour;
-  const value = Number.parseInt(colour.slice(1), 16);
-  const parts = [16, 8, 0].map((shift) => {
-    const channel = (value >> shift) & 255;
-    return Math.round(channel + (255 - channel) * amount);
-  });
+  const parsed = channels(colour);
+  if (!parsed) return colour;
+  const parts = parsed.map((channel) => Math.round(channel + (255 - channel) * amount));
   return `rgb(${parts.join(",")})`;
 }
 
@@ -69,7 +101,7 @@ export function dotRings(input: DotInput): DotRing[] {
     const size = 1 - t * (1 - input.core);
     rings.push({
       r: r * size,
-      colour: lighten(input.colour, input.coreLight * t),
+      colour: lighten(input.mixFrom ?? input.colour, input.coreLight * t),
       opacity: perCap,
       forward: input.bias * r * (1 - size),
     });

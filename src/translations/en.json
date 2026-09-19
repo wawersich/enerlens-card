@@ -147,7 +147,10 @@
     "appearance_auto": "Follow the theme",
     "appearance_light": "Light",
     "appearance_dark": "Dark",
-    "rest": "Remainder"
+    "rest": "Remainder",
+    "dot_color": "Colour of the dots",
+    "colors_dots": "Dots",
+    "dot_color_follow": "Dots in the colour of their line"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -189,7 +192,8 @@
     "grid_status_outage": "Required. Every integration names its states differently, so nothing is guessed here. Enter the raw state, not the label Home Assistant shows: an enum sensor displays a translated name, so “Not detected” may really be `not_detected`. Picking from the list avoids the question.",
     "grid_status_ok": "Optional. Left empty, the entity's own options minus the outage states count as \\u201cgrid is there\\u201d; anything else, including unavailable, leaves the last state standing.",
     "appearance": "Shows this one card light or dark – whatever the theme says, and without touching the rest of the dashboard. It also settles which of its two value sets a flow design takes. “Follow the theme” reads the ground, which works nearly always – but not for themes that paint no card background of their own. Light and dark use Home Assistant's default colours, not those of a custom theme.",
-    "icon_rest": "Empty = a plain dot."
+    "icon_rest": "Empty = a plain dot.",
+    "dot_color": "Empty = each dot carries the colour of its flow, which is what shows where the energy comes from. A colour here applies to every dot on the card; the lines keep theirs."
   },
   "outage": {
     "banner": "Island mode — no grid",

@@ -267,6 +267,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.remember` | `true` | Remember the view and the filter button per browser |
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
+| `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
 | `flow.min_w` | `10` | Below this nothing moves, grid and battery show no state word, and no ring segment is drawn |

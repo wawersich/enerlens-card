@@ -280,6 +280,7 @@ zusätzliche Abfrage.
 | `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
+| `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
 | `flow.min_w` | `10` | Darunter bewegt sich nichts, Netz und Batterie zeigen kein Zustandswort, und es wird kein Ring-Segment gezeichnet |

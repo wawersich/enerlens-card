@@ -51,30 +51,6 @@
       }
     },
     {
-      "id": "electron",
-      "name": "Electron",
-      "shape": {
-        "caps": 5,
-        "bias": 70
-      },
-      "dark": {
-        "dot": 9,
-        "core": 40,
-        "coreLight": 100,
-        "glow": 0,
-        "glowStrength": 100,
-        "line": 80
-      },
-      "light": {
-        "dot": 8,
-        "core": 40,
-        "coreLight": 100,
-        "glow": 0,
-        "glowStrength": 45,
-        "line": 80
-      }
-    },
-    {
       "id": "leuchtpunkte",
       "name": "Leuchtpunkte",
       "name_en": "Glowing Dots",
@@ -96,6 +72,30 @@
         "coreLight": 75,
         "glow": 2,
         "glowStrength": 45,
+        "line": 80
+      }
+    },
+    {
+      "id": "electron",
+      "name": "Electron",
+      "shape": {
+        "caps": 5,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 10,
+        "core": 40,
+        "coreLight": 100,
+        "glow": 0,
+        "glowStrength": 80,
+        "line": 80
+      },
+      "light": {
+        "dot": 10,
+        "core": 40,
+        "coreLight": 100,
+        "glow": 0,
+        "glowStrength": 10,
         "line": 80
       }
     }

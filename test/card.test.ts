@@ -73,6 +73,18 @@ describe("enerlens-card element", () => {
     return el;
   }
 
+  it("draws a working connection on top of an idle one", async () => {
+    // Two connections reach the battery along the same last stretch. Drawn in
+    // the fixed order, the grey of an idle one lay over the colour of a
+    // working one and tinted it - visible as a line that darkens halfway.
+    const el = await mount();
+    const links = [...(el.shadowRoot?.querySelectorAll("path.link") ?? [])];
+    const active = links.map((path) => path.classList.contains("active"));
+    const firstActive = active.indexOf(true);
+    if (firstActive === -1) return; // nothing flowing in this fixture
+    expect(active.slice(firstActive).every(Boolean), "an idle line after a working one").toBe(true);
+  });
+
   it("registers the element", () => {
     expect(customElements.get("enerlens-card")).toBeTruthy();
   });

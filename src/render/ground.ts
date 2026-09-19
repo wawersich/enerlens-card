@@ -35,6 +35,29 @@ export function groundIsDark(el: Element, appearance: Appearance): boolean {
   return onDarkGround(el);
 }
 
+/**
+ * What a CSS colour actually is, as the browser sees it.
+ *
+ * The card's colours are theme variables - `var(--energy-solar-color, #ff9800)`
+ * is the normal case - and no arithmetic can be done on that string. Put on a
+ * real element and read back computed, it comes out as rgb(), fallback behind
+ * the comma and all. Returns the input unchanged where that cannot be done, so
+ * the caller always has something to paint with.
+ */
+export function resolveColour(host: Element, colour: string): string {
+  if (typeof getComputedStyle !== "function" || typeof document === "undefined") return colour;
+  const probe = document.createElement("span");
+  probe.style.display = "none";
+  probe.style.color = colour;
+  // A value CSS cannot parse leaves the property alone, and the computed
+  // colour would then be the inherited one - an answer to another question.
+  if (probe.style.color === "") return colour;
+  host.appendChild(probe);
+  const computed = getComputedStyle(probe).color;
+  probe.remove();
+  return computed || colour;
+}
+
 /** True when the card sits on a dark ground. Falls back to dark. */
 export function onDarkGround(el: Element): boolean {
   if (typeof getComputedStyle !== "function") return true;

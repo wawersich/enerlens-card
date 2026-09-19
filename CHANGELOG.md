@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   design applies. `auto` (the default) reads the theme, as before. Light and
   dark use Home Assistant's own default colours.
 
+- **`flow.dot_color`** gives every dot on the card one colour, in the cross and
+  in the consumer rows alike, while the lines keep theirs. Left empty - the
+  default - a dot carries the colour of its flow, which is what shows where
+  the energy comes from.
 - **`icons.rest`** puts an icon on the remainder row, which had no way to get
   one and sat among the others as the single plain dot.
 - **The row mark follows the row spacing.** A short list spaces its rows 40 px
@@ -26,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   a row, because the mark can never outgrow its own row.
 
 ### Changed
+- **The charge level is visible on a dark card.** The fill blends towards the
+  ground, and 22 % of green over near-black reads as "slightly less black"
+  rather than as green - measured, it was less colourful there than the same
+  22 % over white. A dark ground now uses 60 %, which nearly triples the
+  colour and puts the text on it at contrast 4.5 - the floor, and as far as
+  opacity alone can go.
 - **"Show the mode chips" is now "Show the filter bar"** and hides the whole
   bar, the list's filter button included. It used to leave that button behind
   in a header of its own.

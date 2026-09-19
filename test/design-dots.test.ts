@@ -30,7 +30,7 @@ const PLAN: DotPlan = {
   colorKey: "solar",
 };
 
-const CONFIG = { colors: { solar: "#ff9800" } } as unknown as Config;
+const CONFIG = { colors: { solar: "#ff9800" }, flow: {} } as unknown as Config;
 
 /** A shipped design that actually has a lighter core, whatever it is called. */
 const WITH_CORE =

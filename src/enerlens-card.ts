@@ -451,6 +451,7 @@ class EnerLensCard extends LitElement {
       flowDesign(this._config.flow.design),
       groundIsDark(this, this._config.appearance),
     );
+    this._fan.setDotColor(this._config.flow.dotColor);
 
     const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
     const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;

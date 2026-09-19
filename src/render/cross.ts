@@ -233,10 +233,23 @@ export function renderCross(
     : DRAWN_CONNECTIONS.filter((id) => !BATTERY_LINKS.has(id));
   // Connections without flow can be dropped entirely (REQ P-9). The nodes keep
   // their positions either way - the cross must not change shape with the data.
-  const links =
+  const drawn =
     config.flow.inactiveLines === "hide"
       ? withBattery.filter((id) => activeConnections.has(id))
       : withBattery;
+  /*
+   * Lines that carry something are drawn last, so they lie on top.
+   *
+   * Two connections meet the battery from above and run the last stretch on
+   * the same line; without this the grey of an idle one tinted the colour of a
+   * working one wherever they overlapped, simply because it came later in the
+   * fixed order. The order within each group stays as it is - the cross must
+   * always be built the same way round. Sort is stable, which is what makes
+   * that true.
+   */
+  const links = [...drawn].sort(
+    (a, b) => Number(activeConnections.has(a)) - Number(activeConnections.has(b)),
+  );
 
   return html`
     <div class="cross">

@@ -111,6 +111,7 @@ interface FlatConfig {
   inactive_lines?: string;
   animation?: string;
   design?: string;
+  dot_color?: string;
   min_w?: number;
   peak_w?: number;
   slow_below_w?: number;
@@ -149,6 +150,15 @@ type FlatRecord = Record<string, unknown>;
 /** Shown when neither the browser nor our parser makes sense of a value - the
  *  text field still holds it, so nothing is lost, the swatch just says nothing. */
 const UNREADABLE = "#888888";
+/**
+ * What the dot colour starts at when it is switched on.
+ *
+ * The switch has to mean something the moment it is flipped, so it cannot
+ * leave the field empty - empty is the other state. The theme's text colour is
+ * the one colour that is readable on either ground without knowing which one
+ * the card sits on, which makes it a starting point rather than a choice.
+ */
+const DOT_COLOR_SEED = "var(--primary-text-color)";
 
 // ---------------------------------------------------------------------------
 // Config <-> flat form data
@@ -214,6 +224,7 @@ function toFlat(config: RawConfig): FlatConfig {
     inactive_lines: config.flow?.inactive_lines,
     animation: config.flow?.animation,
     design: config.flow?.design,
+    dot_color: config.flow?.dot_color,
     min_w: config.flow?.min_w,
     peak_w: config.flow?.peak_w,
     slow_below_w: config.flow?.slow_below_w,
@@ -369,6 +380,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       inactive_lines: flat.inactive_lines,
       animation: flat.animation,
       design: flat.design,
+      dot_color: opt(flat.dot_color),
       min_w: num(flat.min_w),
       peak_w: num(flat.peak_w),
       slow_below_w: num(flat.slow_below_w),
@@ -697,6 +709,15 @@ class EnerLensCardEditor extends LitElement {
    *  list, so this cannot live in the DOM - it would fold shut mid-word. */
   private _openColors: ReadonlySet<string> = new Set();
   /**
+   * The dot colour as it was before the switch cleared it.
+   *
+   * Only for as long as the dialog is open, and deliberately not part of the
+   * configuration: ticking the box off and on again is how one looks at the
+   * card without the colour, and losing the colour over that would make the
+   * switch a trap. Nothing renders from this, so it needs no reactivity.
+   */
+  private _lastDotColor?: string;
+  /**
    * The open colour wheel, if any. It lives in our own shadow root rather than
    * in <input type="color">: that one opens an operating-system popup outside
    * the document, and every pointer event in it reaches the card editor's
@@ -817,7 +838,7 @@ class EnerLensCardEditor extends LitElement {
           }
           <p class="hint">${localize("editor_help.color", this.hass)}</p>
           ${COLOR_KEYS.map((key) => this._renderNodeColor(key))}
-          ${this._renderConsumerColors()} ${this._renderSocStops()}
+          ${this._renderDotColor()} ${this._renderConsumerColors()} ${this._renderSocStops()}
         </div>
       </ha-expansion-panel>
     `;
@@ -837,6 +858,48 @@ class EnerLensCardEditor extends LitElement {
       value: typeof raw === "string" ? raw : "",
       preset: DEFAULT_COLORS[key],
     });
+  }
+
+  /**
+   * The dots, which may have one colour of their own (P-13).
+   *
+   * Here rather than under the design, where it belongs by subject: every
+   * colour of the card is in this panel, and a colour outside it would be the
+   * only one without a swatch and a wheel - ha-form has no row that carries
+   * both those and the text field a theme variable needs (C-1).
+   */
+  private _renderDotColor(): TemplateResult {
+    const raw = (this._flat as FlatRecord | undefined)?.dot_color;
+    const own = typeof raw === "string" && raw.trim() !== "";
+    const label = localize("editor.dot_color", this.hass);
+    return html`
+      ${this._group(localize("editor.colors_dots", this.hass))}
+      <label class="switch">
+        <input
+          type="checkbox"
+          .checked=${!own}
+          @change=${(ev: Event) => {
+            const follow = (ev.target as HTMLInputElement).checked;
+            if (follow && own) this._lastDotColor = raw as string;
+            this._setFlat("dot_color", follow ? "" : (this._lastDotColor ?? DOT_COLOR_SEED));
+          }}
+        />
+        <span>${localize("editor.dot_color_follow", this.hass)}</span>
+      </label>
+      ${
+        own
+          ? this._colorRow({
+              id: "flat:dot_color",
+              label,
+              name: label,
+              value: raw as string,
+              // Only ever shown with a colour set, so the empty state the
+              // preset stands for cannot come up here.
+              preset: DOT_COLOR_SEED,
+            })
+          : nothing
+      }
+    `;
   }
 
   /** One row per configured consumer. The preset is the palette colour that
@@ -1234,9 +1297,17 @@ class EnerLensCardEditor extends LitElement {
     const separator = id.indexOf(":");
     const kind = id.slice(0, separator);
     const rest = id.slice(separator + 1);
-    if (kind === "node") this._setColor(rest as ColorKey, value);
+    if (kind === "flat") this._setFlat(rest, value);
+    else if (kind === "node") this._setColor(rest as ColorKey, value);
     else if (kind === "consumer") this._setConsumerColor(Number(rest), value);
     else if (kind === "stop") this._setStopColor(Number(rest), value);
+  }
+
+  /** A colour that is a field of its own rather than one of the colour sets. */
+  private _setFlat(name: string, value: string): void {
+    if (!this._flat) return;
+    const next = value.trim() === "" ? undefined : value;
+    this._emit({ ...(this._flat as FlatRecord), [name]: next } as FlatConfig);
   }
 
   private _setConsumerColor(index: number, value: string): void {
@@ -1459,6 +1530,24 @@ class EnerLensCardEditor extends LitElement {
       flex-direction: column;
       gap: 6px;
       padding: 8px 0 4px;
+    }
+
+    /* A plain checkbox, because this one is not a form field but a choice
+       about whether the field below it exists at all. */
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0 6px;
+      cursor: pointer;
+      font-size: 0.95em;
+    }
+
+    .switch input {
+      accent-color: var(--primary-color);
+      width: 18px;
+      height: 18px;
+      margin: 0;
     }
 
     .hint {

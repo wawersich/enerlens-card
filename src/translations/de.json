@@ -147,7 +147,10 @@
     "appearance_auto": "Wie das Theme",
     "appearance_light": "Hell",
     "appearance_dark": "Dunkel",
-    "rest": "Rest"
+    "rest": "Rest",
+    "dot_color": "Farbe der Punkte",
+    "colors_dots": "Punkte",
+    "dot_color_follow": "Punkte in der Farbe ihrer Linie"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -189,7 +192,8 @@
     "grid_status_outage": "Pflichtangabe. Jede Integration benennt ihre Zustände anders, hier wird nichts geraten. Trage den Rohwert ein, nicht die Anzeige von Home Assistant: Ein Aufzählungssensor zeigt einen übersetzten Namen, aus „Nicht erkannt“ wird also `not_detected`. Wer aus der Liste auswählt, umgeht die Frage.",
     "grid_status_ok": "Optional. Leer gelassen gelten die eigenen Optionen der Entität ohne die Ausfall-Zustände als „Netz liegt an“; alles andere, auch unavailable, lässt den letzten Zustand stehen.",
     "appearance": "Zeigt diese eine Karte hell oder dunkel – unabhängig vom Theme und ohne den Rest des Dashboards zu verändern. Es legt zugleich fest, welchen der beiden Wertesätze ein Fluss-Design nimmt. „Wie das Theme“ liest den Untergrund aus; das klappt fast immer, aber nicht bei Themes ohne eigenen Kartenhintergrund. Hell und Dunkel verwenden die Standardfarben von Home Assistant, nicht die eines eigenen Themes.",
-    "icon_rest": "Leer = ein schlichter Punkt."
+    "icon_rest": "Leer = ein schlichter Punkt.",
+    "dot_color": "Leer = jeder Punkt hat die Farbe seines Flusses und zeigt damit, woher die Energie kommt. Eine Farbe hier gilt für alle Punkte der Karte; die Linien behalten ihre."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

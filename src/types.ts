@@ -214,6 +214,8 @@ export interface RawConfig extends LovelaceCardConfig {
     inactive_lines?: InactiveLines;
     /** Id from flow-designs.json, or "none" for the plain dots (P-10). */
     design?: string;
+    /** One colour for every dot on the card; unset each follows its line. */
+    dot_color?: string;
   };
   colors?: Partial<Record<ColorKey, string>> & {
     soc_stops?: SocStop[];
@@ -295,6 +297,12 @@ export interface Config {
     fastS: number;
     animation: AnimationMode;
     inactiveLines: InactiveLines;
+    /**
+     * One colour for every dot on the card, whatever the connection (P-13).
+     * Unset - and that is the default - a dot carries the colour of the flow
+     * it belongs to, which is what names the source it comes from.
+     */
+    dotColor?: string;
     design: string;
   };
   /** Which half of a flow design applies (REQ P-10). */

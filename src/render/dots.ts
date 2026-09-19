@@ -17,6 +17,7 @@
 import type { ColorKey, Config, DotPlan, FlowDesign, FlowDesignGround } from "../types";
 import { GLOW_DRAWN, HALO_R, dotRings, glowFilter, haloStops } from "./dot-shape";
 import { PATHS } from "./geometry";
+import { resolveColour } from "./ground";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** Reference duration; actual speed is a playback rate relative to this. */
@@ -44,6 +45,8 @@ interface Link {
   durationS: number;
   colorKey: ColorKey;
   colour: string;
+  /** The same colour as the browser reads it, for mixing the core from. */
+  mixFrom: string;
   count: number;
 }
 
@@ -98,9 +101,12 @@ export class DotLayer {
     for (const plan of plans) {
       seen.add(plan.connection);
       const link = this.links.get(plan.connection) ?? this.createLink(plan);
-      const colour = config.colors[plan.colorKey];
+      // One colour for every dot, or the colour of the flow this one belongs
+      // to - which is what tells a viewer where the energy comes from (P-13).
+      const colour = config.flow.dotColor ?? config.colors[plan.colorKey];
       const recolour = link.colour !== colour;
       link.colour = colour;
+      if (recolour) link.mixFrom = resolveColour(this.container, colour);
 
       // The phase of the first dot anchors the group: it never moves, the
       // others are spaced from it. Without this the survivors of a count
@@ -208,6 +214,7 @@ export class DotLayer {
       durationS: plan.durationS,
       colorKey: plan.colorKey,
       colour: "",
+      mixFrom: "",
       count: 0,
     };
     this.links.set(plan.connection, link);
@@ -303,6 +310,7 @@ export class DotLayer {
       coreLight: (ground?.coreLight ?? 0) / 100,
       bias: (this.design?.shape.bias ?? 0) / 100,
       colour,
+      mixFrom: link.mixFrom || colour,
     })) {
       const circle = document.createElementNS(SVG_NS, "circle");
       circle.setAttribute("cx", ring.forward.toFixed(2));

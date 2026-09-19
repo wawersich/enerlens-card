@@ -52,7 +52,11 @@ async function mount(config: RawConfig): Promise<Editor> {
 
 const form = (el: Editor): Form => el.shadowRoot?.querySelector("ha-form") as Form;
 
-/** A field anywhere in the nested schema, by name. */
+/** Every ha-form in the editor - the colours split it into more than one. */
+const forms = (el: Editor): Form[] =>
+  [...(el.shadowRoot?.querySelectorAll("ha-form") ?? [])] as unknown as Form[];
+
+/** A field anywhere in the nested schema of any of them, by name. */
 function findField(el: Editor, name: string): Field | undefined {
   let hit: Field | undefined;
   const walk = (fields: Field[]) => {
@@ -61,7 +65,7 @@ function findField(el: Editor, name: string): Field | undefined {
       if (field.schema) walk(field.schema);
     }
   };
-  walk(form(el).schema);
+  for (const each of forms(el)) walk(each.schema ?? []);
   return hit;
 }
 
