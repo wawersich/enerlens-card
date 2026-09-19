@@ -75,6 +75,7 @@ function configOf(
       inactiveLines: "show" as const,
       design: "none",
     },
+    appearance: "auto" as const,
     colors: {
       solar: "#ff9800",
       house: "#03a9f4",

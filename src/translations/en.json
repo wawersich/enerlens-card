@@ -79,7 +79,7 @@
     "mode_long": "Long average",
     "avg_short_minutes": "Short window (minutes)",
     "avg_long_minutes": "Long window (minutes)",
-    "show_selector": "Show selector",
+    "show_selector": "Show filter bar",
     "flow": "Flows",
     "inactive_lines": "Lines without flow",
     "lines_show": "Show",
@@ -142,17 +142,22 @@
     "grid_status_section": "Grid outage (optional)",
     "grid_status": "Grid status entity",
     "grid_status_outage": "States that mean: no grid",
-    "grid_status_ok": "States that mean: grid is there"
+    "grid_status_ok": "States that mean: grid is there",
+    "appearance": "Card appearance",
+    "appearance_auto": "Follow the theme",
+    "appearance_light": "Light",
+    "appearance_dark": "Dark",
+    "rest": "Remainder"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
     "max_consumers": "Only the strongest consumers are listed; the rest are counted together. Empty = all.",
     "update_interval_s": "How often the list reorders. The figures themselves update immediately.",
     "rest_label": "Name for the part that is not measured individually. Default: \"Other\".",
-    "design": "How the travelling dots look. “Plain dots” is the previous picture; the others give them a trail. Speed and count still follow the power.",
+    "design": "How the travelling dots look. “Plain dots” is a circle and nothing else; the others give it a lighter core and, depending on the design, a glow. Speed and the number of dots follow the power, not the design.",
     "avg_short_minutes": "Window for the short average.",
     "avg_long_minutes": "Window for the long average.",
-    "show_selector": "Shows or hides the switches at the top of the card. The active mode stays visible either way.",
+    "show_selector": "The bar above the card with the averaging switches (“Now”, “Ø 2 min”, “Ø 15 min”) and the filter button for the consumer list. Turned off, the card moves up. A fixed averaging mode is still named, or it could not be told apart from the current value.",
     "inactive_lines": "Connections with nothing flowing on them. \"Hide\" calms the picture at night.",
     "animation": "\"Follow system setting\" respects the device's reduce-motion preference - that lives in the operating system, not in Home Assistant.",
     "battery_soc": "State of charge in percent. Never averaged.",
@@ -180,9 +185,11 @@
     "full_speed_w": "From here on the dot runs as fast as it gets. In between: one dot, getting faster. Default: same as “More dots from”.",
     "power_unit": "Applies to every power figure on the card: nodes and list.",
     "power_decimals": "Kilowatts only; watts are always whole numbers. Default 2.",
-    "grid_status": "Only if your installation reports one - many do not. Without it the card behaves exactly as before.",
+    "grid_status": "Only if your installation reports an outage - many do not. Without it the card shows no outage; everything else works.",
     "grid_status_outage": "Required. Every integration names its states differently, so nothing is guessed here. Enter the raw state, not the label Home Assistant shows: an enum sensor displays a translated name, so “Not detected” may really be `not_detected`. Picking from the list avoids the question.",
-    "grid_status_ok": "Optional. Left empty, the entity's own options minus the outage states count as \\u201cgrid is there\\u201d; anything else, including unavailable, leaves the last state standing."
+    "grid_status_ok": "Optional. Left empty, the entity's own options minus the outage states count as \\u201cgrid is there\\u201d; anything else, including unavailable, leaves the last state standing.",
+    "appearance": "Shows this one card light or dark – whatever the theme says, and without touching the rest of the dashboard. It also settles which of its two value sets a flow design takes. “Follow the theme” reads the ground, which works nearly always – but not for themes that paint no card background of their own. Light and dark use Home Assistant's default colours, not those of a custom theme.",
+    "icon_rest": "Empty = a plain dot."
   },
   "outage": {
     "banner": "Island mode — no grid",

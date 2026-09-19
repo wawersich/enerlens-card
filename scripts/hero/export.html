@@ -162,6 +162,21 @@ const card0 = card.getBoundingClientRect();
 const X = (v) => +(v - card0.left).toFixed(1);
 const Y = (v) => +(v - card0.top).toFixed(1);
 const cs = (el, prop) => getComputedStyle(el).getPropertyValue(prop);
+/**
+ * The circles one dot is made of, as SVG markup.
+ *
+ * A dot is a group: the circle itself, and with a design the lighter rings of
+ * its core. The export carries the whole group and moves it as one, the same
+ * way the card does - a ring that travelled on its own would come loose.
+ */
+const circlesOf = (dot) =>
+  [...dot.querySelectorAll("circle")]
+    .map((c) => {
+      const opacity = c.getAttribute("fill-opacity");
+      return `<circle cx="${c.getAttribute("cx") ?? 0}" r="${c.getAttribute("r")}" fill="${cs(c, "fill")}"` +
+        (opacity ? ` fill-opacity="${opacity}"` : "") + `/>`;
+    })
+    .join("");
 /* The box of a text element is not the width of its text - a flex row makes it
  * as wide as the column. A range over the contents gives the ink itself, which
  * is what textLength has to pin down. */
@@ -231,13 +246,12 @@ function snapshot() {
       const key = path.dataset.key;
       const style = getComputedStyle(path);
       const dots = [];
-      for (const dot of fanSvg.querySelectorAll(`circle[data-key="${key}"]`)) {
+      for (const dot of fanSvg.querySelectorAll(`g.fan-dot[data-key="${key}"]`)) {
         const anim = dot.getAnimations()[0];
         if (!anim) continue;
         const seconds = 5 / anim.playbackRate;
         dots.push({
-          r: dot.getAttribute("r"),
-          fill: cs(dot, "fill"),
+          circles: circlesOf(dot),
           dur: seconds,
           begin: -(Number(anim.currentTime ?? 0) / 5000) * seconds,
         });
@@ -304,14 +318,14 @@ const crossParts = [...plot.querySelectorAll("path.link")].map((path) => {
   const style = getComputedStyle(path);
   return `<path d="${path.getAttribute("d")}" fill="none" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round" opacity="${style.opacity}"/>`;
 });
-for (const dot of plot.querySelectorAll("g.dots circle")) {
+for (const dot of plot.querySelectorAll("g.dots g.dot")) {
   const anim = dot.getAnimations()[0];
   const path = (cs(dot, "offset-path").match(/path\(["']?(.+?)["']?\)/) || [])[1];
   if (!anim || !path) continue;
   const seconds = 5 / anim.playbackRate;
   const begin = -(Number(anim.currentTime ?? 0) / 5000) * seconds;
-  crossParts.push(`<circle r="${dot.getAttribute("r")}" fill="${cs(dot, "fill")}">` +
-    `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" begin="${begin.toFixed(2)}s" path="${path}" rotate="0"/></circle>`);
+  crossParts.push(`<g>${circlesOf(dot)}` +
+    `<animateMotion dur="${seconds.toFixed(2)}s" repeatCount="indefinite" begin="${begin.toFixed(2)}s" path="${path}" rotate="auto"/></g>`);
 }
 out.push(`<g transform="translate(${X(plotBox.left)},${Y(plotBox.top)}) scale(${plotScale.toFixed(4)})">${crossParts.join("")}</g>`);
 
@@ -331,9 +345,9 @@ if (fanSvg) {
      * each dot's offset-path every frame of the glide. A copied path would
      * leave the dots on the old course and make them jump at the end. */
     a.dots.forEach((dot) => {
-      inner.push(`<circle r="${dot.r}" fill="${dot.fill}">` +
-        `<animateMotion dur="${dot.dur.toFixed(2)}s" repeatCount="indefinite" begin="${dot.begin.toFixed(2)}s" rotate="0">` +
-        `<mpath href="#${id}" xlink:href="#${id}"/></animateMotion></circle>`);
+      inner.push(`<g>${dot.circles}` +
+        `<animateMotion dur="${dot.dur.toFixed(2)}s" repeatCount="indefinite" begin="${dot.begin.toFixed(2)}s" rotate="auto">` +
+        `<mpath href="#${id}" xlink:href="#${id}"/></animateMotion></g>`);
     });
   }
   out.push(`<g transform="translate(${X(fanBox.left)},${Y(fanBox.top)})">${inner.join("")}</g>`);

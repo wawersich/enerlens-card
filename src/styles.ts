@@ -32,6 +32,56 @@ export const styles = css`
     }
   }
 
+  /**
+   * A ground of the card's own (REQ P-12).
+   *
+   * Set on :host, so it reaches this card and nothing else - the dashboard
+   * around it keeps the theme it has. What is overridden are the few Home
+   * Assistant variables the card actually paints with; the flow colours are
+   * left alone, because they name a source and have to stay recognisable on
+   * either ground.
+   *
+   * The values are Home Assistant's own defaults for the two schemes, not a
+   * palette of ours: a card that forces dark should look like a dark HA card.
+   * A custom theme's idea of dark cannot be read from CSS, so this gives the
+   * default one - which is the honest limit of forcing it.
+   */
+  :host([data-appearance="dark"]),
+  :host([data-appearance="light"]) {
+    background: var(--card-background-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+    /* The card never set a colour of its own - it inherited the page's, which
+       is the theme's. Forced onto the other ground that would be dark text on
+       a dark card for everything that does not name a variable. */
+    color: var(--primary-text-color);
+  }
+
+  :host([data-appearance="dark"]) {
+    color-scheme: dark;
+    --ha-card-background: #1d1e21;
+    --card-background-color: #1d1e21;
+    --secondary-background-color: #282a2e;
+    --primary-text-color: #e3e3e3;
+    --secondary-text-color: #9b9b9b;
+    --ha-card-header-color: #e3e3e3;
+    --divider-color: rgba(225, 225, 225, 0.12);
+    --ha-card-border-color: rgba(225, 225, 225, 0.12);
+    --el-error: var(--error-color, #f2645a);
+  }
+
+  :host([data-appearance="light"]) {
+    color-scheme: light;
+    --ha-card-background: #ffffff;
+    --card-background-color: #ffffff;
+    --secondary-background-color: #f2f4f7;
+    --primary-text-color: #212121;
+    --secondary-text-color: #727272;
+    --ha-card-header-color: #212121;
+    --divider-color: rgba(0, 0, 0, 0.12);
+    --ha-card-border-color: rgba(0, 0, 0, 0.12);
+    --el-error: var(--error-color, #db4437);
+  }
+
   /* Only rendered while the grid is gone, so it costs no height otherwise. */
   .outage-banner {
     display: flex;
@@ -208,6 +258,17 @@ export const styles = css`
     max-width: 400px;
   }
 
+  /* Without a list the cross is the card. Left at its "beside the list" size
+     it sat small and pushed against the left edge, which reads as a mistake -
+     so it gets the same room and the same middle it has with the list below
+     it (REQ L-1). */
+  .body.no-list {
+    justify-content: center;
+  }
+  .body.no-list .cross {
+    max-width: 400px;
+  }
+
   .cross {
     /* The cross comes first: it takes free width until its cap, only then does
        the list widen. Beside the list the cap is 320 px but never more than
@@ -288,7 +349,9 @@ export const styles = css`
   }
 
   .link.active {
-    opacity: 0.8;
+    /* A design may dim the line so its spur has something to stand out
+       against; without one this is the 0.8 of P-5. */
+    opacity: var(--el-link-opacity, 0.8);
   }
 
   /* No CSS radius here: dots.ts sets the r attribute from the measured scale.
@@ -486,6 +549,16 @@ export const styles = css`
     flex: 1 1 150px;
     min-width: 145px;
     align-self: center;
+    /*
+     * The mark grows with the room a row has (REQ L-9, L-15). A short list
+     * spaces its rows 40 px apart and an 18 px icon looked lost in that; a
+     * long one is down to 28 px and has none to spare. Tied to the pitch it
+     * follows by itself, and the bounds keep both ends honest: never smaller
+     * than the 18 px it always was - a long list must not get worse - and
+     * never so large that it outgrows the row it sits in. At 40 px pitch this
+     * gives 24 px, at 34 px about 20 px, at 28 px the old 18 px.
+     */
+    --el-swatch: clamp(18px, calc(var(--el-row-h, 34px) * 0.6), 26px);
   }
 
   /* Beside the cross the rows are only as wide as the longest name and the
@@ -528,22 +601,25 @@ export const styles = css`
     font-variant-numeric: tabular-nums;
   }
 
-  /* One 18 px slot whether it holds the dot or an icon, so lanes and names
-     line up across rows that differ (seen on the reference dashboard). */
+  /* One slot of the same width whether it holds the dot or an icon, so lanes
+     and names line up across rows that differ (seen on the reference
+     dashboard). */
   .row .swatch {
     flex: none;
-    width: 18px;
-    height: 18px;
+    width: var(--el-swatch);
+    height: var(--el-swatch);
     display: flex;
     align-items: center;
     justify-content: center;
-    --mdc-icon-size: 18px;
+    --mdc-icon-size: var(--el-swatch);
   }
 
+  /* The plain colour mark of a row without an icon. A share of the slot, so it
+     keeps its proportion to the icons it stands among. */
   .row .swatch.dot::after {
     content: "";
-    width: 10px;
-    height: 10px;
+    width: calc(var(--el-swatch) * 0.56);
+    height: calc(var(--el-swatch) * 0.56);
     border-radius: 50%;
     background: currentColor;
   }
@@ -578,7 +654,11 @@ export const styles = css`
       display: grid;
       /* The longest name decides: its column is as wide as it needs, the value
          column as wide as the widest figure, and the lane takes the rest. */
-      grid-template-columns: minmax(56px, 1fr) 18px minmax(0, max-content) max-content;
+      grid-template-columns:
+        minmax(56px, 1fr)
+        var(--el-swatch)
+        minmax(0, max-content)
+        max-content;
       column-gap: 6px;
     }
 
@@ -603,7 +683,13 @@ export const styles = css`
   }
 
   .list.stacked {
-    padding-left: 28px;
+    /* The house at the gathering point is the same house as in the cross, so
+       it carries the same icon size (K-14). It was a fixed 22 px, which held
+       on a phone and shrank against the node as the card grew - on a wide card
+       the two were visibly different houses. The 6 px is the gap the lines
+       need between the icon and where they start. */
+    --el-origin-size: calc(var(--el-node-size) * 0.3);
+    padding-left: calc(var(--el-origin-size) + 6px);
     /* The node labels hang below the cross box - a two-line one ("Batterie /
        lädt") reached into the first row. Measured overhang was 14 px, so the
        8 px row gap of .body is not enough on its own. */
@@ -612,10 +698,10 @@ export const styles = css`
 
   .origin-icon {
     position: absolute;
-    left: -28px;
+    left: calc((var(--el-origin-size, 22px) + 6px) * -1);
     top: 50%;
     transform: translateY(-50%);
-    --mdc-icon-size: 22px;
+    --mdc-icon-size: var(--el-origin-size, 22px);
     display: flex;
     pointer-events: none;
   }

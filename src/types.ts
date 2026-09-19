@@ -71,50 +71,65 @@ export type AnimationMode = "auto" | "on" | "off";
  * tools/leuchtspur/ and kept in src/flow-designs.json (P-10, P-11).
  */
 export interface FlowDesignShape {
-  /** Draw the full circle of the plain dot on top of the spur. */
-  circle: boolean;
-  /** Lighter caps inside the head, 0 for none. */
+  /** Lighter rings inside the dot, 0 for a plain circle. */
   caps: number;
-  /** The spur closes to full opacity at its front and carries the head itself. */
-  solidFront: boolean;
-  /** How far the spur shifts towards white, in percent. */
-  heat: number;
-}
-
-export interface FlowDesignSpur {
-  /** Length as a percentage of the lane. 0 leaves the plain dot. */
-  tail: number;
-  /** Exponent of the taper, in percent. */
-  taper: number;
   /** How far forward the bright core sits, in percent. */
   bias: number;
-  /** Layers the spur is built from. */
-  steps: number;
 }
 
 /** The values that depend on the ground the card sits on. */
 export interface FlowDesignGround {
   /** Dot diameter in CSS pixels. */
   dot: number;
+  /** Diameter of the innermost ring as a share of the dot, in percent. */
   core: number;
+  /** How far the core is mixed towards white, in percent. */
   coreLight: number;
-  fade: number;
   /** 0 none, 1 blur filter, 2 drawn gradient. */
   glow: number;
   glowStrength: number;
+  /**
+   * Opacity of the connection line under the dots, in percent. Without this a
+   * design cannot work: the card draws an active line in the flow colour, and a
+   * dot of the same colour on top of it barely reads. 80 is what the card does
+   * without a design (P-5).
+   */
+  line: number;
 }
 
 export interface FlowDesign {
   id: string;
   name: string;
+  /**
+   * The name for every interface that is not German - the card falls back to
+   * English for any language it does not speak, and so does this. Left out,
+   * the name above stands everywhere, which is right for one that is a name
+   * rather than a word.
+   */
+  name_en?: string;
+  /** The same on both grounds - a shape is not a matter of the theme. */
   shape: FlowDesignShape;
-  spur: FlowDesignSpur;
   dark: FlowDesignGround;
   light: FlowDesignGround;
 }
+/**
+ * Which ground the card assumes for a flow design.
+ *
+ * "auto" reads it off the theme, which is what the card always did; the other
+ * two settle it, for a theme whose background the card cannot read or simply
+ * because one of the two sets looks better here.
+ */
+export type Appearance = "auto" | "light" | "dark";
+
 /** How connections without flow are drawn (REQ P-9). */
 export type InactiveLines = "show" | "dim" | "hide";
 export type NodeKey = "solar" | "grid" | "house" | "battery";
+/**
+ * Everything that can carry an icon. The rest row is not a node - it has no
+ * entity and no circle in the cross - but it is a row in the list like any
+ * other, and one that looks odd as the only plain dot among icons.
+ */
+export type IconKey = NodeKey | "rest";
 export type ColorKey =
   | "solar"
   | "house"
@@ -171,6 +186,8 @@ export interface RawConfig extends LovelaceCardConfig {
   update_interval_s?: number;
   list?: { enabled?: boolean; rest_label?: string; title?: string; always_below?: boolean };
   ring?: { enabled?: boolean };
+  /** Which half of a flow design applies (REQ P-10). */
+  appearance?: Appearance;
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
   power?: { unit?: PowerUnit; decimals?: number };
   view?: {
@@ -202,7 +219,7 @@ export interface RawConfig extends LovelaceCardConfig {
     soc_stops?: SocStop[];
     consumer_palette?: string[];
   };
-  icons?: Partial<Record<NodeKey, string>>;
+  icons?: Partial<Record<IconKey, string>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,8 +297,10 @@ export interface Config {
     inactiveLines: InactiveLines;
     design: string;
   };
+  /** Which half of a flow design applies (REQ P-10). */
+  appearance: Appearance;
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
-  icons: Partial<Record<NodeKey, string>>;
+  icons: Partial<Record<IconKey, string>>;
   power: PowerFormat;
 }
 

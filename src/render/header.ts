@@ -37,10 +37,13 @@ export function renderHeader(
   onToggleAll?: () => void,
 ): TemplateResult | typeof nothing {
   const modes: ViewMode[] = ["current", "avg_short", "avg_long"];
-  const showSelector = config.view.showSelector;
-  const hasToggle = onToggleAll !== undefined && config.consumers.length > 0;
+  // One switch for the whole bar: the three averages and the consumer filter
+  // are the bar, and half a bar is not a thing anyone asked for. Turned off,
+  // the card starts with the flow and nothing above it.
+  const showBar = config.view.showSelector;
+  const hasToggle = showBar && onToggleAll !== undefined && config.consumers.length > 0;
 
-  if (!title && !showSelector && mode === "current" && !hasToggle) return nothing;
+  if (!title && !showBar && mode === "current") return nothing;
 
   const toggleLabel = localize(showAll ? "list.filter_on" : "list.show_all", hass);
   const toggle = hasToggle
@@ -60,7 +63,7 @@ export function renderHeader(
       ${title ? html`<div class="title">${title}</div>` : html`<span></span>`}
       <div class="controls">
         ${
-          showSelector
+          showBar
             ? html`<div class="modes" role="radiogroup" aria-label=${localize("view.label", hass)}>
                 ${modes.map(
                   (m) => html`<button
@@ -75,7 +78,8 @@ export function renderHeader(
                 )}
               </div>`
             : mode !== "current"
-              ? // Selector hidden: name the mode anyway (REQ V-3).
+              ? // Bar hidden: name the mode anyway, or a card stuck on a mean
+                // would silently read as the current value (REQ V-3).
                 html`<div class="mode-note">${modeLabel(mode, config, hass)}</div>`
               : nothing
         }

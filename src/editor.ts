@@ -27,7 +27,7 @@ import {
   swatchHex,
 } from "./colors";
 import { EDITOR_NAME } from "./const";
-import { NO_DESIGN, flowDesigns } from "./designs";
+import { NO_DESIGN, designName, flowDesigns } from "./designs";
 import { localize } from "./localize";
 import type { ColorKey, EntityRef, HomeAssistant, RawConfig, SocStop } from "./types";
 
@@ -45,6 +45,8 @@ const BATTERY_FILTER = [
 
 const QUANTITIES = ["solar", "grid", "house", "battery"] as const;
 type Quantity = (typeof QUANTITIES)[number];
+/** The four nodes plus the rest row, which has an icon but no entity. */
+const ICON_KEYS = [...QUANTITIES, "rest"] as const;
 
 /** How a quantity gets its value. "none" exists only for the battery (REQ A-5). */
 type Source = "entity" | "split" | "derived" | "none";
@@ -96,6 +98,7 @@ interface FlatConfig {
   min_consumer_w?: number;
   update_interval_s?: number;
   rest_label?: string;
+  appearance?: string;
   list_enabled?: boolean;
   list_always_below?: boolean;
   ring_enabled?: boolean;
@@ -128,6 +131,7 @@ interface FlatConfig {
   icon_grid?: string;
   icon_house?: string;
   icon_battery?: string;
+  icon_rest?: string;
 }
 
 const COLOR_KEYS: readonly ColorKey[] = [
@@ -197,6 +201,7 @@ function toFlat(config: RawConfig): FlatConfig {
     min_consumer_w: config.min_consumer_w,
     update_interval_s: config.update_interval_s,
     rest_label: config.list?.rest_label,
+    appearance: config.appearance,
     list_enabled: config.list?.enabled,
     list_always_below: config.list?.always_below,
     ring_enabled: config.ring?.enabled,
@@ -224,7 +229,7 @@ function toFlat(config: RawConfig): FlatConfig {
   for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
   out.soc_stops = colors.soc_stops;
   const icons = (config.icons ?? {}) as Record<string, unknown>;
-  for (const key of QUANTITIES) out[`icon_${key}`] = icons[key];
+  for (const key of ICON_KEYS) out[`icon_${key}`] = icons[key];
   return out as FlatConfig;
 }
 
@@ -345,6 +350,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
     max_consumers: num(flat.max_consumers),
     min_consumer_w: num(flat.min_consumer_w),
     update_interval_s: num(flat.update_interval_s),
+    appearance: opt(flat.appearance) as RawConfig["appearance"],
     list: prune({
       enabled: flat.list_enabled,
       rest_label: flat.rest_label,
@@ -381,7 +387,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       // what the YAML already says.
       ...(f.soc_stops !== undefined ? { soc_stops: f.soc_stops } : {}),
     }),
-    icons: prune(Object.fromEntries(QUANTITIES.map((key) => [key, f[`icon_${key}`]]))),
+    icons: prune(Object.fromEntries(ICON_KEYS.map((key) => [key, f[`icon_${key}`]]))),
   } as RawConfig;
 }
 
@@ -462,41 +468,85 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       name: "entities",
       type: "expandable",
       flatten: true,
-      expanded: true,
       title: t("entities"),
       schema: entityFields,
     },
     {
-      name: "consumers",
-      selector: {
-        object: {
-          multiple: true,
-          label_field: "name",
-          description_field: "entity",
-          fields: {
-            entity: {
-              label: t("entity"),
-              selector: { entity: { filter: POWER_FILTER } },
-              required: true,
+      name: "grid_status",
+      type: "expandable",
+      flatten: true,
+      title: t("grid_status_section"),
+      schema: [
+        { name: "grid_status", selector: { entity: {} } },
+        { name: "grid_status_outage", selector: stateSelector },
+        { name: "grid_status_ok", selector: stateSelector },
+      ],
+    },
+    {
+      name: "consumers_section",
+      type: "expandable",
+      flatten: true,
+      title: t("consumers"),
+      schema: [
+        {
+          name: "consumers",
+          selector: {
+            object: {
+              multiple: true,
+              label_field: "name",
+              description_field: "entity",
+              fields: {
+                entity: {
+                  label: t("entity"),
+                  selector: { entity: { filter: POWER_FILTER } },
+                  required: true,
+                },
+                name: { label: t("name"), selector: { text: {} } },
+                // No colour here: it has a row with a swatch under "Colours", and
+                // two places to set one thing is one place too many.
+                icon: { label: t("icon"), selector: { icon: {} } },
+                min_w: {
+                  label: t("min_w"),
+                  selector: { number: { min: 0, max: 10000, mode: "box" } },
+                },
+              },
             },
-            name: { label: t("name"), selector: { text: {} } },
-            // No colour here: it has a row with a swatch under "Colours", and
-            // two places to set one thing is one place too many.
-            icon: { label: t("icon"), selector: { icon: {} } },
-            min_w: { label: t("min_w"), selector: { number: { min: 0, max: 10000, mode: "box" } } },
           },
         },
-      },
+      ],
     },
     {
       name: "display",
       type: "expandable",
       flatten: true,
       title: t("display"),
+      /*
+       * "Ansicht" used to be a group of its own, next to this one. Both said
+       * how the card looks, and nobody could tell which of the two held the
+       * setting they were after - so they are one group, read top to bottom:
+       * the card's own ground, what it shows at all, the list, how numbers are
+       * written, the bar above it, and how often it refreshes.
+       */
       schema: [
+        {
+          name: "appearance",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "auto", label: t("appearance_auto") },
+                { value: "light", label: t("appearance_light") },
+                { value: "dark", label: t("appearance_dark") },
+              ],
+            },
+          },
+        },
+        { name: "list_enabled", selector: { boolean: {} } },
+        { name: "list_always_below", selector: { boolean: {} } },
+        { name: "ring_enabled", selector: { boolean: {} } },
         { name: "max_consumers", selector: { number: { min: 1, max: 50, mode: "box" } } },
         { name: "min_consumer_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
-        { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
+        { name: "rest_label", selector: { text: {} } },
         {
           name: "power_unit",
           selector: {
@@ -522,29 +572,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
           },
         },
-        { name: "rest_label", selector: { text: {} } },
-        { name: "list_enabled", selector: { boolean: {} } },
-        { name: "list_always_below", selector: { boolean: {} } },
-        { name: "ring_enabled", selector: { boolean: {} } },
-      ],
-    },
-    {
-      name: "grid_status",
-      type: "expandable",
-      flatten: true,
-      title: t("grid_status_section"),
-      schema: [
-        { name: "grid_status", selector: { entity: {} } },
-        { name: "grid_status_outage", selector: stateSelector },
-        { name: "grid_status_ok", selector: stateSelector },
-      ],
-    },
-    {
-      name: "view",
-      type: "expandable",
-      flatten: true,
-      title: t("view"),
-      schema: [
+        { name: "show_selector", selector: { boolean: {} } },
         {
           name: "default_mode",
           selector: {
@@ -560,7 +588,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         },
         { name: "avg_short_minutes", selector: { number: { min: 1, max: 120, mode: "box" } } },
         { name: "avg_long_minutes", selector: { number: { min: 2, max: 240, mode: "box" } } },
-        { name: "show_selector", selector: { boolean: {} } },
+        { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
       ],
     },
     {
@@ -606,7 +634,10 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
               // never offer one the card would not find (E-1).
               options: [
                 { value: NO_DESIGN, label: t("design_none") },
-                ...flowDesigns().map((design) => ({ value: design.id, label: design.name })),
+                ...flowDesigns().map((design) => ({
+                  value: design.id,
+                  label: designName(design, hass),
+                })),
               ],
             },
           },
@@ -636,7 +667,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       type: "expandable",
       flatten: true,
       title: t("icons"),
-      schema: QUANTITIES.map((key) => ({ name: `icon_${key}`, selector: { icon: {} } })),
+      schema: ICON_KEYS.map((key) => ({ name: `icon_${key}`, selector: { icon: {} } })),
     },
   ];
 }
@@ -1404,6 +1435,21 @@ class EnerLensCardEditor extends LitElement {
   }
 
   static styles: CSSResultGroup = css`
+    /*
+     * One gap between the panels, whoever draws them.
+     *
+     * The colours cannot live in the schema - ha-form has no row with a swatch
+     * (C-1) - so the editor is three pieces: a form, the colours panel, a
+     * second form for the icons. ha-form spaces its own rows and stops at the
+     * last one, so the two seams between the pieces had no gap at all while
+     * every other panel had one. 24 px is what ha-form puts between its rows.
+     */
+    :host {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
     ha-form {
       display: block;
     }

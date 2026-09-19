@@ -8,12 +8,30 @@
  */
 import { LIVE_DESIGNS_URL } from "./const";
 import bundled from "./flow-designs.json";
-import type { FlowDesign } from "./types";
+import { uiLanguage } from "./localize";
+import type { FlowDesign, HomeAssistant } from "./types";
 
 /** The plain dots of every version before designs existed. */
 export const NO_DESIGN = "none";
 
-let designs: FlowDesign[] = (bundled as { designs: FlowDesign[] }).designs;
+/** A design written before a value existed still has to work (P-10). */
+function withDefaults(list: FlowDesign[]): FlowDesign[] {
+  for (const design of list) {
+    // bias used to live in a block of its own, next to the trail values.
+    const legacy = (design as { spur?: { bias?: number } }).spur;
+    if (typeof design.shape?.bias !== "number" && typeof legacy?.bias === "number") {
+      design.shape.bias = legacy.bias;
+    }
+    if (typeof design.shape?.bias !== "number") design.shape.bias = 0;
+    if (typeof design.shape?.caps !== "number") design.shape.caps = 0;
+    for (const ground of [design.dark, design.light]) {
+      if (typeof ground?.line !== "number") ground.line = 80;
+    }
+  }
+  return list;
+}
+
+let designs: FlowDesign[] = withDefaults((bundled as { designs: FlowDesign[] }).designs);
 let loading: Promise<void> | undefined;
 
 export function flowDesigns(): readonly FlowDesign[] {
@@ -26,12 +44,29 @@ export function flowDesign(id: string | undefined): FlowDesign | undefined {
   return designs.find((entry) => entry.id === id);
 }
 
+/**
+ * What to call a design in the interface the user is looking at.
+ *
+ * `name` is the German name, `name_en` the one for everybody else - not just
+ * for English. The card speaks two languages and falls back to English for any
+ * third, so an Italian reads an English interface; handing them the German
+ * name there would be the one combination nobody asked for.
+ *
+ * A name like "Electron" has nothing to translate, so the second one is
+ * optional and the first stands in for it.
+ */
+export function designName(design: FlowDesign, hass?: HomeAssistant): string {
+  const english = design.name_en?.trim();
+  if (!english) return design.name;
+  return uiLanguage(hass) === "de" ? design.name : english;
+}
+
 /** Shallow check that a fetched entry is shaped like a design. */
 function isDesign(value: unknown): value is FlowDesign {
   if (typeof value !== "object" || value === null) return false;
   const entry = value as Record<string, unknown>;
   if (typeof entry.id !== "string" || !entry.id) return false;
-  return ["shape", "spur", "dark", "light"].every(
+  return ["shape", "dark", "light"].every(
     (key) => typeof entry[key] === "object" && entry[key] !== null,
   );
 }
@@ -50,7 +85,7 @@ export function loadLiveDesigns(): Promise<void> {
         const list = (data as { designs?: unknown })?.designs;
         if (!Array.isArray(list)) return;
         const usable = list.filter(isDesign);
-        if (usable.length) designs = usable;
+        if (usable.length) designs = withDefaults(usable);
       })
       .catch(() => {
         /* no file next to the card: the compiled-in designs stand */

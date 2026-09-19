@@ -6,6 +6,7 @@ import { AveragingBuffer, fetchHistory } from "./averaging";
 import { collectEntityIds, normalizeConfig } from "./config";
 import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
 import { buildBreakdown, refreshBreakdownValues } from "./consumers";
+import { flowDesign, loadLiveDesigns } from "./designs";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
@@ -13,6 +14,7 @@ import { openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import { VIEW_W } from "./render/geometry";
+import { groundIsDark } from "./render/ground";
 import { renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { styles } from "./styles";
@@ -90,6 +92,9 @@ class EnerLensCard extends LitElement {
   private _resizeObserver?: ResizeObserver;
   private _intersectionObserver?: IntersectionObserver;
   private _dots?: DotLayer;
+  /** The spur replaces the dots while a design is chosen (P-10). */
+  private _designsPickedUp = false;
+  private _warnedDesign?: string;
   private _fan?: FanLayer;
   /** Frame loop that keeps the fan on the rows while they glide. */
   private _fanFollow?: number;
@@ -224,6 +229,7 @@ class EnerLensCard extends LitElement {
       this._syncPlayState();
     });
     this._intersectionObserver.observe(this);
+    this._pickUpLiveDesigns();
     document.addEventListener("visibilitychange", this._onVisibility);
 
     // The system setting can change while the card is open (REQ P-7).
@@ -440,6 +446,11 @@ class EnerLensCard extends LitElement {
     const svg = this.renderRoot?.querySelector("svg.fan") as SVGSVGElement | null;
     if (!svg || !this._config) return;
     if (!this._fan) this._fan = new FanLayer(svg);
+    // The rows follow the same design as the cross (P-10).
+    this._fan.setDesign(
+      flowDesign(this._config.flow.design),
+      groundIsDark(this, this._config.appearance),
+    );
 
     const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
     const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;
@@ -497,10 +508,40 @@ class EnerLensCard extends LitElement {
     );
   }
 
+  /**
+   * Only does anything in a local build: there a design saved in the tool shows
+   * up after a reload without rebuilding the card (P-10). Once per card - the
+   * result is cached in the module, but asking again would render again.
+   *
+   * Called when the card is connected, not when it becomes visible: an
+   * IntersectionObserver may not report before the first paint, and the design
+   * is needed for that paint.
+   */
+  private _pickUpLiveDesigns(): void {
+    if (this._designsPickedUp) return;
+    this._designsPickedUp = true;
+    void loadLiveDesigns().then(() => this.requestUpdate());
+  }
+
+  /**
+   * Says once when a configured design is not in this build. Falling back to
+   * the plain dots is deliberate (P-10), but silently drawing something other
+   * than what the configuration asks for is worth a word in the console.
+   */
+  private _warnUnknownDesign(found: boolean): void {
+    const id = this._config?.flow.design;
+    if (found || !id || id === "none" || this._warnedDesign === id) return;
+    this._warnedDesign = id;
+    console.warn(`${CARD_LABEL}: flow design "${id}" is not in this build - drawing plain dots.`);
+  }
+
   private _syncPlayState(): void {
     const documentHidden = typeof document !== "undefined" && document.hidden;
-    if (this._visible && !documentHidden) this._dots?.resume();
-    else this._dots?.pause();
+    if (this._visible && !documentHidden) {
+      this._dots?.resume();
+    } else {
+      this._dots?.pause();
+    }
   }
 
   /**
@@ -523,15 +564,35 @@ class EnerLensCard extends LitElement {
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
+    const plot = this.renderRoot.querySelector(".plot") as HTMLElement | null;
+    const width = plot?.getBoundingClientRect().width ?? 0;
+    const design = flowDesign(this._config.flow.design);
+    this._warnUnknownDesign(design !== undefined);
+    const dark = groundIsDark(this, this._config.appearance);
+    // A forced ground is an attribute, so the stylesheet can hang the colour
+    // overrides off it. On "auto" it comes off again and the theme rules.
+    if (this._config.appearance === "auto") this.removeAttribute("data-appearance");
+    else this.setAttribute("data-appearance", this._config.appearance);
+
     if (!this._dots) {
       this._dots = new DotLayer(group, this._technique);
-      const plot = this.renderRoot.querySelector(".plot") as HTMLElement | null;
-      const width = plot?.getBoundingClientRect().width ?? 0;
       if (width > 0) this._dots.setScale(width / VIEW_W);
     }
+    // Handed over on every render: the same object does nothing, but a
+    // reloaded design file returns a new one under the same id, and that has
+    // to reach the screen.
+    this._dots.setDesign(design, dark);
+
     const ticked = this._tickModel ?? this._model ?? buildModel(this._hass, this._config);
     const plans = planDots(computeFlows(ticked), this._config);
     this._dots.update(plans, this._config, this._animationsWanted);
+
+    // The dots need a quieter line to stand out against; the design says how
+    // quiet. Set here rather than in the template, which knows no ground.
+    const ground = dark ? design?.dark : design?.light;
+    if (ground) this.style.setProperty("--el-link-opacity", String(ground.line / 100));
+    else this.style.removeProperty("--el-link-opacity");
+
     this._updateFan();
     this._syncPlayState();
     // Rows only glide once a measurement has left the layout where it was: the
@@ -621,7 +682,7 @@ class EnerLensCard extends LitElement {
         <div
           class="body ${this._stacked ? "stacked" : ""} ${
             this._config.list.alwaysBelow ? "force-below" : ""
-          }"
+          } ${this._config.list.enabled ? "" : "no-list"}"
         >
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(

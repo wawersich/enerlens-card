@@ -918,7 +918,7 @@ describe("editor - every colour the card has (REQ C-1, C-3, C-4)", () => {
 
     it("no longer offers a second place to set the same colour", async () => {
       const el = await mount(WITH_CONSUMERS);
-      const consumers = form(el).schema.find((f) => f.name === "consumers");
+      const consumers = findField(el, "consumers");
       const fields = (consumers?.selector?.object as { fields: Record<string, unknown> }).fields;
       expect(Object.keys(fields)).not.toContain("color");
       expect(Object.keys(fields)).toContain("icon");

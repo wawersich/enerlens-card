@@ -1,131 +1,102 @@
 {
   "designs": [
     {
-      "id": "comet",
-      "name": "Komet",
+      "id": "kugeln",
+      "name": "Kugeln",
+      "name_en": "Orbs",
       "shape": {
-        "circle": true,
-        "caps": 2,
-        "solidFront": false,
-        "heat": 0
-      },
-      "spur": {
-        "tail": 16,
-        "taper": 100,
-        "bias": 70,
-        "steps": 18
+        "caps": 5,
+        "bias": 70
       },
       "dark": {
-        "dot": 10,
+        "dot": 14,
         "core": 30,
         "coreLight": 60,
-        "fade": 40,
-        "glow": 1,
-        "glowStrength": 60
-      },
-      "light": {
-        "dot": 8,
-        "core": 20,
-        "coreLight": 40,
-        "fade": 28,
-        "glow": 1,
-        "glowStrength": 35
-      }
-    },
-    {
-      "id": "meteor",
-      "name": "Meteorit",
-      "shape": {
-        "circle": false,
-        "caps": 6,
-        "solidFront": true,
-        "heat": 45
-      },
-      "spur": {
-        "tail": 16,
-        "taper": 100,
-        "bias": 70,
-        "steps": 18
-      },
-      "dark": {
-        "dot": 10,
-        "core": 30,
-        "coreLight": 60,
-        "fade": 40,
-        "glow": 1,
-        "glowStrength": 60
-      },
-      "light": {
-        "dot": 8,
-        "core": 20,
-        "coreLight": 40,
-        "fade": 28,
-        "glow": 1,
-        "glowStrength": 35
-      }
-    },
-    {
-      "id": "ember",
-      "name": "Glutkern",
-      "shape": {
-        "circle": true,
-        "caps": 6,
-        "solidFront": false,
-        "heat": 100
-      },
-      "spur": {
-        "tail": 16,
-        "taper": 100,
-        "bias": 70,
-        "steps": 18
-      },
-      "dark": {
-        "dot": 10,
-        "core": 30,
-        "coreLight": 60,
-        "fade": 40,
-        "glow": 1,
-        "glowStrength": 60
-      },
-      "light": {
-        "dot": 8,
-        "core": 20,
-        "coreLight": 40,
-        "fade": 28,
-        "glow": 1,
-        "glowStrength": 35
-      }
-    },
-    {
-      "id": "plain",
-      "name": "Ohne Spur",
-      "shape": {
-        "circle": true,
-        "caps": 2,
-        "solidFront": false,
-        "heat": 0
-      },
-      "spur": {
-        "tail": 0,
-        "taper": 100,
-        "bias": 70,
-        "steps": 18
-      },
-      "dark": {
-        "dot": 10,
-        "core": 0,
-        "coreLight": 0,
-        "fade": 40,
         "glow": 0,
-        "glowStrength": 60
+        "glowStrength": 100,
+        "line": 80
       },
       "light": {
-        "dot": 10,
-        "core": 0,
-        "coreLight": 0,
-        "fade": 40,
+        "dot": 14,
+        "core": 20,
+        "coreLight": 75,
         "glow": 0,
-        "glowStrength": 35
+        "glowStrength": 45,
+        "line": 80
+      }
+    },
+    {
+      "id": "partylicht",
+      "name": "Partylicht",
+      "name_en": "Party Light",
+      "shape": {
+        "caps": 5,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 14,
+        "core": 30,
+        "coreLight": 60,
+        "glow": 2,
+        "glowStrength": 100,
+        "line": 80
+      },
+      "light": {
+        "dot": 14,
+        "core": 20,
+        "coreLight": 75,
+        "glow": 1,
+        "glowStrength": 45,
+        "line": 80
+      }
+    },
+    {
+      "id": "electron",
+      "name": "Electron",
+      "shape": {
+        "caps": 5,
+        "bias": 70
+      },
+      "dark": {
+        "dot": 9,
+        "core": 40,
+        "coreLight": 100,
+        "glow": 0,
+        "glowStrength": 100,
+        "line": 80
+      },
+      "light": {
+        "dot": 8,
+        "core": 40,
+        "coreLight": 100,
+        "glow": 0,
+        "glowStrength": 45,
+        "line": 80
+      }
+    },
+    {
+      "id": "leuchtpunkte",
+      "name": "Leuchtpunkte",
+      "name_en": "Glowing Dots",
+      "shape": {
+        "caps": 5,
+        "bias": 95
+      },
+      "dark": {
+        "dot": 9,
+        "core": 20,
+        "coreLight": 100,
+        "glow": 2,
+        "glowStrength": 80,
+        "line": 80
+      },
+      "light": {
+        "dot": 8,
+        "core": 20,
+        "coreLight": 75,
+        "glow": 2,
+        "glowStrength": 45,
+        "line": 80
       }
     }
   ]

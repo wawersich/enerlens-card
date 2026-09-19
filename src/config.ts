@@ -7,11 +7,13 @@ import { localize } from "./localize";
 import { normalizeState, warnUnusable } from "./outage";
 import {
   type AnimationMode,
+  type Appearance,
   type ColorKey,
   type Config,
   ConfigError,
   type GridStatusSpec,
   type HomeAssistant,
+  type IconKey,
   type InactiveLines,
   type NodeKey,
   type NormalizedConsumer,
@@ -43,6 +45,7 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
+const APPEARANCES: readonly Appearance[] = ["auto", "light", "dark"];
 
 const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "type",
@@ -410,12 +413,14 @@ function readPower(value: unknown, hass?: HomeAssistant): PowerFormat {
   };
 }
 
-function readIcons(value: unknown, hass?: HomeAssistant): Partial<Record<NodeKey, string>> {
-  const icons: Partial<Record<NodeKey, string>> = { ...DEFAULT_ICONS };
+function readIcons(value: unknown, hass?: HomeAssistant): Partial<Record<IconKey, string>> {
+  // The rest has no default: unset it stays the plain colour dot it has always
+  // been, and only a configured icon replaces it.
+  const icons: Partial<Record<IconKey, string>> = { ...DEFAULT_ICONS };
   if (value === undefined) return icons;
 
   const raw = requireRecord(value, "icons", hass);
-  for (const key of ["solar", "grid", "house", "battery"] as const) {
+  for (const key of ["solar", "grid", "house", "battery", "rest"] as const) {
     if (raw[key] !== undefined) icons[key] = requireString(raw[key], `icons.${key}`, hass);
   }
   return icons;
@@ -693,6 +698,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
         hass,
       ),
     },
+    appearance: readEnum(rawRecord.appearance, APPEARANCES, "appearance", "auto", hass),
     colors,
     icons: readIcons(rawRecord.icons, hass),
     power: readPower(rawRecord.power, hass),

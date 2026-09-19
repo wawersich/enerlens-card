@@ -12,8 +12,13 @@ type Translation = { [key: string]: string | Translation };
 const TRANSLATIONS: Record<string, Translation> = { en, de };
 const FALLBACK = "en";
 
-/** Only the language code counts, so "de-CH" uses "de". */
-function languageOf(hass?: HomeAssistant): string {
+/**
+ * The language the interface speaks, as a bare code - "de-CH" gives "de".
+ *
+ * Exported because the design names follow the same chain, and two ways of
+ * asking the same question drift apart.
+ */
+export function uiLanguage(hass?: HomeAssistant): string {
   const fromDocument = typeof document !== "undefined" ? document.documentElement?.lang : undefined;
   const language = hass?.language || fromDocument || FALLBACK;
   return language.split("-")[0].toLowerCase();
@@ -41,7 +46,7 @@ export function localize(
   hass?: HomeAssistant,
   params?: Record<string, string | number>,
 ): string {
-  const language = languageOf(hass);
+  const language = uiLanguage(hass);
   const text = lookup(TRANSLATIONS[language], key) ?? lookup(TRANSLATIONS[FALLBACK], key) ?? key;
   if (!params) return text;
   return text.replace(/\{(\w+)\}/g, (match, name: string) =>

@@ -72,6 +72,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       design: "none",
       ...over,
     },
+    appearance: "auto" as const,
     colors: {
       solar: "solar",
       house: "house",

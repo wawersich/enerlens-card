@@ -57,6 +57,8 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
         name: config.list.restLabel ?? "",
         w: rest,
         color: config.colors.rest,
+        // Unset the list falls back to the plain dot, as it always did.
+        icon: config.icons.rest,
         isRest: true,
       });
     }

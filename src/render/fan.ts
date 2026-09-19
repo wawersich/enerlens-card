@@ -1,3 +1,4 @@
+import type { FlowDesign, FlowDesignGround } from "../types";
 /**
  * The fan: one line from the house node to each list row, with dots running
  * along it.
@@ -9,6 +10,8 @@
  * Like the connection dots, the elements are managed imperatively: a Lit
  * re-render would recreate them and restart every animation (REQ P-6).
  */
+import { GLOW_DRAWN, HALO_R, dotRings, glowFilter, haloStops } from "./dot-shape";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const BASE_MS = 5000;
 
@@ -26,17 +29,38 @@ interface FanRow {
 
 interface FanLine {
   path: SVGPathElement;
-  dots: SVGCircleElement[];
+  /** Holds this row's dots, and carries their glow filter. */
+  group: SVGGElement;
+  dots: SVGGElement[];
   animations: Animation[];
   count: number;
+  /** What the dots were painted for - repainted only when one of these moves. */
+  paintKey?: string;
 }
 
 export class FanLayer {
   private readonly lines = new Map<string, FanLine>();
   private paused = false;
   private dotRadius = 5;
+  private design?: FlowDesign;
+  private dark = true;
+  private defs?: SVGDefsElement;
 
   constructor(private readonly svg: SVGSVGElement) {}
+
+  /** The design the rows follow, or undefined for the plain dots (P-10). */
+  setDesign(design: FlowDesign | undefined, dark: boolean): void {
+    if (design === this.design && dark === this.dark) return;
+    this.design = design;
+    this.dark = dark;
+    // The dots are repainted on the next update, which happens on every tick
+    // anyway; clearing the key is what makes that update notice.
+    for (const line of this.lines.values()) line.paintKey = undefined;
+  }
+
+  private ground(): FlowDesignGround | undefined {
+    return this.dark ? this.design?.dark : this.design?.light;
+  }
 
   /**
    * Redraws the fan for the given rows. `origin` is where the lines start -
@@ -63,24 +87,37 @@ export class FanLayer {
       line.path.setAttribute("class", `fan-line${row.inactive ? ` inactive-${row.inactive}` : ""}`);
       line.path.style.stroke = row.inactive ? "" : row.color;
 
+      // A design asks for a quieter line to stand out against; without one
+      // the line keeps the opacity the stylesheet gives it (P-5, P-10).
+      const ground = row.inactive ? undefined : this.ground();
+      line.path.style.opacity = ground ? String(ground.line / 100) : "";
+
       while (line.dots.length > row.count) {
         line.dots.pop()?.remove();
         line.animations.pop()?.cancel();
       }
       while (line.dots.length < row.count) {
-        const dot = this.createDot(row.color);
-        dot.dataset.key = row.key;
-        line.dots.push(dot);
+        line.dots.push(this.createDot(line, row.key));
       }
 
+      // Repainting means rebuilding a handful of circles, so it is done when
+      // something they depend on moved - not on every tick.
+      const paintKey = [row.color, this.dotRadius, ground ? this.design?.id : "", this.dark].join(
+        "|",
+      );
+      const repaint = line.paintKey !== paintKey;
+      line.paintKey = paintKey;
+      if (repaint) this.applyGlow(line, row.color, ground);
+
       const countChanged = line.count !== row.count;
+      const rate = BASE_MS / 1000 / Math.max(row.durationS, 0.01);
       for (const [i, dot] of line.dots.entries()) {
-        dot.setAttribute("fill", row.color);
-        dot.setAttribute("r", String(this.dotRadius));
+        if (repaint) this.paintDot(dot, row.color, ground);
         // The path changes with every relayout, so it is set on the element
-        // rather than kept in a stylesheet.
+        // rather than kept in a stylesheet. `auto` turns the dot with the row,
+        // so a ring pushed forward is pushed along it.
         dot.style.offsetPath = `path("${d}")`;
-        dot.style.offsetRotate = "0deg";
+        dot.style.offsetRotate = "auto";
 
         // Same guard as the list: no Web Animations means static dots, not a
         // crash (REQ N-5, and the fallback chain of decision 003).
@@ -98,13 +135,17 @@ export class FanLayer {
             iterations: Number.POSITIVE_INFINITY,
             easing: "linear",
           });
-          animation.currentTime = (BASE_MS * i) / row.count;
           line.animations[i] = animation;
           if (this.paused) animation.pause();
-        } else if (countChanged) {
+        }
+        // The plain setter, never updatePlaybackRate: that hands over a rate
+        // some later frame applies, and recomputes that one animation's start
+        // time when it does. Rate and spacing are set together, in one task,
+        // so the dots cannot slowly drift out of their even spread.
+        animation.playbackRate = rate;
+        if (countChanged || !line.animations[i]) {
           animation.currentTime = (BASE_MS * i) / row.count;
         }
-        animation.updatePlaybackRate(BASE_MS / 1000 / row.durationS);
       }
       line.count = row.count;
     }
@@ -113,6 +154,7 @@ export class FanLayer {
       if (seen.has(key)) continue;
       for (const a of line.animations) a?.cancel();
       for (const dot of line.dots) dot.remove();
+      line.group.remove();
       line.path.remove();
       this.lines.delete(key);
     }
@@ -143,17 +185,81 @@ export class FanLayer {
     // between the attribute and the computed style ("190.0" against "190").
     path.dataset.key = key;
     this.svg.appendChild(path);
-    const line: FanLine = { path, dots: [], animations: [], count: 0 };
+    const group = document.createElementNS(SVG_NS, "g");
+    this.svg.appendChild(group);
+    const line: FanLine = { path, group, dots: [], animations: [], count: 0 };
     this.lines.set(key, line);
     return line;
   }
 
-  private createDot(color: string): SVGCircleElement {
-    const dot = document.createElementNS(SVG_NS, "circle");
+  /** A radial gradient for the drawn halo, one per colour and strength. */
+  private haloGradient(colour: string, ground: FlowDesignGround): string {
+    const id = `fan-${colour.replace(/[^a-z0-9]/gi, "")}-${ground.glowStrength}`;
+    if (!this.defs) {
+      this.defs = document.createElementNS(SVG_NS, "defs");
+      this.svg.appendChild(this.defs);
+    }
+    if (!this.defs.querySelector(`#${id}`)) {
+      const gradient = document.createElementNS(SVG_NS, "radialGradient");
+      gradient.setAttribute("id", id);
+      for (const [offset, opacity] of haloStops(ground.glowStrength)) {
+        const stop = document.createElementNS(SVG_NS, "stop");
+        stop.setAttribute("offset", String(offset));
+        stop.setAttribute("stop-color", colour);
+        stop.setAttribute("stop-opacity", String(opacity));
+        gradient.appendChild(stop);
+      }
+      this.defs.appendChild(gradient);
+    }
+    return id;
+  }
+
+  /** The blur, one filter for the whole row rather than one per dot. */
+  private applyGlow(line: FanLine, colour: string, ground: FlowDesignGround | undefined): void {
+    line.group.style.filter = ground ? glowFilter(ground.glow, ground.glowStrength, colour, 1) : "";
+  }
+
+  /**
+   * The circles one dot is made of. Without a design that is a single one -
+   * the same plain dot the rows have always carried.
+   */
+  private paintDot(dot: SVGGElement, colour: string, ground: FlowDesignGround | undefined): void {
+    while (dot.firstChild) dot.removeChild(dot.firstChild);
+    // The size comes from the design, as it does on the cross - not from the
+    // layer's own default, or the rows would carry different dots.
+    const r = ground ? ground.dot / 2 : this.dotRadius;
+
+    if (ground && ground.glow === GLOW_DRAWN && ground.glowStrength > 0) {
+      const halo = document.createElementNS(SVG_NS, "circle");
+      halo.setAttribute("r", (r * HALO_R).toFixed(2));
+      halo.setAttribute("fill", `url(#${this.haloGradient(colour, ground)})`);
+      dot.appendChild(halo);
+    }
+
+    for (const ring of dotRings({
+      dot: 2 * r,
+      caps: ground ? (this.design?.shape.caps ?? 0) : 0,
+      core: (ground?.core ?? 0) / 100,
+      coreLight: (ground?.coreLight ?? 0) / 100,
+      bias: (this.design?.shape.bias ?? 0) / 100,
+      colour,
+    })) {
+      const circle = document.createElementNS(SVG_NS, "circle");
+      circle.setAttribute("cx", ring.forward.toFixed(2));
+      circle.setAttribute("r", ring.r.toFixed(2));
+      circle.setAttribute("fill", ring.colour);
+      if (ring.opacity < 1) circle.setAttribute("fill-opacity", ring.opacity.toFixed(3));
+      dot.appendChild(circle);
+    }
+  }
+
+  private createDot(line: FanLine, key: string): SVGGElement {
+    const dot = document.createElementNS(SVG_NS, "g");
     dot.setAttribute("class", "fan-dot");
-    dot.setAttribute("r", String(this.dotRadius));
-    dot.setAttribute("fill", color);
-    this.svg.appendChild(dot);
+    // The row this dot belongs to. Nothing in the card reads it back, but it
+    // lets the hero exporter pair a dot with its line.
+    dot.dataset.key = key;
+    line.group.appendChild(dot);
     return dot;
   }
 
@@ -164,21 +270,28 @@ export class FanLayer {
   pause(): void {
     if (this.paused) return;
     this.paused = true;
-    for (const line of this.lines.values()) for (const a of line.animations) a?.pause();
+    for (const line of this.lines.values()) {
+      for (const a of line.animations) a?.pause();
+    }
   }
 
   resume(): void {
     if (!this.paused) return;
     this.paused = false;
-    for (const line of this.lines.values()) for (const a of line.animations) a?.play();
+    for (const line of this.lines.values()) {
+      for (const a of line.animations) a?.play();
+    }
   }
 
   destroy(): void {
     for (const line of this.lines.values()) {
       for (const a of line.animations) a?.cancel();
       for (const dot of line.dots) dot.remove();
+      line.group.remove();
       line.path.remove();
     }
     this.lines.clear();
+    this.defs?.remove();
+    this.defs = undefined;
   }
 }
