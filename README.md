@@ -263,8 +263,10 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
 | `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
-| `view.show_selector` | `true` | Show the mode chips |
+| `view.show_selector` | `true` | Show the filter bar above the card - the three averaging switches and the list's filter button |
 | `view.remember` | `true` | Remember the view and the filter button per browser |
+| `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
+| `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
 | `flow.min_w` | `10` | Below this nothing moves, grid and battery show no state word, and no ring segment is drawn |
@@ -279,7 +281,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `colors.*` | HA energy colours | Any CSS value, including `var(--…)` |
 | `colors.soc_stops` | red → yellow → green | Gradient for the charge level |
 | `colors.consumer_palette` | 10 colours | Cycled through consumers without a colour of their own |
-| `icons.*` | mdi defaults | Per-node icon |
+| `icons.*` | mdi defaults | Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot |
 
 `flow.animation: auto` follows the device's reduce-motion preference — that
 setting lives in the operating system, not in Home Assistant.

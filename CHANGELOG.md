@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **A design for the flow dots.** `flow.design` picks one of the designs in
+  `flow-designs.json`: a dot gains a lighter core towards its front and,
+  optionally, a glow. `none` keeps the plain dot every version has drawn.
+  The designs are made in the design tool under `tools/leuchtspur/` and both
+  it and the card work out a dot from the same module, so one cannot drift
+  from the other.
+- **`appearance`** shows this one card light or dark whatever the theme says,
+  without touching the rest of the dashboard, and settles which half of a flow
+  design applies. `auto` (the default) reads the theme, as before. Light and
+  dark use Home Assistant's own default colours.
+
+- **`icons.rest`** puts an icon on the remainder row, which had no way to get
+  one and sat among the others as the single plain dot.
+- **The row mark follows the row spacing.** A short list spaces its rows 40 px
+  apart and an 18 px mark looked lost in that; it is now 24 px there, about
+  20 px at medium spacing and the old 18 px in a long list - which never grows
+  a row, because the mark can never outgrow its own row.
+
+### Changed
+- **"Show the mode chips" is now "Show the filter bar"** and hides the whole
+  bar, the list's filter button included. It used to leave that button behind
+  in a header of its own.
+- **Without the list, the cross is centred and full size**, as it already was
+  with the list below it. It kept the narrow "beside the list" size and sat
+  against the left edge.
+- **Every group in the editor starts closed**, entities included, and the
+  consumer list has a panel of its own like everything else.
+
+### Fixed
+- **Dots kept their spacing over hours.** Speed changes went through
+  `updatePlaybackRate`, which hands the animation a rate that some later frame
+  applies - and recomputes that one animation's start time when it does. Rate
+  and spacing are now set together, synchronously.
+
 ## [0.4.1] - 2026-09-13
 
 ### Fixed

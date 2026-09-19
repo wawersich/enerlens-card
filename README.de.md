@@ -276,8 +276,10 @@ zusätzliche Abfrage.
 | `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
 | `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
-| `view.show_selector` | `true` | Umschalter anzeigen |
+| `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — die drei Mittelwert-Umschalter und den Filterknopf der Liste |
 | `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |
+| `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
+| `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
 | `flow.min_w` | `10` | Darunter bewegt sich nichts, Netz und Batterie zeigen kein Zustandswort, und es wird kein Ring-Segment gezeichnet |
@@ -292,7 +294,7 @@ zusätzliche Abfrage.
 | `colors.*` | HA-Energiefarben | Jeder CSS-Wert, auch `var(--…)` |
 | `colors.soc_stops` | rot → gelb → grün | Verlauf für den Ladezustand |
 | `colors.consumer_palette` | 10 Farben | Reihum für Verbraucher ohne eigene Farbe |
-| `icons.*` | mdi-Standard | Icon je Knoten |
+| `icons.*` | mdi-Standard | Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts |
 
 `flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
 die steht im Betriebssystem, nicht in Home Assistant.
