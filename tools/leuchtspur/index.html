@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <title>Leuchtspur-Prüfstand</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap">
 <style>
   :root {
     --bg: #eceff3;
@@ -48,7 +48,8 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
     color-scheme: dark;
   }
-  [data-stage="light"] {
+  /* Each tile carries its own ground, so both can be seen side by side. */
+  .tile[data-ground="light"] {
     --stage: #ffffff;
     --stage-line: rgba(16, 24, 32, 0.13);
     --stage-node: rgba(16, 24, 32, 0.05);
@@ -62,14 +63,14 @@
     font-size: 15px;
     line-height: 1.55;
     padding-inline: 20px;
-    padding-block: 28px 56px;
+    padding-block: 16px 48px;
   }
   .wrap {
-    max-width: 1120px;
+    max-width: 1400px;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 14px;
   }
   header h1 {
     font-family: var(--display);
@@ -106,18 +107,69 @@
     letter-spacing: 0.13em;
     text-transform: uppercase;
     color: var(--muted);
-    padding: 13px 18px;
+    padding: 8px 18px;
     cursor: pointer;
   }
   .controls[open] > summary {
     border-bottom: 1px solid var(--line-soft);
   }
-  .ctlgrid {
-    display: flex;
+  .groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+    gap: 10px;
+    padding: 10px 14px 12px;
+    align-items: start;
+  }
+  .group {
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    margin: 0;
+    padding: 2px 10px 8px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  /* Label and slider on one line: stacked, the settings filled the screen and
+     the tiles - the thing one is actually looking at - fell below the fold. */
+  .group .ctl:has(input[type="range"]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(76px, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+  .group input[type="range"] {
+    height: 14px;
+  }
+  .group .toggle {
+    padding-bottom: 0;
+    font-size: 13px;
+  }
+  .group .seg button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .group.ground {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+  /* The two ground groups sit side by side and keep the same width, so a value
+     can be compared between them without hunting for it. */
+  .group.ground legend .scope {
+    font-weight: 600;
+  }
+  /* A button row may wrap rather than be cut off by its column. */
+  .group .seg {
     flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 18px 26px;
-    padding: 16px 18px;
+    width: fit-content;
+  }
+  .group .ctl.span {
+    grid-column: 1 / -1;
+  }
+  .group > legend {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 0 6px;
   }
   /* Sticky only where it cannot swallow the view: on a phone the eleven
      controls stack into a block that would cover the tiles entirely. */
@@ -136,10 +188,9 @@
   }
   .ctl > label,
   .ctl > .legend {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 500;
     color: var(--muted);
     display: flex;
     justify-content: space-between;
@@ -159,9 +210,11 @@
     width: 16px;
     height: 16px;
   }
+  .warn-text {
+    color: #d3453b;
+  }
   .scope {
     color: var(--accent);
-    letter-spacing: 0.13em;
   }
   .ctl output {
     font-family: var(--mono);
@@ -234,7 +287,7 @@
     border: 1px solid var(--line);
     border-radius: 4px;
     box-shadow: var(--shadow);
-    padding: 14px 18px;
+    padding: 10px 14px;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -311,7 +364,7 @@
 
   .bench {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(228px, 1fr));
     gap: 18px;
     align-items: start;
   }
@@ -369,23 +422,13 @@
     width: 100%;
     height: auto;
   }
+  /* Like the card: an active connection is drawn in the flow colour, not in a
+     neutral grey. A grey lane here would promise a contrast the card cannot
+     keep - a trail of the same colour on a coloured line is invisible. */
   .lane-line {
     fill: none;
-    stroke: var(--stage-line);
     stroke-width: 2;
   }
-  .node {
-    fill: var(--stage-node);
-    stroke: var(--stage-line);
-    stroke-width: 1.5;
-  }
-  .node-label {
-    font-family: var(--mono);
-    fill: var(--stage-ink);
-    text-anchor: middle;
-    dominant-baseline: middle;
-  }
-
   .notes {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -428,12 +471,10 @@
     <p class="eyebrow">enerlens-card · Fluss-Animation</p>
     <h1>Leuchtspur-Prüfstand</h1>
     <p>
-      Das Werkzeug, mit dem die Designs entworfen werden, die die Karte später zur Auswahl stellt.
-      Sie stehen in <span class="num">designs.json</span> neben dieser Seite; rechts oben steht, ob
-      sie von dort kommen oder aus der eingebauten Notliste.
-      Ein Design umfasst die Machart, die Form des Schweifs und je einen Wertesatz für hellen und
-      dunklen Grund — der Anwender wählt in der Karte nur den Namen, das Passende zum Thema sucht
-      sie sich selbst heraus. Unten steht dasselbe als JSON, in der Fassung, die ins Repo wandert.
+      Hier entstehen die Designs, die die Karte zur Auswahl stellt. Sie stehen in
+      <span class="num">designs.json</span> neben dieser Seite. Ein Design umfasst die Form
+      und je einen Wertesatz für hellen und dunklen Grund; der Anwender wählt in der Karte nur den
+      Namen. Was die Regler bedeuten, steht unter den Kacheln.
     </p>
   </header>
 
@@ -443,125 +484,146 @@
       <select id="preset"></select>
     </div>
     <div class="ctl">
-      <span class="legend">Vorlage</span>
-      <div class="seg" id="variant-seg">
-        <button type="button" data-variant="comet">Komet</button>
-        <button type="button" data-variant="meteor">Meteorit</button>
-        <button type="button" data-variant="ember">Glutkern</button>
-      </div>
-    </div>
-    <button type="button" class="btn" id="reload">Datei neu laden</button>
-    <div class="ctl">
       <label for="design-name">Name</label>
       <input type="text" id="design-name" autocomplete="off" spellcheck="false">
     </div>
-    <button type="button" class="btn" id="save">Speichern</button>
-    <button type="button" class="btn" id="revert">Verwerfen</button>
-    <button type="button" class="btn" id="delete">Löschen</button>
+    <div class="ctl">
+      <label for="design-name-en">Name (nicht deutsch)</label>
+      <input type="text" id="design-name-en" autocomplete="off" spellcheck="false"
+             placeholder="wie oben">
+    </div>
+    <button type="button" class="btn" id="new">Neu</button>
+    <button type="button" class="btn" id="save">Datei speichern</button>
+    <button type="button" class="btn" id="revert">Änderungen zurücknehmen</button>
+    <button type="button" class="btn" id="delete">Design löschen</button>
+    <button type="button" class="btn" id="reload">Datei neu laden</button>
     <div class="statebox">
       <p class="state" id="state">unverändert</p>
       <p class="src" id="source">Quelle: eingebaut</p>
     </div>
   </section>
 
+  <details class="controls" id="sim" open>
+    <summary>Nur zum Ausprobieren — nicht in der Datei</summary>
+    <div class="groups">
+      <fieldset class="group">
+        <legend>Szene</legend>
+        <div class="ctl">
+          <label for="speed">Tempo <output id="speed-out">1,00×</output></label>
+          <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
+        </div>
+        <div class="ctl">
+          <label for="count">Punkte je Bahn <output id="count-out">3</output></label>
+          <input type="range" id="count" min="1" max="8" step="1" value="3">
+        </div>
+        <div class="ctl">
+          <label for="consumers">Verbraucher-Linien <output id="consumers-out">0</output></label>
+          <input type="range" id="consumers" min="0" max="10" step="1" value="0">
+        </div>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Ansicht</legend>
+        <div class="ctl">
+          <label for="zoom">Lupe <output id="zoom-out">1,0×</output></label>
+          <input type="range" id="zoom" min="1" max="6" step="0.5" value="1">
+        </div>
+        <label class="toggle" for="onlychosen">
+          <input type="checkbox" id="onlychosen">
+          Nur die Design-Kacheln zeigen
+        </label>
+        <div class="ctl">
+          <span class="legend">Lauf</span>
+          <div class="seg">
+            <button type="button" id="playpause" aria-pressed="false">Anhalten</button>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+  </details>
   <details class="controls" id="settings" open>
-    <summary>Einstellungen</summary>
-    <div class="ctlgrid">
-    <div class="ctl">
-      <span class="legend">Hintergrund der Karte</span>
-      <div class="seg" id="stage-seg">
-        <button type="button" id="stage-dark" aria-pressed="true">Dunkel</button>
-        <button type="button" id="stage-light" aria-pressed="false">Hell</button>
-      </div>
-    </div>
-    <div class="ctl">
-      <label for="glowstrength">Glüh-Stärke <span class="scope">(dunkel)</span>
-        <output id="glowstrength-out">60 %</output></label>
-      <input type="range" id="glowstrength" min="0" max="100" step="5" value="60">
-    </div>
-    <div class="ctl">
-      <label for="dot">Kreisdurchmesser <span class="scope">(dunkel)</span> <output id="dot-out">10 px</output></label>
-      <input type="range" id="dot" min="4" max="16" step="1" value="10">
-    </div>
-    <div class="ctl">
-      <label for="core">Kerndurchmesser <span class="scope">(dunkel)</span> <output id="core-out">30 %</output></label>
-      <input type="range" id="core" min="0" max="70" step="2" value="30">
-    </div>
-    <div class="ctl">
-      <label for="corelight">Kernhelligkeit <span class="scope">(dunkel)</span> <output id="corelight-out">60 %</output></label>
-      <input type="range" id="corelight" min="0" max="100" step="5" value="60">
-    </div>
-    <div class="ctl">
-      <span class="legend">Glühen <span class="scope">(dunkel)</span></span>
-      <div class="seg" id="glow-seg">
-        <button type="button" data-glow="0" aria-pressed="false">Aus</button>
-        <button type="button" data-glow="1" aria-pressed="true">Weichzeichner</button>
-        <button type="button" data-glow="2" aria-pressed="false">Gezeichnet</button>
-      </div>
-    </div>
-    <div class="ctl">
-      <label for="speed">Tempo <output id="speed-out">1,00×</output></label>
-      <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
-    </div>
-    <div class="ctl">
-      <label for="bias">Kernposition vorn <output id="bias-out">70 %</output></label>
-      <input type="range" id="bias" min="0" max="100" step="5" value="70">
-    </div>
-    <div class="ctl">
-      <label for="tail">Schweif-Länge <output id="tail-out">16 %</output></label>
-      <input type="range" id="tail" min="0" max="60" step="1" value="16">
-    </div>
-    <div class="ctl">
-      <label for="steps">Schweif-Lagen <output id="steps-out">18</output></label>
-      <input type="range" id="steps" min="2" max="18" step="1" value="18">
-    </div>
-    <div class="ctl">
-      <label for="taper">Schweif-Verjüngung <output id="taper-out">100 %</output></label>
-      <input type="range" id="taper" min="0" max="100" step="5" value="100">
-    </div>
-    <div class="ctl">
-      <label for="fade">Schweif-Deckkraft <span class="scope">(dunkel)</span> <output id="fade-out">40 %</output></label>
-      <input type="range" id="fade" min="5" max="100" step="5" value="40">
-    </div>
-    <div class="ctl">
-      <label for="count">Punkte je Bahn <output id="count-out">3</output></label>
-      <input type="range" id="count" min="1" max="8" step="1" value="3">
-    </div>
-    <div class="ctl">
-      <label for="consumers">Verbraucher-Linien <output id="consumers-out">0</output></label>
-      <input type="range" id="consumers" min="0" max="10" step="1" value="0">
-    </div>
-    <label class="toggle" for="circle">
-      <input type="checkbox" id="circle" checked>
-      Kopf als Kreis
-    </label>
-    <label class="toggle" for="solidfront">
-      <input type="checkbox" id="solidfront">
-      Front geschlossen
-    </label>
-    <div class="ctl">
-      <label for="caps">Kopf-Kappen <output id="caps-out">6</output></label>
-      <input type="range" id="caps" min="0" max="8" step="1" value="6">
-    </div>
-    <div class="ctl">
-      <label for="heat">Glut im Schweif <output id="heat-out">100 %</output></label>
-      <input type="range" id="heat" min="0" max="100" step="5" value="100">
-    </div>
-    <label class="toggle" for="onlychosen">
-      <input type="checkbox" id="onlychosen">
-      Referenz ausblenden
-    </label>
-    <div class="ctl" style="min-width: 0">
-      <span class="legend">Lauf</span>
-      <div class="seg">
-        <button type="button" id="playpause" aria-pressed="false">Anhalten</button>
-      </div>
-    </div>
+    <summary>Design — das steht in der Datei</summary>
+    <div class="groups">
+      <fieldset class="group">
+        <legend>Form</legend>
+        <div class="ctl">
+          <label for="caps">Helle Ringe im Kern <output id="caps-out">6</output></label>
+          <input type="range" id="caps" min="0" max="8" step="1" value="6">
+        </div>
+        <div class="ctl">
+          <label for="bias">Kernposition vorn <output id="bias-out">70 %</output></label>
+          <input type="range" id="bias" min="0" max="100" step="5" value="70">
+        </div>
+      </fieldset>
+
+      <fieldset class="group ground" data-ground="dark">
+        <legend>Je Grund — <span class="scope">dunkel</span></legend>
+        <div class="ctl">
+          <label for="dot-dark">Kreisdurchmesser <output id="dot-dark-out">10 px</output></label>
+          <input type="range" id="dot-dark" min="4" max="16" step="1" value="10">
+        </div>
+        <div class="ctl">
+          <label for="core-dark">Kerndurchmesser <output id="core-dark-out">30 %</output></label>
+          <input type="range" id="core-dark" min="0" max="70" step="2" value="30">
+        </div>
+        <div class="ctl">
+          <label for="corelight-dark">Kernhelligkeit <output id="corelight-dark-out">60 %</output></label>
+          <input type="range" id="corelight-dark" min="0" max="100" step="5" value="60">
+        </div>
+        <div class="ctl">
+          <label for="line-dark">Linie darunter <output id="line-dark-out">80 %</output></label>
+          <input type="range" id="line-dark" min="0" max="100" step="5" value="80">
+        </div>
+        <div class="ctl">
+          <label for="glowstrength-dark">Glüh-Stärke <output id="glowstrength-dark-out">60 %</output></label>
+          <input type="range" id="glowstrength-dark" min="0" max="100" step="5" value="60">
+        </div>
+        <div class="ctl span">
+          <span class="legend">Glühen</span>
+          <div class="seg" data-glow-for="dark">
+            <button type="button" data-glow="0" aria-pressed="false">Aus</button>
+            <button type="button" data-glow="1" aria-pressed="true">Weichzeichner</button>
+            <button type="button" data-glow="2" aria-pressed="false">Gezeichnet</button>
+          </div>
+        </div>
+      </fieldset>
+      <fieldset class="group ground" data-ground="light">
+        <legend>Je Grund — <span class="scope">hell</span></legend>
+        <div class="ctl">
+          <label for="dot-light">Kreisdurchmesser <output id="dot-light-out">10 px</output></label>
+          <input type="range" id="dot-light" min="4" max="16" step="1" value="10">
+        </div>
+        <div class="ctl">
+          <label for="core-light">Kerndurchmesser <output id="core-light-out">30 %</output></label>
+          <input type="range" id="core-light" min="0" max="70" step="2" value="30">
+        </div>
+        <div class="ctl">
+          <label for="corelight-light">Kernhelligkeit <output id="corelight-light-out">60 %</output></label>
+          <input type="range" id="corelight-light" min="0" max="100" step="5" value="60">
+        </div>
+        <div class="ctl">
+          <label for="line-light">Linie darunter <output id="line-light-out">80 %</output></label>
+          <input type="range" id="line-light" min="0" max="100" step="5" value="80">
+        </div>
+        <div class="ctl">
+          <label for="glowstrength-light">Glüh-Stärke <output id="glowstrength-light-out">60 %</output></label>
+          <input type="range" id="glowstrength-light" min="0" max="100" step="5" value="60">
+        </div>
+        <div class="ctl span">
+          <span class="legend">Glühen</span>
+          <div class="seg" data-glow-for="light">
+            <button type="button" data-glow="0" aria-pressed="false">Aus</button>
+            <button type="button" data-glow="1" aria-pressed="true">Weichzeichner</button>
+            <button type="button" data-glow="2" aria-pressed="false">Gezeichnet</button>
+          </div>
+        </div>
+      </fieldset>
     </div>
   </details>
 
+
   <p class="fpsdock">
-    <b id="ms">–</b> ms/Bild · <span id="fps">–</span>/s · Pfade <b id="paths">–</b>
+    <b id="ms">–</b> ms/Bild · <span id="fps">–</span>/s · Punkte <b id="paths">–</b>
     <button type="button" class="btn small" id="reset-fps">neu messen</button>
   </p>
 
@@ -572,15 +634,23 @@
     <h2>Designs</h2>
     <ul>
       <li>
-        <b>Ein Design ist eine Datei-Zeile, kein Bildschirmzustand.</b> Es hält fest: die Machart,
-        die drei Formwerte des Schweifs (Länge, Verjüngung, Kernposition) und je fünf Werte für
-        hellen und dunklen Grund. <b>Nicht</b> dazu gehören Tempo und Punkte je Bahn — die kommen in
+        <b>Der zweite Name gilt für jede Oberfläche außer der deutschen</b>, nicht nur für die
+        englische: Die Karte spricht zwei Sprachen und fällt bei jeder dritten auf Englisch zurück
+        — ein Italiener sieht also eine englische Oberfläche und soll dort nicht den deutschen
+        Namen lesen. Bleibt das Feld leer, steht der deutsche Name überall; richtig für einen
+        Namen wie „Electron“, der nichts zu übersetzen hat. Beide Namen müssen eindeutig sein.
+      </li>
+      <li>
+        <b>Ein Design ist eine Datei-Zeile, kein Bildschirmzustand.</b> Es hält fest: die beiden
+        Formwerte (helle Ringe, Kernposition) und je fünf Werte für hellen und dunklen Grund. <b>Nicht</b> dazu gehören Tempo und Punkte je Bahn — die kommen in
         der Karte aus der tatsächlichen Leistung und haben mit dem Aussehen nichts zu tun.
       </li>
       <li>
         <b>Speichern</b> legt das Design unter dem Namen aus dem Namensfeld in diesem Browser ab; es
-        taucht dann im Auswahlfeld unter „Eigene“ auf. Namen ändern und erneut speichern legt eine
-        zweite Fassung an, gleicher Name überschreibt. Das Auswahlfeld allein lädt nichts — dafür
+        taucht dann im Auswahlfeld unter „Eigene“ auf. Das geladene Design unter seinem eigenen
+        Namen zu speichern überschreibt es. Ein <b>anderer</b> Name legt ein neues Design an — und
+        muss frei sein: Ein Name, den es schon gibt, wird abgelehnt, denn in der Auswahlliste der
+        Karte wären zwei gleichnamige Designs nicht auseinanderzuhalten. Das Auswahlfeld allein lädt nichts — dafür
         ist <b>Laden</b> da, damit ein ungespeicherter Entwurf nicht unbemerkt verloren geht. Das ist ein Zwischenlager — dauerhaft wird ein
         Design erst, wenn es ins Repo kommt. Dafür ist <b>Alle Designs kopieren</b> da: Es legt
         alles, mitgeliefert wie selbst gebaut, als eine JSON-Fassung in die Zwischenablage.
@@ -598,86 +668,77 @@
       </li>
     </ul>
 
-    <h2>Wie der Schweif gebaut ist</h2>
+    <h2>Wie ein Punkt gebaut ist</h2>
     <ul>
       <li>
-        Jede Bahn wird mehrfach übereinandergelegt, jede Lage als <b>Strichmuster</b> auf der Bahn
-        selbst: ein sichtbares Stück, dann eine Lücke. Die Lagen enden alle am selben Kopf, sind aber
-        unterschiedlich lang <i>und</i> unterschiedlich breit — die weit zurückreichende Lage ist
-        dünn, die am Kopf so dick wie der heutige Punkt. Übereinander ergibt das eine Form, die nach
-        hinten spitz ausläuft und trotzdem auf der Bahn liegt. Weil sich das Muster von allein
-        wiederholt, kostet der zehnte Punkt kein Element mehr als der erste.
+        Ein Punkt ist eine <b>kleine Gruppe, die auf der Bahn mitfährt</b>, und in ihr stecken alle
+        Kreise: der Punkt selbst und die hellen Ringe seines Kerns. Damit bewegt <i>eine</i>
+        Animation alles, was zu einem Punkt gehört — der Kern kann nicht aus seinem Kreis rutschen
+        und der Hof nicht hinterherhinken.
       </li>
       <li>
-        <b>Schweif</b> ist ein Anteil der Bahnlänge, nicht eine Pixelzahl — das war der Fehler in der
-        ersten Fassung: auf kurzen Bahnen füllte er die ganze Strecke, und übrig blieb eine
-        durchgehende Leuchtlinie.
+        <b>Das war vorher anders, und daran ist der Schweif gescheitert.</b> Ein Schweif ist ein
+        Stück <i>der Bahn</i>, also war jede Lage eine eigene Kopie der Bahn mit eigener Animation —
+        bis zu achtzehn davon je Bahn, die zusammenbleiben mussten. Über Minuten liefen sie
+        auseinander und aus dem Kometen wurde ein Band aus Klumpen. Ohne Schweif fällt der Grund für
+        diese Bauart weg.
       </li>
       <li>
-        <b>Schweif-Deckkraft</b> ist die Stärke direkt hinter dem Kopf; von dort fällt sie auf null
-        am Ende ab. Der Kopf selbst bleibt immer voll gedeckt. <b>Schweif-Länge</b> ist ein Anteil der
-        Bahnlänge, keine Pixelzahl. <b>Schweif-Verjüngung</b> ist der
-        Exponent, mit dem die Dicke abnimmt: gleich hinter dem Kopf steil, dann ein langer dünner
-        Auslauf.
+        <b>Helle Ringe im Kern</b> sind ineinanderliegende Kreise, jeder kleiner und heller als der
+        vorige. <b>Kerndurchmesser</b> sagt, wie groß der innerste ist, <b>Kernhelligkeit</b>, wie
+        weit er nach Weiß gemischt wird. Wenige Ringe geben sichtbare Stufen, viele einen weichen
+        Kern; die Deckkraft je Ring ist so gewählt, dass die Mitte in beiden Fällen gleich hell
+        herauskommt. <b>Kernposition vorn</b> schiebt sie nach vorn, in Fahrtrichtung — dann
+        leuchtet nur die Vorderseite, was an etwas Schnellem tatsächlich brennt, und die Rückseite
+        behält ihre Farbe.
       </li>
       <li>
         <b>Glühen</b> hat zwei Bauarten und eine eigene Stärke. Der <b>Weichzeichner</b> ist ein
-        Filter je Bahn, der alles Gezeichnete noch einmal durcharbeiten muss; deshalb wird er
-        teurer, je mehr Lagen da sind. <b>Gezeichnet</b> ist ein Kreis mit weichem Farbverlauf je
-        Punkt, der auf der Bahn mitgeführt wird — keine Kanten, und weil sich nur eine Verschiebung
-        ändert, übernimmt das die Grafikkarte. Diese Kreise stehen in der Anzeige unten getrennt als
-        „auf der GPU". Die <b>Glüh-Stärke</b> gilt für beide Bauarten und wird je Grund gespeichert;
-        60 % ist der Bezugswert, alles darüber und darunter skaliert von dort.
+        Filter je Bahn, der alles Gezeichnete noch einmal durcharbeiten muss — und er nimmt dem
+        Browser die Möglichkeit, die Punkte der Grafikkarte zu überlassen. <b>Gezeichnet</b> ist ein
+        Kreis mit weichem Farbverlauf, der <i>innerhalb</i> der Punktgruppe sitzt und deshalb nichts
+        extra kostet: keine Kanten, keine eigene Animation. Die <b>Glüh-Stärke</b> gilt für beide
+        Bauarten und wird je Grund gespeichert; 60 % ist der Bezugswert.
       </li>
       <li>
         <b>Auf hellem Grund bleibt ein Rest Unmöglichkeit.</b> Glühen ist zugefügtes Licht, und
         heller als Weiß geht nicht — was man dort zeichnet, ist dunkler als das Papier und wirkt als
         farbiger Hof, nicht als Schein. Entweder man dreht die Stärke weit herunter, oder man stellt
-        für hell „Aus" ein. Die Messung am Rechner zeigt den Unterschied: Mit Weichzeichner sprang jedes
-        zwanzigste Bild auf die doppelte Zeit, ohne blieb es glatt.
+        für hell „Aus" ein.
       </li>
     </ul>
     <h2>Worauf ich beim Schauen achten würde</h2>
     <ul>
       <li>
+        <b>Die Lupe ist zum Entwerfen da, nicht zum Beurteilen.</b> Sie vergrößert nicht die
+        Punkte, sondern verkleinert den Ausschnitt — alles wächst gemeinsam, Punkt, Kern, Bahn und
+        Hof behalten ihr Verhältnis zueinander. Bei <span class="num">1,0×</span> ist ein Punkt
+        genau so groß wie in der Karte; darüber siehst Du die Details, aber nicht mehr, wie klein
+        das Ganze auf dem Handy wirklich ist. Für die letzte Entscheidung also zurück auf
+        <span class="num">1,0×</span>.
+      </li>
+      <li>
         <b>Fünf Regler haben zwei Werte</b> — einen für dunklen, einen für hellen Hintergrund:
-        Kreisdurchmesser, Kerndurchmesser, Kernhelligkeit, Schweif-Deckkraft und Glühen. Am Regler
-        steht in Farbe, für welchen der
-        beiden er gerade gilt. Schalte den Hintergrund um, stell ein, schalte zurück — der andere
-        steht noch so, wie Du ihn verlassen hast. Genau so trägt die Karte es später auch: ein
-        Wertesatz je Farbschema. Alles andere — Tempo, Schweiflänge, Verjüngung — ist Form und in
-        hell wie dunkel gleich.
+        Kreisdurchmesser, Kerndurchmesser, Kernhelligkeit, Linie darunter und Glühen samt Stärke.
+        Schalte den Hintergrund um, stell ein, schalte zurück — der andere steht noch so, wie Du ihn
+        verlassen hast. Genau so trägt die Karte es auch: ein Wertesatz je Farbschema. Die beiden
+        Formwerte — helle Ringe und ihre Position — sind in hell wie dunkel gleich.
       </li>
       <li>
         <b>Verbraucher-Linien</b> hängt unter das Kreuz, was die Karte neben ihm noch zeichnet:
         eine waagerechte Bahn je Verbraucher. Fünf bis zehn davon sind ein realistischer Haushalt —
         und sie kosten dasselbe wie eine Kreuzbahn, die Last steigt also mit jeder Zeile.
-        <b>Nur die gewählte Machart zeigen</b> blendet die anderen drei Kacheln ganz aus, damit die
+        <b>Nur die Design-Kacheln zeigen</b> blendet die beiden Vergleichskacheln ganz aus, damit die
         Bildrate die Last <i>einer</i> Karte zeigt statt der von vieren. Stillstellen genügte dafür
         nicht: Eine angehaltene Kachel wird weiter in jedem Bild gezeichnet, und das kostet mehr als
         die Animation selbst.
       </li>
       <li>
-        <b>Schweif-Lagen ist der Hebel für die Bildrate.</b> Die Zahl unten rechts neben den
-        Bildern/s sagt, wie viele Pfade animiert werden und wie viele überhaupt da sind; die
-        animierten sind ungefähr Lagen mal Bahnen.
-        <b>Punkte je Bahn ändert daran nichts</b> — ein Strichmuster wiederholt sich von allein,
-        acht Punkte kosten so viel wie einer. Wer die Last senken will, nimmt Lagen weg oder schaltet
-        das Glühen aus, nicht Punkte.
-      </li>
-      <li>
-        <b>Eine Machart ist keine eigene Bauweise</b>, sondern eine Kombination aus vier Werten:
-        <b>Kopf als Kreis</b>, Zahl der <b>Kopf-Kappen</b> darin, <b>Front geschlossen</b> und
-        <b>Glut im Schweif</b>. Die drei Knöpfe oben sind Vorlagen — sie setzen diese vier auf eine
-        bekannte Kombination, danach drehst Du einzeln daran. Deshalb gibt es nur einen Zeichenweg,
-        und ein Design ist vollständig durch Daten beschrieben.
-      </li>
-      <li>
-        <b>Ohne Kreis ändert sich, was zwei Regler bedeuten.</b> <b>Kerndurchmesser</b> ist sonst der
-        Durchmesser des hellen Flecks im Kopf; ohne Kreis gibt es keinen Kern, dort steuert derselbe
-        Regler, wie weit die Glut nach hinten in den Schweif reicht. <b>Kernposition vorn</b> wirkt
-        immer: Auf <span class="num">0</span> leuchtet der Kopf gleichmäßig, nach rechts wandert die
-        Glut an die Vorderkante — und brennen tut nur, was vorne ankommt.
+        <b>Das Glühen ist der Hebel für die Bildrate</b>, nicht die Zahl der Punkte. Die Zahl unten
+        rechts sagt, wie viele Punkte animiert werden und wie viele davon der Browser der
+        Grafikkarte überlassen kann. Ohne Weichzeichner sind das alle: Ein Punkt wird dann nur noch
+        verschoben, nicht neu gezeichnet. Ein Weichzeichner-Filter über der Bahn nimmt das zurück —
+        wer die Last senken will, schaltet ihn aus oder wählt „Gezeichnet".
       </li>
       <li>
         <b>Kreisdurchmesser, Kerndurchmesser und Kernhelligkeit</b> sind drei getrennte Regler. Der
@@ -708,11 +769,14 @@
   <footer>Versuchsaufbau · Geometrie aus src/render/geometry.ts · keine Anlagendaten</footer>
 </div>
 
-<script>
+<script type="module">
+  import * as DotShape from "./dot-shape.js";
+
   (function () {
     "use strict";
 
     var SVG = "http://www.w3.org/2000/svg";
+    /** The card draws its cross in a 400 x 400 box; the lanes sit inside it. */
     var VIEW = 400;
     var BASE_MS = 5000;
 
@@ -745,69 +809,87 @@
       return lanes;
     }
 
-    /** Height of the drawing, which grows with the consumer rows. */
-    function viewHeight() {
-      return state.consumers ? ROW_TOP + (state.consumers - 1) * ROW_GAP + 30 : VIEW;
+    /**
+     * The part of the card's coordinate system the tiles show.
+     *
+     * Only the lanes. The card's four nodes used to stand around them, and
+     * cropping to what is being judged buys a good deal of length for the same
+     * tile - the dots keep their true size in pixels, but they sit further
+     * apart and are that much easier to tell apart.
+     */
+    function viewport() {
+      if (!state.consumers) return { x: 100, y: 100, w: 200, h: 200 };
+      var bottom = ROW_TOP + (state.consumers - 1) * ROW_GAP + 20;
+      return { x: 60, y: 100, w: 280, h: bottom - 100 };
     }
 
-    var NODES = [
-      { x: 200, y: 58, label: "PV" },
-      { x: 58, y: 200, label: "Netz" },
-      { x: 342, y: 200, label: "Haus" },
-      { x: 200, y: 342, label: "Akku" },
-    ];
     /**
-     * Two builds, and a strength that scales either. 1 is a blur filter, which
-     * has to rework everything that was drawn - that is why more layers make it
-     * dearer. 2 is a gradient circle carried along the path, which is only ever
-     * moved and so costs the compositor and not the paint pass.
-     */
-    var GLOW_OFF = 0;
-    var GLOW_BLUR = 1;
-    var GLOW_DRAWN = 2;
-    /** Blur radii in CSS pixels at strength 60, the reference setting. */
-    var BLUR_RADII = [3, 8];
-    /**
-     * The drawn halo, width as a share of the head and opacity. Only the rim
-     * that sticks out past the spur is visible, so these have to be a good deal
-     * wider and stronger than a first guess suggests. The last entry is the
-     * faint sheath along the spur; the others are caps at the head.
-     */
-    /**
-     * The drawn halo at strength 60, scaled from there. Its densest point sits
-     * at the rim of the head, not outside it - otherwise the head covers the
-     * middle of the gradient and what is left reads as a ring.
+     * What the tile actually shows: the viewport, cropped around its middle by
+     * the magnifier.
      *
-     * A glow is light that is added, and on white nothing can be brighter than
-     * the ground: there it can only come out darker than the paper. That is a
-     * limit of the medium, not of the setting - hence the strength is kept per
-     * ground, so a light one can be dialled right down or off.
+     * The magnifier crops rather than enlarging the dots, and the sizes are
+     * still worked out against the *uncropped* viewport - so everything grows
+     * together and keeps its proportions. A dot at 3x is three times as wide on
+     * screen, but so is the lane it runs on and the glow around it. Enlarging
+     * only the dot would show a picture the card never draws.
      */
-    var HALO_R = 3.4;
-    var HALO_STOPS = [[0, 0.55], [0.3, 0.42], [0.62, 0.12], [1, 0]];
-    /** Strength 60 is the reference; everything scales linearly from there. */
-    function glowScale() {
-      return cur().glowStrength / 60;
+    function viewBoxOf() {
+      var v = viewport();
+      var z = Math.max(state.zoom, 1);
+      if (z === 1) return v;
+      return {
+        x: v.x + (v.w - v.w / z) / 2,
+        y: v.y + (v.h - v.h / z) / 2,
+        w: v.w / z,
+        h: v.h / z,
+      };
     }
+
+    function viewBoxString() {
+      var v = viewBoxOf();
+      return v.x.toFixed(2) + " " + v.y.toFixed(2) + " " + v.w.toFixed(2) + " " + v.h.toFixed(2);
+    }
+
+    /** Hands every tile the current cutout; the drawing itself is unchanged. */
+    function applyZoom() {
+      tiles.forEach(function (tile) {
+        tile.svg.setAttribute("viewBox", viewBoxString());
+      });
+    }
+
+    /**
+     * Two builds of glow, and a strength that scales either. 1 is a blur
+     * filter, which has to rework everything that was drawn. 2 is a gradient
+     * circle that rides inside the dot's own group - no edges, no animation of
+     * its own, and it can never come apart from the dot it belongs to.
+     *
+     * These, and the shape of a dot itself, come from the card's own module:
+     * the tool and the card draw from one set of numbers, or a design would
+     * look different in the two.
+     */
+    var GLOW_OFF = DotShape.GLOW_OFF;
+    var GLOW_BLUR = DotShape.GLOW_BLUR;
+    var GLOW_DRAWN = DotShape.GLOW_DRAWN;
+
     /** What the card uses today: the same 10 px as the colour mark in the list. */
     var DOT_PX_TODAY = 10;
     /** Thinnest point of the spur as a share of the head - below that it vanishes. */
     var MIN_W = 0.18;
 
     // Shape is the same on both grounds; brightness and size are not. Splitting
-    // them here is how the card will carry them too - one set per theme.
+    // them here is how the card carries them too - one set per theme.
     var state = {
-      speed: 1, tail: 16, steps: 18, count: 3, taper: 100, bias: 70,
-      shape: { circle: true, caps: 6, solidFront: false, heat: 100 },
-      stage: "dark", paused: false, consumers: 0, onlyChosen: false,
+      speed: 1, count: 3, zoom: 1,
+      shape: { caps: 6, bias: 70 },
+      paused: false, consumers: 0, onlyChosen: false,
       ground: {
-        dark: { dot: 10, fade: 40, glow: 1, glowStrength: 60, core: 30, coreLight: 60 },
-        light: { dot: 8, fade: 28, glow: 1, glowStrength: 35, core: 20, coreLight: 40 },
+        dark: { dot: 10, glow: 1, glowStrength: 60, core: 30, coreLight: 60, line: 80 },
+        light: { dot: 8, glow: 1, glowStrength: 35, core: 20, coreLight: 40, line: 80 },
       },
     };
-    /** The value set of the ground currently shown. */
-    function cur() {
-      return state.ground[state.stage];
+    /** The value set for one ground. Every tile has its own now. */
+    function ground(which) {
+      return state.ground[which];
     }
     var tiles = [];
 
@@ -824,50 +906,37 @@
       {
         id: "comet",
         name: "Komet",
-        variant: "comet",
-        spur: { tail: 16, taper: 100, bias: 70 },
-        dark: { dot: 10, core: 30, coreLight: 60, fade: 40, glow: 1 },
-        light: { dot: 8, core: 20, coreLight: 40, fade: 28, glow: 1 },
-      },
-      {
-        id: "meteor",
-        name: "Meteorit",
-        variant: "meteor",
-        spur: { tail: 16, taper: 100, bias: 70 },
-        dark: { dot: 10, core: 30, coreLight: 60, fade: 40, glow: 1 },
-        light: { dot: 8, core: 20, coreLight: 40, fade: 28, glow: 1 },
-      },
-      {
-        id: "ember",
-        name: "Glutkern",
-        variant: "ember",
-        spur: { tail: 16, taper: 100, bias: 70 },
-        dark: { dot: 10, core: 30, coreLight: 60, fade: 40, glow: 1 },
-        light: { dot: 8, core: 20, coreLight: 40, fade: 28, glow: 1 },
+        shape: { caps: 6, bias: 70 },
+        dark: { dot: 10, core: 30, coreLight: 60, glow: 1, glowStrength: 60, line: 80 },
+        light: { dot: 8, core: 20, coreLight: 40, glow: 1, glowStrength: 35, line: 80 },
       },
       {
         id: "plain",
-        name: "Ohne Spur",
-        variant: "comet",
-        spur: { tail: 0, taper: 100, bias: 70 },
-        dark: { dot: 10, core: 0, coreLight: 0, fade: 40, glow: 0 },
-        light: { dot: 10, core: 0, coreLight: 0, fade: 40, glow: 0 },
+        name: "Schlichter Punkt",
+        shape: { caps: 0, bias: 70 },
+        dark: { dot: 10, core: 0, coreLight: 0, glow: 0, glowStrength: 0, line: 80 },
+        light: { dot: 10, core: 0, coreLight: 0, glow: 0, glowStrength: 0, line: 80 },
       },
     ];
 
 
-    var GROUND_KEYS = ["dot", "core", "coreLight", "fade", "glow", "glowStrength"];
-    var SPUR_KEYS = ["tail", "taper", "bias", "steps"];
-    var SHAPE_KEYS = ["circle", "caps", "solidFront", "heat"];
+    var GROUND_KEYS = ["dot", "core", "coreLight", "glow", "glowStrength", "line"];
+    /** Ground-independent form. Everything else depends on the ground. */
+    var SHAPE_KEYS = ["caps", "bias"];
 
     /** The design as it stands right now. */
     function currentDesign(id, name) {
-      var out = { id: id, name: name, shape: {}, spur: {}, dark: {}, light: {} };
+      // Built in the order the file should read: the names first, then the
+      // shape, then a set per ground. Left empty the name above stands
+      // everywhere, and the card is spared a second name saying the same.
+      var english = nameEnIn.value.trim();
+      var out = { id: id, name: name };
+      if (english && english !== name) out.name_en = english;
+      out.shape = {};
+      out.dark = {};
+      out.light = {};
       SHAPE_KEYS.forEach(function (k) {
         out.shape[k] = state.shape[k];
-      });
-      SPUR_KEYS.forEach(function (k) {
-        out.spur[k] = state[k];
       });
       ["dark", "light"].forEach(function (g) {
         GROUND_KEYS.forEach(function (k) {
@@ -881,16 +950,15 @@
     function applyDesign(design) {
       if (!design || typeof design !== "object") return false;
       // Older designs carry a technique name instead of the four values.
-      var shape = design.shape || TEMPLATES[design.variant];
+      var shape = design.shape;
       if (shape) {
         SHAPE_KEYS.forEach(function (k) {
-          if (typeof shape[k] === typeof state.shape[k]) state.shape[k] = shape[k];
+          if (typeof shape[k] === "number") state.shape[k] = shape[k];
         });
       }
-      if (design.spur) {
-        SPUR_KEYS.forEach(function (k) {
-          if (typeof design.spur[k] === "number") state[k] = design.spur[k];
-        });
+      // Designs written before bias moved into the shape block.
+      if (design.spur && typeof design.spur.bias === "number") {
+        state.shape.bias = design.spur.bias;
       }
       ["dark", "light"].forEach(function (g) {
         if (!design[g]) return;
@@ -901,8 +969,32 @@
       return true;
     }
 
+    /**
+     * Do these two designs draw the same picture?
+     *
+     * Compared on the values the tool can actually change, not on the whole
+     * file line: the order the keys happen to stand in says nothing, and a
+     * design in the file still carries the trail values that nothing sets any
+     * more. Otherwise a freshly loaded design would report itself as changed.
+     */
+    function canon(design) {
+      if (!design) return "";
+      var out = [design.name || "", design.name_en || ""];
+      SHAPE_KEYS.forEach(function (k) {
+        var value = (design.shape || {})[k];
+        if (value === undefined && k === "bias") value = (design.spur || {}).bias;
+        out.push(k + "=" + value);
+      });
+      ["dark", "light"].forEach(function (g) {
+        GROUND_KEYS.forEach(function (k) {
+          out.push(g + "." + k + "=" + ((design[g] || {})[k]));
+        });
+      });
+      return out.join("|");
+    }
+
     function sameDesign(a, b) {
-      return JSON.stringify(a) === JSON.stringify(b);
+      return canon(a) === canon(b);
     }
 
     /** Mixes a hex colour towards white or black; amount 0..1. */
@@ -925,6 +1017,7 @@
     function buildTile(spec) {
       var fig = document.createElement("figure");
       fig.className = "tile";
+      fig.setAttribute("data-ground", spec.ground);
 
       var cap = document.createElement("figcaption");
       var h2 = document.createElement("h2");
@@ -937,24 +1030,20 @@
 
       var stage = document.createElement("div");
       stage.className = "stage";
-      var svg = el("svg", { viewBox: "0 0 " + VIEW + " " + viewHeight(), role: "img" });
+      var svg = el("svg", { viewBox: viewBoxString(), role: "img" });
       svg.setAttribute("aria-label", spec.name);
       var defs = el("defs", {});
       svg.appendChild(defs);
 
-      NODES.forEach(function (n) {
-        svg.appendChild(el("circle", { class: "node", cx: n.x, cy: n.y, r: 40 }));
-        var t = el("text", { class: "node-label", x: n.x, y: n.y, "font-size": 15 });
-        t.textContent = n.label;
-        svg.appendChild(t);
-      });
-
       var lanes = allLanes().map(function (laneSpec) {
-        svg.appendChild(el("path", { class: "lane-line", d: laneSpec.d }));
+        var line = el("path", { class: "lane-line", d: laneSpec.d, stroke: laneSpec.color });
+        svg.appendChild(line);
         var group = el("g", {});
         svg.appendChild(group);
         var measure = el("path", { d: laneSpec.d });
-        return { spec: laneSpec, group: group, measure: measure, length: 0, parts: [] };
+        return {
+          spec: laneSpec, group: group, measure: measure, length: 0, parts: [], line: line,
+        };
       });
 
       // Hidden copies, only there to read getTotalLength().
@@ -972,13 +1061,17 @@
       return { spec: spec, root: fig, svg: svg, defs: defs, lanes: lanes, scale: 1, tagEl: tag };
     }
 
-    /** User units per CSS pixel, so a dot keeps its size when the tile resizes. */
+    /**
+     * User units per CSS pixel at magnifier 1, so a dot keeps its true size on
+     * screen - and grows with the magnifier, because the cutout shrinks while
+     * this stays put.
+     */
     function measure(tile) {
       var w = tile.svg.getBoundingClientRect().width;
-      tile.scale = w > 0 ? VIEW / w : 1;
+      tile.scale = w > 0 ? viewport().w / w : 1;
     }
     function dotRadius(tile) {
-      return (cur().dot / 2) * tile.scale;
+      return (ground(tile.spec.ground).dot / 2) * tile.scale;
     }
     function durationOf(lane) {
       return (BASE_MS * lane.spec.factor) / state.speed;
@@ -998,17 +1091,11 @@
     }
 
     function applyGlow(tile, lane) {
-      var blur = !shapeOf(tile).fixed && cur().glow === GLOW_BLUR && glowScale() > 0;
-      if (!blur) {
-        lane.group.style.filter = "";
-        return;
-      }
-      // Lengths are in user units, so the halo keeps its size on screen.
-      var c = lane.spec.color;
-      var k = glowScale();
-      lane.group.style.filter =
-        "drop-shadow(0 0 " + (BLUR_RADII[0] * k * tile.scale).toFixed(1) + "px " + c + ") " +
-        "drop-shadow(0 0 " + (BLUR_RADII[1] * k * tile.scale).toFixed(1) + "px " + c + ")";
+      var g = ground(tile.spec.ground);
+      // Lengths are in user units, so the glow keeps its size on screen.
+      lane.group.style.filter = shapeOf(tile).fixed
+        ? ""
+        : DotShape.glowFilter(g.glow, g.glowStrength, lane.spec.color, tile.scale);
     }
 
     /**
@@ -1018,16 +1105,22 @@
      * what a single card on a dashboard actually looks like.
      */
     function shown(tile) {
-      return !state.onlyChosen || tile.spec.key === state.variant;
+      return !state.onlyChosen || tile.spec.variant !== "today";
     }
 
-    function animate(node, from, to, lane, phase) {
+    /**
+     * The rate is set with the plain setter, never with updatePlaybackRate:
+     * that one hands over a *pending* rate which some later frame applies, and
+     * it recomputes that one animation's start time when it does. Dots set that
+     * way slowly lose their spacing.
+     */
+    function animate(node, lane, phase, offsetMs) {
       var anim = node.animate(
-        [{ strokeDashoffset: from }, { strokeDashoffset: to }],
+        [{ offsetDistance: "0%" }, { offsetDistance: "100%" }],
         { duration: BASE_MS, iterations: Infinity, easing: "linear" },
       );
-      anim.currentTime = phase * BASE_MS;
-      anim.updatePlaybackRate(BASE_MS / durationOf(lane));
+      anim.playbackRate = BASE_MS / durationOf(lane);
+      anim.currentTime = phase * BASE_MS + offsetMs;
       return anim;
     }
 
@@ -1036,157 +1129,99 @@
      * than the one below and starts its dash at the same head, so the stack adds
      * up towards the front. `pathLength` normalises every lane to 1000 units.
      */
-    /**
-     * What a design is made of. There is one way of drawing; these four values
-     * shape it, and what used to be called a technique is simply a combination
-     * of them:
-     *   circle      - draw the full circle of today's dot on top of the spur
-     *   caps        - how many lighter caps sit inside the head, 0 for none
-     *   solidFront  - the spur closes up to full opacity at its front, so it can
-     *                 carry the head itself without a circle underneath
-     *   heat        - how far the spur shifts towards white, in percent. Kept low
-     *                 where the caps do the lighting, or the whole head goes pale.
-     */
-    var TEMPLATES = {
-      comet: { circle: true, caps: 2, solidFront: false, heat: 0 },
-      meteor: { circle: false, caps: 6, solidFront: true, heat: 45 },
-      ember: { circle: true, caps: 6, solidFront: false, heat: 100 },
+    /** What "Neu" starts from: one design, both grounds alike. */
+    var DEFAULT_DESIGN = {
+      shape: { caps: 6, bias: 70 },
+      ground: { dot: 10, core: 30, coreLight: 60, glow: 1, glowStrength: 60, line: 80 },
     };
     /**
      * The reference tile: what the card draws today, 10 px and no glow (K-12).
      * It ignores the design entirely - a reference that moves is no reference.
      */
-    var TODAY = { circle: true, caps: 0, solidFront: false, heat: 0, fixed: true };
+    var TODAY = { caps: 0, fixed: true };
+    /** What the card draws without a design: the line at 80 % (P-5). */
+    var TODAY_LINE = 80;
 
     /** The reference tile keeps its own shape; every other one follows the design. */
     function shapeOf(tile) {
-      return tile.spec.key === "today" ? TODAY : state.shape;
+      return tile.spec.variant === "today" ? TODAY : state.shape;
     }
 
+    /**
+     * One lane's dots.
+     *
+     * A dot is a small group carried along the lane by offset-path, with its
+     * circles inside it. Everything that belongs to a dot therefore moves with
+     * one animation: the core cannot slide out of its circle, and the halo
+     * cannot lag behind the dot it surrounds. The trail used to be built from
+     * dash patterns on copies of the lane, which needed an animation per layer
+     * - and those came apart over time, which is why it is gone.
+     *
+     * offset-rotate is `auto`, so the group's own x axis points the way the dot
+     * travels and a ring pushed forward is pushed *along the lane*. The circles
+     * do not mind that the group turns with the curve.
+     */
     function buildLane(tile, lane, phase) {
       clear(lane);
       var v = shapeOf(tile);
+      var g = ground(tile.spec.ground);
       var r = v.fixed ? (DOT_PX_TODAY / 2) * tile.scale : dotRadius(tile);
-      var period = 1000 / state.count;
-      var head = Math.max(r * 0.35, 0.5);
-      var tail = Math.min((state.tail / 100) * 1000, period * 0.92);
-      var layers = state.tail > 0 && !v.fixed ? state.steps : 0;
-      var toUnits = 1000 / (lane.length || 1);
-      var bias = state.bias / 100;
-      var core = cur().core / 100;
-      var lightness = cur().coreLight / 100;
+      var rings = DotShape.dotRings({
+        dot: 2 * r,
+        caps: v.fixed ? 0 : state.shape.caps,
+        core: g.core / 100,
+        coreLight: g.coreLight / 100,
+        bias: state.shape.bias / 100,
+        colour: lane.spec.color,
+      });
 
-      function addLayer(len, opacity, width, color, shift) {
-        var start = len - (shift || 0);
-        var node = el("path", {
-          d: lane.spec.d,
-          pathLength: 1000,
-          fill: "none",
-          stroke: color || lane.spec.color,
-          "stroke-width": width.toFixed(2),
-          "stroke-linecap": "round",
-          "stroke-opacity": opacity.toFixed(3),
-          "stroke-dasharray": len.toFixed(2) + " " + Math.max(period - len, 0.01).toFixed(2),
-        });
-        node.style.strokeDashoffset = String(start - phase * 1000);
-        lane.group.appendChild(node);
-        var part = { el: node, anim: null };
-        if (!state.paused) part.anim = animate(node, start, start - 1000, lane, phase);
-        lane.parts.push(part);
-      }
+      lane.line.setAttribute(
+        "opacity",
+        String((v.fixed ? TODAY_LINE : g.line === undefined ? 80 : g.line) / 100),
+      );
 
-      /** One halo circle, moved along the lane by offset-path. */
-      function addHalo(gradId, at) {
-        var g = el("g", { class: "halo" });
-        g.style.offsetPath = 'path("' + lane.spec.d + '")';
-        g.style.offsetRotate = "0deg";
-        g.style.offsetDistance = (at * 100).toFixed(3) + "%";
-        g.appendChild(el("circle", {
-          cx: 0, cy: 0, r: (r * HALO_R).toFixed(2), fill: "url(#" + gradId + ")",
-        }));
-        lane.group.appendChild(g);
-        var part = { el: g, anim: null, gpu: true };
-        if (!state.paused) {
-          var anim = g.animate(
-            [{ offsetDistance: "0%" }, { offsetDistance: "100%" }],
-            { duration: BASE_MS, iterations: Infinity, easing: "linear" },
-          );
-          anim.currentTime = at * BASE_MS;
-          anim.updatePlaybackRate(BASE_MS / durationOf(lane));
-          part.anim = anim;
-        }
-        lane.parts.push(part);
-      }
-
-      /** Glow of the spur at position f, 1 at the front: warmer towards the head. */
-      function heatAt(f) {
-        if (!v.heat || core <= 0) return lane.spec.color;
-        var t = Math.min(Math.max((f - (1 - core)) / core, 0), 1);
-        return mix(lane.spec.color, "white", lightness * (v.heat / 100) * Math.pow(t, 1.4));
-      }
-
-      // The drawn halo: one circle per dot with a radial gradient, carried along
-      // the path by offset-path. Stacked strokes would show as rings; a gradient
-      // has no edges. And because only a transform changes, the browser can hand
-      // these to the compositor instead of repainting them every frame.
-      if (cur().glow === GLOW_DRAWN && glowScale() > 0 && !v.fixed) {
-        var k = glowScale();
+      var drawn = !v.fixed && g.glow === GLOW_DRAWN && g.glowStrength > 0;
+      var gradId = "halo-" + tile.spec.key + "-" + lane.spec.id + "-" + g.glowStrength;
+      if (drawn && !tile.svg.getElementById(gradId)) {
         // The strength is part of the id, so a changed setting builds a new
         // gradient instead of reusing the one that was right before.
-        var gradId = "halo-" + tile.spec.key + "-" + lane.spec.id + "-" + cur().glowStrength;
-        if (!tile.svg.getElementById(gradId)) {
-          var grad = el("radialGradient", { id: gradId });
-          HALO_STOPS.forEach(function (stop) {
-            grad.appendChild(el("stop", {
-              offset: String(stop[0]),
-              "stop-color": lane.spec.color,
-              "stop-opacity": Math.min(stop[1] * k, 1).toFixed(3),
-            }));
-          });
-          tile.defs.appendChild(grad);
-        }
-        for (var h = 0; h < state.count; h++) {
-          addHalo(gradId, (phase + h / state.count) % 1);
-        }
+        var grad = el("radialGradient", { id: gradId });
+        DotShape.haloStops(g.glowStrength).forEach(function (stop) {
+          grad.appendChild(el("stop", {
+            offset: String(stop[0]),
+            "stop-color": lane.spec.color,
+            "stop-opacity": stop[1].toFixed(3),
+          }));
+        });
+        tile.defs.appendChild(grad);
       }
 
-      var decay = (state.taper / 100) * 3.5;
-      var peak = cur().fade / 100;
-      var covered = 0;
-      for (var i = 0; i < layers; i++) {
-        var len = Math.max((tail * (layers - i)) / layers, head);
-        var f = (i + 1) / layers;
-        var thin = MIN_W + (1 - MIN_W) * Math.exp(-decay * (1 - f));
-        var width = Math.max(2 * r * thin, 0.5);
-        var x = (layers - i - 0.5) / layers;
-        // The spur always fades out towards its tip. With no separate circle the
-        // front additionally closes up to full opacity over the last few layers,
-        // so it can carry the head - but that must not lift the whole spur, or
-        // the tail turns into a line of even strength.
-        var base = peak * (1 - x);
-        var wanted = v.solidFront ? base + (1 - base) * Math.pow(f, 10) : base;
-        var alpha = covered >= 1 ? 1 : (wanted - covered) / (1 - covered);
-        covered = wanted;
-        addLayer(len, Math.min(Math.max(alpha, 0.002), 1), width, heatAt(f));
-      }
-
-      // The circle: the same 10 px the card uses today (REQ K-12). The meteor
-      // has none - its head is the front of the spur.
-      if (v.circle) addLayer(head, 1, 2 * r);
-
-      // The caps inside the head: each smaller, lighter and further forward than
-      // the last. Pushed forward they light only the front of the head, which is
-      // the part that actually burns - the back keeps its colour. Few caps give
-      // hard steps, many a smooth core; the per-cap opacity is chosen so the
-      // centre ends up equally bright either way.
-      if (v.caps > 0 && core > 0 && lightness > 0) {
-        var perCap = 1 - Math.pow(0.15, 1 / v.caps);
-        for (var k = 1; k <= v.caps; k++) {
-          var t = k / v.caps;
-          var size = 1 - t * (1 - core);
-          addLayer(head, perCap, 2 * r * size, mix(lane.spec.color, "white", lightness * t),
-            bias * r * (1 - size) * toUnits);
+      for (var i = 0; i < state.count; i++) {
+        var offsetMs = (i / state.count) * BASE_MS;
+        var dot = el("g", { class: "dot" });
+        dot.style.offsetPath = 'path("' + lane.spec.d + '")';
+        dot.style.offsetRotate = "auto";
+        dot.style.offsetDistance = (((phase + i / state.count) % 1) * 100).toFixed(3) + "%";
+        if (drawn) {
+          dot.appendChild(el("circle", {
+            cx: 0, cy: 0,
+            r: (r * DotShape.HALO_R).toFixed(2),
+            fill: "url(#" + gradId + ")",
+          }));
         }
+        rings.forEach(function (ring) {
+          dot.appendChild(el("circle", {
+            cx: ring.forward.toFixed(2),
+            cy: 0,
+            r: ring.r.toFixed(2),
+            fill: ring.colour,
+            "fill-opacity": ring.opacity.toFixed(3),
+          }));
+        });
+        lane.group.appendChild(dot);
+        var part = { el: dot, anim: null, gpu: true, offsetMs: offsetMs };
+        if (!state.paused) part.anim = animate(dot, lane, phase, offsetMs);
+        lane.parts.push(part);
       }
 
       applyGlow(tile, lane);
@@ -1201,7 +1236,7 @@
       measure(tile);
       tile.lanes.forEach(function (lane) {
         lane.length = lane.measure.getTotalLength();
-        var phase = phaseOf(lane.parts[lane.parts.length - 1]);
+        var phase = phaseOf(lane.parts[0]);
         buildLane(tile, lane, phase);
       });
     }
@@ -1213,10 +1248,11 @@
     }
 
     /**
-     * How many animated paths are on screen. This is what the frame rate hangs
-     * on: stroke-dashoffset is not a compositor property, so every one of them
-     * is repainted for every frame - and the number does not depend on how many
-     * dots run, because a dash pattern repeats by itself.
+     * How many animated dots are on screen. Each is one group moved by
+     * offset-path, which is a transform and nothing else - so the browser can
+     * hand it to the compositor instead of repainting it every frame. A blur
+     * filter over the lane takes that back, which is what the measurement below
+     * makes visible.
      */
     function countPaths() {
       var total = 0;
@@ -1234,12 +1270,23 @@
       var out = document.getElementById("paths");
       if (out) out.textContent = moving + " von " + total + (gpu ? " · " + gpu + " auf der GPU" : "");
     }
+    /**
+     * New tempo for every dot, and the spacing put back exactly.
+     *
+     * Each dot keeps a fixed head start over the first one; setting the rate
+     * and then that head start again, in one go, leaves nothing that could add
+     * up over time.
+     */
     function applySpeed() {
       tiles.forEach(function (tile) {
         tile.lanes.forEach(function (lane) {
           var rate = BASE_MS / durationOf(lane);
+          var base = null;
           lane.parts.forEach(function (p) {
-            if (p.anim) p.anim.updatePlaybackRate(rate);
+            if (!p.anim) return;
+            p.anim.playbackRate = rate;
+            if (base === null) base = p.anim.currentTime - (p.offsetMs || 0);
+            else p.anim.currentTime = base + (p.offsetMs || 0);
           });
         });
       });
@@ -1258,16 +1305,36 @@
     var bench = document.getElementById("bench");
     var TILE_SPECS = [
       {
-        key: "design",
-        name: "Design",
+        key: "design-dark",
+        variant: "design",
+        ground: "dark",
+        name: "Design · dunkel",
         tag: "aktuell",
-        note: "Das Design, wie es gerade eingestellt ist. Die Vorlagen oben setzen die vier Formwerte auf eine bekannte Kombination; danach lässt sich jeder einzeln verstellen.",
+        note: "Das Design auf dunklem Grund, mit dem oberen Wertesatz.",
       },
       {
-        key: "today",
-        name: "Heute",
+        key: "design-light",
+        variant: "design",
+        ground: "light",
+        name: "Design · hell",
+        tag: "aktuell",
+        note: "Dasselbe Design auf hellem Grund, mit dem unteren Wertesatz.",
+      },
+      {
+        key: "today-dark",
+        variant: "today",
+        ground: "dark",
+        name: "Wie bisher · dunkel",
         tag: "Vergleich",
-        note: "Der heutige Punkt: 10 px, kein Glühen, kein Schweif. Fest, damit der Vergleich einen festen Maßstab hat — nur Tempo und Punktzahl gelten auch hier.",
+        note: "Der heutige Punkt: 10 px, kein Kern, kein Glühen. Fest, damit der Vergleich einen festen Maßstab hat.",
+      },
+      {
+        key: "today-light",
+        variant: "today",
+        ground: "light",
+        name: "Wie bisher · hell",
+        tag: "Vergleich",
+        note: "Derselbe feste Punkt auf hellem Grund.",
       },
     ];
     TILE_SPECS.forEach(function (spec) {
@@ -1279,183 +1346,65 @@
     // --- wiring -----------------------------------------------------------
     var speedIn = document.getElementById("speed");
     var speedOut = document.getElementById("speed-out");
-    var tailIn = document.getElementById("tail");
-    var tailOut = document.getElementById("tail-out");
-    var taperIn = document.getElementById("taper");
-    var taperOut = document.getElementById("taper-out");
-    var fadeIn = document.getElementById("fade");
-    var fadeOut = document.getElementById("fade-out");
-    var dotIn = document.getElementById("dot");
-    var dotOut = document.getElementById("dot-out");
     var biasIn = document.getElementById("bias");
     var biasOut = document.getElementById("bias-out");
-    var glowStrengthIn = document.getElementById("glowstrength");
-    var glowStrengthOut = document.getElementById("glowstrength-out");
-    var coreIn = document.getElementById("core");
-    var coreOut = document.getElementById("core-out");
-    var coreLightIn = document.getElementById("corelight");
-    var coreLightOut = document.getElementById("corelight-out");
-    var stepsIn = document.getElementById("steps");
-    var stepsOut = document.getElementById("steps-out");
     var consumersIn = document.getElementById("consumers");
     var consumersOut = document.getElementById("consumers-out");
     var onlyChosenIn = document.getElementById("onlychosen");
+    var zoomIn = document.getElementById("zoom");
+    var zoomOut = document.getElementById("zoom-out");
     var countIn = document.getElementById("count");
     var countOut = document.getElementById("count-out");
     var playpause = document.getElementById("playpause");
-    var stageDark = document.getElementById("stage-dark");
-    var stageLight = document.getElementById("stage-light");
+    var capsIn = document.getElementById("caps");
+    var capsOut = document.getElementById("caps-out");
 
-    var scopeLabels = Array.prototype.slice.call(document.querySelectorAll(".scope"));
+    /**
+     * The five per-ground values, twice over - once for each ground, both on
+     * screen at the same time. Unit comes from the table, so adding a value
+     * means one line here and one in the markup.
+     */
+    var GROUND_CONTROLS = [
+      { key: "dot", id: "dot", unit: " px" },
+      { key: "core", id: "core", unit: " %" },
+      { key: "coreLight", id: "corelight", unit: " %" },
+      { key: "glowStrength", id: "glowstrength", unit: " %" },
+      { key: "line", id: "line", unit: " %" },
+    ];
+    var GROUNDS = ["dark", "light"];
 
-    /** Puts the current ground's values back into the controls. */
+    /** Puts the shape values into their controls. */
+    function syncShape() {
+      capsIn.value = String(state.shape.caps);
+      capsOut.textContent = String(state.shape.caps);
+    }
+
     function syncControls() {
-      var v = cur();
-      // Say on the label itself which of the two grounds is being edited.
-      scopeLabels.forEach(function (n) {
-        n.textContent = state.stage === "dark" ? "(dunkel)" : "(hell)";
-      });
-      dotIn.value = String(v.dot);
-      dotOut.textContent = v.dot + " px";
-      fadeIn.value = String(v.fade);
-      fadeOut.textContent = v.fade + " %";
-      glowStrengthIn.value = String(v.glowStrength);
-      glowStrengthOut.textContent = v.glowStrength + " %";
-      coreIn.value = String(v.core);
-      coreOut.textContent = v.core + " %";
-      coreLightIn.value = String(v.coreLight);
-      coreLightOut.textContent = v.coreLight + " %";
-      stepsIn.value = String(state.steps);
-      stepsOut.textContent = String(state.steps);
-      tailIn.value = String(state.tail);
-      tailOut.textContent = state.tail + " %";
-      taperIn.value = String(state.taper);
-      taperOut.textContent = state.taper + " %";
-      biasIn.value = String(state.bias);
-      biasOut.textContent = state.bias + " %";
-      glowButtons.forEach(function (b) {
-        b.setAttribute("aria-pressed", String(parseInt(b.dataset.glow, 10) === v.glow));
-      });
-    }
-
-    function setStage(mode) {
-      state.stage = mode;
-      document.documentElement.setAttribute("data-stage", mode);
-      stageDark.setAttribute("aria-pressed", String(mode === "dark"));
-      stageLight.setAttribute("aria-pressed", String(mode === "light"));
-      if (tiles.length) {
-        syncControls();
-        rebuildAll();
-        if (typeof refreshDesignState === "function" && presetSel) refreshDesignState();
-      }
-    }
-    stageDark.addEventListener("click", function () { setStage("dark"); });
-    stageLight.addEventListener("click", function () { setStage("light"); });
-
-    var glowButtons = Array.prototype.slice.call(
-      document.querySelectorAll("#glow-seg button"),
-    );
-    glowButtons.forEach(function (b) {
-      b.addEventListener("click", function () {
-        cur().glow = parseInt(b.dataset.glow, 10);
-        glowButtons.forEach(function (o) {
-          o.setAttribute("aria-pressed", String(o === b));
+      GROUNDS.forEach(function (which) {
+        var values = ground(which);
+        GROUND_CONTROLS.forEach(function (control) {
+          var input = document.getElementById(control.id + "-" + which);
+          var out = document.getElementById(control.id + "-" + which + "-out");
+          if (!input || !out) return;
+          input.value = String(values[control.key]);
+          out.textContent = values[control.key] + control.unit;
         });
-        // A full rebuild, not just applyGlow: the drawn halo is made of layers,
-        // and those only come into being in buildLane.
-        changed();
+        var buttons = document.querySelectorAll('[data-glow-for="' + which + '"] button');
+        Array.prototype.forEach.call(buttons, function (b) {
+          b.setAttribute("aria-pressed", String(parseInt(b.dataset.glow, 10) === values.glow));
+        });
       });
-    });
-
-    speedIn.addEventListener("input", function () {
-      state.speed = parseFloat(speedIn.value);
-      speedOut.textContent = state.speed.toFixed(2).replace(".", ",") + "×";
-      applySpeed();
-    });
-    tailIn.addEventListener("input", function () {
-      state.tail = parseInt(tailIn.value, 10);
-      tailOut.textContent = state.tail + " %";
-      changed();
-    });
-    taperIn.addEventListener("input", function () {
-      state.taper = parseInt(taperIn.value, 10);
-      taperOut.textContent = state.taper + " %";
-      changed();
-    });
-    fadeIn.addEventListener("input", function () {
-      cur().fade = parseInt(fadeIn.value, 10);
-      fadeOut.textContent = cur().fade + " %";
-      changed();
-    });
-    dotIn.addEventListener("input", function () {
-      cur().dot = parseInt(dotIn.value, 10);
-      dotOut.textContent = cur().dot + " px";
-      changed();
-    });
-    biasIn.addEventListener("input", function () {
-      state.bias = parseInt(biasIn.value, 10);
-      biasOut.textContent = state.bias + " %";
-      changed();
-    });
-    glowStrengthIn.addEventListener("input", function () {
-      cur().glowStrength = parseInt(glowStrengthIn.value, 10);
-      glowStrengthOut.textContent = cur().glowStrength + " %";
-      changed();
-    });
-    coreIn.addEventListener("input", function () {
-      cur().core = parseInt(coreIn.value, 10);
-      coreOut.textContent = cur().core + " %";
-      changed();
-    });
-    coreLightIn.addEventListener("input", function () {
-      cur().coreLight = parseInt(coreLightIn.value, 10);
-      coreLightOut.textContent = cur().coreLight + " %";
-      changed();
-    });
-    stepsIn.addEventListener("input", function () {
-      state.steps = parseInt(stepsIn.value, 10);
-      stepsOut.textContent = String(state.steps);
-      changed();
-    });
-    consumersIn.addEventListener("input", function () {
-      state.consumers = parseInt(consumersIn.value, 10);
-      consumersOut.textContent = String(state.consumers);
-      rebuildTiles();
-    });
-    onlyChosenIn.addEventListener("change", function () {
-      state.onlyChosen = onlyChosenIn.checked;
-      rebuildAll();
-    });
-    countIn.addEventListener("input", function () {
-      state.count = parseInt(countIn.value, 10);
-      countOut.textContent = String(state.count);
-      rebuildAll();
-    });
-    playpause.addEventListener("click", function () {
-      state.paused = !state.paused;
-      playpause.textContent = state.paused ? "Weiter" : "Anhalten";
-      playpause.setAttribute("aria-pressed", String(state.paused));
-      if (state.paused) eachAnim(function (a) { a.pause(); });
-      else {
-        rebuildAll();
-        eachAnim(function (a) { a.play(); });
-      }
-    });
-
-    // Reduced motion: everything is drawn, the clock just does not run.
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      state.paused = true;
-      playpause.textContent = "Weiter";
-      playpause.setAttribute("aria-pressed", "true");
+      biasIn.value = String(state.shape.bias);
+      biasOut.textContent = state.shape.bias + " %";
+      syncShape();
     }
-
-    // Also does syncControls() and rebuildAll(); every control exists by now.
-    setStage("dark");
 
     // --- designs ----------------------------------------------------------
     var presetSel = document.getElementById("preset");
     var reloadBtn = document.getElementById("reload");
     var nameIn = document.getElementById("design-name");
+    var nameEnIn = document.getElementById("design-name-en");
+    var newBtn = document.getElementById("new");
     var saveBtn = document.getElementById("save");
     var revertBtn = document.getElementById("revert");
     var deleteBtn = document.getElementById("delete");
@@ -1472,7 +1421,6 @@
     var deleteTimer = 0;
     var sourceText = "Quelle: eingebaut";
     var msgTimer = 0;
-
     /** Short message where the source line sits; it comes back on its own. */
     function say(text, bad) {
       clearTimeout(msgTimer);
@@ -1482,6 +1430,11 @@
         sourceOut.textContent = sourceText;
         sourceOut.classList.remove("bad");
       }, 5000);
+    }
+
+    /** The file key for a name: lower case, only letters, digits and dashes. */
+    function slug(name) {
+      return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     }
 
     function designById(id) {
@@ -1511,7 +1464,7 @@
     function disarmDelete() {
       armedDelete = false;
       clearTimeout(deleteTimer);
-      deleteBtn.textContent = "Löschen";
+      deleteBtn.textContent = "Design löschen";
       deleteBtn.classList.remove("warn");
     }
 
@@ -1519,20 +1472,15 @@
     function refreshDesignState() {
       var base = designById(loadedId);
       var dirty = !base || !sameDesign(currentDesign(loadedId, base.name), base);
-      stateOut.textContent = "geladen: " + nameOf(loadedId) + (dirty ? " · geändert" : "");
+      stateOut.textContent = base
+        ? "geladen: " + nameOf(loadedId) + (dirty ? " · geändert" : "")
+        : "neu, noch nicht gespeichert";
       stateOut.classList.toggle("dirty", dirty);
       revertBtn.disabled = !dirty || !base;
       // The file may never end up empty, so the last design cannot be deleted.
       deleteBtn.disabled = BUILTIN.length < 2;
       if (deleteBtn.disabled) disarmDelete();
-      variantButtons.forEach(function (b) {
-        b.setAttribute("aria-pressed", String(b.dataset.variant === state.variant));
-      });
-      tiles.forEach(function (tile) {
-        var chosen = tile.spec.key === state.variant;
-        tile.root.classList.toggle("chosen", chosen);
-        tile.tagEl.textContent = chosen ? "gewählt" : tile.spec.tag;
-      });
+      syncShape();
     }
 
     /** Rebuilds the tiles from scratch - the lanes themselves changed. */
@@ -1563,6 +1511,7 @@
       loadedId = id;
       presetSel.value = id;
       nameIn.value = d.name || id;
+      nameEnIn.value = d.name_en || "";
       disarmDelete();
       changed();
     }
@@ -1637,12 +1586,78 @@
         });
     });
 
-    variantButtons.forEach(function (b) {
-      b.addEventListener("click", function () {
-        state.variant = b.dataset.variant;
-        if (state.onlyChosen) rebuildAll();
-        refreshDesignState();
+    // One pair of listeners per ground, built from the same table as the sync.
+    GROUNDS.forEach(function (which) {
+      GROUND_CONTROLS.forEach(function (control) {
+        var input = document.getElementById(control.id + "-" + which);
+        var out = document.getElementById(control.id + "-" + which + "-out");
+        if (!input || !out) return;
+        input.addEventListener("input", function () {
+          ground(which)[control.key] = parseInt(input.value, 10);
+          out.textContent = ground(which)[control.key] + control.unit;
+          changed();
+        });
       });
+      var buttons = Array.prototype.slice.call(
+        document.querySelectorAll('[data-glow-for="' + which + '"] button'),
+      );
+      buttons.forEach(function (b) {
+        b.addEventListener("click", function () {
+          ground(which).glow = parseInt(b.dataset.glow, 10);
+          buttons.forEach(function (o) {
+            o.setAttribute("aria-pressed", String(o === b));
+          });
+          changed();
+        });
+      });
+    });
+
+    speedIn.addEventListener("input", function () {
+      state.speed = parseFloat(speedIn.value);
+      speedOut.textContent = state.speed.toFixed(2).replace(".", ",") + "×";
+      applySpeed();
+    });
+    biasIn.addEventListener("input", function () {
+      state.shape.bias = parseInt(biasIn.value, 10);
+      biasOut.textContent = state.shape.bias + " %";
+      changed();
+    });
+    countIn.addEventListener("input", function () {
+      state.count = parseInt(countIn.value, 10);
+      countOut.textContent = String(state.count);
+      changed();
+    });
+    consumersIn.addEventListener("input", function () {
+      state.consumers = parseInt(consumersIn.value, 10);
+      consumersOut.textContent = String(state.consumers);
+      rebuildTiles();
+    });
+    zoomIn.addEventListener("input", function () {
+      state.zoom = parseFloat(zoomIn.value);
+      zoomOut.textContent = state.zoom.toFixed(1).replace(".", ",") + "×";
+      applyZoom();
+      // The sizes are worked out per tile, so the drawing has to follow.
+      rebuildAll();
+    });
+    onlyChosenIn.addEventListener("change", function () {
+      state.onlyChosen = onlyChosenIn.checked;
+      rebuildAll();
+    });
+    playpause.addEventListener("click", function () {
+      state.paused = !state.paused;
+      playpause.textContent = state.paused ? "Weiter" : "Anhalten";
+      playpause.setAttribute("aria-pressed", String(state.paused));
+      if (state.paused) eachAnim(function (a) { a.pause(); });
+      else {
+        rebuildAll();
+        eachAnim(function (a) { a.play(); });
+      }
+    });
+
+    capsIn.addEventListener("input", function () {
+      state.shape.caps = parseInt(capsIn.value, 10);
+      capsOut.textContent = String(state.shape.caps);
+      changed();
     });
 
     saveBtn.addEventListener("click", function () {
@@ -1652,12 +1667,42 @@
         say("Erst einen Namen eingeben.", true);
         return;
       }
-      var id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      var loaded = designById(loadedId);
+      var sameName = !!loaded && loaded.name.trim().toLowerCase() === name.toLowerCase();
+      /*
+       * Saving the loaded design under its own name updates it, and keeps its
+       * id - which need not match the name. The design shipped as "Komet" is
+       * `comet`, so forming the id from the name again would have produced
+       * `komet` and appended a *second* "Komet". Two designs with one name are
+       * indistinguishable in the card's list, and the file kept both.
+       */
+      var id = sameName ? loaded.id : slug(name);
       if (!id) {
         say("Aus dem Namen lässt sich keine Kennung bilden.", true);
         return;
       }
-      // Same name replaces, a new one is appended at the end.
+      // Both names have to be free: two designs reading "Orbs" in the card's
+      // English list are as indistinguishable as two reading "Kugeln".
+      var mine = [name.toLowerCase()];
+      var english = nameEnIn.value.trim();
+      if (english) mine.push(english.toLowerCase());
+      var clash = null;
+      BUILTIN.forEach(function (d) {
+        if (d.id === id) return;
+        if (!sameName && d.id === id) clash = d;
+        [d.name, d.name_en].forEach(function (other) {
+          if (other && mine.indexOf(other.trim().toLowerCase()) >= 0) clash = d;
+        });
+      });
+      if (!sameName && !clash && designById(id)) clash = designById(id);
+      if (clash) {
+        (english && clash.name_en && mine.indexOf(clash.name_en.trim().toLowerCase()) >= 0
+          ? nameEnIn
+          : nameIn
+        ).focus();
+        say("„" + clash.name + "“ gibt es schon — bitte einen anderen Namen.", true);
+        return;
+      }
       var list = BUILTIN.filter(function (d) {
         return d.id !== id;
       });
@@ -1667,6 +1712,28 @@
 
     revertBtn.addEventListener("click", function () {
       loadDesign(loadedId);
+    });
+
+    // A fresh design, both grounds the same - a difference between them is
+    // something one sets deliberately, not a starting point.
+    newBtn.addEventListener("click", function () {
+      SHAPE_KEYS.forEach(function (k) {
+        state.shape[k] = DEFAULT_DESIGN.shape[k];
+      });
+      ["dark", "light"].forEach(function (g) {
+        GROUND_KEYS.forEach(function (k) {
+          state.ground[g][k] = DEFAULT_DESIGN.ground[k];
+        });
+      });
+      // Not a design yet: it becomes one with a name and a write to the file.
+      loadedId = "";
+      nameIn.value = "Neues Design";
+      nameEnIn.value = "";
+      nameIn.focus();
+      nameIn.select();
+      disarmDelete();
+      changed();
+      say("Neues Design — Namen vergeben und „Datei speichern“.");
     });
 
     // Two clicks instead of a confirm dialog, which a frame does not allow.

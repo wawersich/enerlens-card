@@ -18,12 +18,17 @@ Lives in the repository under tools/leuchtspur/ and is symlinked into
 After changing it: call the service pyscript.reload - no core restart needed.
 """
 
+import glob
 import json
+import os
 import pathlib
 import shutil
 import time
 
 WEBHOOK_ID = "enerlens-leuchtspur-designs"
+# How many previous versions to keep. Saving is a click, so this fills up fast;
+# ten reaches back far enough to undo an afternoon and no further.
+KEEP_BACKUPS = 10
 TARGET = pathlib.Path("/config/prj/enerlens-card/src/flow-designs.json")
 # The copy the page is served from, so a reload shows the new state at once.
 DEPLOYED = pathlib.Path("/config/www/leuchtspur/designs.json")
@@ -41,10 +46,27 @@ def _looks_like_designs(payload):
             return False
         if not isinstance(entry.get("id"), str) or not entry["id"]:
             return False
-        for part in ("shape", "spur", "dark", "light"):
+        # "spur" held the trail and is gone since 19.09.2026; a design is a
+        # shape and one value set per ground.
+        for part in ("shape", "dark", "light"):
             if not isinstance(entry.get(part), dict):
                 return False
     return True
+
+
+def _prune_backups():
+    """Drops all but the newest KEEP_BACKUPS previous versions.
+
+    The names carry the time as YYYYMMDD-HHMMSS, so sorting them as text sorts
+    them by age. glob and os.remove are real Python functions and may go to the
+    executor; a function defined here may not.
+    """
+    paths = task.executor(glob.glob, str(TARGET) + ".bak.*")
+    surplus = sorted(paths)[:-KEEP_BACKUPS]
+    for path in surplus:
+        task.executor(os.remove, path)
+    if surplus:
+        log.info("leuchtspur_save: %d alte Sicherungen entfernt", len(surplus))
 
 
 @webhook_trigger(WEBHOOK_ID, local_only=True, methods={"POST"})
@@ -65,6 +87,7 @@ def leuchtspur_save(payload=None, **kwargs):
     if task.executor(TARGET.exists):
         backup = str(TARGET) + ".bak." + time.strftime("%Y%m%d-%H%M%S")
         task.executor(shutil.copy2, str(TARGET), backup)
+        _prune_backups()
     task.executor(TARGET.write_text, text, encoding="utf-8")
 
     if task.executor(DEPLOYED.parent.is_dir):
