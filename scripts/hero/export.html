@@ -105,7 +105,16 @@ card.setConfig({
   // The README shows the card as it is meant to be seen, and a design is
   // part of that now. "electron" needs no glow, which a static SVG could
   // not carry anyway - its core is a bright point inside the dot.
-  flow: { peak_w: 4000, fast_s: 1.1, slow_s: 4.5, design: "electron" },
+  // Idle connections are dimmed rather than drawn at full strength: the
+  // title picture should show what is flowing, and the rest of the cross
+  // only as far as it takes to read the shape.
+  flow: {
+    peak_w: 4000,
+    fast_s: 1.1,
+    slow_s: 4.5,
+    design: "electron",
+    inactive_lines: "dim",
+  },
   update_interval_s: 2,
 });
 card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };

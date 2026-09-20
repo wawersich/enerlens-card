@@ -150,7 +150,8 @@
     "rest": "Rest",
     "dot_color": "Farbe der Punkte",
     "colors_dots": "Punkte",
-    "dot_color_follow": "Punkte in der Farbe ihrer Linie"
+    "dot_color_follow": "Punkte in der Farbe ihrer Linie",
+    "power_auto": "Automatisch"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -186,7 +187,7 @@
     "fast_s": "Zeit für eine Runde, wenn viel fließt. Standard 1,8.",
     "max_dots": "Wie viele Punkte auf einer Verbindung höchstens laufen. Standard 5.",
     "full_speed_w": "Ab hier läuft der Punkt so schnell wie möglich. Dazwischen: ein Punkt, der schneller wird. Standard: wie „Mehr Punkte ab“.",
-    "power_unit": "Gilt für alle Leistungswerte der Karte: Knoten und Liste.",
+    "power_unit": "Automatisch: unter 1000 W ganze Watt, darüber Kilowatt — die Nachkommastellen darunter gelten dann für die Kilowatt-Werte. Eine feste Kilowatt-Einheit schreibt einen Verbraucher mit 30 W als „0,0 kW“; daran ändert keine Stellenzahl etwas.",
     "power_decimals": "Nur bei Kilowatt; Watt werden immer als ganze Zahl gezeigt. Standard 2.",
     "grid_status": "Nur wenn deine Anlage einen Netzausfall meldet — viele tun es nicht. Ohne diese Angabe zeigt die Karte keinen Ausfall an; alles andere funktioniert.",
     "grid_status_outage": "Pflichtangabe. Jede Integration benennt ihre Zustände anders, hier wird nichts geraten. Trage den Rohwert ein, nicht die Anzeige von Home Assistant: Ein Aufzählungssensor zeigt einen übersetzten Namen, aus „Nicht erkannt“ wird also `not_detected`. Wer aus der Liste auswählt, umgeht die Frage.",

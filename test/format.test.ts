@@ -151,3 +151,40 @@ describe("formatPower - configurable format (REQ K-7)", () => {
     expect(formatPower(9330, hass)).toBe(formatKW(9330, hass));
   });
 });
+
+describe("the automatic unit (REQ K-7)", () => {
+  const de = {
+    locale: { language: "de", number_format: "decimal_comma" },
+    language: "de",
+  } as unknown as HomeAssistant;
+  const show = (w: number, decimals = 2) =>
+    formatPower(w, de, { unit: "auto", decimals }).replace(/\u00a0|\u202f/g, " ");
+
+  it("writes whole watts below a kilowatt and kilowatts above", () => {
+    expect(show(0)).toBe("0 W");
+    expect(show(30)).toBe("30 W");
+    expect(show(806)).toBe("806 W");
+    expect(show(1000)).toBe("1,00 kW");
+    expect(show(2561)).toBe("2,56 kW");
+  });
+
+  it("leaves the decimals to the configuration - it only picks the unit", () => {
+    expect(show(10271, 1)).toBe("10,3 kW");
+    expect(show(10271, 2)).toBe("10,27 kW");
+    expect(show(10271, 3)).toBe("10,271 kW");
+    // Watts stay whole whatever is configured: a tenth of a watt is noise.
+    expect(show(30, 3)).toBe("30 W");
+  });
+
+  it("decides the unit on the rounded number, not the raw one", () => {
+    // 999.6 W rounds to 1000 W, which must not be written as "1000 W".
+    expect(show(999.6)).toBe("1,00 kW");
+    expect(show(999.4)).toBe("999 W");
+  });
+
+  it("carries the sign, and never a negative zero", () => {
+    expect(show(-806)).toBe("-806 W");
+    expect(show(-2561)).toBe("-2,56 kW");
+    expect(show(-0.2)).toBe("0 W");
+  });
+});

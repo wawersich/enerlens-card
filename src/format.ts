@@ -18,6 +18,22 @@ function baseLanguage(language: string | undefined): string {
 }
 
 /**
+ * The unit a value picks for itself (REQ K-7).
+ *
+ * "auto" decides the unit and nothing else: whole watts below a kilowatt,
+ * kilowatts above. How many decimals those kilowatts get stays the user's
+ * choice - the two questions only look like one. A fixed kilowatt column
+ * writes a fridge at 30 W as "0,0 kW", which is the part no number of decimals
+ * can fix; the decimals themselves are a matter of taste and better left set.
+ *
+ * The step is decided on the *rounded* number, so 999.6 W comes out as
+ * "1,0 kW" rather than as "1000 W".
+ */
+function autoUnit(w: number): "W" | "kW" {
+  return Math.round(Math.abs(w)) < 1000 ? "W" : "kW";
+}
+
+/**
  * Watts in the configured format: "x,xx kW" with a fixed number of decimals,
  * or whole watts ("1 525 W"). Commercial rounding via Intl (1525 W becomes
  * "1,53 kW"); separators follow `hass.locale`, all seven `number_format`
@@ -28,16 +44,18 @@ export function formatPower(
   hass: HomeAssistant,
   format: PowerFormat = DEFAULT_FORMAT,
 ): string {
-  const digits = format.unit === "W" ? 0 : format.decimals;
+  const unit = format.unit === "auto" ? autoUnit(w) : format.unit;
+  // Watts are always whole: a tenth of a watt is noise, not a reading.
+  const digits = unit === "W" ? 0 : format.decimals;
   const formatter = new Intl.NumberFormat(localeFor(hass), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
     ...(hass?.locale?.number_format === "none" ? { useGrouping: false } : {}),
   });
-  const text = formatter.format(format.unit === "W" ? w : w / 1000);
+  const text = formatter.format(unit === "W" ? w : w / 1000);
   // A value that rounds to zero must not keep its sign (REQ K-7); testing the
   // digits works for every locale, whereas comparing against "-0" does not.
-  return `${/[1-9]/.test(text) ? text : formatter.format(0)} ${format.unit}`;
+  return `${/[1-9]/.test(text) ? text : formatter.format(0)} ${unit}`;
 }
 
 /** The default format - kW with two decimals. */

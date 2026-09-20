@@ -396,12 +396,14 @@ function readColors(value: unknown, hass?: HomeAssistant): Config["colors"] {
   return colors;
 }
 
-const POWER_UNITS_DISPLAY: readonly PowerUnit[] = ["kW", "W"];
+const POWER_UNITS_DISPLAY: readonly PowerUnit[] = ["kW", "W", "auto"];
 
 /** kW with 1-3 decimals (default 2), or whole watts (REQ K-7). */
 function readPower(value: unknown, hass?: HomeAssistant): PowerFormat {
   const raw = value === undefined ? {} : requireRecord(value, "power", hass);
   return {
+    // The default stays kW: an installation that never touched this should
+    // not change its look because a new option appeared.
     unit: readEnum(raw.unit, POWER_UNITS_DISPLAY, "power.unit", "kW", hass),
     decimals: inRange(
       readInteger(raw.decimals, "power.decimals", 2, hass),

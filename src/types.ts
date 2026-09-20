@@ -312,7 +312,13 @@ export interface Config {
   power: PowerFormat;
 }
 
-export type PowerUnit = "kW" | "W";
+/**
+ * How a power figure is written. "auto" lets every value pick for itself
+ * (REQ K-7): watts below a kilowatt, kilowatts above, and as many decimals as
+ * three significant digits need - no more, because the reading is not that
+ * precise, and no fewer, because the small consumers would all read alike.
+ */
+export type PowerUnit = "kW" | "W" | "auto";
 
 /** One format for every power figure on the card (REQ K-7). */
 export interface PowerFormat {

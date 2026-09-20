@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`power.unit: auto`** picks the unit per value: whole watts below a kilowatt,
+  kilowatts above. A fixed kilowatt unit writes a fridge at 30 W as `0.0 kW`,
+  and no number of decimals fixes that - while the same column at three
+  decimals writes a house at 10271 W as `10.271 kW`, which is more precision
+  than a meter has. How many decimals the kilowatts get stays `power.decimals`,
+  because that is a matter of taste and better left set: at one decimal the
+  same card reads `10.3 kW` and `30 W`. `kW` stays the default, so nothing
+  changes without asking.
+
+### Changed
+- **The title pictures** are drawn with the `electron` design and with idle
+  connections dimmed, so the eye reads what is flowing.
+
 ## [0.5.0] - 2026-09-19
 
 ### Added

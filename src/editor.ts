@@ -565,25 +565,32 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             select: {
               mode: "dropdown",
               options: [
+                { value: "auto", label: t("power_auto") },
                 { value: "kW", label: t("power_kw") },
                 { value: "W", label: t("power_w") },
               ],
             },
           },
         },
-        {
-          name: "power_decimals",
-          selector: {
-            select: {
-              mode: "dropdown",
-              options: [
-                { value: 1, label: "1" },
-                { value: 2, label: "2" },
-                { value: 3, label: "3" },
-              ],
-            },
-          },
-        },
+        // Whole watts are whole watts; there the field would have no effect.
+        // "auto" only picks the unit, so its kilowatts still take this.
+        ...(flat.power_unit === "W"
+          ? []
+          : [
+              {
+                name: "power_decimals",
+                selector: {
+                  select: {
+                    mode: "dropdown",
+                    options: [
+                      { value: 1, label: "1" },
+                      { value: 2, label: "2" },
+                      { value: 3, label: "3" },
+                    ],
+                  },
+                },
+              },
+            ]),
         { name: "show_selector", selector: { boolean: {} } },
         {
           name: "default_mode",

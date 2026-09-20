@@ -150,7 +150,8 @@
     "rest": "Remainder",
     "dot_color": "Colour of the dots",
     "colors_dots": "Dots",
-    "dot_color_follow": "Dots in the colour of their line"
+    "dot_color_follow": "Dots in the colour of their line",
+    "power_auto": "Automatic"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -186,7 +187,7 @@
     "fast_s": "One lap when a lot is flowing. Default 1.8.",
     "max_dots": "How many dots a connection carries at most. Default 5.",
     "full_speed_w": "From here on the dot runs as fast as it gets. In between: one dot, getting faster. Default: same as “More dots from”.",
-    "power_unit": "Applies to every power figure on the card: nodes and list.",
+    "power_unit": "Automatic: whole watts below 1000 W, kilowatts above - the decimals below then apply to the kilowatt figures. A fixed kilowatt unit writes a 30 W consumer as “0.0 kW”, and no number of decimals fixes that.",
     "power_decimals": "Kilowatts only; watts are always whole numbers. Default 2.",
     "grid_status": "Only if your installation reports an outage - many do not. Without it the card shows no outage; everything else works.",
     "grid_status_outage": "Required. Every integration names its states differently, so nothing is guessed here. Enter the raw state, not the label Home Assistant shows: an enum sensor displays a translated name, so “Not detected” may really be `not_detected`. Picking from the list avoids the question.",

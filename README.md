@@ -253,7 +253,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `min_consumer_w` | `10` | Consumers below this are folded into the remainder; a consumer's own `min_w` overrides it |
 | `max_consumers` | all | Only the strongest are listed |
 | `update_interval_s` | `5` | How often the list reorders |
-| `power.unit` | `kW` | `kW` or `W`; watts are always whole numbers |
+| `power.unit` | `kW` | `kW`, `W` or `auto`. `auto` picks the unit per value - whole watts below 1000 W, kilowatts above - and `power.decimals` still says how many decimals those kilowatts get. Watts are always whole |
 | `power.decimals` | `2` | Decimals for kW: 1, 2 or 3 |
 | `list.enabled` | on with consumers | Show the list |
 | `list.rest_label` | localised | Name of the remainder |
