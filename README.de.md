@@ -266,8 +266,9 @@ zusätzliche Abfrage.
 | `min_consumer_w` | `10` | Verbraucher darunter zählen zum Rest; ein eigenes `min_w` am Verbraucher hat Vorrang |
 | `max_consumers` | alle | Nur die stärksten werden gelistet |
 | `update_interval_s` | `5` | Wie oft die Liste neu sortiert |
-| `power.unit` | `kW` | `kW`, `W` oder `auto`. `auto` wählt die Einheit je Wert — unter 1000 W ganze Watt, darüber kW —, und `power.decimals` sagt weiterhin, wie viele Nachkommastellen diese kW bekommen. Watt sind immer ganz |
-| `power.decimals` | `2` | Nachkommastellen bei kW: 1, 2 oder 3 |
+| `power.unit` | `kW` | `kW`, `W` oder `auto`. `auto` wählt die Einheit je Wert: unter 1000 W ganze Watt, darüber kW |
+| `power.decimals` | `2` | Nachkommastellen bei festem `kW`: 1, 2 oder 3. Watt sind immer ganz |
+| `power.digits` | `3` | Relevante Stellen bei `auto`: 2, 3 oder 4 — `1,23 kW`, `12,3 kW`, `123 kW`. Eine Nachkommastelle bedeutet bei jeder Größe etwas anderes; so bleibt gleich, wie viel die Zahl aussagt |
 | `list.enabled` | an mit Verbrauchern | Liste anzeigen |
 | `list.rest_label` | lokalisiert | Bezeichnung des Rests |
 | `list.title` | — | Überschrift über der Liste |

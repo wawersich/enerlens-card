@@ -92,7 +92,7 @@ function config(
       consumerPalette: ["#7e57c2"],
     },
     icons: {},
-    power: { unit: "kW", decimals: 2 },
+    power: { unit: "kW", decimals: 2, digits: 3 },
   };
   return cfg;
 }

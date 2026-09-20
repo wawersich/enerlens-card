@@ -4,7 +4,7 @@
  */
 import type { HassEntity, HomeAssistant, PowerFormat } from "./types";
 
-const DEFAULT_FORMAT: PowerFormat = { unit: "kW", decimals: 2 };
+const DEFAULT_FORMAT: PowerFormat = { unit: "kW", decimals: 2, digits: 3 };
 
 /**
  * Languages that put a space between number and "%", as Home Assistant's
@@ -34,6 +34,27 @@ function autoUnit(w: number): "W" | "kW" {
 }
 
 /**
+ * Decimal places for a kilowatt figure written to `digits` significant ones.
+ *
+ * A decimal place says something different at every size: at 1,23 kW two of
+ * them are a tenth of a percent, at 123 kW they would be a thousandth - and
+ * "123,46 kW" claims a precision no house meter has. Significant digits keep
+ * what the number actually tells constant: 1,23 kW, 12,3 kW, 123 kW.
+ *
+ * Rounding can carry a value into the next decade (9,996 -> 10,00), where it
+ * would gain a digit it has not earned; asking again on the rounded value
+ * takes it back off.
+ */
+function significantDecimals(kw: number, digits: number): number {
+  const places = (value: number) => Math.max(digits - 1 - Math.floor(Math.log10(value)), 0);
+  const abs = Math.abs(kw);
+  if (!(abs > 0)) return Math.max(digits - 1, 0);
+  const first = places(abs);
+  const rounded = Number(abs.toFixed(first));
+  return rounded > 0 ? Math.min(first, places(rounded)) : first;
+}
+
+/**
  * Watts in the configured format: "x,xx kW" with a fixed number of decimals,
  * or whole watts ("1 525 W"). Commercial rounding via Intl (1525 W becomes
  * "1,53 kW"); separators follow `hass.locale`, all seven `number_format`
@@ -46,7 +67,12 @@ export function formatPower(
 ): string {
   const unit = format.unit === "auto" ? autoUnit(w) : format.unit;
   // Watts are always whole: a tenth of a watt is noise, not a reading.
-  const digits = unit === "W" ? 0 : format.decimals;
+  const digits =
+    unit === "W"
+      ? 0
+      : format.unit === "auto"
+        ? significantDecimals(w / 1000, format.digits)
+        : format.decimals;
   const formatter = new Intl.NumberFormat(localeFor(hass), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

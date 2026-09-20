@@ -189,7 +189,7 @@ export interface RawConfig extends LovelaceCardConfig {
   /** Which half of a flow design applies (REQ P-10). */
   appearance?: Appearance;
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
-  power?: { unit?: PowerUnit; decimals?: number };
+  power?: { unit?: PowerUnit; decimals?: number; digits?: number };
   view?: {
     default_mode?: ViewMode;
     avg_short_minutes?: number;
@@ -313,18 +313,23 @@ export interface Config {
 }
 
 /**
- * How a power figure is written. "auto" lets every value pick for itself
- * (REQ K-7): watts below a kilowatt, kilowatts above, and as many decimals as
- * three significant digits need - no more, because the reading is not that
- * precise, and no fewer, because the small consumers would all read alike.
+ * How a power figure is written (REQ K-7). "auto" lets every value pick for
+ * itself: watts below a kilowatt, kilowatts above, written to a fixed number
+ * of *significant* digits rather than a fixed number of decimals.
  */
 export type PowerUnit = "kW" | "W" | "auto";
 
 /** One format for every power figure on the card (REQ K-7). */
 export interface PowerFormat {
   unit: PowerUnit;
-  /** Decimals in kW; ignored for W, which is always whole numbers. */
+  /** Decimal places, for the fixed kilowatt unit. */
   decimals: number;
+  /**
+   * Significant digits, for "auto". A decimal place means something different
+   * at 1,23 kW than at 123 kW; what should stay the same is how much the
+   * number actually says.
+   */
+  digits: number;
 }
 
 /** Thrown by `normalizeConfig` for structural problems (REQ E-1, path 1). */

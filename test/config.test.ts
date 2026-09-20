@@ -286,14 +286,23 @@ describe("battery_soc (schema rules, A-5)", () => {
 
 describe("power format (K-7)", () => {
   it("defaults to kW with two decimals and reads the alternatives", () => {
-    expect(normalizeConfig(cfg()).power).toEqual({ unit: "kW", decimals: 2 });
+    expect(normalizeConfig(cfg()).power).toEqual({ unit: "kW", decimals: 2, digits: 3 });
     expect(normalizeConfig(cfg({ power: { unit: "W" } })).power).toEqual({
       unit: "W",
       decimals: 2,
+      digits: 3,
     });
     expect(normalizeConfig(cfg({ power: { decimals: 3 } })).power.decimals).toBe(3);
     expect(() => normalizeConfig(cfg({ power: { decimals: 4 } }))).toThrow();
     expect(() => normalizeConfig(cfg({ power: { unit: "MW" } }))).toThrow();
+  });
+
+  it("takes the significant digits for the automatic unit, two to four", () => {
+    expect(normalizeConfig(cfg({ power: { unit: "auto" } })).power.digits).toBe(3);
+    expect(normalizeConfig(cfg({ power: { unit: "auto", digits: 2 } })).power.digits).toBe(2);
+    expect(normalizeConfig(cfg({ power: { digits: 4 } })).power.digits).toBe(4);
+    expect(() => normalizeConfig(cfg({ power: { digits: 1 } }))).toThrow();
+    expect(() => normalizeConfig(cfg({ power: { digits: 5 } }))).toThrow();
   });
 });
 

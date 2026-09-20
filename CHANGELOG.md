@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **`auto` counts significant digits, not decimal places** (`power.digits`,
+  2 to 4, three by default). A decimal place says something different at every
+  size: two of them are a tenth of a percent at 1.23 kW and a thousandth at
+  123 kW, where "123.46 kW" claims a precision no house meter has. Significant
+  digits keep what the figure tells constant - `1.23 kW`, `12.3 kW`, `123 kW` -
+  and rounding cannot buy one, so 9996 W reads `10.0 kW` rather than
+  `10.00 kW`. A fixed `kW` keeps `power.decimals`, where it belongs: with the
+  unit pinned, three significant digits would write a 30 W fridge as
+  `0.0300 kW`. The editor asks each unit only the question it can answer.
+
 ## [0.5.1] - 2026-09-20
 
 ### Added

@@ -412,6 +412,9 @@ function readPower(value: unknown, hass?: HomeAssistant): PowerFormat {
       "power.decimals",
       hass,
     ),
+    // Two is the fewest that still tells 2,6 kW from 2,5 kW; four writes out
+    // more than a house meter knows.
+    digits: inRange(readInteger(raw.digits, "power.digits", 3, hass), 2, 4, "power.digits", hass),
   };
 }
 

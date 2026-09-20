@@ -104,6 +104,7 @@ interface FlatConfig {
   ring_enabled?: boolean;
   power_unit?: string;
   power_decimals?: number;
+  power_digits?: number;
   default_mode?: string;
   avg_short_minutes?: number;
   avg_long_minutes?: number;
@@ -217,6 +218,7 @@ function toFlat(config: RawConfig): FlatConfig {
     ring_enabled: config.ring?.enabled,
     power_unit: config.power?.unit,
     power_decimals: config.power?.decimals,
+    power_digits: config.power?.digits,
     default_mode: config.view?.default_mode,
     avg_short_minutes: config.view?.avg_short_minutes,
     avg_long_minutes: config.view?.avg_long_minutes,
@@ -368,7 +370,11 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       always_below: flat.list_always_below,
     }),
     ring: prune({ enabled: flat.ring_enabled }),
-    power: prune({ unit: opt(flat.power_unit), decimals: num(flat.power_decimals) }),
+    power: prune({
+      unit: opt(flat.power_unit),
+      decimals: num(flat.power_decimals),
+      digits: num(flat.power_digits),
+    }),
     view: prune({
       default_mode: flat.default_mode,
       avg_short_minutes: num(flat.avg_short_minutes),
@@ -572,9 +578,27 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
           },
         },
-        // Whole watts are whole watts; there the field would have no effect.
-        // "auto" only picks the unit, so its kilowatts still take this.
-        ...(flat.power_unit === "W"
+        // Each unit is asked the one question it can answer: fixed kilowatts
+        // how many decimals, "auto" how much the number should say. Whole
+        // watts are whole watts and are asked nothing.
+        ...(flat.power_unit === "auto"
+          ? [
+              {
+                name: "power_digits",
+                selector: {
+                  select: {
+                    mode: "dropdown",
+                    options: [
+                      { value: 2, label: "2" },
+                      { value: 3, label: "3" },
+                      { value: 4, label: "4" },
+                    ],
+                  },
+                },
+              },
+            ]
+          : []),
+        ...(flat.power_unit === "W" || flat.power_unit === "auto"
           ? []
           : [
               {

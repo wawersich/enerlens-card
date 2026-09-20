@@ -137,15 +137,15 @@ describe("formatSoc (REQ K-4)", () => {
 describe("formatPower - configurable format (REQ K-7)", () => {
   const hass = makeHass("comma_decimal");
   it("kW with one or three decimals", () => {
-    expect(formatPower(1525, hass, { unit: "kW", decimals: 1 })).toBe("1.5 kW");
-    expect(formatPower(1525, hass, { unit: "kW", decimals: 3 })).toBe("1.525 kW");
+    expect(formatPower(1525, hass, { unit: "kW", decimals: 1, digits: 3 })).toBe("1.5 kW");
+    expect(formatPower(1525, hass, { unit: "kW", decimals: 3, digits: 3 })).toBe("1.525 kW");
   });
   it("whole watts, decimals ignored, grouped per locale", () => {
-    expect(formatPower(1525.4, hass, { unit: "W", decimals: 3 })).toBe("1,525 W");
-    expect(formatPower(1525.4, makeHass("language", "de"), { unit: "W", decimals: 2 })).toBe(
-      "1.525 W",
-    );
-    expect(formatPower(-0.4, hass, { unit: "W", decimals: 2 })).toBe("0 W");
+    expect(formatPower(1525.4, hass, { unit: "W", decimals: 3, digits: 3 })).toBe("1,525 W");
+    expect(
+      formatPower(1525.4, makeHass("language", "de"), { unit: "W", decimals: 2, digits: 3 }),
+    ).toBe("1.525 W");
+    expect(formatPower(-0.4, hass, { unit: "W", decimals: 2, digits: 3 })).toBe("0 W");
   });
   it("defaults to kW with two decimals", () => {
     expect(formatPower(9330, hass)).toBe(formatKW(9330, hass));
@@ -157,27 +157,39 @@ describe("the automatic unit (REQ K-7)", () => {
     locale: { language: "de", number_format: "decimal_comma" },
     language: "de",
   } as unknown as HomeAssistant;
-  const show = (w: number, decimals = 2) =>
-    formatPower(w, de, { unit: "auto", decimals }).replace(/\u00a0|\u202f/g, " ");
+  const show = (w: number, digits = 3) =>
+    formatPower(w, de, { unit: "auto", decimals: 2, digits }).replace(/\u00a0|\u202f/g, " ");
 
   it("writes whole watts below a kilowatt and kilowatts above", () => {
     expect(show(0)).toBe("0 W");
     expect(show(30)).toBe("30 W");
     expect(show(806)).toBe("806 W");
     expect(show(1000)).toBe("1,00 kW");
-    expect(show(2561)).toBe("2,56 kW");
   });
 
-  it("leaves the decimals to the configuration - it only picks the unit", () => {
-    expect(show(10271, 1)).toBe("10,3 kW");
-    expect(show(10271, 2)).toBe("10,27 kW");
-    expect(show(10271, 3)).toBe("10,271 kW");
-    // Watts stay whole whatever is configured: a tenth of a watt is noise.
-    expect(show(30, 3)).toBe("30 W");
+  it("keeps the significant digits, not the decimal places", () => {
+    // A decimal place says something different at every size; this does not.
+    expect(show(1234.56)).toBe("1,23 kW");
+    expect(show(12345.6)).toBe("12,3 kW");
+    expect(show(123456)).toBe("123 kW");
+  });
+
+  it("takes the number of digits from the configuration", () => {
+    expect(show(10271, 2)).toBe("10 kW");
+    expect(show(10271, 3)).toBe("10,3 kW");
+    expect(show(10271, 4)).toBe("10,27 kW");
+    // Watts stay whole however many digits are asked for.
+    expect(show(30, 4)).toBe("30 W");
+  });
+
+  it("does not let rounding buy a digit", () => {
+    // 9,996 kW at two decimals reads "10,00" - four digits where three were
+    // asked for, so the value loses one on the way into the next decade.
+    expect(show(9996)).toBe("10,0 kW");
+    expect(show(9994)).toBe("9,99 kW");
   });
 
   it("decides the unit on the rounded number, not the raw one", () => {
-    // 999.6 W rounds to 1000 W, which must not be written as "1000 W".
     expect(show(999.6)).toBe("1,00 kW");
     expect(show(999.4)).toBe("999 W");
   });
