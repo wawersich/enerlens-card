@@ -5,7 +5,7 @@ import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { AveragingBuffer, fetchHistory } from "./averaging";
 import { collectEntityIds, normalizeConfig } from "./config";
 import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
-import { buildBreakdown, refreshBreakdownValues } from "./consumers";
+import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
@@ -82,7 +82,7 @@ class EnerLensCard extends LitElement {
   private _tickTimer?: ReturnType<typeof setInterval>;
   private readonly _rows = new RowAnimator();
   /** Latest entries by key - the fan needs colour and value per row. */
-  private _lastEntries = new Map<string, { w: number; color: string }>();
+  private _lastEntries = new Map<string, { w: number; color: string; threshold: number }>();
   private _mode: ViewMode = "current";
   private _buffer?: AveragingBuffer;
   /** Set while a prefill is in flight, so a mode switch does not start a second. */
@@ -474,12 +474,25 @@ class EnerLensCard extends LitElement {
         const key = row.dataset.key;
         const entry = key ? entries.get(key) : undefined;
         if (!entry) return null;
-        // Below the threshold the line stays, without dots - like an inactive
-        // connection in the cross and the track of a lane below it. It follows
-        // flow.inactive_lines: hidden means no line at all (L-13, P-9).
+        /*
+         * Two questions, two answers (REQ P-9, changed 20.09.2026).
+         *
+         * The colour says whether anything flows here, and for a row that is
+         * the same question as whether it earned its place in the list - a
+         * consumer listed with 15 W and a grey line beside it contradicted
+         * itself. Only a row that the filter had to be lifted for is drawn
+         * grey, and then flow.inactive_lines decides how: hidden means no
+         * line at all (L-13).
+         *
+         * The dots ask something else - is there enough for movement to be
+         * worth watching - and that is still flow.min_w. A coloured line
+         * without dots therefore reads "yes, but little", which is true.
+         */
         const params = dotParams(entry.w, this._config as Config);
+        // One test for line and ring segment alike, so the two cannot drift.
+        const quiet = !carries(entry, this._config as Config);
         const mode = this._config?.flow.inactiveLines ?? "show";
-        if (!params && mode === "hide") return null;
+        if (quiet && mode === "hide") return null;
         // Stacked, the line ends at the colour mark, not at the row's edge -
         // the runway column lies in between.
         const target = this._stacked
@@ -494,7 +507,7 @@ class EnerLensCard extends LitElement {
           color: entry.color,
           count: params?.count ?? 0,
           durationS: params?.durationS ?? 1,
-          inactive: params || mode === "hide" ? undefined : mode,
+          inactive: quiet && mode !== "hide" ? mode : undefined,
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -663,7 +676,9 @@ class EnerLensCard extends LitElement {
     const active = new Map(
       plans.map((p) => [p.connection, this._config?.colors[p.colorKey] ?? ""]),
     );
-    this._lastEntries = new Map(breakdown.entries.map((e) => [e.key, { w: e.w, color: e.color }]));
+    this._lastEntries = new Map(
+      breakdown.entries.map((e) => [e.key, { w: e.w, color: e.color, threshold: e.threshold }]),
+    );
     const openEntry = (entity: string, ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 

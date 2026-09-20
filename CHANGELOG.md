@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **A listed consumer no longer sits beside a grey line.** Two thresholds
+  govern a row - `min_consumer_w` decides whether it is listed, `flow.min_w`
+  whether anything flows - and where the first is the lower of the two, a
+  consumer at 15 W was listed with a value while its line stayed grey and the
+  ring gave it no share. The row said one thing, the other two said the
+  opposite. A row is now drawn in colour as soon as it earned its place in the
+  list *or* something flows on it, and the ring segment follows the same test,
+  so list, line and ring cannot tell three different stories. The dots still
+  wait for `flow.min_w` alone: a coloured line without dots reads "yes, but
+  little". Rows that only appear when the filter is lifted stay grey, and the
+  cross is unchanged.
+
 ## [0.5.2] - 2026-09-20
 
 ### Changed

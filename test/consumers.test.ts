@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBreakdown, refreshBreakdownValues } from "../src/consumers";
+import { dotParams } from "../src/flow";
 import type { Config, ConsumerReading, Model, Reading } from "../src/types";
 import { REST_KEY } from "../src/types";
 
@@ -382,6 +383,8 @@ describe("buildBreakdown - edge cases", () => {
       name: "dryer",
       color: "color-dryer",
       w: 500,
+      // The power that earned it a place, carried along for line and ring.
+      threshold: 10,
       isRest: false,
     });
   });
@@ -484,12 +487,38 @@ describe("the ring takes the rows whose line carries something (REQ R-2, 12.09.2
     );
   });
 
-  it("counts the threshold itself as carrying (>=)", () => {
+  it("gives a listed row its colour and its share, even below flow.min_w", () => {
+    // The change of 20.09.2026: 19 W is listed (>= min_consumer_w) but does
+    // not flow (< flow.min_w). It used to be a row with a value beside a grey
+    // line and no share of the ring - three statements, two of them wrong.
     const edge = model(reading(100), [consumer("exact", 20), consumer("under", 19)]);
-    const b = buildBreakdown(edge, config({ minConsumerW: 10, flowMinW: 20 }));
+    const cfgEdge = config({ minConsumerW: 10, flowMinW: 20 });
+    const b = buildBreakdown(edge, cfgEdge);
     expect(b.entries.map((e) => e.name)).toContain("under");
-    expect(b.segments.map((seg) => seg.key)).not.toContain("sensor.under");
+    expect(b.segments.map((seg) => seg.key)).toContain("sensor.under");
     expect(b.segments.map((seg) => seg.key)).toContain("sensor.exact");
+    // The dots are a different question and still follow flow.min_w.
+    expect(dotParams(19, cfgEdge)).toBeNull();
+    expect(dotParams(20, cfgEdge)).not.toBeNull();
+  });
+
+  it("keeps the colour of a row that flows but is below its own threshold", () => {
+    // A heat pump idling at 25 W under its own 40 W min_w: hidden by the
+    // filter, but once lifted its dots do run - a grey line under running
+    // dots would be the contradiction the other way round.
+    const cfgEdge = config({ minConsumerW: 10, flowMinW: 20 });
+    const idling = model(reading(100), [consumer("heatpump", 25, 40)]);
+    const lifted = buildBreakdown(idling, cfgEdge, true);
+    expect(lifted.entries.map((e) => e.name)).toContain("heatpump");
+    expect(lifted.segments.map((seg) => seg.key)).toContain("sensor.heatpump");
+  });
+
+  it("leaves a genuinely quiet row grey and without a share", () => {
+    const cfgEdge = config({ minConsumerW: 10, flowMinW: 20 });
+    const quiet = model(reading(100), [consumer("lamp", 3)]);
+    const lifted = buildBreakdown(quiet, cfgEdge, true);
+    expect(lifted.entries.map((e) => e.name)).toContain("lamp");
+    expect(lifted.segments.map((seg) => seg.key)).not.toContain("sensor.lamp");
   });
 
   it("loses the segment mid-tick when the line turns grey, but keeps the row", () => {

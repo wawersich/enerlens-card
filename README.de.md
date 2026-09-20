@@ -284,7 +284,7 @@ zusätzliche Abfrage.
 | `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
-| `flow.min_w` | `10` | Darunter bewegt sich nichts, Netz und Batterie zeigen kein Zustandswort, und es wird kein Ring-Segment gezeichnet |
+| `flow.min_w` | `10` | Darunter laufen keine Punkte. Im Kreuz wird die Linie zusätzlich grau und das Zustandswort entfällt; bei einer Verbraucherzeile richten sich Farbe und Ring-Segment stattdessen nach der Liste |
 | `flow.peak_w` | `6000` | Ein Regler für die Bewegung: Leistung, bei der die Punkte ihr Maximum erreichen; die drei Schwellen darunter sind standardmäßig 1/12, 1/3 und 1/1 davon |
 | `flow.slow_below_w` | `500` | Bis hier ein langsamer Punkt |
 | `flow.full_speed_w` | = `more_dots_above_w` | Ab hier hat der einzelne Punkt sein Höchsttempo; getrennt von `more_dots_above_w` setzen, um Tempo und Anzahl zu entkoppeln |
@@ -365,9 +365,13 @@ statt in irgendeinem Dashboard als roher Schlüssel aufzutauchen.
 - Aus den einzelnen Verbrauchern wird die `consumers`-Liste, und sie sind eine
   *Aufschlüsselung* des Hauswerts statt zusätzlicher Knoten. Der Rest zeigt,
   was übrig bleibt.
-- `watt_threshold` gibt es nicht; stattdessen zwei bewusst getrennte Schwellen:
-  `min_consumer_w` entscheidet, ob eine Zeile überhaupt in der Liste steht,
-  `flow.min_w` entscheidet über Linie, Punkte und Ring-Segment.
+- `watt_threshold` gibt es nicht; stattdessen zwei bewusst getrennte Schwellen.
+  `min_consumer_w` entscheidet, ob eine Zeile überhaupt in der Liste steht.
+  `flow.min_w` entscheidet, ob Punkte laufen — im Kreuz zusätzlich über
+  Linienfarbe, Zustandswort und Ring-Segment. Eine **Verbraucherzeile** wird
+  farbig gezeichnet, sobald sie ihren Platz in der Liste verdient hat *oder*
+  etwas fließt; eine mit 15 W gelistete Zeile steht also nie neben einer
+  grauen Linie. Ihre Punkte warten weiterhin auf `flow.min_w`.
 
 ## Entwicklung
 

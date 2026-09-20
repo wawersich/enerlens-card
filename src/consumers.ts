@@ -26,7 +26,8 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   const candidates: ListEntry[] = [];
   for (const consumer of model.consumers) {
     if (!consumer.reading.available) continue;
-    if (!showAll && consumer.reading.w < (consumer.minW ?? config.minConsumerW)) continue;
+    const threshold = consumer.minW ?? config.minConsumerW;
+    if (!showAll && consumer.reading.w < threshold) continue;
     candidates.push({
       key: consumer.key,
       name: consumer.name,
@@ -34,6 +35,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
       color: consumer.color,
       entity: consumer.entity,
       icon: consumer.icon,
+      threshold,
       isRest: false,
     });
   }
@@ -59,6 +61,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
         color: config.colors.rest,
         // Unset the list falls back to the plain dot, as it always did.
         icon: config.icons.rest,
+        threshold: config.minConsumerW,
         isRest: true,
       });
     }
@@ -70,19 +73,40 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
 }
 
 /**
- * Segments for the rows whose line is actually carrying something.
+ * Does this row carry something - is its line drawn in its own colour?
  *
- * A row below `flow.min_w` is drawn with a grey, dotless line - it is present,
- * but nothing flows on it. Giving it a coloured ring segment said the opposite,
- * and the minimum arc made a single watt as wide as a real contributor
- * (REQ R-2, changed 12.09.2026). The test is `dotParams`, the same call that
- * decides whether the line runs, so the two can never drift apart.
+ * Two ways to earn that, and either is enough (REQ P-9, R-2, 20.09.2026):
+ *
+ *  - **It earned its place in the list.** A row shown at 15 W with a grey
+ *    line beside it contradicted itself; whatever put it in the list said
+ *    there is something here.
+ *  - **Or it flows**, even below the power that would list it. A heat pump
+ *    idling at 25 W under its own 40 W threshold is hidden - but once the
+ *    filter reveals it, dots do run on its line, and a grey line under
+ *    running dots would be the same contradiction the other way round.
+ *
+ * Only what fails both is grey: the genuinely quiet rows that appear when the
+ * filter is lifted. Whether dots run is a different question and stays with
+ * `flow.min_w` alone.
+ */
+export function carries(entry: { w: number; threshold: number }, config: Config): boolean {
+  return entry.w >= entry.threshold || dotParams(entry.w, config) !== null;
+}
+
+/**
+ * Segments for the rows that carry something.
+ *
+ * Exactly the rows whose line is coloured - `carries` is the single test, so
+ * line and ring can never tell two different stories (REQ R-2, changed
+ * 20.09.2026; before that the test was `dotParams` alone, which left a
+ * consumer between min_consumer_w and flow.min_w listed with a value but
+ * without a share).
  *
  * Shares are taken over the sum of the segments themselves - without a rest
  * that scales the ring to 100 % on its own (REQ R-3).
  */
 function toSegments(entries: ListEntry[], config: Config): Segment[] {
-  const active = entries.filter((entry) => dotParams(entry.w, config) !== null);
+  const active = entries.filter((entry) => carries(entry, config));
   const total = active.reduce((sum, entry) => sum + entry.w, 0);
   return active.map((entry) => ({
     key: entry.key,
@@ -115,9 +139,9 @@ function sortDescending(entries: ListEntry[]): ListEntry[] {
  *
  * The list therefore shows live values while rows only move on the tick
  * (REQ L-7): a reading may change every second without the rows reshuffling,
- * and a consumer that drops below the threshold stays visible until the next
+ * and a consumer that drops below its threshold stays visible until the next
  * tick re-selects. Its segment does go, though, at the same moment its line
- * turns grey - ring and line always tell the same story.
+ * turns grey - list, line and ring always tell the same story.
  */
 export function refreshBreakdownValues(
   breakdown: Breakdown,

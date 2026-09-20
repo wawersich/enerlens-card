@@ -271,7 +271,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
-| `flow.min_w` | `10` | Below this nothing moves, grid and battery show no state word, and no ring segment is drawn |
+| `flow.min_w` | `10` | Below this no dots move. In the cross it also turns the line grey and drops the state word; for a consumer row the colour and the ring segment follow the list instead |
 | `flow.peak_w` | `6000` | One knob for the motion: the power at which dots peak; the three thresholds below default to 1/12, 1/3 and 1/1 of it |
 | `flow.slow_below_w` | `500` | One slow dot up to here |
 | `flow.full_speed_w` | = `more_dots_above_w` | Where the single dot reaches full speed; set it apart from `more_dots_above_w` to separate speed from count |
@@ -347,9 +347,13 @@ entry fails the build rather than surfacing as a raw key in someone's dashboard.
 - Individual consumers become the `consumers` list, and they are a *breakdown*
   of the house value rather than additional nodes. The remainder shows what is
   left.
-- There is no `watt_threshold`; there are two deliberately separate thresholds:
-  `min_consumer_w` decides whether a row appears in the list at all,
-  `flow.min_w` decides about its line, its dots and its ring segment.
+- There is no `watt_threshold`; there are two deliberately separate thresholds.
+  `min_consumer_w` decides whether a row appears in the list at all.
+  `flow.min_w` decides whether dots move - in the cross it also decides the
+  line colour, the state word and the ring segment. A **consumer row** is
+  drawn in colour as soon as it earned its place in the list *or* something
+  flows on it, so a row listed at 15 W is never left with a grey line; its
+  dots still wait for `flow.min_w`.
 
 ## Development
 

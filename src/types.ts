@@ -414,6 +414,15 @@ export interface ListEntry {
   entity?: string;
   /** Configured icon, shown in front of the name in the entry's colour (REQ L-2). */
   icon?: string;
+  /**
+   * The power at which this row earns a place of its own - its own `min_w`,
+   * or the global `min_consumer_w`. Carried along because it decides more
+   * than the selection: below it a row is only on screen because the filter
+   * was lifted, and then its line stays grey and it gets no ring segment.
+   * Kept on the entry so a live value between ticks is judged by the same
+   * number the selection used.
+   */
+  threshold: number;
   isRest: boolean;
 }
 
