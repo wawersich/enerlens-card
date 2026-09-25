@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **The dots on the cross keep their lighter core in Firefox** (#3). The cross
+  takes its colours from the theme, `var(--energy-solar-color)` and the like,
+  and the card asks the browser once what they are before it can mix the core
+  towards white. Firefox sometimes has no answer yet while a dashboard is being
+  built, and the card kept that empty answer for as long as the card lived: flat
+  dots without their core, until a view change rebuilt it. The card now asks
+  again on the next update until the browser answers, and repaints the dots
+  without restarting them. Consumer lines get the same treatment; their colours
+  are plain hex by default and never needed it, a theme colour set on them would
+  have.
+
 ## [0.5.3] - 2026-09-20
 
 ### Changed

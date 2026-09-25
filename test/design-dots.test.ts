@@ -10,6 +10,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { flowDesign, flowDesigns } from "../src/designs";
 import { dotRings, glowFilter, lighten } from "../src/render/dot-shape";
 import { DotLayer } from "../src/render/dots";
+import { FanLayer } from "../src/render/fan";
 import type { Config, DotPlan, FlowDesign, HomeAssistant } from "../src/types";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -169,6 +170,99 @@ describe("the dot layer (P-10)", () => {
     const sources = ["src/render/dots.ts", "src/render/fan.ts"];
     for (const file of sources) {
       expect(readFileSync(file, "utf8")).not.toMatch(/\.updatePlaybackRate\(/);
+    }
+  });
+});
+
+describe("a colour the browser cannot read yet (issue #3)", () => {
+  // Firefox, while a dashboard is being built, answers the colour probe with
+  // nothing; the same probe a moment later reads rgb(). A layer that kept the
+  // first answer drew flat dots without their core until the card was rebuilt.
+  // Any colour the dot cannot mix from on its own. The card's is a var(), which
+  // the test DOM refuses to take into a style at all; a colour name goes the
+  // same way through the probe and is just as unreadable to lighten().
+  const THEMED = "orange";
+  const THEMED_CONFIG = { colors: { solar: THEMED }, flow: {} } as unknown as Config;
+
+  /** Answers the probe with whatever `answer` holds, and counts the questions. */
+  function browser(): { answer: string; asked: number; restore: () => void } {
+    const original = globalThis.getComputedStyle;
+    const state = {
+      answer: "",
+      asked: 0,
+      restore: () => {
+        globalThis.getComputedStyle = original;
+      },
+    };
+    globalThis.getComputedStyle = (() => {
+      state.asked++;
+      return { color: state.answer };
+    }) as unknown as typeof getComputedStyle;
+    return state;
+  }
+
+  const lit = (root: Element) =>
+    [...root.querySelectorAll("circle")].some((c) => c.getAttribute("fill")?.startsWith("rgb("));
+
+  it("asks again on the cross until it has an answer, then stops asking", () => {
+    const group = stage();
+    const layer = new DotLayer(group, "waapi");
+    layer.setScale(1);
+    layer.setDesign(design(), true);
+    const probe = browser();
+    try {
+      layer.update([PLAN], THEMED_CONFIG, false);
+      expect(lit(group)).toBe(false);
+
+      probe.answer = "rgb(255, 152, 0)";
+      layer.update([PLAN], THEMED_CONFIG, false);
+      expect(lit(group)).toBe(true);
+
+      const asked = probe.asked;
+      layer.update([PLAN], THEMED_CONFIG, false);
+      expect(probe.asked).toBe(asked);
+    } finally {
+      probe.restore();
+      layer.destroy();
+    }
+  });
+
+  it("keeps the dots and their animations while the late answer repaints them", () => {
+    const group = stage();
+    const layer = new DotLayer(group, "waapi");
+    layer.setScale(1);
+    layer.setDesign(design(), true);
+    const probe = browser();
+    try {
+      layer.update([PLAN], THEMED_CONFIG, true);
+      const before = [...group.querySelectorAll("g.dot")];
+      probe.answer = "rgb(255, 152, 0)";
+      layer.update([PLAN], THEMED_CONFIG, true);
+      expect([...group.querySelectorAll("g.dot")]).toEqual(before);
+    } finally {
+      probe.restore();
+      layer.destroy();
+    }
+  });
+
+  it("asks again on the consumer lines too", () => {
+    const svg = document.createElementNS(SVG_NS, "svg") as SVGSVGElement;
+    document.body.appendChild(svg);
+    const fan = new FanLayer(svg);
+    fan.setDesign(design(), true);
+    const row = { key: "a", x: 200, y: 40, color: THEMED, count: 2, durationS: 3 };
+    const probe = browser();
+    try {
+      fan.update([row], { x: 0, y: 40 }, { width: 300, height: 80 }, false);
+      expect(lit(svg)).toBe(false);
+
+      probe.answer = "rgb(255, 152, 0)";
+      fan.update([row], { x: 0, y: 40 }, { width: 300, height: 80 }, false);
+      expect(lit(svg)).toBe(true);
+    } finally {
+      probe.restore();
+      fan.destroy();
+      svg.remove();
     }
   });
 });

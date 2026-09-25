@@ -41,10 +41,16 @@ export function groundIsDark(el: Element, appearance: Appearance): boolean {
  * The card's colours are theme variables - `var(--energy-solar-color, #ff9800)`
  * is the normal case - and no arithmetic can be done on that string. Put on a
  * real element and read back computed, it comes out as rgb(), fallback behind
- * the comma and all. Returns the input unchanged where that cannot be done, so
- * the caller always has something to paint with.
+ * the comma and all. Returns the input unchanged where that can never be done,
+ * so the caller always has something to paint with.
+ *
+ * Returns undefined when the browser has no answer *yet*. Firefox does that
+ * while a dashboard is being built: the same probe, asked again a moment later
+ * on the same card, reads rgb(). Keeping the input as the answer cost the dots
+ * their lighter core for the lifetime of the card (issue #3) - so this is
+ * reported as "ask again", not dressed up as a result.
  */
-export function resolveColour(host: Element, colour: string): string {
+export function resolveColour(host: Element, colour: string): string | undefined {
   if (typeof getComputedStyle !== "function" || typeof document === "undefined") return colour;
   const probe = document.createElement("span");
   probe.style.display = "none";
@@ -55,7 +61,8 @@ export function resolveColour(host: Element, colour: string): string {
   host.appendChild(probe);
   const computed = getComputedStyle(probe).color;
   probe.remove();
-  return computed || colour;
+  // A computed value never contains var(); if it does, nothing was resolved.
+  return computed && !computed.includes("var(") ? computed : undefined;
 }
 
 /** True when the card sits on a dark ground. Falls back to dark. */

@@ -37,6 +37,8 @@ interface FanLine {
   count: number;
   /** What the dots were painted for - repainted only when one of these moves. */
   paintKey?: string;
+  /** The dot colour as the browser reads it; undefined until it answered. */
+  mixFrom?: string;
 }
 
 export class FanLayer {
@@ -117,11 +119,16 @@ export class FanLayer {
       const paintKey = [dotColour, this.dotRadius, ground ? this.design?.id : "", this.dark].join(
         "|",
       );
-      const repaint = line.paintKey !== paintKey;
+      const moved = line.paintKey !== paintKey;
       line.paintKey = paintKey;
-      // Read once per repaint, not per dot: the answer is the same for all
-      // of them and asking costs a layout.
-      const mixFrom = repaint ? resolveColour(this.svg, dotColour) : dotColour;
+      if (moved) line.mixFrom = undefined;
+      // Read once per line, not per dot: the answer is the same for all of
+      // them and asking costs a layout. Asked again on the next update while
+      // the browser has none yet, as on the cross (issue #3).
+      const resolved = line.mixFrom === undefined ? resolveColour(this.svg, dotColour) : undefined;
+      if (resolved) line.mixFrom = resolved;
+      const repaint = moved || resolved !== undefined;
+      const mixFrom = line.mixFrom ?? dotColour;
       if (repaint) this.applyGlow(line, dotColour, ground);
 
       const countChanged = line.count !== row.count;

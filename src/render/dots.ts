@@ -45,7 +45,7 @@ interface Link {
   durationS: number;
   colorKey: ColorKey;
   colour: string;
-  /** The same colour as the browser reads it, for mixing the core from. */
+  /** The same colour as the browser reads it, for mixing the core from; "" until it answered. */
   mixFrom: string;
   count: number;
 }
@@ -104,9 +104,16 @@ export class DotLayer {
       // One colour for every dot, or the colour of the flow this one belongs
       // to - which is what tells a viewer where the energy comes from (P-13).
       const colour = config.flow.dotColor ?? config.colors[plan.colorKey];
-      const recolour = link.colour !== colour;
+      const changed = link.colour !== colour;
       link.colour = colour;
-      if (recolour) link.mixFrom = resolveColour(this.container, colour);
+      if (changed) link.mixFrom = "";
+      // Asked until the browser answers, not once per colour: the first answer
+      // can be empty while the page is still being built, and the colour string
+      // never changes to ask again (issue #3). A late answer repaints the dots
+      // but leaves their animations alone.
+      const resolved = link.mixFrom ? undefined : resolveColour(this.container, colour);
+      if (resolved) link.mixFrom = resolved;
+      const recolour = changed || resolved !== undefined;
 
       // The phase of the first dot anchors the group: it never moves, the
       // others are spaced from it. Without this the survivors of a count
