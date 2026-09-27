@@ -44,9 +44,9 @@ addEventListener("unhandledrejection", (e) => {
  * parameters here rather than a second copy of the page. */
 const params = new URLSearchParams(location.search);
 const lang = params.get("lang") === "en" ? "en" : "de";
-/* Two scenes show the list re-sorting; one shows only the flow. The quiet
- * variant is worth keeping - the movement is calmer, which suits a place where
- * the picture is a side note rather than the subject. */
+/* Three scenes show the ring and the list at work; one shows only the flow.
+ * The quiet variant is worth keeping - the movement is calmer, which suits a
+ * place where the picture is a side note rather than the subject. */
 const RESORT = params.get("scenes") !== "1";
 if (params.has("dark")) {
   const dark = {
@@ -70,14 +70,17 @@ const TEXT = {
 
 const W = (id, w) => [id, { entity_id: id, state: String(w),
   attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
-/* Two scenes that differ in one respect only: the first two consumers trade
- * powers, so the list re-sorts. Their sum is unchanged, which keeps the house,
- * the cross and the rest of the card identical - the picture then shows the
- * re-sorting itself instead of a general redraw. The two values are chosen to
- * fall in the same dot-count band, so no dot has to appear or vanish. */
+/* Three scenes that differ only in the first two consumers, whose sum stays
+ * the same - so the house, the cross and everything else hold still and the
+ * picture shows the ring and the list at work instead of a general redraw:
+ *  1 -> 2  shares shift, the order stays: the ring's boundaries move;
+ *  2 -> 3  the washing machine passes the heat pump: the list re-sorts, and on
+ *          the ring the one moving forward overtakes on the inner lane (R-4);
+ *  3 -> 1  back, the heat pump overtaking in turn. */
 const SCENES = [
   { c1: 2600, c2: 2400 },
-  { c1: 2400, c2: 2600 },
+  { c1: 3600, c2: 1400 },
+  { c1: 2100, c2: 2900 },
 ];
 const soc = ["sensor.soc", { entity_id: "sensor.soc", state: "68",
   attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" }];
@@ -200,46 +203,88 @@ const inkRect = (el) => {
 };
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 /* ---------------------------------------------------------------- timing
- * One cycle: hold A, glide, hold B, glide back. The glide is the card's own
- * 600 ms, so the movement in the picture runs at the speed it runs on a
- * dashboard. */
-const CYCLE = 8;
+ * One cycle: each scene is held, then everything glides into the next one and
+ * the last glides back into the first. All glides of a change start together,
+ * as they do on a dashboard at the beat, and each takes the card's own time:
+ * 600 ms for the list, 1.5 s for the ring (RING_GLIDE_MS). */
+const SCENE_COUNT = RESORT ? SCENES.length : 1;
+const STEP = 4;
+const CYCLE = STEP * SCENE_COUNT;
 const GLIDE = 0.6;
-const KEYTIMES = [
-  0,
-  (CYCLE / 2 - GLIDE) / CYCLE,
-  CYCLE / 2 / CYCLE,
-  (CYCLE - GLIDE) / CYCLE,
-  1,
-].map((v) => v.toFixed(4)).join(";");
+const RING_GLIDE = 1.5;
+const EASE = ".4 0 .2 1";
+const HOLD = "0 0 1 1";
+/** When the change into scene i + 1 begins, in seconds. */
+const changeAt = (i) => (i + 1) * STEP - RING_GLIDE;
+const t = (seconds) => (seconds / CYCLE).toFixed(4);
 
-/** An attribute that differs between the two scenes, held and eased between. */
-const tween = (attr, a, b) =>
-  a === b
+/** Values held per scene and eased across each change, as keyTimes and splines. */
+function timeline(values, glide) {
+  const times = [t(0)];
+  const vals = [values[0]];
+  const splines = [];
+  for (let i = 0; i < values.length; i++) {
+    const next = values[(i + 1) % values.length];
+    times.push(t(changeAt(i)), t(changeAt(i) + glide));
+    vals.push(values[i], next);
+    splines.push(HOLD, EASE);
+  }
+  if (times.at(-1) !== t(CYCLE)) {
+    times.push(t(CYCLE));
+    vals.push(values[0]);
+    splines.push(HOLD);
+  }
+  return `values="${vals.join(";")}" keyTimes="${times.join(";")}" calcMode="spline" keySplines="${splines.join(";")}" dur="${CYCLE}s" repeatCount="indefinite"`;
+}
+
+/** An attribute that differs between scenes, held and eased between. */
+const tween = (attr, values, glide = GLIDE) =>
+  values.every((v) => v === values[0])
     ? ""
-    : `<animate attributeName="${attr}" values="${a};${a};${b};${b};${a}" keyTimes="${KEYTIMES}" dur="${CYCLE}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1"/>`;
+    : `<animate attributeName="${attr}" ${timeline(values, glide)}/>`;
 
-/* Whichever scene a thing belongs to, it is swapped at the middle of the glide
- * rather than faded across it. A fade shows both sets at once, and two dots of
- * the same line then sit at visibly different places - the paths are morphing
- * underneath them. A hard swap at the midpoint shows one set at a time. */
-const SWAP = [0, (CYCLE / 2 - GLIDE / 2) / CYCLE, (CYCLE - GLIDE / 2) / CYCLE]
-  .map((v) => v.toFixed(4))
-  .join(";");
-/** An attribute that must not be interpolated - a colour between purple and
- *  teal is blue, and the ring never shows blue. */
-const swap = (attr, a, b) =>
-  a === b
+/** A group's shift per scene, eased like everything else. */
+const shift = (dys, glide = GLIDE) =>
+  dys.every((dy) => dy === dys[0])
     ? ""
-    : `<animate attributeName="${attr}" values="${a};${b};${a}" keyTimes="${SWAP}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+    : `<animateTransform attributeName="transform" type="translate" ${timeline(dys.map((dy) => `0 ${dy}`), glide)}/>`;
 
-const showIn = (sceneA) =>
-  `<animate attributeName="opacity" values="${sceneA ? "1;0;1" : "0;1;0"}" keyTimes="${SWAP}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+/** The inner lane, as laneScale() in src/render/ring.ts works it out: the
+ *  diving stroke clears the ring by 2 px. Repeated here because the bundle does
+ *  not export it; the ring's box is the node plus one 11 px stroke. */
+function laneScale(nodePx) {
+  const r = nodePx / 2;
+  return Math.min(0.85, Math.max(0.6, (r - 5.5 - 2) / (r + 5.5)));
+}
+
+/**
+ * The dive of one segment over the cycle: in every change in which it moves
+ * forward among the segments present before and after, it goes down to the
+ * lane early in the ring's glide and comes back up near its end. The card ties
+ * the depth to the passing itself; with fixed scenes the glide's time is the
+ * same thing.
+ */
+function diveOf(key, lane) {
+  const points = [[0, 1]];
+  for (let i = 0; i < SCENE_COUNT; i++) {
+    const from = SNAPS[i].ring;
+    const to = SNAPS[(i + 1) % SCENE_COUNT].ring;
+    const kept = Object.keys(from).filter((k) => k in to);
+    const rank = (ring) => kept.sort((x, y) => ring[x].index - ring[y].index).indexOf(key);
+    if (!kept.includes(key) || rank(to) >= rank(from)) continue;
+    const start = changeAt(i);
+    points.push([start, 1], [start + 0.2 * RING_GLIDE, lane], [start + 0.8 * RING_GLIDE, lane], [start + RING_GLIDE, 1]);
+  }
+  if (points.length === 1) return "";
+  if (points.at(-1)[0] < CYCLE) points.push([CYCLE, 1]);
+  const scale = (v) => `${v.toFixed(3)} ${v.toFixed(3)}`;
+  return `<animateTransform attributeName="transform" type="scale" values="${points.map(([, v]) => scale(v)).join(";")}" keyTimes="${points.map(([at]) => t(at)).join(";")}" calcMode="spline" keySplines="${points.slice(1).map(() => EASE).join(";")}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+}
 
 /* --------------------------------------------------------------- snapshot
- * Everything that can differ between the two scenes, keyed so the two runs can
- * be matched up: row positions and figures, the fan lines and their dots, and
- * the ring segments. Everything else is taken from scene A once. */
+ * Everything that can differ between the scenes, keyed so the runs can be
+ * matched up: row positions and figures, the fan lines and their dots, and
+ * the ring segments. Everything else is taken from the first scene once. */
 function snapshot() {
   const rows = {};
   for (const row of root.querySelectorAll(".row")) {
@@ -278,42 +323,47 @@ function snapshot() {
     }
   }
 
-  const ring = [...root.querySelectorAll(".node.house svg circle")].map((c) => ({
-    dasharray: c.getAttribute("stroke-dasharray") ?? "",
-    dashoffset: c.getAttribute("stroke-dashoffset") ?? "0",
-    stroke: getComputedStyle(c).stroke,
-  }));
+  /* The ring by consumer, from its targets: the card moves the drawn values
+   * there on a spring of its own (R-4), and where it is headed is what the
+   * picture needs - not wherever it happens to be at the moment. */
+  const ring = {};
+  for (const c of root.querySelectorAll(".node.house svg circle.ring-seg")) {
+    const len = Number(c.dataset.length);
+    const circ = Number(c.dataset.circ);
+    ring[c.dataset.key] = {
+      index: Number(c.dataset.index),
+      dasharray: `${len.toFixed(2)} ${(circ - len).toFixed(2)}`,
+      dashoffset: (-Number(c.dataset.offset)).toFixed(2),
+    };
+  }
 
   return { rows, fan, ring };
 }
 
-const A = snapshot();
-let B = A;
-card.hass = { states: scene(1), locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
-// The list re-sorts on the beat, not on the reading (REQ L-7), so the second
-// snapshot has to wait for one - otherwise both scenes come out identical.
-if (RESORT) {
-    for (const a of root.getAnimations()) a.play();
-  await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
-    await settle();
-    B = snapshot();
-}
-
-/* Back to scene A before anything is written: the shapes are emitted from the
- * live DOM, and every animation below moves from A to B. With the DOM left in
- * B, phase A would have drawn B's geometry with a zero offset - names in their
- * new places carrying the old figures. */
 const setScene = (i) => {
   card.hass = { states: scene(i), locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 };
-setScene(0);
-for (const a of root.getAnimations()) a.play();
-await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
-await settle();
-{
-  const rows = Object.keys(A.rows).map((k) => `${k}: ${A.rows[k].y.toFixed(0)}/${A.rows[k].value} -> ${B.rows[k]?.y.toFixed(0)}/${B.rows[k]?.value}`);
-  console.log("ROWS " + JSON.stringify(rows));
+/* The list re-sorts on the beat, not on the reading (REQ L-7), so every further
+ * snapshot has to wait for one - otherwise the scenes come out identical. */
+async function reach(i) {
+  setScene(i);
+  for (const a of root.getAnimations()) a.play();
+  await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
+  await settle();
 }
+const SNAPS = [snapshot()];
+for (let i = 1; i < SCENE_COUNT; i++) {
+  await reach(i);
+  SNAPS.push(snapshot());
+}
+/* Back to the first scene before anything is written: the shapes are emitted
+ * from the live DOM, and every animation below starts there. Left in the last
+ * scene, the picture would open on its geometry with the first scene's figures. */
+if (SCENE_COUNT > 1) await reach(0);
+/** One value per scene, the first scene's where a later one lacks it. */
+const perScene = (pick) => SNAPS.map((snap) => pick(snap) ?? pick(SNAPS[0]));
+console.log("ROWS " + JSON.stringify(Object.keys(SNAPS[0].rows).map((k) =>
+  `${k}: ${SNAPS.map((snap) => `${snap.rows[k]?.y.toFixed(0)}/${snap.rows[k]?.value}`).join(" -> ")}`)));
 
 const out = [];
 
@@ -346,11 +396,10 @@ const fanSvg = root.querySelector("svg.fan");
 if (fanSvg) {
   const fanBox = fanSvg.getBoundingClientRect();
   const inner = [];
-  for (const key of Object.keys(A.fan)) {
-    const a = A.fan[key];
-    const b = B.fan[key] ?? a;
+  for (const key of Object.keys(SNAPS[0].fan)) {
+    const a = SNAPS[0].fan[key];
     const id = `line-${key.replace(/[^a-z0-9]+/gi, "-")}`;
-    inner.push(`<path id="${id}" d="${a.d}" fill="none" stroke="${a.stroke}" stroke-width="${a.width}" stroke-linecap="round" opacity="${a.opacity}">${tween("d", a.d, b.d)}</path>`);
+    inner.push(`<path id="${id}" d="${a.d}" fill="none" stroke="${a.stroke}" stroke-width="${a.width}" stroke-linecap="round" opacity="${a.opacity}">${tween("d", perScene((snap) => snap.fan[key]?.d))}</path>`);
     /* The dots ride the line by reference, not by a copy of its path: <mpath>
      * points at the element above, whose `d` is animating, so a dot follows
      * the line while it moves - which is what the card does when it rewrites
@@ -406,22 +455,27 @@ for (const node of root.querySelectorAll(".node")) {
       `<rect clip-path="url(#${id})" x="${X(fb.left)}" y="${Y(fb.top)}" width="${fb.width.toFixed(1)}" height="${fb.height.toFixed(1)}" fill="${getComputedStyle(fill).backgroundColor}" opacity="${getComputedStyle(fill).opacity}"/>`);
   }
 
-  // The consumer ring: its segments move when the list re-sorts.
-  const ring = node.querySelector("svg");
-  if (ring?.getAttribute("viewBox")) {
+  // The consumer ring: its segments shift, travel and overtake (R-4).
+  const ring = node.querySelector("svg.ring");
+  if (ring) {
     const rb = ring.getBoundingClientRect();
     const rvb = ring.getAttribute("viewBox").split(/\s+/).map(Number);
     const rs = rb.width / rvb[2];
-    const parts = [...ring.querySelectorAll("circle")].map((c, i) => {
+    const lane = laneScale(rb.width - 11);
+    const parts = [...ring.querySelectorAll("circle.ring-seg")].map((c) => {
       const st = getComputedStyle(c);
-      const a = A.ring[i] ?? {};
-      const bb = B.ring[i] ?? a;
-      return `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${a.stroke ?? st.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? st.strokeWidth}" stroke-dasharray="${a.dasharray ?? ""}" stroke-dashoffset="${a.dashoffset ?? 0}" stroke-linecap="${st.strokeLinecap}" transform="${c.getAttribute("transform") ?? ""}">` +
-        tween("stroke-dasharray", a.dasharray, bb.dasharray) +
-        tween("stroke-dashoffset", a.dashoffset, bb.dashoffset) +
-        swap("stroke", a.stroke, bb.stroke) + `</circle>`;
+      const key = c.dataset.key;
+      const first = SNAPS[0].ring[key];
+      const circle = `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${st.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? st.strokeWidth}" stroke-dasharray="${first.dasharray}" stroke-dashoffset="${first.dashoffset}" stroke-linecap="${st.strokeLinecap}">` +
+        tween("stroke-dasharray", perScene((snap) => snap.ring[key]?.dasharray), RING_GLIDE) +
+        tween("stroke-dashoffset", perScene((snap) => snap.ring[key]?.dashoffset), RING_GLIDE) +
+        `</circle>`;
+      const dive = diveOf(key, lane);
+      // Scaled about the centre, so the segment keeps its place on the ring.
+      return dive ? `<g transform="translate(50 50)"><g>${dive}<g transform="translate(-50 -50)">${circle}</g></g></g>` : circle;
     });
-    out.push(`<g transform="translate(${X(rb.left)},${Y(rb.top)}) scale(${rs.toFixed(4)})">${parts.join("")}</g>`);
+    // The card turns the ring so the first segment starts at twelve o'clock.
+    out.push(`<g transform="translate(${X(rb.left)},${Y(rb.top)}) scale(${rs.toFixed(4)})"><g transform="rotate(-90 50 50)">${parts.join("")}</g></g>`);
   }
 
   const icon = node.querySelector("ha-icon");
@@ -447,9 +501,7 @@ for (const chip of root.querySelectorAll(".mode, .filter-toggle")) {
 // --- list rows: they glide, and two of them trade figures -------------------
 for (const row of root.querySelectorAll(".row")) {
   const key = row.dataset.key;
-  const a = A.rows[key];
-  const b = B.rows[key] ?? a;
-  const dy = (b.y - a.y).toFixed(1);
+  const a = SNAPS[0].rows[key];
   const parts = [];
 
   const swatch = row.querySelector(".swatch");
@@ -467,19 +519,22 @@ for (const row of root.querySelectorAll(".row")) {
     const st = getComputedStyle(value);
     const write = (text, width, extra) =>
       `<text x="${X(vb2.right)}" y="${Y(vb2.top + vb2.height / 2 + parseFloat(st.fontSize) * 0.35)}" text-anchor="end" font-size="${parseFloat(st.fontSize).toFixed(1)}" font-weight="${st.fontWeight}" fill="${st.color}" font-family="Roboto, system-ui, sans-serif" textLength="${width.toFixed(1)}" lengthAdjust="spacingAndGlyphs"${extra.attr}>${esc(text)}${extra.anim}</text>`;
-    if (a.value === b.value) {
-      parts.push(write(a.value, vb2.width, { attr: "", anim: "" }));
+    const values = perScene((snap) => snap.rows[key]?.value);
+    if (values.every((v) => v === values[0])) {
+      parts.push(write(values[0], vb2.width, { attr: "", anim: "" }));
     } else {
       // A figure may cross-fade - it does not move, so nothing looks doubled.
-      const fade = (sceneA) =>
-        `<animate attributeName="opacity" values="${sceneA ? "1;1;0;0;1" : "0;0;1;1;0"}" keyTimes="${KEYTIMES}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
-      parts.push(write(a.value, a.valueWidth, { attr: "", anim: fade(true) }));
-      parts.push(write(b.value, b.valueWidth, { attr: ' opacity="0"', anim: fade(false) }));
+      // One text per distinct figure, shown in the scenes that carry it.
+      for (const text of new Set(values)) {
+        const i = values.indexOf(text);
+        const shown = values.map((v) => (v === text ? 1 : 0));
+        const width = SNAPS[i].rows[key]?.valueWidth ?? vb2.width;
+        parts.push(write(text, width, { attr: shown[0] ? "" : ' opacity="0"', anim: tween("opacity", shown) }));
+      }
     }
   }
 
-  const glide = dy === "0.0" ? "" :
-    `<animateTransform attributeName="transform" type="translate" values="0 0;0 0;0 ${dy};0 ${dy};0 0" keyTimes="${KEYTIMES}" dur="${CYCLE}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1"/>`;
+  const glide = shift(perScene((snap) => snap.rows[key]?.y).map((y) => (y - a.y).toFixed(1)));
   out.push(`<g>${glide}${parts.join("")}</g>`);
 }
 

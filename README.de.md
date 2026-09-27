@@ -299,7 +299,8 @@ zusätzliche Abfrage.
 | `icons.*` | mdi-Standard | Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts |
 
 `flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
-die steht im Betriebssystem, nicht in Home Assistant.
+die steht im Betriebssystem, nicht in Home Assistant. Sie gilt für alles, was
+sich bewegt: die Punkte, das Umsortieren der Liste und den Ring.
 
 ### Farben
 

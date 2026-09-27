@@ -286,7 +286,8 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `icons.*` | mdi defaults | Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot |
 
 `flow.animation: auto` follows the device's reduce-motion preference — that
-setting lives in the operating system, not in Home Assistant.
+setting lives in the operating system, not in Home Assistant. It covers
+everything that moves: the dots, the list re-sorting and the ring.
 
 ### Colours
 

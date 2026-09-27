@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   double. The card now moves the whole ring itself, every segment on one
   spring, and a new segment grows from nothing where it will stand.
 
+- **The pictures at the top of the README show the ring at work:** its
+  boundaries shifting while the order holds, and a consumer overtaking on the
+  inner lane. The ring in them now starts at twelve o'clock, as on the card.
+
 ### Fixed
 - **`flow.animation: off` also stills the ring.** The list and the dots
   stopped, but the ring kept gliding unless the system asked for reduced

@@ -23,7 +23,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "..");
 const bundle = resolve(repo, "dist/enerlens-card.js");
 const page = resolve(here, "hero/export.html");
-/* Two scenes show the list re-sorting, one shows only the flow. The quiet
+/* Three scenes show the ring shifting and overtaking while the list re-sorts,
+ * one shows only the flow. The quiet
  * variant is kept because it suits a place where the picture is a side note;
  * both come from the same page, so neither can drift away from the card. */
 const flowOnly = process.argv.includes("--flow-only");
@@ -64,9 +65,9 @@ function exportOne({ lang, dark }) {
       "--no-sandbox",
       // ES modules over file:// are blocked without this, and the page stays empty.
       "--allow-file-access-from-files",
-      // The page waits out two of the card's beats before the second snapshot,
+      // The page waits out a beat of the card before each further snapshot,
       // so the clock needs room - too small a budget dumps a blank page.
-      "--virtual-time-budget=30000",
+      "--virtual-time-budget=45000",
       "--dump-dom",
       `file://${page}${query}`,
     ],
