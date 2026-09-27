@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The consumer ring moves more calmly.** Its segments now take 1.5 s instead
   of 0.6 s to settle into new lengths and positions; the list rows beside it
   keep their pace.
+- **Ring segments change places instead of changing colour.** When two
+  consumers swapped places, each segment stayed where it was and took on the
+  other one's colour; only the lengths glided. A segment now belongs to its
+  consumer and travels to its new place, and the one moving forward overtakes
+  on an inner lane so the two do not slide through each other.
+- **The ring's gaps stay even while it moves.** Every length and position used
+  to glide on a CSS transition of its own, restarted separately whenever a live
+  value changed it; neighbours fell out of step and a gap could close or
+  double. The card now moves the whole ring itself, every segment on one
+  spring, and a new segment grows from nothing where it will stand.
+
+### Fixed
+- **`flow.animation: off` also stills the ring.** The list and the dots
+  stopped, but the ring kept gliding unless the system asked for reduced
+  motion.
 
 ## [0.5.4] - 2026-09-25
 

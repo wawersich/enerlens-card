@@ -17,6 +17,7 @@ import { VIEW_W } from "./render/geometry";
 import { groundIsDark } from "./render/ground";
 import { renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
+import { RingAnimator } from "./render/ring";
 import { styles } from "./styles";
 import {
   type Config,
@@ -96,6 +97,7 @@ class EnerLensCard extends LitElement {
   private _designsPickedUp = false;
   private _warnedDesign?: string;
   private _fan?: FanLayer;
+  private readonly _ring = new RingAnimator();
   /** Frame loop that keeps the fan on the rows while they glide. */
   private _fanFollow?: number;
   private _technique: DotTechnique = "static";
@@ -555,6 +557,9 @@ class EnerLensCard extends LitElement {
       this._dots?.resume();
     } else {
       this._dots?.pause();
+      // Nobody is looking: the ring goes to its values now, not after its
+      // glide - there may be no render to stop it until it is seen again (P-8).
+      this._ring.stop();
     }
   }
 
@@ -575,6 +580,14 @@ class EnerLensCard extends LitElement {
       this.renderRoot.querySelector(".body"),
       this._animationsWanted && this._settled,
     );
+    // Ahead of the early returns below: every render has to be compared with
+    // the one before, or a reorder is judged against an older order.
+    // Off-screen or in a hidden tab the ring goes straight to its values (P-8).
+    const ringMoves =
+      this._animationsWanted &&
+      this._visible &&
+      !(typeof document !== "undefined" && document.hidden);
+    this._ring.update(this.renderRoot, ringMoves, this._nodePx);
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
@@ -629,6 +642,7 @@ class EnerLensCard extends LitElement {
     this._fanFollow = undefined;
     this._fan?.destroy();
     this._fan = undefined;
+    this._ring.stop();
     if (this._tickTimer) clearInterval(this._tickTimer);
     this._tickTimer = undefined;
   }

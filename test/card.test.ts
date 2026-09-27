@@ -449,6 +449,25 @@ describe("show-all toggle (REQ L-12)", () => {
     expect(el.shadowRoot?.querySelector(".filter-toggle")).toBeNull();
   });
 
+  it("draws the ring where its targets are (REQ R-4)", async () => {
+    // RingAnimator writes the dashes; a ring that just appeared stands at once.
+    const el = await mountWithConsumers();
+    const circles = Array.from(
+      el.shadowRoot?.querySelectorAll<SVGCircleElement>("circle.ring-seg") ?? [],
+    );
+    expect(circles.length).toBeGreaterThan(0);
+    for (const circle of circles) {
+      expect(Number(circle.getAttribute("stroke-dasharray")?.split(" ")[0])).toBeCloseTo(
+        Number(circle.dataset.length),
+        1,
+      );
+      expect(-Number(circle.getAttribute("stroke-dashoffset"))).toBeCloseTo(
+        Number(circle.dataset.offset),
+        1,
+      );
+    }
+  });
+
   it("gives a row with a grey line no ring segment (REQ R-2, 12.09.2026)", async () => {
     const el = await mountWithConsumers();
     const segmentKeys = () =>
