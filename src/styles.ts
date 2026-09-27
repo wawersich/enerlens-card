@@ -340,9 +340,11 @@ export const styles = css`
     fill: none;
     /* stroke-width is set per render in viewBox units (ringGeometry). */
     stroke-linecap: butt;
+    /* Slower than the list rows on purpose (R-4): a ring that shifts in 1.5 s
+       reads calmer than one keeping pace with the 600 ms glide beside it. */
     transition:
-      stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-      stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      stroke-dasharray 1.5s cubic-bezier(0.4, 0, 0.2, 1),
+      stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   @media (prefers-reduced-motion: reduce) {
