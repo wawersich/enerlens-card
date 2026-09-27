@@ -468,6 +468,41 @@ describe("show-all toggle (REQ L-12)", () => {
     }
   });
 
+  /** Is every ring segment drawn exactly where its targets are? */
+  const ringAtTargets = (el: Card) =>
+    Array.from(el.shadowRoot?.querySelectorAll<SVGCircleElement>("circle.ring-seg") ?? []).every(
+      (c) =>
+        Math.abs(
+          Number(c.getAttribute("stroke-dasharray")?.split(" ")[0]) - Number(c.dataset.length),
+        ) < 0.01 &&
+        Math.abs(-Number(c.getAttribute("stroke-dashoffset")) - Number(c.dataset.offset)) < 0.01,
+    );
+
+  async function changePump(el: Card, w: string) {
+    el.hass = fakeHass({ ...STATES, "sensor.pump": w, "sensor.idle": "3" });
+    await el.updateComplete;
+  }
+
+  it("moves the ring towards new values, and stills it when animation is off (REQ R-4, P-7)", async () => {
+    const moving = await mountWithConsumers();
+    await changePump(moving, "400");
+    expect(ringAtTargets(moving), "the ring should still be on its way").toBe(false);
+
+    const still = await mountWithConsumers({ flow: { animation: "off" } });
+    await changePump(still, "400");
+    expect(ringAtTargets(still)).toBe(true);
+  });
+
+  it("puts the ring on its values as soon as the card goes out of sight (REQ P-8)", async () => {
+    const el = await mountWithConsumers();
+    await changePump(el, "400");
+    expect(ringAtTargets(el)).toBe(false);
+    const guts = el as unknown as { _visible: boolean; _syncPlayState(): void };
+    guts._visible = false;
+    guts._syncPlayState();
+    expect(ringAtTargets(el)).toBe(true);
+  });
+
   it("gives a row with a grey line no ring segment (REQ R-2, 12.09.2026)", async () => {
     const el = await mountWithConsumers();
     const segmentKeys = () =>

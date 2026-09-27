@@ -146,10 +146,19 @@ export function laneScale(nodePx: number): number {
 
 /** Critically damped: 95 % of the way in RING_GLIDE_MS, from wherever it was. */
 const OMEGA = 4.74 / (RING_GLIDE_MS / 1000);
-/** Closer than this, in viewBox units, and a segment counts as arrived. */
-const SETTLED = 0.01;
-/** Longest step the motion takes at once - a stalled tab must not overshoot. */
-const MAX_STEP_S = 0.05;
+/**
+ * Closer than this, in viewBox units, and a segment counts as arrived - well
+ * under a tenth of a pixel. Finer would keep the frame loop running for seconds
+ * after anything visible has changed, and live values arrive every second.
+ */
+const SETTLED = 0.05;
+/**
+ * Longest step taken at once. The step is exact, so no size of it can
+ * overshoot; the cap only stops the ring from leaping after a stalled main
+ * thread. Kept well above a slow device's frame, which would otherwise stretch
+ * the glide beyond RING_GLIDE_MS.
+ */
+const MAX_STEP_S = 0.25;
 /** The dive's own spring is quicker: 95 % of the way down or up in this time. */
 const DIVE_OMEGA = 4.74 / 0.3;
 
@@ -207,10 +216,15 @@ const BROWSER_CLOCK: RingClock = {
  * the way, or leave the overtaker nearly where it is while the one it passes
  * travels the long way round beneath it; anything timed would surface in the
  * middle of the passing. The depth has a quicker spring of its own, so it
- * never jumps. One lane only - two overtakers crossing each
- * other, or two that fall back past each other ([a,b,c,d] to [c,d,b,a]: b
- * passes a, yet neither moved forward), still slide through each other; that
- * takes a reshuffle over several places in one tick.
+ * never jumps.
+ *
+ * Known and accepted, because each is a few frames in a rare transition and
+ * the ring always ends exactly on its targets (R-4): segments on the lane can
+ * cross each other there (two overtakers, or b, c and d in [a,b,c,d] to
+ * [c,d,b,a]); a swap reversed within the glide lets the two meet at the same
+ * depth for a moment; an overtaker lies over its neighbour for the first few
+ * frames before it is deep enough; and a segment born in the same update as a
+ * reorder can grow into one that falls back past it.
  */
 export class RingAnimator {
   private readonly drawn = new WeakMap<SVGCircleElement, Drawn>();
@@ -362,7 +376,8 @@ export class RingAnimator {
     };
   }
 
-  /** Puts every segment where it belongs and stops (disconnect). */
+  /** Puts every segment where it belongs and stops - on disconnect, and when
+   *  the card goes out of sight (P-8). */
   stop(): void {
     for (const el of this.shown) {
       const drawn = this.drawn.get(el);
