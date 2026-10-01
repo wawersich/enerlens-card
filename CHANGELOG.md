@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **The README introduction is shorter and shows two more pictures:** the card
+  during a grid outage, and the card in a narrow column with the consumer list
+  below the cross. Both are exported from the card itself like the title
+  picture, in English and German, light and dark.
+- **`npm run hero` takes `--outage` and `--below`** for those two pictures. The
+  export now carries the outage banner, the X and the dashed grid node, and the
+  house icon where the lines gather in the stacked layout.
+
 ## [0.6.0] - 2026-09-27
 
 ### Changed

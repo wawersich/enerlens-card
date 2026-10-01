@@ -13,33 +13,39 @@ besteht.
 
 ## Was sie anders macht
 
-**Verbraucher sind eine Aufschlüsselung, keine zusätzlichen Knoten.** Die Liste
-neben dem Haus-Knoten und der Ring darum zeigen, woraus der Hauswert besteht.
-Ein frei benennbarer Rest fasst zusammen, was nicht einzeln gemessen wird — auf
-der Referenzanlage rund 45 % des Verbrauchs, was sichtbar besser aufgehoben ist
-als versteckt.
+**Verbraucher können optional angegeben werden.** Sofern einzelne Verbraucher
+erfasst werden (z. B. eine Wärmepumpe oder ein mit einem Shelly gemessenes
+Gerät), können ihre Entitäten hinterlegt werden. Die Liste neben dem Haus-Knoten
+und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest fasst
+zusammen, was nicht einzeln gemessen wird.
 
-**Drei Ansichtsmodi.** Ein Live-Leistungsdiagramm springt binnen Sekunden um
-Kilowatt. Ein kurzes oder langes gleitendes Mittel — voreingestellt 2 und 15
-Minuten, frei einstellbar — beruhigt das Bild, ohne die Zahlen zu verfälschen:
-Der aktive Modus ist immer benannt, und ein Klick öffnet weiterhin den Dialog
+**Zeitlicher Mittelwert.** Ein Live-Leistungsdiagramm springt binnen Sekunden
+um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
+über 2 und 15 Minuten, frei einstellbar. Sie beruhigen das Bild, ohne die
+Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
 von Home Assistant mit der echten Historie.
 
-**Die Liste sortiert sich und gleitet.** Zeilen ordnen sich im festen Takt nach
-Leistung und gleiten auf ihre neue Position, statt zu springen. Die Werte
-ändern sich sofort; nur die Reihenfolge wartet auf den Takt — eine springende
-Zahl stört nicht, eine springende Zeile schon. Ein kleiner Filter-Knopf neben
-den Ansichts-Chips zeigt alle Verbraucher unabhängig von ihrer Leistung — um den Verlauf
-eines Geräts anzutippen, das gerade still geworden ist. Der Knopf bleibt wie die
-gewählte Ansicht über einen Neuladen hinweg gesetzt. **Der Ring zeigt dabei nur,
-was auch fließt:** Eine Zeile mit grauer Linie bekommt kein Segment — sonst
-erhielte ein Gerät mit einem Watt eines wie ein echter Verbraucher.
+**Die Verbraucher-Liste sortiert sich und gleitet.** Zeilen ordnen sich im
+festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
+Filter-Knopf oben zeigt auf Wunsch **alle** Verbraucher unabhängig von ihrer
+Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
+ist.
 
-**Messwerte werden nie stillschweigend verändert.** Sensoren aktualisieren
-unterschiedlich schnell, deshalb kann die Summe der einzeln gemessenen
-Verbraucher kurzzeitig über dem Hauswert liegen — auf der Referenzanlage in
-etwa 1 % der Zeit, um bis zu 3 kW. Die Karte glättet das nicht weg: Der Rest
-verschwindet einfach, und der Ring zeigt dann Anteile an der Verbrauchersumme.
+Ein **Netzausfall** wird angezeigt, sofern die Anlage den Netzstatus erfasst.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-outage.svg">
+  <img src="docs/images/card-de-light-outage.svg" alt="EnerLens Card bei Netzausfall" width="690">
+</picture>
+
+**Schmale Spalten.** Ist neben dem Kreuz kein Platz — auf dem Handy oder in
+einer schmalen Dashboard-Spalte —, rückt die Verbraucher-Liste darunter. Mit
+`list.always_below` bleibt sie auch auf breiten Flächen dort.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-below.svg">
+  <img src="docs/images/card-de-light-below.svg" alt="EnerLens Card mit Liste unter dem Kreuz" width="440">
+</picture>
 
 ## Installation
 
@@ -48,8 +54,9 @@ verschwindet einfach, und der Ring zeigt dann Anteile an der Verbrauchersumme.
 1. HACS → ⋮ → *Benutzerdefinierte Repositories* → `https://github.com/wawersich/enerlens-card`
    hinzufügen, Typ *Dashboard*
 2. Nach *EnerLens* suchen, installieren, Browser neu laden
-3. HACS trägt die Ressource `/hacsfiles/enerlens-card/enerlens-card.js` selbst ein;
-   erscheint die Karte nicht, unter *Einstellungen → Dashboards → Ressourcen* nachsehen
+3. HACS trägt die Ressource `/hacsfiles/enerlens-card/enerlens-card.js` selbst
+   ein; erscheint die Karte nicht, unter *Einstellungen → Dashboards →
+   Ressourcen* nachsehen
 
 ### Von Hand
 
@@ -131,9 +138,9 @@ entities:
 **Eine Entität oder zwei?** Wenn deine Anlage beides hergibt — einen
 vorzeichenbehafteten Sensor und ein Paar je Richtung — nimm den
 vorzeichenbehafteten. Der Verlaufsdialog von Home Assistant zeigt immer nur eine
-Entität, ein Paar verbirgt also die Hälfte: Tippst du bei 4 W Einspeisung auf den
-Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von gestern
-Abend überhaupt nicht vorkommt.
+Entität, ein Paar verbirgt also die Hälfte: Tippst du bei 4 W Einspeisung auf
+den Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von
+gestern Abend überhaupt nicht vorkommt.
 
 Gibt es keinen vorzeichenbehafteten Sensor, baut ein Helfer *Vorlage → Sensor*
 einen (Einheit `W`, Geräteklasse `power`, Statusklasse `measurement`):
@@ -143,14 +150,14 @@ einen (Einheit `W`, Geräteklasse `power`, Statusklasse `measurement`):
   - states('sensor.netz_einspeisung')|float(0))|round(0) }}
 ```
 
-Gib ihm dieselbe Verfügbarkeitsregel wie dem abgeleiteten Haussensor weiter unten
-— nicht verfügbar, sobald eine der Quellen es ist —, damit ein Aussetzer nicht als
-Null in die Statistik wandert. Sein Wert wird dann aufgezeichnet, was für einen von
-der Karte gerechneten Wert nie gilt: Verlauf, Langzeitstatistik, Automationen und
-das Energie-Dashboard sehen ihn.
+Gib ihm dieselbe Verfügbarkeitsregel wie dem abgeleiteten Haussensor weiter
+unten — nicht verfügbar, sobald eine der Quellen es ist —, damit ein Aussetzer
+nicht als Null in die Statistik wandert. Sein Wert wird dann aufgezeichnet, was
+für einen von der Karte gerechneten Wert nie gilt: Verlauf, Langzeitstatistik,
+Automationen und das Energie-Dashboard sehen ihn.
 
-Geht beides nicht, ist die Zwei-Entitäten-Form in jeder angezeigten Zahl richtig;
-nur die Historie bleibt geteilt.
+Geht beides nicht, ist die Zwei-Entitäten-Form in jeder angezeigten Zahl
+richtig; nur die Historie bleibt geteilt.
 
 ### Fehlende Größen ableiten
 

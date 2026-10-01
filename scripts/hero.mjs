@@ -11,6 +11,8 @@
  *
  *   npm run build && npm run hero              # mit Umsortieren
  *   npm run build && npm run hero -- --flow-only   # nur der Fluss
+ *   npm run build && npm run hero -- --outage      # Netzausfall, Inselbetrieb
+ *   npm run build && npm run hero -- --below       # Liste unter dem Kreuz
  *
  * Needs Chromium (`apk add chromium` on the HA box, not persistent).
  */
@@ -28,6 +30,10 @@ const page = resolve(here, "hero/export.html");
  * variant is kept because it suits a place where the picture is a side note;
  * both come from the same page, so neither can drift away from the card. */
 const flowOnly = process.argv.includes("--flow-only");
+/* The grid gone and the house off-grid: banner, X and dashed node (REQ NS-4, NS-5). */
+const outage = process.argv.includes("--outage");
+/* The list under the cross, in a narrow card (list.always_below). */
+const below = process.argv.includes("--below");
 
 /** One picture per language and colour scheme; the README picks with <picture>. */
 const VARIANTS = [
@@ -56,7 +62,7 @@ if (!browser) {
 }
 
 function exportOne({ lang, dark }) {
-  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}`;
+  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}${outage ? "&outage" : ""}${below ? "&below" : ""}`;
   const dom = execFileSync(
     browser,
     [
@@ -95,7 +101,7 @@ function exportOne({ lang, dark }) {
     process.exit(1);
   }
 
-  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}.svg`;
+  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}${outage ? "-outage" : ""}${below ? "-below" : ""}.svg`;
   const target = resolve(repo, "docs/images", name);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, svg);

@@ -12,32 +12,37 @@ and battery — plus a breakdown of what the house figure is actually made of.
 
 ## What it does differently
 
-**Consumers are a breakdown, not extra nodes.** The list beside the house node
-and the ring around it show what makes up the house value. A configurable
-remainder holds everything you do not measure individually — on the reference
-installation that is about 45 % of consumption, which is worth seeing rather
-than hiding.
+**Consumers are optional.** If individual consumers are measured (a heat pump,
+say, or a device behind a Shelly), their entities can be added. The list beside
+the house node and the ring around it then show what makes up the house value.
+The remainder holds everything that is not measured individually.
 
-**Three view modes.** A live power diagram jumps by kilowatts within seconds.
-Switch to a short or long moving average — 2 and 15 minutes by default, both
-configurable — and the picture calms down without the numbers becoming a lie:
-the active mode is always named, and clicking any element still opens Home
-Assistant's own dialog with the raw history.
+**Moving average.** A live power diagram jumps by kilowatts within seconds.
+Alternatively the card shows moving averages — over 2 and 15 minutes by
+default, both configurable. They calm the picture down without falsifying the
+numbers. Clicking any element still opens Home Assistant's own dialog with the
+real history.
 
-**The list sorts itself and glides.** Rows reorder by power on a fixed beat and
-slide to their new position instead of jumping. Values update immediately; only
-the order waits for the beat, because a jumping figure does not disturb but a
-jumping row does. A small filter button beside the view chips shows every consumer
-regardless of power — for tapping the history of a device that has just gone
-quiet. Like the selected view, the button survives a reload. **The ring only
-shows what is flowing:** a row drawn with a grey line gets no segment, or a
-device drawing a single watt would get one like a real consumer.
+**The consumer list sorts itself and glides.** Rows reorder by power on a fixed
+beat and slide to their new position. A small filter button at the top shows
+**every** consumer on request, regardless of power — for tapping the history of
+a device that has just gone quiet.
 
-**Measurements are never quietly changed.** Sensors update at different rates,
-so the individually measured consumers can briefly add up to more than the
-house total — on the reference installation that happens about 1 % of the time,
-by as much as 3 kW. The card does not smooth that away: the remainder simply
-disappears and the ring shows shares of the consumer sum instead.
+A **grid outage** is shown, provided the installation reports the grid status.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-outage.svg">
+  <img src="docs/images/card-en-light-outage.svg" alt="EnerLens Card during a grid outage" width="690">
+</picture>
+
+**Narrow columns.** When there is no room beside the cross — on a phone or in a
+narrow dashboard column — the consumer list moves below it. With
+`list.always_below` it stays there on wide screens too.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-below.svg">
+  <img src="docs/images/card-en-light-below.svg" alt="EnerLens Card with the list below the cross" width="440">
+</picture>
 
 ## Installation
 
@@ -139,10 +144,11 @@ device class `power`, state class `measurement`):
   - states('sensor.grid_export')|float(0))|round(0) }}
 ```
 
-Give it the same availability rule as the derived house sensor below — unavailable
-as soon as one input is — so that a dropout does not enter the statistics as a
-zero. Its value is then recorded, which a figure the card computes never is:
-history, long-term statistics, automations and the energy dashboard all see it.
+Give it the same availability rule as the derived house sensor below —
+unavailable as soon as one input is — so that a dropout does not enter the
+statistics as a zero. Its value is then recorded, which a figure the card
+computes never is: history, long-term statistics, automations and the energy
+dashboard all see it.
 
 Failing both, the two-entity form is right in every number the card shows; only
 the history stays in two places.
@@ -218,9 +224,9 @@ in the console. `ok` may be left out when the entity publishes its own
 `options` except the outage states means "grid is there".
 
 Give the **raw** states, not the labels Home Assistant displays: an enum sensor
-shows a translated name, so what reads *Not detected* on screen is `not_detected`
-underneath. Case and stray spaces do not matter, a translation does — which is
-why the editor offers the entity's own values for picking.
+shows a translated name, so what reads *Not detected* on screen is
+`not_detected` underneath. Case and stray spaces do not matter, a translation
+does — which is why the editor offers the entity's own values for picking.
 
 During an outage the grid node carries a red X over its icon and reads *no grid*
 instead of a figure, and a red strip appears above the cross. Tapping the node
@@ -233,8 +239,8 @@ value for minutes before it gives up. A card that read silence as "the grid is
 back" would drop the outage exactly when it is real.
 
 On load the card asks the recorder for the last real state of the past ten days,
-so a page opened during an outage starts with the outage. If it finds nothing, it
-claims nothing and draws the grid as usual.
+so a page opened during an outage starts with the outage. If it finds nothing,
+it claims nothing and draws the grid as usual.
 
 Without `grid_status` none of this exists — no strip, no X, no extra query.
 

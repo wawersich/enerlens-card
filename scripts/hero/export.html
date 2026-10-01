@@ -19,7 +19,8 @@
   const CACHE = new Map();
   customElements.define("ha-icon", class extends HTMLElement {
     set icon(v){ this._i = v; this._r(); }
-    connectedCallback(){ this.style.display="inline-flex"; this._r(); }
+    // The outage banner sets `icon` as an attribute, not as a property.
+    connectedCallback(){ this.style.display="inline-flex"; this._i ??= this.getAttribute("icon"); this._r(); }
     async _r(){
       const n = (this._i||"").replace(/^mdi:/,""); if(!n) return;
       this.style.width = this.style.height = "var(--mdc-icon-size, 24px)";
@@ -47,7 +48,15 @@ const lang = params.get("lang") === "en" ? "en" : "de";
 /* Three scenes show the ring and the list at work; one shows only the flow.
  * The quiet variant is worth keeping - the movement is calmer, which suits a
  * place where the picture is a side note rather than the subject. */
-const RESORT = params.get("scenes") !== "1";
+/* The outage picture is a single, quiet scene: the subject is the severed grid,
+ * not the list at work (REQ NS-4, NS-5). */
+const OUTAGE = params.has("outage");
+/* The split layout: the list under the cross, as on a phone or in a narrow
+ * column. The host is narrowed to match - the list option alone would leave
+ * a wide cross with empty sides. */
+const BELOW = params.has("below");
+if (BELOW) document.getElementById("host").style.width = "440px";
+const RESORT = params.get("scenes") !== "1" && !OUTAGE;
 if (params.has("dark")) {
   const dark = {
     "--ha-card-background": "#1d1e21",
@@ -84,7 +93,14 @@ const SCENES = [
 ];
 const soc = ["sensor.soc", { entity_id: "sensor.soc", state: "68",
   attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" }];
-const scene = (i) => Object.fromEntries([
+/* Off-grid: the grid carries nothing, the battery covers what the PV lacks. */
+const gridStatus = ["sensor.grid_status", { entity_id: "sensor.grid_status", state: "not_detected",
+  attributes: { device_class: "enum", options: ["ok", "not_detected"] }, last_changed: "", last_updated: "" }];
+const scene = (i) => Object.fromEntries(OUTAGE ? [
+  W("sensor.s", 2400), W("sensor.g", 0), W("sensor.h", 3500), W("sensor.b", 1100),
+  W("sensor.c1", 1600), W("sensor.c2", 0), W("sensor.c3", 900), W("sensor.c4", 350),
+  soc, gridStatus,
+] : [
   W("sensor.s", 8500), W("sensor.g", -300), W("sensor.h", 6400), W("sensor.b", -1800),
   W("sensor.c1", SCENES[i].c1), W("sensor.c2", SCENES[i].c2), W("sensor.c3", 900), W("sensor.c4", 350),
   soc,
@@ -95,7 +111,8 @@ await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
 card.setConfig({
   type: "custom:enerlens-card", title: TEXT.title,
-  entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b", battery_soc: "sensor.soc" },
+  entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b", battery_soc: "sensor.soc",
+    ...(OUTAGE ? { grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] } } : {}) },
   consumers: [
     { entity: "sensor.c1", name: TEXT.c1, icon: "mdi:heat-wave" },
     { entity: "sensor.c2", name: TEXT.c2, icon: "mdi:washing-machine" },
@@ -119,6 +136,7 @@ card.setConfig({
     inactive_lines: "dim",
   },
   update_interval_s: 2,
+  ...(BELOW ? { list: { always_below: true } } : {}),
 });
 card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
@@ -445,7 +463,10 @@ for (const node of root.querySelectorAll(".node")) {
   const style = getComputedStyle(node);
   const cx = X(b.left + b.width / 2), cy = Y(b.top + b.height / 2);
   const r = b.width / 2 - parseFloat(style.borderTopWidth) / 2;
-  out.push(`<circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="${style.backgroundColor}" stroke="${style.borderTopColor}" stroke-width="${parseFloat(style.borderTopWidth)}"/>`);
+  // A dashed border marks the grid node during an outage; SVG has no
+  // border-style, so the dashes are spelled out.
+  const dash = style.borderTopStyle === "dashed" ? ` stroke-dasharray="${(3 * parseFloat(style.borderTopWidth)).toFixed(1)} ${(2 * parseFloat(style.borderTopWidth)).toFixed(1)}"` : "";
+  out.push(`<circle cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="${style.backgroundColor}" stroke="${style.borderTopColor}" stroke-width="${parseFloat(style.borderTopWidth)}"${dash}/>`);
 
   const fill = node.querySelector(".fill");
   if (fill) {
@@ -480,8 +501,27 @@ for (const node of root.querySelectorAll(".node")) {
 
   const icon = node.querySelector("ha-icon");
   if (icon) out.push(iconOf(icon, getComputedStyle(icon).color));
+  // The X over the grid symbol during an outage.
+  // `> svg`: the ha-icon beside it carries an svg of its own.
+  const cross = node.querySelector(".icon-cross > svg");
+  if (cross) {
+    const xb = cross.getBoundingClientRect();
+    const xs = getComputedStyle(cross);
+    out.push(`<g transform="translate(${X(xb.left)},${Y(xb.top)}) scale(${(xb.width / 24).toFixed(4)})" fill="none" stroke="${xs.stroke}" stroke-width="${parseFloat(xs.strokeWidth)}" stroke-linecap="round">` +
+      [...cross.querySelectorAll("path")].map((p) => `<path d="${p.getAttribute("d")}"/>`).join("") + `</g>`);
+  }
   for (const v of node.querySelectorAll(".value")) out.push(textOf(v));
   out.push(textOf(node.querySelector(".label")));
+}
+
+// --- outage banner ---------------------------------------------------------
+const banner = root.querySelector(".outage-banner");
+if (banner) {
+  const b = banner.getBoundingClientRect();
+  const st = getComputedStyle(banner);
+  out.push(`<rect x="${X(b.left)}" y="${Y(b.top)}" width="${b.width.toFixed(1)}" height="${b.height.toFixed(1)}" rx="${parseFloat(st.borderTopLeftRadius).toFixed(1)}" fill="${st.backgroundColor}"/>`);
+  out.push(iconOf(banner.querySelector("ha-icon"), st.color));
+  out.push(textOf(banner.querySelector("span"), "start"));
 }
 
 // --- header ----------------------------------------------------------------
@@ -537,6 +577,10 @@ for (const row of root.querySelectorAll(".row")) {
   const glide = shift(perScene((snap) => snap.rows[key]?.y).map((y) => (y - a.y).toFixed(1)));
   out.push(`<g>${glide}${parts.join("")}</g>`);
 }
+
+// --- the house icon where the lines gather, stacked layout only -------------
+const originIcon = root.querySelector(".origin-icon");
+if (originIcon) out.push(iconOf(originIcon, getComputedStyle(originIcon).color));
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;
 document.getElementById("out").textContent = svg;
