@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the list kept running unseen.
 
 ### Changed
+- **The README shows two more pictures:** the ring cross-fading its colours
+  (`ring.animation: fade`), exported like the title picture with
+  `npm run hero -- --fade`, and the card editor with the colour picker open,
+  in English and German, light and dark. `npm run editor-shot` takes those
+  from a running Home Assistant with invented values and leaves its profile
+  as it was.
 - **No dots while motion is off.** With `flow.animation: off`, or `auto` under
   the device's reduce-motion setting, the cross and the lines to the list drew
   their dots standing still. Spread from node centre to node centre, one hid

@@ -28,6 +28,15 @@ beat and slide to their new position. A small filter button at the top shows
 **every** consumer on request, regardless of power — for tapping the history of
 a device that has just gone quiet.
 
+**The ring follows along.** When the order changes, its segments travel to
+their new places and overtake on an inner lane — or, with
+`ring.animation: fade`, keep their places and blend their colours.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-fade.svg">
+  <img src="docs/images/card-en-light-fade.svg" alt="EnerLens Card, the ring blending its colours" width="690">
+</picture>
+
 A **grid outage** is shown, provided the installation reports the grid status.
 
 <picture>
@@ -42,6 +51,15 @@ narrow dashboard column — the consumer list moves below it. With
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-below.svg">
   <img src="docs/images/card-en-light-below.svg" alt="EnerLens Card with the list below the cross" width="440">
+</picture>
+
+**Set up in the editor.** Almost everything is a click in the GUI editor, with
+the card live beside it — the colours too, with a picker that offers the ones
+the card already uses.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/editor-en-dark.png">
+  <img src="docs/images/editor-en-light.png" alt="The card editor with the colour picker open" width="690">
 </picture>
 
 ## Installation

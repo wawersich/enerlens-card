@@ -16,6 +16,7 @@
     "deploy": "./scripts/deploy.sh",
     "check": "./scripts/check.sh",
     "hero": "node scripts/hero.mjs",
+    "editor-shot": "node scripts/editor-shot.mjs",
     "leuchtspur": "./scripts/leuchtspur.sh"
   },
   "dependencies": {

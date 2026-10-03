@@ -13,6 +13,7 @@
  *   npm run build && npm run hero -- --flow-only   # nur der Fluss
  *   npm run build && npm run hero -- --outage      # Netzausfall, Inselbetrieb
  *   npm run build && npm run hero -- --below       # Liste unter dem Kreuz
+ *   npm run build && npm run hero -- --fade        # Ring blendet Farben über
  *
  * Needs Chromium (`apk add chromium` on the HA box, not persistent).
  */
@@ -34,6 +35,8 @@ const flowOnly = process.argv.includes("--flow-only");
 const outage = process.argv.includes("--outage");
 /* The list under the cross, in a narrow card (list.always_below). */
 const below = process.argv.includes("--below");
+/* The ring keeping its places and blending colours (ring.animation: fade). */
+const fade = process.argv.includes("--fade");
 
 /** One picture per language and colour scheme; the README picks with <picture>. */
 const VARIANTS = [
@@ -62,7 +65,7 @@ if (!browser) {
 }
 
 function exportOne({ lang, dark }) {
-  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}${outage ? "&outage" : ""}${below ? "&below" : ""}`;
+  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}${outage ? "&outage" : ""}${below ? "&below" : ""}${fade ? "&fade" : ""}`;
   const dom = execFileSync(
     browser,
     [
@@ -101,7 +104,7 @@ function exportOne({ lang, dark }) {
     process.exit(1);
   }
 
-  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}${outage ? "-outage" : ""}${below ? "-below" : ""}.svg`;
+  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}${outage ? "-outage" : ""}${below ? "-below" : ""}${fade ? "-fade" : ""}.svg`;
   const target = resolve(repo, "docs/images", name);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, svg);

@@ -31,6 +31,15 @@ Filter-Knopf oben zeigt auf Wunsch **alle** Verbraucher unabhängig von ihrer
 Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
 ist.
 
+**Der Ring zieht mit.** Ändert sich die Reihenfolge, wandern seine Segmente an
+ihren neuen Platz und überholen auf einer inneren Bahn — oder sie bleiben mit
+`ring.animation: fade` stehen und blenden ihre Farben über.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-fade.svg">
+  <img src="docs/images/card-de-light-fade.svg" alt="EnerLens Card, der Ring blendet seine Farben über" width="690">
+</picture>
+
 Ein **Netzausfall** wird angezeigt, sofern die Anlage den Netzstatus erfasst.
 
 <picture>
@@ -45,6 +54,15 @@ einer schmalen Dashboard-Spalte —, rückt die Verbraucher-Liste darunter. Mit
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-below.svg">
   <img src="docs/images/card-de-light-below.svg" alt="EnerLens Card mit Liste unter dem Kreuz" width="440">
+</picture>
+
+**Eingerichtet im Editor.** Fast alles ist ein Klick im GUI-Editor, die Karte
+live daneben — auch die Farben, mit einem Farbwähler, der die schon
+verwendeten gleich mit anbietet.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/editor-de-dark.png">
+  <img src="docs/images/editor-de-light.png" alt="Der Karteneditor mit aufgeklapptem Farbwähler" width="690">
 </picture>
 
 ## Installation

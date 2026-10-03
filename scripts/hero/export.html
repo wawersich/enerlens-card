@@ -55,6 +55,9 @@ const OUTAGE = params.has("outage");
  * column. The host is narrowed to match - the list option alone would leave
  * a wide cross with empty sides. */
 const BELOW = params.has("below");
+/* ring.animation: fade - the ring's places keep still and their colours blend
+ * into the new order (R-4). A circle is then a place, not a consumer. */
+const FADE = params.has("fade");
 if (BELOW) document.getElementById("host").style.width = "440px";
 const RESORT = params.get("scenes") !== "1" && !OUTAGE;
 if (params.has("dark")) {
@@ -86,11 +89,21 @@ const W = (id, w) => [id, { entity_id: id, state: String(w),
  *  2 -> 3  the washing machine passes the heat pump: the list re-sorts, and on
  *          the ring the one moving forward overtakes on the inner lane (R-4);
  *  3 -> 1  back, the heat pump overtaking in turn. */
-const SCENES = [
-  { c1: 2600, c2: 2400 },
-  { c1: 3600, c2: 1400 },
-  { c1: 2100, c2: 2900 },
-];
+const SCENES = FADE
+  ? /* Cross-fading is about the order, so here every change re-sorts: the two
+     * swap back and forth, and once the heat pump drops behind the third
+     * consumer, so two places change colour at once. */
+    [
+      { c1: 3000, c2: 2000 },
+      { c1: 1900, c2: 3100 },
+      { c1: 3300, c2: 1700 },
+      { c1: 600, c2: 4400 },
+    ]
+  : [
+      { c1: 2600, c2: 2400 },
+      { c1: 3600, c2: 1400 },
+      { c1: 2100, c2: 2900 },
+    ];
 const soc = ["sensor.soc", { entity_id: "sensor.soc", state: "68",
   attributes: { unit_of_measurement: "%", device_class: "battery" }, last_changed: "", last_updated: "" }];
 /* Off-grid: the grid carries nothing, the battery covers what the PV lacks. */
@@ -137,6 +150,7 @@ card.setConfig({
   },
   update_interval_s: 2,
   ...(BELOW ? { list: { always_below: true } } : {}),
+  ...(FADE ? { ring: { animation: "fade" } } : {}),
 });
 card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
@@ -348,8 +362,10 @@ function snapshot() {
   for (const c of root.querySelectorAll(".node.house svg circle.ring-seg")) {
     const len = Number(c.dataset.length);
     const circ = Number(c.dataset.circ);
-    ring[c.dataset.key] = {
+    ring[FADE ? `slot-${c.dataset.index}` : c.dataset.key] = {
       index: Number(c.dataset.index),
+      // The colour it is headed for; the computed one may be mid-blend.
+      stroke: c.getAttribute("stroke"),
       dasharray: `${len.toFixed(2)} ${(circ - len).toFixed(2)}`,
       dashoffset: (-Number(c.dataset.offset)).toFixed(2),
     };
@@ -485,11 +501,12 @@ for (const node of root.querySelectorAll(".node")) {
     const lane = laneScale(rb.width - 11);
     const parts = [...ring.querySelectorAll("circle.ring-seg")].map((c) => {
       const st = getComputedStyle(c);
-      const key = c.dataset.key;
+      const key = FADE ? `slot-${c.dataset.index}` : c.dataset.key;
       const first = SNAPS[0].ring[key];
-      const circle = `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${st.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? st.strokeWidth}" stroke-dasharray="${first.dasharray}" stroke-dashoffset="${first.dashoffset}" stroke-linecap="${st.strokeLinecap}">` +
+      const circle = `<circle cx="${c.getAttribute("cx")}" cy="${c.getAttribute("cy")}" r="${c.getAttribute("r")}" fill="none" stroke="${FADE ? first.stroke : st.stroke}" stroke-width="${c.getAttribute("stroke-width") ?? st.strokeWidth}" stroke-dasharray="${first.dasharray}" stroke-dashoffset="${first.dashoffset}" stroke-linecap="${st.strokeLinecap}">` +
         tween("stroke-dasharray", perScene((snap) => snap.ring[key]?.dasharray), RING_GLIDE) +
         tween("stroke-dashoffset", perScene((snap) => snap.ring[key]?.dashoffset), RING_GLIDE) +
+        (FADE ? tween("stroke", perScene((snap) => snap.ring[key]?.stroke), RING_GLIDE) : "") +
         `</circle>`;
       const dive = diveOf(key, lane);
       // Scaled about the centre, so the segment keeps its place on the ring.
