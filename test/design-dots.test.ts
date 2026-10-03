@@ -12,6 +12,7 @@ import { dotRings, glowFilter, lighten } from "../src/render/dot-shape";
 import { DotLayer } from "../src/render/dots";
 import { FanLayer } from "../src/render/fan";
 import type { Config, DotPlan, FlowDesign, HomeAssistant } from "../src/types";
+import { fakeMotion } from "./motion";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -269,6 +270,7 @@ describe("a colour the browser cannot read yet (issue #3)", () => {
 
 describe("the card draws the chosen design (P-10)", () => {
   beforeAll(async () => {
+    fakeMotion();
     (globalThis as unknown as Record<string, unknown>).ResizeObserver = class {
       observe() {}
       disconnect() {}

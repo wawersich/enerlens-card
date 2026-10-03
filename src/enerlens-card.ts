@@ -257,6 +257,14 @@ class EnerLensCard extends LitElement {
     }, seconds * 1000);
   }
 
+  /**
+   * Dots only where they move: switched off, or in a browser that cannot move
+   * them along a path, a dot standing still says nothing (P-7, 03.10.2026).
+   */
+  private get _dotsMove(): boolean {
+    return this._animationsWanted && this._technique === "waapi";
+  }
+
   private get _animationsWanted(): boolean {
     const mode = this._config?.flow.animation ?? "auto";
     if (mode === "off") return false;
@@ -507,7 +515,8 @@ class EnerLensCard extends LitElement {
           x: box.left - origin.left,
           y: rowBox.top + rowBox.height / 2 - origin.top,
           color: entry.color,
-          count: params?.count ?? 0,
+          // No dots without motion, as on the cross (P-7).
+          count: this._dotsMove ? (params?.count ?? 0) : 0,
           durationS: params?.durationS ?? 1,
           inactive: quiet && mode !== "hide" ? mode : undefined,
         };
@@ -611,7 +620,9 @@ class EnerLensCard extends LitElement {
     this._dots.setDesign(design, dark);
 
     const ticked = this._tickModel ?? this._model ?? buildModel(this._hass, this._config);
-    const plans = planDots(computeFlows(ticked), this._config);
+    // Still, a dot says nothing - its speed is the message, and the line's
+    // colour already tells whether anything flows.
+    const plans = this._dotsMove ? planDots(computeFlows(ticked), this._config) : [];
     this._dots.update(plans, this._config, this._animationsWanted);
 
     // The dots need a quieter line to stand out against; the design says how

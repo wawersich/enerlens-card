@@ -5,6 +5,10 @@
  */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { HomeAssistant } from "../src/types";
+import { fakeMotion } from "./motion";
+
+// The card only draws dots it can move (P-7).
+beforeAll(fakeMotion);
 
 function fakeHass(
   states: Record<string, string>,
@@ -491,6 +495,50 @@ describe("show-all toggle (REQ L-12)", () => {
     const still = await mountWithConsumers({ flow: { animation: "off" } });
     await changePump(still, "400");
     expect(ringAtTargets(still)).toBe(true);
+  });
+
+  it("draws no dots at all when animation is off (REQ P-7)", async () => {
+    const moving = await mountWithConsumers();
+    expect(moving.shadowRoot?.querySelectorAll("g.dots g.dot").length).toBeGreaterThan(0);
+    const still = await mountWithConsumers({ flow: { animation: "off" } });
+    expect(still.shadowRoot?.querySelectorAll("g.dots g.dot")).toHaveLength(0);
+    expect(still.shadowRoot?.querySelectorAll("svg.fan .dot, svg.fan circle")).toHaveLength(0);
+  });
+
+  it("brings every dot back, painted, when motion is switched on again (REQ P-7)", async () => {
+    const el = await mountWithConsumers();
+    const crossDots = () => el.shadowRoot?.querySelectorAll("g.dots g.dot").length ?? 0;
+    const fanCircles = () =>
+      el.shadowRoot?.querySelectorAll("svg.fan g.fan-dot circle").length ?? 0;
+    expect(fanCircles(), "the fan should carry dots to begin with").toBeGreaterThan(0);
+    const config = (animation: string) => ({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pump" },
+        { entity: "sensor.idle", name: "Idle" },
+      ],
+      min_consumer_w: 10,
+      flow: { animation },
+    });
+    el.setConfig(config("off"));
+    await el.updateComplete;
+    expect(crossDots()).toBe(0);
+    expect(fanCircles()).toBe(0);
+    el.setConfig(config("on"));
+    await el.updateComplete;
+    expect(crossDots()).toBeGreaterThan(0);
+    // Once the dots were back but empty groups - running, and invisible.
+    expect(fanCircles()).toBeGreaterThan(0);
+  });
+
+  it("draws no dots in a browser that cannot move them (REQ P-7)", async () => {
+    const el = await mountWithConsumers();
+    const guts = el as unknown as { _technique: string; requestUpdate(): void };
+    guts._technique = "static";
+    guts.requestUpdate();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelectorAll("g.dots g.dot")).toHaveLength(0);
+    expect(el.shadowRoot?.querySelectorAll("svg.fan g.fan-dot circle")).toHaveLength(0);
   });
 
   it("puts the ring on its values as soon as the card goes out of sight (REQ P-8)", async () => {

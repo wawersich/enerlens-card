@@ -117,7 +117,7 @@ const hasUpdateRate = typeof Animation !== "undefined"
 | 2 | `hasOffsetPath && hasWaapi`, aber kein `updatePlaybackRate` | WAAPI, aber `animation.playbackRate = r` direkt setzen. Das erhält `currentTime` ebenfalls (nur ohne den nahtlosen Übergang von `updatePlaybackRate`) | erfüllt |
 | 3 | kein `offset-path` | SMIL `<animateMotion>` + `<mpath>` **mit Phasen-Resync**: Phase analytisch mitführen, nach `dur`-Wechsel `beginElementAt(−phase × dur)` | erfüllt, sofern der Resync in der Engine greift — Messung nötig |
 | 4 | kein `offset-path`, Resync greift nicht (WebKit-Eigenheit) | SMIL ohne Resync, aber **Parameter nur bei echtem Stufenwechsel** ändern statt in jedem Takt: dann springt es selten statt alle 5 s | verletzt, Einschränkung ins CHANGELOG |
-| 5 | weder `offset-path` noch SMIL, oder `prefers-reduced-motion` | Punkte gleichmäßig verteilt und **statisch** (REQ P-7) | entfällt |
+| 5 | weder `offset-path` noch SMIL, oder `prefers-reduced-motion` | ~~Punkte gleichmäßig verteilt und **statisch**~~ **keine Punkte** (REQ P-7, geändert 03.10.2026: stehende Punkte sagen nichts und sahen eingefroren aus; die Linienfarbe zeigt den Fluss) | entfällt |
 
 CSS Motion Path (Kandidat B) steht bewusst **nicht** in der Kette: Wo `offset-path` da ist, ist auch WAAPI da, und
 dann ist WAAPI in jeder Hinsicht die bessere Wahl. B bliebe nur eine Technik mit demselben Verfügbarkeitsprofil und

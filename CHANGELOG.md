@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **No dots while motion is off.** With `flow.animation: off`, or `auto` under
+  the device's reduce-motion setting, the cross and the lines to the list drew
+  their dots standing still. Spread from node centre to node centre, one hid
+  under the source node and the rest bunched up, so they looked frozen - and a
+  dot that does not move tells nothing. The line's colour still shows the flow.
+  The same now holds in a browser that cannot move dots along a path (older
+  Safari), which used to get the standing dots as a fallback.
 - **The README introduction is shorter and shows two more pictures:** the card
   during a grid outage, and the card in a narrow column with the consumer list
   below the cross. Both are exported from the card itself like the title

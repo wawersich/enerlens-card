@@ -307,7 +307,10 @@ zusätzliche Abfrage.
 
 `flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
 die steht im Betriebssystem, nicht in Home Assistant. Sie gilt für alles, was
-sich bewegt: die Punkte, das Umsortieren der Liste und den Ring.
+sich bewegt: die Punkte, das Umsortieren der Liste und den Ring. Ohne Bewegung
+gibt es keine Punkte, ebenso in einem Browser, der sie nicht bewegen kann –
+stehend sagen sie nichts; wo Energie fließt, zeigt weiterhin die Farbe der
+Linie.
 
 ### Farben
 

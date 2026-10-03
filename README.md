@@ -293,7 +293,10 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 
 `flow.animation: auto` follows the device's reduce-motion preference — that
 setting lives in the operating system, not in Home Assistant. It covers
-everything that moves: the dots, the list re-sorting and the ring.
+everything that moves: the dots, the list re-sorting and the ring. With motion
+off there are no dots at all, and none in a browser that cannot move them -
+standing still they would say nothing; the line's colour still shows where
+energy flows.
 
 ### Colours
 

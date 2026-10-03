@@ -134,15 +134,18 @@ export class FanLayer {
       const countChanged = line.count !== row.count;
       const rate = BASE_MS / 1000 / Math.max(row.durationS, 0.01);
       for (const [i, dot] of line.dots.entries()) {
-        if (repaint) this.paintDot(dot, dotColour, ground, mixFrom);
+        // A dot that joined since the last paint is still an empty group -
+        // every return of motion adds all of them at once (P-7).
+        if (repaint || !dot.firstChild) this.paintDot(dot, dotColour, ground, mixFrom);
         // The path changes with every relayout, so it is set on the element
         // rather than kept in a stylesheet. `auto` turns the dot with the row,
         // so a ring pushed forward is pushed along it.
         dot.style.offsetPath = `path("${d}")`;
         dot.style.offsetRotate = "auto";
 
-        // Same guard as the list: no Web Animations means static dots, not a
-        // crash (REQ N-5, and the fallback chain of decision 003).
+        // Same guard as the list: no Web Animations must not crash (REQ N-5).
+        // The card asks for no dots where they cannot move (P-7), so this
+        // only keeps a stray call safe.
         if (!animate || typeof dot.animate !== "function") {
           line.animations[i]?.cancel();
           line.animations[i] = undefined as unknown as Animation;

@@ -142,7 +142,8 @@ export class DotLayer {
           else dot.animation.playbackRate = rate;
           this.setPhase(dot.animation, i, plan.count, anchor);
         } else {
-          // Reduced motion or no support: spread evenly and leave them (P-7).
+          // The card asks for no dots without motion (P-7); this only keeps
+          // a stray call from failing.
           dot.animation?.cancel();
           dot.animation = undefined;
           dot.el.style.offsetDistance = `${(100 * i) / plan.count}%`;
@@ -229,9 +230,9 @@ export class DotLayer {
   }
 
   /**
-   * May this dot move? Old engines and test DOMs have no Web Animations, and
-   * there the dots stand still, evenly spread, rather than the card failing
-   * (REQ P-7).
+   * May this dot move? Old engines and test DOMs have no Web Animations; the
+   * card then asks for no dots at all (REQ P-7), and this keeps a call that
+   * still comes from failing.
    */
   private canAnimate(dot: Dot, animate: boolean): boolean {
     return this.technique === "waapi" && animate && typeof dot.el.animate === "function";
