@@ -33,7 +33,7 @@ ist.
 
 **Der Ring zieht mit.** Ändert sich die Reihenfolge, wandern seine Segmente an
 ihren neuen Platz und überholen auf einer inneren Bahn — oder sie bleiben mit
-`ring.animation: fade` stehen und blenden ihre Farben über.
+`ring.animation: fade` stehen und blenden ihre Farben über, so wie hier gezeigt:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-fade.svg">

@@ -30,7 +30,8 @@ a device that has just gone quiet.
 
 **The ring follows along.** When the order changes, its segments travel to
 their new places and overtake on an inner lane — or, with
-`ring.animation: fade`, keep their places and blend their colours.
+`ring.animation: fade`, keep their places and blend their colours, as shown
+here:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-fade.svg">
