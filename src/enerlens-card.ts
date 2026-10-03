@@ -564,8 +564,10 @@ class EnerLensCard extends LitElement {
     const documentHidden = typeof document !== "undefined" && document.hidden;
     if (this._visible && !documentHidden) {
       this._dots?.resume();
+      this._fan?.resume();
     } else {
       this._dots?.pause();
+      this._fan?.pause();
       // Nobody is looking: the ring goes to its values now, not after its
       // glide - there may be no render to stop it until it is seen again (P-8).
       this._ring.stop();

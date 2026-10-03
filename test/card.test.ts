@@ -572,6 +572,24 @@ describe("show-all toggle (REQ L-12)", () => {
     expect(ringAtTargets(el)).toBe(true);
   });
 
+  it("halts the dots on the lines to the list while out of sight, too (REQ P-8)", async () => {
+    const el = await mountWithConsumers();
+    const guts = el as unknown as {
+      _visible: boolean;
+      _syncPlayState(): void;
+      _fan?: { paused: boolean };
+      _dots?: { paused: boolean };
+    };
+    expect(guts._fan, "the card should have drawn its fan").toBeDefined();
+    guts._visible = false;
+    guts._syncPlayState();
+    expect(guts._dots?.paused).toBe(true);
+    expect(guts._fan?.paused).toBe(true);
+    guts._visible = true;
+    guts._syncPlayState();
+    expect(guts._fan?.paused).toBe(false);
+  });
+
   it("gives a row with a grey line no ring segment (REQ R-2, 12.09.2026)", async () => {
     const el = await mountWithConsumers();
     const segmentKeys = () =>

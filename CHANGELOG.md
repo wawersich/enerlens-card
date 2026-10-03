@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   while dots and list keep moving. In the editor right after "Show ring".
   `flow.animation: off` still stills everything.
 
+### Fixed
+- **The dots on the lines to the list pause off-screen too.** Out of sight or
+  in a hidden tab only the dots in the cross stopped; those on the lines to
+  the list kept running unseen.
+
 ### Changed
 - **No dots while motion is off.** With `flow.animation: off`, or `auto` under
   the device's reduce-motion setting, the cross and the lines to the list drew
