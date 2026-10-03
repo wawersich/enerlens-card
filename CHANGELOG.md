@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`ring.animation` chooses how the ring follows a reordered list:**
+  `overtake` (default, as before) lets every segment travel to its new place
+  and pass on an inner lane; `fade` keeps the places and blends their colours
+  into the new order; `jump` keeps the ring still, so new values show at once
+  while dots and list keep moving. In the editor right after "Show ring".
+  `flow.animation: off` still stills everything.
+
 ### Changed
 - **No dots while motion is off.** With `flow.animation: off`, or `auto` under
   the device's reduce-motion setting, the cross and the lines to the list drew

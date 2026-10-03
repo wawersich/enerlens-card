@@ -123,6 +123,8 @@ export type Appearance = "auto" | "light" | "dark";
 
 /** How connections without flow are drawn (REQ P-9). */
 export type InactiveLines = "show" | "dim" | "hide";
+/** How the ring changes when the list reorders or its values change (REQ R-4). */
+export type RingAnimation = "overtake" | "fade" | "jump";
 export type NodeKey = "solar" | "grid" | "house" | "battery";
 /**
  * Everything that can carry an icon. The rest row is not a node - it has no
@@ -185,7 +187,7 @@ export interface RawConfig extends LovelaceCardConfig {
   max_consumers?: number;
   update_interval_s?: number;
   list?: { enabled?: boolean; rest_label?: string; title?: string; always_below?: boolean };
-  ring?: { enabled?: boolean };
+  ring?: { enabled?: boolean; animation?: RingAnimation };
   /** Which half of a flow design applies (REQ P-10). */
   appearance?: Appearance;
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
@@ -278,7 +280,7 @@ export interface Config {
   maxConsumers: number;
   updateIntervalS: number;
   list: { enabled: boolean; restLabel?: string; title?: string; alwaysBelow: boolean };
-  ring: { enabled: boolean };
+  ring: { enabled: boolean; animation: RingAnimation };
   view: {
     defaultMode: ViewMode;
     avgShortMinutes: number;

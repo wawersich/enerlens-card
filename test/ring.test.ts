@@ -9,6 +9,7 @@
 import { render } from "lit";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  RING_GLIDE_MS,
   RING_INSET_PX,
   RingAnimator,
   type RingClock,
@@ -17,7 +18,7 @@ import {
   ringGeometry,
 } from "../src/render/ring";
 import { styles } from "../src/styles";
-import type { Segment } from "../src/types";
+import type { RingAnimation, Segment } from "../src/types";
 
 const NODE_PX = 112;
 
@@ -149,9 +150,14 @@ describe("the ring in motion (R-4)", () => {
       host,
       time,
       ring,
-      show(segments: ReturnType<typeof segment>[], animate = true, px = size) {
+      show(
+        segments: ReturnType<typeof segment>[],
+        animate = true,
+        px = size,
+        mode: RingAnimation = "overtake",
+      ) {
         size = px;
-        render(renderRing(segments, true, px), host);
+        render(renderRing(segments, true, px, mode, animate), host);
         ring.update(host, animate, px);
       },
     };
@@ -489,7 +495,77 @@ describe("the ring in motion (R-4)", () => {
   });
 
   it("leaves the motion to the card, not to CSS transitions", () => {
-    const rule = /\.ring-seg\s*\{[^}]*\}/.exec(styles.cssText)?.[0] ?? "";
-    expect(rule).not.toMatch(/transition\s*:/);
+    // Every rule that reaches a segment: none may move its dashes.
+    const css = styles.cssText.replace(/\/\*[\s\S]*?\*\//g, "");
+    const rules = css.match(/[^{}]*\.ring-seg[^{]*\{[^}]*\}/g) ?? [];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const rule of rules) {
+      expect(rule).not.toMatch(/transition[^;]*(dash|all)/);
+      // The colour alone may blend, and only for ring.animation: fade.
+      if (/transition\s*:/.test(rule)) expect(rule).toMatch(/^\s*\.ring\.fade \.ring-seg/);
+    }
+  });
+
+  it("blends the colours over the ring's glide, also under reduced motion", () => {
+    const rule = /\.ring\.fade \.ring-seg\s*\{[^}]*\}/.exec(styles.cssText)?.[0] ?? "";
+    expect(rule).toMatch(new RegExp(`transition:\\s*stroke ${RING_GLIDE_MS / 1000}s`));
+    // flow.animation: on moves the ring under reduced motion too (P-7); the
+    // class is only set while the card moves, so it may outrank that rule.
+    expect(rule).toMatch(/!important/);
+  });
+
+  describe("ring.animation: fade", () => {
+    const pump = (share: number) => segment("pump", share, "#aa0000");
+    const oven = (share: number) => segment("oven", share, "#00aa00");
+
+    it("keeps a circle per place and hands it the colour of whoever stands there", () => {
+      const { host, show } = stage();
+      show([pump(0.6), oven(0.4)], true, NODE_PX, "fade");
+      const first = host.querySelector('circle[data-index="0"]');
+      expect(first?.getAttribute("stroke")).toBe("#aa0000");
+      // DOM order is the order of the places - sorted by key it would be 1, 0.
+      const order = () =>
+        [...host.querySelectorAll("circle")].map((c) => c.getAttribute("data-index"));
+      expect(order()).toEqual(["0", "1"]);
+      show([oven(0.6), pump(0.4)], true, NODE_PX, "fade");
+      // The same element, now in the other consumer's colour.
+      expect(host.querySelector('circle[data-index="0"]')).toBe(first);
+      expect(first?.getAttribute("stroke")).toBe("#00aa00");
+      expect(first?.getAttribute("data-key")).toBe("oven");
+      expect(order()).toEqual(["0", "1"]);
+    });
+
+    it("glides the places and never dives", () => {
+      const { host, time, show } = stage();
+      show([pump(0.7), oven(0.3)], true, NODE_PX, "fade");
+      show([oven(0.7), pump(0.3)], true, NODE_PX, "fade");
+      show([oven(0.8), pump(0.2)], true, NODE_PX, "fade");
+      let dived = false;
+      time.play(300, () => {
+        if (drawn(host).some((a) => a.transform)) dived = true;
+      });
+      expect(dived).toBe(false);
+      expect(atTarget(host)).toBe(false);
+      time.play(3000);
+      expect(atTarget(host)).toBe(true);
+    });
+
+    it("blends only while the card moves", () => {
+      const { host, show } = stage();
+      show([pump(0.6), oven(0.4)], true, NODE_PX, "fade");
+      expect(host.querySelector("svg.ring")?.classList.contains("fade")).toBe(true);
+      show([pump(0.6), oven(0.4)], false, NODE_PX, "fade");
+      expect(host.querySelector("svg.ring")?.classList.contains("fade")).toBe(false);
+      show([pump(0.6), oven(0.4)], true, NODE_PX, "overtake");
+      expect(host.querySelector("svg.ring")?.classList.contains("fade")).toBe(false);
+    });
+
+    it("starts afresh, at its values, when the mode changes", () => {
+      const { host, show } = stage();
+      show([pump(0.6), oven(0.4)], true, NODE_PX, "overtake");
+      show([oven(0.6), pump(0.4)], true, NODE_PX, "fade");
+      expect(atTarget(host)).toBe(true);
+      expect(drawn(host).some((a) => a.transform)).toBe(false);
+    });
   });
 });

@@ -759,6 +759,14 @@ describe("numeric ranges (schema rules)", () => {
     });
   });
 
+  it("reads ring.animation, overtake by default, and rejects anything else (R-4)", () => {
+    expect(normalizeConfig(cfg({})).ring.animation).toBe("overtake");
+    for (const mode of ["overtake", "fade", "jump"] as const) {
+      expect(normalizeConfig(cfg({ ring: { animation: mode } })).ring.animation).toBe(mode);
+    }
+    expectError(() => normalizeConfig(cfg({ ring: { animation: "off" } })), "error.config.enum");
+  });
+
   it("accepts the inactive_lines modes and rejects anything else (P-9)", () => {
     for (const mode of ["show", "dim", "hide"] as const) {
       expect(normalizeConfig(cfg({ flow: { inactive_lines: mode } })).flow.inactiveLines).toBe(

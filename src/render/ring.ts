@@ -11,11 +11,13 @@
  * cross SVG underneath the nodes cannot do.
  *
  * Segments carry the same keys as the list rows, so a consumer keeps its
- * segment across updates and RingAnimator moves it instead of jumping.
+ * segment across updates and RingAnimator moves it instead of jumping. With
+ * `ring.animation: fade` the circles belong to places instead, and a reorder
+ * blends their colours (R-4).
  */
 import { type TemplateResult, html, nothing, svg } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import type { Segment } from "../types";
+import type { RingAnimation, Segment } from "../types";
 
 /** How long a segment takes to glide to a new length and place (REQ R-4):
  *  RingAnimator gets it 95 % of the way there in this time. */
@@ -57,6 +59,9 @@ export function renderRing(
   allSegments: Segment[],
   enabled: boolean,
   nodePx: number,
+  mode: RingAnimation = "overtake",
+  /** Whether the card moves at all (P-7) - only then do colours blend. */
+  fading = false,
 ): TemplateResult | typeof nothing {
   // Entries at 0 W (only there with the filter lifted, REQ L-12) would each
   // still claim a gap; a ring of gaps says nothing, so they are skipped here.
@@ -100,13 +105,23 @@ export function renderRing(
   // one paints on top. Sorted by display order, a reorder would make Lit move
   // elements around for nothing, and the paint order would change with the
   // data.
-  arcs.sort((a, b) => (a.segment.key < b.segment.key ? -1 : a.segment.key > b.segment.key ? 1 : 0));
+  //
+  // Fading, a circle is a place rather than a consumer: it stays where it is,
+  // takes on the colour of whoever stands there now, and the stylesheet blends
+  // the colour over. Places never pass one another, so nothing dives, and the
+  // DOM is already in a fixed order - the order of the places.
+  const byPlace = mode === "fade";
+  if (!byPlace) {
+    arcs.sort((a, b) =>
+      a.segment.key < b.segment.key ? -1 : a.segment.key > b.segment.key ? 1 : 0,
+    );
+  }
 
   // Rotated so the first segment starts at twelve o'clock (REQ R-2).
-  return html`<svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+  return html`<svg class="ring ${byPlace && fading ? "fade" : ""}" viewBox="0 0 100 100" aria-hidden="true">
     <g transform="rotate(-90 50 50)">${repeat(
       arcs,
-      (arc) => arc.segment.key,
+      (arc) => (byPlace ? `slot-${arc.index}` : arc.segment.key),
       (arc) => svg`<circle
         class="ring-seg"
         data-key=${arc.segment.key}

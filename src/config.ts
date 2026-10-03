@@ -20,6 +20,7 @@ import {
   type PowerFormat,
   type PowerUnit,
   type RawConfig,
+  type RingAnimation,
   type SocStop,
   type SourceSpec,
   type ViewMode,
@@ -45,6 +46,7 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
+const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
 const APPEARANCES: readonly Appearance[] = ["auto", "light", "dark"];
 
 const KNOWN_KEYS: ReadonlySet<string> = new Set([
@@ -673,7 +675,10 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       title: readString(rawList.title, "list.title", hass),
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
     },
-    ring: { enabled: readBoolean(rawRing.enabled, "ring.enabled", hasConsumers, hass) },
+    ring: {
+      enabled: readBoolean(rawRing.enabled, "ring.enabled", hasConsumers, hass),
+      animation: readEnum(rawRing.animation, RING_ANIMATIONS, "ring.animation", "overtake", hass),
+    },
     view: {
       defaultMode: readEnum(rawView.default_mode, VIEW_MODES, "view.default_mode", "current", hass),
       avgShortMinutes,

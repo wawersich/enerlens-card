@@ -225,6 +225,8 @@ export function renderCross(
   nodePx = 123,
   /** Latched grid outage (REQ NS-4). */
   outage = false,
+  /** Whether the card moves at all (P-7); the ring blends colours only then. */
+  moving = false,
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass, outage);
   // No battery configured: its lines go with it, the rest of the cross stays put.
@@ -280,7 +282,7 @@ export function renderCross(
               v.key === "house" && segments.length > 0 ? "transparent" : v.color
             }"
           >
-            ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx) : ""}
+            ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx, config.ring.animation, moving) : ""}
             ${
               v.socPercent !== undefined
                 ? html`<div class="fill-clip">

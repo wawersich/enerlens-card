@@ -29,7 +29,14 @@ import {
 import { EDITOR_NAME } from "./const";
 import { NO_DESIGN, designName, flowDesigns } from "./designs";
 import { localize } from "./localize";
-import type { ColorKey, EntityRef, HomeAssistant, RawConfig, SocStop } from "./types";
+import type {
+  ColorKey,
+  EntityRef,
+  HomeAssistant,
+  RawConfig,
+  RingAnimation,
+  SocStop,
+} from "./types";
 
 /** Power sensors, plus anything measured in W or kW - many template sensors
  *  carry no device_class and would otherwise be unpickable (REQ E-3). */
@@ -102,6 +109,7 @@ interface FlatConfig {
   list_enabled?: boolean;
   list_always_below?: boolean;
   ring_enabled?: boolean;
+  ring_animation?: string;
   power_unit?: string;
   power_decimals?: number;
   power_digits?: number;
@@ -216,6 +224,7 @@ function toFlat(config: RawConfig): FlatConfig {
     list_enabled: config.list?.enabled,
     list_always_below: config.list?.always_below,
     ring_enabled: config.ring?.enabled,
+    ring_animation: config.ring?.animation,
     power_unit: config.power?.unit,
     power_decimals: config.power?.decimals,
     power_digits: config.power?.digits,
@@ -369,7 +378,10 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       rest_label: flat.rest_label,
       always_below: flat.list_always_below,
     }),
-    ring: prune({ enabled: flat.ring_enabled }),
+    ring: prune({
+      enabled: flat.ring_enabled,
+      animation: opt(flat.ring_animation) as RingAnimation | undefined,
+    }),
     power: prune({
       unit: opt(flat.power_unit),
       decimals: num(flat.power_decimals),
@@ -562,6 +574,19 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "list_enabled", selector: { boolean: {} } },
         { name: "list_always_below", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },
+        {
+          name: "ring_animation",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "overtake", label: t("ring_overtake") },
+                { value: "fade", label: t("ring_fade") },
+                { value: "jump", label: t("ring_jump") },
+              ],
+            },
+          },
+        },
         { name: "max_consumers", selector: { number: { min: 1, max: 50, mode: "box" } } },
         { name: "min_consumer_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
         { name: "rest_label", selector: { text: {} } },

@@ -311,6 +311,21 @@ describe("editor - colours, icons and thresholds", () => {
     expect(form(el).data.list_always_below).toBe(true);
   });
 
+  it("writes the ring animation, and keeps it when something else changes (R-4)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      ring: { animation: "fade" },
+    });
+    expect(form(el).data.ring_animation).toBe("fade");
+    const kept = await change(el, { min_w: 25 });
+    expect(kept.ring).toEqual({ animation: "fade" });
+    const saved = await change(el, { ring_animation: "jump" });
+    expect(saved.ring).toEqual({ animation: "jump" });
+    const cleared = await change(el, { ring_animation: "" });
+    expect(cleared.ring).toBeUndefined();
+  });
+
   it("writes flow.min_w next to the other flow options", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

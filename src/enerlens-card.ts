@@ -592,8 +592,10 @@ class EnerLensCard extends LitElement {
     // Ahead of the early returns below: every render has to be compared with
     // the one before, or a reorder is judged against an older order.
     // Off-screen or in a hidden tab the ring goes straight to its values (P-8).
+    // `jump` asks for a ring that never moves, whatever else does (R-4).
     const ringMoves =
       this._animationsWanted &&
+      this._config?.ring.animation !== "jump" &&
       this._visible &&
       !(typeof document !== "undefined" && document.hidden);
     this._ring.update(this.renderRoot, ringMoves, this._nodePx);
@@ -734,6 +736,7 @@ class EnerLensCard extends LitElement {
             this._config.ring.enabled ? breakdown.segments : [],
             this._nodePx,
             this._outage === true,
+            this._animationsWanted,
           )}
           ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>

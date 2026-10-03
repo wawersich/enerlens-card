@@ -43,7 +43,7 @@ const FULL: RawConfig = {
   max_consumers: 5,
   update_interval_s: 5,
   list: { enabled: true, rest_label: "Rest" },
-  ring: { enabled: true },
+  ring: { enabled: true, animation: "overtake" },
   view: {
     default_mode: "avg_short",
     avg_short_minutes: 5,

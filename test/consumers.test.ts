@@ -56,7 +56,7 @@ function config(
     maxConsumers: over.maxConsumers ?? Number.POSITIVE_INFINITY,
     updateIntervalS: 5,
     list: { enabled: true, restLabel: over.restLabel, alwaysBelow: false },
-    ring: { enabled: true },
+    ring: { enabled: true, animation: "overtake" },
     view: {
       defaultMode: "current",
       avgShortMinutes: 5,

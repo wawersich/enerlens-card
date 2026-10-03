@@ -497,6 +497,27 @@ describe("show-all toggle (REQ L-12)", () => {
     expect(ringAtTargets(still)).toBe(true);
   });
 
+  it("lets the ring jump with ring.animation: jump, while the rest moves (REQ R-4)", async () => {
+    const el = await mountWithConsumers({ ring: { animation: "jump" } });
+    await changePump(el, "400");
+    expect(ringAtTargets(el)).toBe(true);
+    expect(el.shadowRoot?.querySelectorAll("g.dots g.dot").length).toBeGreaterThan(0);
+  });
+
+  it("glides the ring with ring.animation: fade (REQ R-4)", async () => {
+    const el = await mountWithConsumers({ ring: { animation: "fade" } });
+    await changePump(el, "400");
+    expect(ringAtTargets(el)).toBe(false);
+    expect(el.shadowRoot?.querySelector("svg.ring")?.classList.contains("fade")).toBe(true);
+
+    // Motion off stills the colours too (P-7).
+    const still = await mountWithConsumers({
+      flow: { animation: "off" },
+      ring: { animation: "fade" },
+    });
+    expect(still.shadowRoot?.querySelector("svg.ring")?.classList.contains("fade")).toBe(false);
+  });
+
   it("draws no dots at all when animation is off (REQ P-7)", async () => {
     const moving = await mountWithConsumers();
     expect(moving.shadowRoot?.querySelectorAll("g.dots g.dot").length).toBeGreaterThan(0);

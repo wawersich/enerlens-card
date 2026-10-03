@@ -267,6 +267,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `list.title` | — | Heading above the list |
 | `list.always_below` | `false` | Keep the list under the cross even when there is room beside it |
 | `ring.enabled` | on with consumers | Show the ring |
+| `ring.animation` | `overtake` | How the ring follows a reordered list. `overtake`: every segment travels to its new place, one moving forward passes on an inner lane. `fade`: the places stay, their colours blend into the new order. `jump`: the ring does not move, new values show at once - dots and list keep moving |
 | `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
 | `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
@@ -293,7 +294,8 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 
 `flow.animation: auto` follows the device's reduce-motion preference — that
 setting lives in the operating system, not in Home Assistant. It covers
-everything that moves: the dots, the list re-sorting and the ring. With motion
+everything that moves: the dots, the list re-sorting and the ring, whatever
+`ring.animation` says. With motion
 off there are no dots at all, and none in a browser that cannot move them -
 standing still they would say nothing; the line's colour still shows where
 energy flows.

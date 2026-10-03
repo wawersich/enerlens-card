@@ -344,6 +344,15 @@ export const styles = css`
        so their gaps cannot drift apart (R-4). */
   }
 
+  /* ring.animation: fade - a place takes on its new consumer's colour over the
+     ring's glide (RING_GLIDE_MS), ease-out like the spring that moves it. Only
+     the colour: geometry stays with RingAnimator. The class is only there while
+     the card moves (P-7), so it may outrank the reduced-motion rule below -
+     flow.animation: on means the ring moves under reduced motion too. */
+  .ring.fade .ring-seg {
+    transition: stroke 1.5s ease-out !important;
+  }
+
   .link {
     fill: none;
     stroke: var(--el-line);

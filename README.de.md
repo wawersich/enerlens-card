@@ -281,6 +281,7 @@ zusätzliche Abfrage.
 | `list.title` | — | Überschrift über der Liste |
 | `list.always_below` | `false` | Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre |
 | `ring.enabled` | an mit Verbrauchern | Ring anzeigen |
+| `ring.animation` | `overtake` | Wie der Ring einer umsortierten Liste folgt. `overtake`: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. `fade`: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. `jump`: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter |
 | `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
 | `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
@@ -307,7 +308,8 @@ zusätzliche Abfrage.
 
 `flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
 die steht im Betriebssystem, nicht in Home Assistant. Sie gilt für alles, was
-sich bewegt: die Punkte, das Umsortieren der Liste und den Ring. Ohne Bewegung
+sich bewegt: die Punkte, das Umsortieren der Liste und den Ring, gleich was
+`ring.animation` sagt. Ohne Bewegung
 gibt es keine Punkte, ebenso in einem Browser, der sie nicht bewegen kann –
 stehend sagen sie nichts; wo Energie fließt, zeigt weiterhin die Farbe der
 Linie.
