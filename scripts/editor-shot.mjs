@@ -43,18 +43,23 @@ const cardType = process.env.HA_CARD ?? "enerlens-card-dev";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* Invented values, the same as the title picture's first scene. */
+/* Invented values that add up: 9.8 kW solar = 7.7 kW house + 1.8 kW into the
+ * battery + 0.3 kW export. A wallbox charges a car at 66 % on surplus, one
+ * phase at 16 A, so the picture shows the state-of-charge ring (REQ L-15;
+ * Markus, 04.10.2026: screenshots with a charging wallbox at about 66 %). */
 const PREFIX = "sensor.enerlens_test_shot_";
 const VALUES = {
-  solar: 8500,
+  solar: 9800,
   grid: -300,
-  house: 6400,
+  house: 7700,
   battery: -1800,
-  c1: 2600,
-  c2: 2400,
-  c3: 900,
-  c4: 350,
+  wallbox: 3700,
+  c1: 2200,
+  c2: 900,
+  c3: 600,
+  c4: 150,
 };
+const CAR_SOC = 66;
 const NAMES = {
   de: ["Wärmepumpe", "Waschmaschine", "Klima", "Kühlschränke"],
   en: ["Heat pump", "Washing machine", "Air conditioning", "Fridges"],
@@ -85,6 +90,13 @@ function cardConfig(lang) {
       { entity: `${PREFIX}c2`, name: c2, icon: "mdi:washing-machine" },
       { entity: `${PREFIX}c3`, name: c3, icon: "mdi:air-conditioner" },
       { entity: `${PREFIX}c4`, name: c4, icon: "mdi:fridge-outline" },
+      // Last, so the others keep the colours of the title picture.
+      {
+        entity: `${PREFIX}wallbox`,
+        name: "Wallbox",
+        icon: "mdi:ev-station",
+        charge: { soc: `${PREFIX}car` },
+      },
     ],
     flow: { design: "electron", inactive_lines: "dim" },
   };
@@ -310,6 +322,7 @@ for (const [key, value] of Object.entries(VALUES)) {
   });
 }
 await putState("soc", 68, { unit_of_measurement: "%", device_class: "battery" });
+await putState("car", CAR_SOC, { unit_of_measurement: "%", device_class: "battery" });
 
 try {
   for (const lang of ["de", "en"]) {

@@ -17,7 +17,7 @@
 <text x="297.6" y="305.2" text-anchor="middle" font-size="12.0" font-weight="500" fill="rgb(227, 227, 227)" font-family="Roboto, system-ui, sans-serif" textLength="44.3" lengthAdjust="spacingAndGlyphs">3.50 kW</text>
 <text x="297.6" y="355.5" text-anchor="middle" font-size="12.0" font-weight="400" fill="rgb(227, 227, 227)" font-family="Roboto, system-ui, sans-serif" textLength="35.9" lengthAdjust="spacingAndGlyphs">House</text>
 <circle cx="184" cy="399.1" r="49.3" fill="rgb(29, 30, 33)" stroke="rgb(77, 182, 172)" stroke-width="2"/>
-<clipPath id="soc5yv4e"><circle cx="184" cy="399.1" r="49.3"/></clipPath><rect clip-path="url(#soc5yv4e)" x="135.7" y="381.7" width="96.6" height="65.7" fill="rgb(186, 196, 59)" opacity="0.22"/>
+<clipPath id="sockkr80"><circle cx="184" cy="399.1" r="49.3"/></clipPath><rect clip-path="url(#sockkr80)" x="135.7" y="381.7" width="96.6" height="65.7" fill="rgb(186, 196, 59)" opacity="0.22"/>
 <g transform="translate(168.9,384) scale(1.2572)"><path d="M16,10H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z" fill="rgb(77, 182, 172)"/></g>
 <text x="184" y="380.5" text-anchor="middle" font-size="12.0" font-weight="500" fill="rgb(227, 227, 227)" font-family="Roboto, system-ui, sans-serif" textLength="23.7" lengthAdjust="spacingAndGlyphs">68%</text>
 <text x="184" y="425.9" text-anchor="middle" font-size="12.0" font-weight="500" fill="rgb(227, 227, 227)" font-family="Roboto, system-ui, sans-serif" textLength="44.3" lengthAdjust="spacingAndGlyphs">1.10 kW</text>
