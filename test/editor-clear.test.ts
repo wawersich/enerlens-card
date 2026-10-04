@@ -145,6 +145,24 @@ describe("editor: clearing fields never yields an invalid configuration (REQ E-1
     }
   });
 
+  it("every state-of-charge field cleared inside a consumer (REQ L-15)", async () => {
+    for (const empty of ["", null, undefined]) {
+      const el = await mount(FULL);
+      const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;
+      const saved = emit(el, {
+        ...data,
+        consumers: [
+          {
+            entity: "sensor.c",
+            charge: { soc: empty, show: empty, plugged: empty, unplugged: empty },
+          },
+          { entity: "sensor.d", charge: { soc: "sensor.car", show: "plugged", plugged: empty } },
+        ],
+      });
+      expect(() => normalizeConfig(saved)).not.toThrow();
+    }
+  });
+
   it("everything optional cleared at once", async () => {
     const el = await mount(FULL);
     const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;

@@ -6,6 +6,7 @@ import { dotParams } from "./flow";
 import {
   type Breakdown,
   type Config,
+  type ConsumerReading,
   type ListEntry,
   type Model,
   REST_KEY,
@@ -24,28 +25,38 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   // own if it has one, else the global one (REQ L-3). A standby draw that is
   // real but uninteresting (a heat pump idling at 25 W) is hidden this way.
   const candidates: ListEntry[] = [];
+  // Rows that stay whatever they draw: a car plugged in, or `show: always`
+  // (REQ L-15) - one wants to see its charge, above all when it stands full.
+  const pinned: ListEntry[] = [];
   for (const consumer of model.consumers) {
-    if (!consumer.reading.available) continue;
+    const charge = consumer.charge;
+    const pin =
+      charge !== undefined &&
+      (charge.show === "always" || (charge.show === "plugged" && charge.plugged));
+    if (!consumer.reading.available && !pin) continue;
+    const w = consumer.reading.available ? consumer.reading.w : 0;
     const threshold = consumer.minW ?? config.minConsumerW;
-    if (!showAll && consumer.reading.w < threshold) continue;
-    candidates.push({
+    if (!showAll && !pin && w < threshold) continue;
+    const entry: ListEntry = {
       key: consumer.key,
       name: consumer.name,
-      w: consumer.reading.w,
+      w,
       color: consumer.color,
       entity: consumer.entity,
       icon: consumer.icon,
       threshold,
       isRest: false,
-    });
+      charge: chargeOfEntry(consumer),
+      powerUnknown: consumer.reading.available ? undefined : true,
+    };
+    (pin ? pinned : candidates).push(entry);
   }
 
-  // 2. Strongest `maxConsumers` (REQ L-4). Array.sort is stable, so consumers
-  // of equal power keep their configured order.
-  const shown = sortDescending(candidates).slice(
-    0,
-    showAll ? Number.POSITIVE_INFINITY : config.maxConsumers,
-  );
+  // 2. Strongest `maxConsumers` (REQ L-4), pinned rows on top of the limit.
+  // Array.sort is stable, so consumers of equal power keep their configured order.
+  const shown = sortDescending(candidates)
+    .slice(0, showAll ? Number.POSITIVE_INFINITY : config.maxConsumers)
+    .concat(pinned);
 
   // 3. Rest, only with an available house value and at or above the threshold
   // (REQ L-5). A negative rest - sum of shown > house - fails that test too.
@@ -70,6 +81,13 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   // 4. The rest is sorted in like any other entry (REQ L-6). It was appended
   // last, so on a tie it lands behind consumers of equal power.
   return sortDescending(entries);
+}
+
+/** What the row shows of a consumer's state of charge (REQ L-15). */
+function chargeOfEntry(consumer: ConsumerReading): ListEntry["charge"] {
+  const charge = consumer.charge;
+  if (!charge) return undefined;
+  return { entity: charge.entity, soc: charge.soc, stale: charge.stale, since: charge.since };
 }
 
 /**
@@ -149,12 +167,21 @@ export function refreshBreakdownValues(
   config: Config,
 ): Breakdown {
   const live = new Map<string, number>();
+  const charges = new Map<string, ListEntry["charge"]>();
   for (const consumer of model.consumers) {
     if (consumer.reading.available) live.set(consumer.key, consumer.reading.w);
+    if (consumer.charge) charges.set(consumer.key, chargeOfEntry(consumer));
   }
 
   const entries = breakdown.entries.map((entry) =>
-    entry.isRest ? entry : { ...entry, w: live.get(entry.key) ?? entry.w },
+    entry.isRest
+      ? entry
+      : {
+          ...entry,
+          w: live.get(entry.key) ?? (entry.powerUnknown ? 0 : entry.w),
+          powerUnknown: live.has(entry.key) ? undefined : entry.powerUnknown,
+          charge: charges.has(entry.key) ? charges.get(entry.key) : entry.charge,
+        },
   );
 
   // The rest keeps absorbing whatever the shown consumers do not account for.

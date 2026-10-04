@@ -15,7 +15,10 @@
     "rest": "Rest",
     "title": "Verbraucher",
     "show_all": "Alle Verbraucher anzeigen, auch ohne Leistung",
-    "filter_on": "Nur aktive Verbraucher anzeigen"
+    "filter_on": "Nur aktive Verbraucher anzeigen",
+    "charge": "Ladestand {value}",
+    "charge_stale": "Ladestand {value} · Stand {time}",
+    "charge_unknown": "Ladestand unbekannt"
   },
   "view": {
     "now": "Jetzt",
@@ -49,7 +52,9 @@
       "duplicate_consumer": "{field}: die Entität {entity} ist mehrfach angegeben; der weitere Eintrag wird übersprungen.",
       "unknown_key": "Unbekannte Option {field} - wird ignoriert.",
       "order_fixed": "{first} muss kleiner als {second} sein — {second} wurde auf {value} angehoben.",
-      "grid_status_no_outage": "{field} braucht eine Entität und mindestens einen Ausfall-Zustand — ohne beides wird der Netzstatus ignoriert."
+      "grid_status_no_outage": "{field} braucht eine Entität und mindestens einen Ausfall-Zustand — ohne beides wird der Netzstatus ignoriert.",
+      "charge_no_soc": "{field} hat keine soc-Entität und wird ignoriert.",
+      "charge_no_plugged": "{field}: show plugged braucht eine plugged-Entität - stattdessen wie beim Laden."
     }
   },
   "editor": {
@@ -156,7 +161,20 @@
     "colors_dots": "Punkte",
     "dot_color_follow": "Punkte in der Farbe ihrer Linie",
     "power_auto": "Automatisch",
-    "power_digits": "Relevante Stellen"
+    "power_digits": "Relevante Stellen",
+    "consumer_add": "Verbraucher hinzufügen",
+    "consumer_new": "Neuer Verbraucher",
+    "consumer_remove": "Verbraucher entfernen",
+    "charge": "Ladestand",
+    "charge_show_charging": "Beim Laden",
+    "charge_show_plugged": "Wenn angesteckt",
+    "charge_show_always": "Immer",
+    "consumer_soc": "Ladestand-Entität (%)",
+    "consumer_show": "In der Liste zeigen",
+    "consumer_plugged": "Angesteckt",
+    "consumer_unplugged": "Nicht angesteckt bei",
+    "consumer_up": "Nach oben",
+    "consumer_down": "Nach unten"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -182,7 +200,6 @@
     "battery_charge": "Nur das Laden aus allen Quellen, als Betrag ≥ 0.",
     "derived": "Wird aus den drei anderen Größen berechnet, damit die Bilanz aufgeht. Nur eine Größe kann abgeleitet sein.",
     "min_w": "Ab dieser Leistung gilt eine Verbindung als aktiv: Punkte laufen, Netz und Batterie zeigen ihren Zustand. Darunter ist alles neutral.",
-    "consumers": "Mindestleistung je Verbraucher überschreibt den globalen Wert – etwa 50 W für eine Wärmepumpe, damit ihr Standby nicht als Verbraucher zählt.",
     "icon_battery": "Leer = Icon folgt dem Ladezustand.",
     "peak_w": "Ein Wert für die ganze Bewegung: Bei dieser Leistung laufen die meisten Punkte am schnellsten. Die drei Schwellen der Feineinstellung ergeben sich daraus (1/12, 1/3, 1/1), solange sie leer sind. Standard 6000 W.",
     "flow_fine": "Nur nötig, wenn die Höchstleistung allein nicht reicht. Ein gesetzter Wert hat Vorrang vor der Ableitung aus der Höchstleistung. Stimmt die Reihenfolge nicht, hebt die Karte den zweiten Wert an und meldet es in der Browser-Konsole.",
@@ -201,7 +218,13 @@
     "appearance": "Zeigt diese eine Karte hell oder dunkel – unabhängig vom Theme und ohne den Rest des Dashboards zu verändern. Es legt zugleich fest, welchen der beiden Wertesätze ein Fluss-Design nimmt. „Wie das Theme“ liest den Untergrund aus; das klappt fast immer, aber nicht bei Themes ohne eigenen Kartenhintergrund. Hell und Dunkel verwenden die Standardfarben von Home Assistant, nicht die eines eigenen Themes.",
     "icon_rest": "Leer = ein schlichter Punkt.",
     "dot_color": "Leer = jeder Punkt hat die Farbe seines Flusses und zeigt damit, woher die Energie kommt. Eine Farbe hier gilt für alle Punkte der Karte; die Linien behalten ihre.",
-    "power_digits": "Wie viele Ziffern die Zahl aussagt — nicht wie viele hinter dem Komma stehen. Mit 3: 1,23 kW · 12,3 kW · 123 kW. Eine Nachkommastelle bedeutet bei 1,23 kW etwas anderes als bei 123 kW; die Aussagekraft bleibt so gleich. Watt sind immer ganz."
+    "power_digits": "Wie viele Ziffern die Zahl aussagt — nicht wie viele hinter dem Komma stehen. Mit 3: 1,23 kW · 12,3 kW · 123 kW. Eine Nachkommastelle bedeutet bei 1,23 kW etwas anderes als bei 123 kW; die Aussagekraft bleibt so gleich. Watt sind immer ganz.",
+    "consumers_list": "Aufklappen zum Bearbeiten, am Griff ziehen zum Sortieren. Die Farbe steht unter „Farben“.",
+    "consumer_min_w": "Überschreibt die globale Mindestleistung – etwa 50 W für eine Wärmepumpe, damit ihr Standby nicht als Verbraucher zählt.",
+    "consumer_soc": "Für eine Wallbox der Ladestand des Autos, aus dessen eigener Integration. Erscheint als Ring um das Icon; lädt nichts, steht er statt der Leistung in der Zeile.",
+    "consumer_show": "„Wenn angesteckt“ hält die Zeile in der Liste, solange das Auto angesteckt ist – auch voll und bei 0 W.",
+    "consumer_plugged": "Ein Ein/Aus-Sensor (an = angesteckt) oder ein Status-Sensor der Wallbox.",
+    "consumer_unplugged": "Die Zustände des Status-Sensors, die „nicht angesteckt“ bedeuten; alle anderen gelten als angesteckt."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

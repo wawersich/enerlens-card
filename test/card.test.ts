@@ -518,6 +518,54 @@ describe("show-all toggle (REQ L-12)", () => {
     expect(still.shadowRoot?.querySelector("svg.ring")?.classList.contains("fade")).toBe(false);
   });
 
+  it("keeps a plugged-in car at 0 W in the list and follows the plug (REQ L-15)", async () => {
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pump" },
+        {
+          entity: "sensor.wallbox",
+          name: "Wallbox",
+          charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
+        },
+      ],
+    });
+    const states = (plug: string) => {
+      const hass = fakeHass({
+        ...STATES,
+        "sensor.pump": "1200",
+        "sensor.wallbox": "0",
+        "sensor.car": "80",
+      });
+      hass.states["binary_sensor.plug"] = {
+        ...hass.states["sensor.car"],
+        entity_id: "binary_sensor.plug",
+        state: plug,
+      };
+      return hass;
+    };
+    el.hass = states("on");
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const row = () => el.shadowRoot?.querySelector('.row[data-key="sensor.wallbox"]');
+    expect(row(), "the plugged-in car should be listed").toBeTruthy();
+    expect(row()?.querySelector(".row-value")?.textContent?.trim()).toBe("80 %");
+
+    // Unplugged: it goes on the next selection, like any idle consumer.
+    el.hass = states("off");
+    const guts = el as unknown as {
+      _tickModel: unknown;
+      _modelForMode(h: unknown, c: unknown): unknown;
+      _config: unknown;
+      requestUpdate(): void;
+    };
+    guts._tickModel = guts._modelForMode(el.hass, guts._config);
+    guts.requestUpdate();
+    await el.updateComplete;
+    expect(row()).toBeNull();
+  });
+
   it("draws no dots at all when animation is off (REQ P-7)", async () => {
     const moving = await mountWithConsumers();
     expect(moving.shadowRoot?.querySelectorAll("g.dots g.dot").length).toBeGreaterThan(0);

@@ -5,9 +5,9 @@
  * that is what lets the FLIP animation measure a real "before" and "after"
  * (REQ L-1 to L-9).
  */
-import { type TemplateResult, html, nothing } from "lit";
+import { type TemplateResult, html, nothing, svg } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import { formatPower } from "../format";
+import { formatClock, formatPercent, formatPower } from "../format";
 import { localize } from "../localize";
 import type { Breakdown, Config, HomeAssistant, ListEntry } from "../types";
 import { DEFAULT_ICONS } from "./cross";
@@ -55,6 +55,54 @@ export function rowHeight(count: number): number {
   return 28;
 }
 
+/**
+ * The ring around a row's mark, filled clockwise from twelve o'clock to the
+ * state of charge (REQ L-15). Without a value it is the faint track alone.
+ */
+function chargeRing(soc: number | undefined): TemplateResult {
+  // At the edge of its box: the box already reaches beyond the slot, so the
+  // ring clears an icon of full size without crowding the name.
+  const r = 11.2;
+  const c = 2 * Math.PI * r;
+  const len = soc === undefined ? 0 : (c * Math.max(0, Math.min(100, soc))) / 100;
+  return html`<svg class="charge-ring" viewBox="0 0 24 24" aria-hidden="true">
+    <circle class="track" cx="12" cy="12" r=${r}></circle>
+    ${
+      len > 0
+        ? // svg, not html: a nested html template would make an HTML <circle>,
+          // which draws nothing.
+          svg`<circle
+          class="fill"
+          cx="12"
+          cy="12"
+          r=${r}
+          stroke-dasharray=${`${len.toFixed(2)} ${c.toFixed(2)}`}
+          transform="rotate(-90 12 12)"
+        ></circle>`
+        : nothing
+    }
+  </svg>`;
+}
+
+/** The tooltip on the mark: the charge, and how old it is when it is old. */
+function chargeTitle(charge: NonNullable<ListEntry["charge"]>, hass: HomeAssistant): string {
+  if (charge.soc === undefined) return localize("list.charge_unknown", hass);
+  const value = formatPercent(charge.soc, hass);
+  if (charge.stale && charge.since !== undefined) {
+    return localize("list.charge_stale", hass, { value, time: formatClock(charge.since, hass) });
+  }
+  return localize("list.charge", hass, { value });
+}
+
+/**
+ * Whether the value column shows the charge instead of the power: when there
+ * is a charge to show and nothing to speak of is flowing - the same
+ * `flow.min_w` that decides whether dots run (REQ L-15, P-9).
+ */
+export function showsCharge(entry: ListEntry, config: Config): boolean {
+  return entry.charge?.soc !== undefined && (entry.powerUnknown || entry.w < config.flow.minW);
+}
+
 export function renderList(
   breakdown: Breakdown,
   config: Config,
@@ -72,30 +120,67 @@ export function renderList(
         ${repeat(
           breakdown.entries,
           (entry) => entry.key,
-          (entry) => html`
-            <div class="row ${entry.isRest ? "rest" : ""}" data-key=${entry.key}>
+          (entry) => {
+            const charge = entry.charge;
+            const percent = showsCharge(entry, config);
+            const value =
+              percent && charge?.soc !== undefined
+                ? formatPercent(charge.soc, hass)
+                : entry.powerUnknown
+                  ? "—"
+                  : formatPower(entry.w, hass, config.power);
+            const title = charge ? chargeTitle(charge, hass) : "";
+            // Each part opens the history of what it shows (REQ L-15): the mark
+            // and a charge in the value column the charge, the rest the power.
+            const socHit = (part: string) =>
+              charge
+                ? html`<button
+                  class="soc-hit ${part}"
+                  title=${title}
+                  aria-label=${`${rowLabel(entry, hass)}: ${title}`}
+                  @click=${(ev: Event) => onEntry(charge.entity, ev)}
+                ></button>`
+                : nothing;
+            return html`
+            <div
+              class="row ${entry.isRest ? "rest" : ""} ${charge ? "charge" : ""} ${
+                charge?.stale ? "stale" : ""
+              }"
+              data-key=${entry.key}
+            >
               ${stacked ? runway() : nothing}
               ${
                 // The colour mark, directly in front of the name so the two read
                 // as one label - the fan line ends on it. A configured icon takes
-                // its place, in the same colour (REQ L-2, L-13).
-                entry.icon
-                  ? html`<ha-icon class="swatch icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
-                  : html`<span class="swatch dot" style="color:${entry.color}"></span>`
+                // its place, in the same colour (REQ L-2, L-13). With a state of
+                // charge it carries the ring and its own tap target (L-15).
+                charge
+                  ? html`<span class="swatch ${entry.icon ? "icon" : "dot"}" style="color:${entry.color}"
+                      >${chargeRing(charge.soc)}${
+                        entry.icon ? html`<ha-icon .icon=${entry.icon}></ha-icon>` : nothing
+                      }${socHit("mark")}</span
+                    >`
+                  : entry.icon
+                    ? html`<ha-icon class="swatch icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
+                    : html`<span class="swatch dot" style="color:${entry.color}"></span>`
               }
               <span class="name">${rowLabel(entry, hass)}</span>
-              <span class="row-value">${formatPower(entry.w, hass, config.power)}</span>
+              <span class="row-value ${percent ? "soc" : ""}">${value}${percent ? socHit("value") : nothing}</span>
               ${
                 entry.entity
                   ? html`<button
                     class="row-hit"
-                    aria-label=${`${rowLabel(entry, hass)} ${formatPower(entry.w, hass, config.power)}`}
+                    aria-label=${`${rowLabel(entry, hass)} ${
+                      // The row opens the power, so it names the power.
+                      entry.powerUnknown ? "—" : formatPower(entry.w, hass, config.power)
+                    }`}
                     @click=${(ev: Event) => onEntry(entry.entity as string, ev)}
                   ></button>`
                   : nothing
               }
             </div>
-          `,
+          `;
+          },
         )}
       </div>
     </div>

@@ -133,3 +133,25 @@ export function formatSoc(stateObj: HassEntity | undefined, hass: HomeAssistant)
   const language = baseLanguage(hass?.locale?.language ?? hass?.language);
   return `${number}${BLANK_BEFORE_PERCENT.has(language) ? " " : ""}%`;
 }
+
+/**
+ * A state of charge read off a consumer row (REQ L-15): whole percent, with
+ * the space before "%" the language asks for (K-4). Whole numbers because the
+ * value column has no room to spare and a car reports in whole percent anyway.
+ */
+export function formatPercent(value: number, hass: HomeAssistant): string {
+  const number = new Intl.NumberFormat(localeFor(hass), { maximumFractionDigits: 0 }).format(
+    Math.round(value),
+  );
+  const language = baseLanguage(hass?.locale?.language ?? hass?.language);
+  return `${number}${BLANK_BEFORE_PERCENT.has(language) ? " " : ""}%`;
+}
+
+/** When a value was measured, for "as of 14:05" - with the date unless it is today. */
+export function formatClock(t: number, hass: HomeAssistant, now = Date.now()): string {
+  const when = new Date(t);
+  const time = when.toLocaleTimeString(localeFor(hass), { hour: "2-digit", minute: "2-digit" });
+  if (when.toDateString() === new Date(now).toDateString()) return time;
+  const date = when.toLocaleDateString(localeFor(hass), { day: "numeric", month: "numeric" });
+  return `${date} ${time}`;
+}

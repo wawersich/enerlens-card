@@ -98,6 +98,54 @@
         "glowStrength": 10,
         "line": 80
       }
+    },
+    {
+      "id": "proton",
+      "name": "Proton",
+      "shape": {
+        "caps": 3,
+        "bias": 100
+      },
+      "dark": {
+        "dot": 6,
+        "core": 38,
+        "coreLight": 100,
+        "glow": 2,
+        "glowStrength": 100,
+        "line": 80
+      },
+      "light": {
+        "dot": 7,
+        "core": 64,
+        "coreLight": 100,
+        "glow": 2,
+        "glowStrength": 30,
+        "line": 80
+      }
+    },
+    {
+      "id": "neutrino",
+      "name": "Neutrino",
+      "shape": {
+        "caps": 3,
+        "bias": 100
+      },
+      "dark": {
+        "dot": 6,
+        "core": 38,
+        "coreLight": 100,
+        "glow": 0,
+        "glowStrength": 100,
+        "line": 80
+      },
+      "light": {
+        "dot": 7,
+        "core": 64,
+        "coreLight": 85,
+        "glow": 0,
+        "glowStrength": 30,
+        "line": 80
+      }
     }
   ]
 }

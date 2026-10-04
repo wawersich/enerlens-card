@@ -164,6 +164,19 @@ export interface ConsumerConfig {
   min_w?: number;
   /** Optional mdi icon shown in front of the name (REQ L-2). */
   icon?: string;
+  /** A state of charge that belongs to this consumer - an EV at its wallbox (REQ L-15). */
+  charge?: ChargeConfig;
+}
+
+/** When a consumer with a state of charge is listed (REQ L-15). */
+export type ChargeShow = "charging" | "plugged" | "always";
+
+export interface ChargeConfig {
+  soc?: string;
+  show?: ChargeShow;
+  plugged?: string;
+  /** States of an enum `plugged` entity that mean "not plugged in". */
+  unplugged?: string[];
 }
 
 export interface SocStop {
@@ -262,6 +275,27 @@ export interface NormalizedConsumer {
   /** Own threshold in W, undefined = the global `min_consumer_w` (REQ L-3). */
   minW?: number;
   icon?: string;
+  charge?: NormalizedCharge;
+}
+
+export interface NormalizedCharge {
+  soc: string;
+  show: ChargeShow;
+  plugged?: string;
+  /** Lower-case; empty means the entity is on/off. */
+  unplugged: string[];
+}
+
+/**
+ * What the card knows about a consumer's state of charge right now (REQ L-15).
+ * `soc` is undefined when no value was ever seen; `stale` marks the last known
+ * one, kept while the sensor is unavailable, with the time it was measured.
+ */
+export interface ChargeState {
+  soc?: number;
+  stale: boolean;
+  since?: number;
+  plugged: boolean;
 }
 
 export interface Config {
@@ -385,6 +419,7 @@ export interface ConsumerReading {
   minW?: number;
   icon?: string;
   reading: Reading;
+  charge?: ChargeState & { entity: string; show: ChargeShow };
 }
 
 export interface Model {
@@ -426,6 +461,13 @@ export interface ListEntry {
    */
   threshold: number;
   isRest: boolean;
+  /** State of charge shown with the row (REQ L-15). */
+  charge?: { entity: string; soc?: number; stale: boolean; since?: number };
+  /**
+   * False for a row kept by its charge while its power is unavailable: `w` is
+   * then 0 for sorting and the rest, but no figure may be shown for it (rule 8).
+   */
+  powerUnknown?: boolean;
 }
 
 export interface Segment {

@@ -3,9 +3,9 @@
  *
  * Built on ha-form, which Home Assistant registers itself: passing it a schema
  * yields native pickers, translated labels and the look of every other card
- * editor. Consumers use the object selector with multiple: true, available
- * since HA 2025.7 (ENT-17) - that is what makes a list editable without a
- * hand-written sub-editor.
+ * editor. The consumers are a list of our own (REQ E-4): one unfoldable entry
+ * each with an ha-form inside, because the object selector could neither
+ * unfold a section in an entry nor react to the entity chosen in it.
  *
  * Every form a balance quantity can take in YAML (REQ A-1, ENT-16) is
  * editable here: a single entity with optional sign inversion, the split
@@ -15,6 +15,7 @@
  * set of pickers means.
  */
 import { type CSSResultGroup, LitElement, type TemplateResult, css, html, nothing } from "lit";
+import { repeat } from "lit/directives/repeat.js";
 import {
   DEFAULT_COLORS,
   DEFAULT_CONSUMER_PALETTE,
@@ -51,6 +52,75 @@ const BATTERY_FILTER = [
 ];
 
 const QUANTITIES = ["solar", "grid", "house", "battery"] as const;
+
+/** Where the consumer panel goes between the form pieces (REQ E-4). */
+const CONSUMERS_SLOT = "consumers_slot";
+
+/** An entity that answers on/off rather than with states of its own. */
+function isOnOff(entityId: string): boolean {
+  const domain = entityId.split(".")[0];
+  return domain === "binary_sensor" || domain === "input_boolean";
+}
+
+/** What can say whether a car is plugged in: on/off, or a state among several. */
+const PLUGGED_FILTER = [
+  { domain: "binary_sensor" },
+  { domain: "input_boolean" },
+  { domain: "sensor" },
+  { domain: "input_select" },
+];
+
+/**
+ * The form of one consumer, built per entry: the plugged field only where the
+ * display waits for the plug, and the unplugged states only for an entity that
+ * has states rather than on/off - offered from its own options (REQ E-4, L-15).
+ */
+function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
+  const t = (key: string) => localize(`editor.${key}`, hass);
+  const charge = isRecord(entry.charge) ? entry.charge : {};
+  const plugged = typeof charge.plugged === "string" ? charge.plugged : "";
+  const onOff = isOnOff(plugged);
+  const options = hass.states?.[plugged]?.attributes?.options;
+  const choices = (Array.isArray(options) ? options : [])
+    .filter((option): option is string => typeof option === "string")
+    .map((option) => ({ value: option, label: option }));
+  const chargeFields: Record<string, unknown>[] = [
+    { name: "soc", selector: { entity: { filter: BATTERY_FILTER } } },
+    {
+      name: "show",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: [
+            { value: "charging", label: t("charge_show_charging") },
+            { value: "plugged", label: t("charge_show_plugged") },
+            { value: "always", label: t("charge_show_always") },
+          ],
+        },
+      },
+    },
+  ];
+  if (charge.show === "plugged") {
+    chargeFields.push({ name: "plugged", selector: { entity: { filter: PLUGGED_FILTER } } });
+    if (plugged && !onOff) {
+      chargeFields.push({
+        name: "unplugged",
+        selector: {
+          select: { multiple: true, custom_value: true, mode: "list", options: choices },
+        },
+      });
+    }
+  }
+  return [
+    { name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } },
+    { name: "name", selector: { text: {} } },
+    // No colour here: it has a row with a swatch under "Colours", and two
+    // places to set one thing is one place too many.
+    { name: "icon", selector: { icon: {} } },
+    { name: "min_w", selector: { number: { min: 0, max: 10000, mode: "box" } } },
+    { name: "charge", type: "expandable", title: t("charge"), schema: chargeFields },
+  ];
+}
 type Quantity = (typeof QUANTITIES)[number];
 /** The four nodes plus the rest row, which has an icon but no entity. */
 const ICON_KEYS = [...QUANTITIES, "rest"] as const;
@@ -318,13 +388,35 @@ function cleanConsumers(value: unknown): RawConfig["consumers"] {
   const list: Record<string, unknown>[] = [];
   for (const entry of value) {
     if (!isRecord(entry)) continue;
-    const cleaned = prune(entry);
+    const cleaned = prune<Record<string, unknown>>({ ...entry, charge: cleanCharge(entry.charge) });
     const entity = cleaned?.entity;
     if (!cleaned || typeof entity !== "string" || seen.has(entity)) continue;
     seen.add(entity);
     list.push(cleaned);
   }
   return list.length ? (list as unknown as RawConfig["consumers"]) : undefined;
+}
+
+/**
+ * A consumer's state of charge as the YAML should hold it (REQ L-15, E-4):
+ * empty fields gone, the unplugged list only with entries, and nothing at all
+ * until a state-of-charge entity is chosen - the form keeps the half-filled
+ * section, the configuration does not need it.
+ */
+function cleanCharge(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  // What the form hides is not written either: the plug only matters for
+  // show: plugged, and an on/off plug has no "unplugged" states - a list left
+  // over from a status sensor would otherwise read every "off" as plugged in.
+  const waits = value.show === "plugged";
+  const plugged = waits ? opt(value.plugged as string) : undefined;
+  const charge = prune({
+    soc: opt(value.soc as string),
+    show: opt(value.show as string),
+    plugged,
+    unplugged: plugged && !isOnOff(plugged) ? states(value.unplugged) : undefined,
+  });
+  return charge && nonEmpty(charge.soc) ? charge : undefined;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -512,39 +604,10 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "grid_status_ok", selector: stateSelector },
       ],
     },
-    {
-      name: "consumers_section",
-      type: "expandable",
-      flatten: true,
-      title: t("consumers"),
-      schema: [
-        {
-          name: "consumers",
-          selector: {
-            object: {
-              multiple: true,
-              label_field: "name",
-              description_field: "entity",
-              fields: {
-                entity: {
-                  label: t("entity"),
-                  selector: { entity: { filter: POWER_FILTER } },
-                  required: true,
-                },
-                name: { label: t("name"), selector: { text: {} } },
-                // No colour here: it has a row with a swatch under "Colours", and
-                // two places to set one thing is one place too many.
-                icon: { label: t("icon"), selector: { icon: {} } },
-                min_w: {
-                  label: t("min_w"),
-                  selector: { number: { min: 0, max: 10000, mode: "box" } },
-                },
-              },
-            },
-          },
-        },
-      ],
-    },
+    // The consumers have a panel of their own, drawn between the form pieces
+    // (REQ E-4): the object selector could not unfold a section inside an entry
+    // or react to the entity chosen in it. Marked here so render() knows where.
+    { name: CONSUMERS_SLOT, type: "constant" },
     {
       name: "display",
       type: "expandable",
@@ -752,6 +815,7 @@ class EnerLensCardEditor extends LitElement {
     _openColors: { state: true },
     _picker: { state: true },
     _pickerMode: { state: true },
+    _openConsumers: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -783,6 +847,16 @@ class EnerLensCardEditor extends LitElement {
   /** Which notation the wheel is being read in. It outlives a single pick, so
    *  someone who works in RGB is not put back on hex at every row. */
   private _pickerMode: "hex" | "rgb" | "hsl" = "hex";
+  /**
+   * A key per consumer entry, in step with the list, so an unfolded entry stays
+   * unfolded - and stays the same entry - when the list is sorted or one above
+   * it is removed. Not part of the configuration; rebuilt when the list arrives
+   * from outside with a different length.
+   */
+  private _consumerKeys: number[] = [];
+  private _nextConsumerKey = 0;
+  /** Keys of the unfolded consumer entries. */
+  private _openConsumers: ReadonlySet<number> = new Set();
 
   setConfig(config: RawConfig): void {
     this._config = config;
@@ -790,6 +864,9 @@ class EnerLensCardEditor extends LitElement {
     // did not produce ourselves - a YAML edit, a fresh open - resets the form.
     if (this._flat === undefined || JSON.stringify(config) !== this._emitted) {
       this._flat = toFlat(config);
+      // A list from outside is a list of its own: fresh keys, all folded.
+      this._consumerKeys = [];
+      this._openConsumers = new Set();
     }
   }
 
@@ -1542,10 +1619,14 @@ class EnerLensCardEditor extends LitElement {
 
   render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config || !this._flat) return nothing;
-    const fields = schema(this.hass, this._flat as FlatRecord);
-    // The colours keep the place they always had, between the flow settings and
-    // the icons - they are simply not part of the schema any more. Both forms
-    // carry the same data, so either one may report any field.
+    const all = schema(this.hass, this._flat as FlatRecord);
+    // The consumers have their own panel where the object selector used to be,
+    // and the colours keep the place they always had, between the flow
+    // settings and the icons. All form pieces carry the same data, so any one
+    // of them may report any field.
+    const slot = all.findIndex((item) => item.name === CONSUMERS_SLOT);
+    const head = slot === -1 ? all : all.slice(0, slot);
+    const fields = slot === -1 ? [] : all.slice(slot + 1);
     const cut = fields.findIndex((item) => item.name === "icons");
     const split = cut === -1 ? fields.length : cut;
     const form = (items: typeof fields) => html`
@@ -1558,7 +1639,211 @@ class EnerLensCardEditor extends LitElement {
         @value-changed=${this._valueChanged}
       ></ha-form>
     `;
-    return html`${form(fields.slice(0, split))}${this._renderColors()}${form(fields.slice(split))}`;
+    return html`${form(head)}${this._renderConsumers()}${form(fields.slice(0, split))}${this._renderColors()}${form(fields.slice(split))}`;
+  }
+
+  // --- consumers (REQ E-4, L-15) -----------------------------------------------
+
+  /** The entries as the form holds them, half-filled ones included. */
+  private _consumerRows(): unknown[] {
+    const raw = (this._flat as FlatRecord | undefined)?.consumers;
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  /** Keys in step with the rows; a list from outside starts a fresh set. */
+  private _keysFor(count: number): number[] {
+    while (this._consumerKeys.length < count) this._consumerKeys.push(this._nextConsumerKey++);
+    if (this._consumerKeys.length > count) this._consumerKeys.length = count;
+    return this._consumerKeys;
+  }
+
+  private _writeConsumers(rows: unknown[], keys: number[]): void {
+    if (!this._flat) return;
+    this._consumerKeys = keys;
+    this._emit({ ...(this._flat as FlatRecord), consumers: rows } as FlatConfig);
+  }
+
+  private _renderConsumers(): TemplateResult {
+    const t = (key: string) => localize(`editor.${key}`, this.hass);
+    const rows = this._consumerRows();
+    const keys = this._keysFor(rows.length);
+    const items = rows.map((row, index) => ({ row, index, key: keys[index] }));
+    return html`
+      <ha-expansion-panel outlined class="consumers-panel">
+        <div slot="header" role="heading" aria-level="3">${t("consumers")}</div>
+        <div class="consumers">
+          <p class="hint">${localize("editor_help.consumers_list", this.hass)}</p>
+          <ha-sortable handle-selector=".handle" @item-moved=${this._moveConsumer}>
+            <div class="consumer-list">
+              ${repeat(
+                items,
+                (item) => item.key,
+                (item) => this._renderConsumer(item.row, item.index, item.key),
+              )}
+            </div>
+          </ha-sortable>
+          <button class="add-consumer" type="button" @click=${this._addConsumer}>
+            <ha-icon icon="mdi:plus"></ha-icon>${t("consumer_add")}
+          </button>
+        </div>
+      </ha-expansion-panel>
+    `;
+  }
+
+  private _renderConsumer(raw: unknown, index: number, key: number): TemplateResult {
+    const t = (k: string) => localize(`editor.${k}`, this.hass);
+    const row = isRecord(raw) ? raw : {};
+    const entity = typeof row.entity === "string" ? row.entity : "";
+    const friendly = this.hass?.states?.[entity]?.attributes?.friendly_name;
+    const title =
+      (typeof row.name === "string" && row.name.trim()) ||
+      (typeof friendly === "string" && friendly) ||
+      entity ||
+      t("consumer_new");
+    const charge = isRecord(row.charge) ? row.charge : undefined;
+    const hasCharge = nonEmpty(charge?.soc);
+    const palette = DEFAULT_CONSUMER_PALETTE;
+    const colour =
+      typeof row.color === "string" && row.color.trim() !== ""
+        ? row.color
+        : palette[index % palette.length];
+    return html`
+      <ha-expansion-panel
+        outlined
+        class="consumer"
+        .expanded=${this._openConsumers.has(key)}
+        @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => {
+          // Nested panels bubble theirs too; only this entry's own counts.
+          if (ev.target !== ev.currentTarget) return;
+          const next = new Set(this._openConsumers);
+          if (ev.detail.expanded) next.add(key);
+          else next.delete(key);
+          this._openConsumers = next;
+        }}
+      >
+        <div slot="header" class="consumer-head">
+          ${
+            customElements.get("ha-sortable")
+              ? html`<ha-icon
+                  class="handle"
+                  icon="mdi:drag"
+                  @click=${(ev: Event) => ev.stopPropagation()}
+                  @keydown=${(ev: Event) => ev.stopPropagation()}
+                ></ha-icon>`
+              : // HA loads its drag helper only for some views; without it the
+                // entries move by buttons instead of silently not at all.
+                html`<span class="move">
+                  ${[-1, 1].map(
+                    (step) => html`<button
+                      type="button"
+                      aria-label=${t(step < 0 ? "consumer_up" : "consumer_down")}
+                      ?disabled=${index + step < 0 || index + step >= this._consumerRows().length}
+                      @click=${(ev: Event) => {
+                        ev.stopPropagation();
+                        this._moveTo(index, index + step);
+                      }}
+                      @keydown=${(ev: Event) => ev.stopPropagation()}
+                    >
+                      <ha-icon icon=${step < 0 ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
+                    </button>`,
+                  )}
+                </span>`
+          }
+          <ha-icon
+            class="consumer-icon"
+            icon=${typeof row.icon === "string" && row.icon ? row.icon : "mdi:flash"}
+            style="color:${colour}"
+          ></ha-icon>
+          <span class="consumer-title">
+            <span class="consumer-name">${title}</span>
+            ${entity ? html`<small>${entity}</small>` : nothing}
+          </span>
+          ${
+            hasCharge
+              ? html`<span class="badge"><ha-icon icon="mdi:battery-charging-70"></ha-icon>${t(
+                  "charge",
+                )}</span>`
+              : nothing
+          }
+          <button
+            class="remove"
+            type="button"
+            aria-label=${t("consumer_remove")}
+            title=${t("consumer_remove")}
+            @click=${(ev: Event) => {
+              ev.stopPropagation();
+              this._removeConsumer(index);
+            }}
+            @keydown=${(ev: Event) => {
+              // The panel header treats Enter and Space as "toggle" and cancels
+              // them; kept here they press the button instead.
+              ev.stopPropagation();
+            }}
+          >
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+        </div>
+        <ha-form
+          .hass=${this.hass}
+          .data=${row}
+          .schema=${consumerSchema(this.hass as HomeAssistant, row)}
+          .computeLabel=${this._consumerLabel}
+          .computeHelper=${this._consumerHelper}
+          @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
+            ev.stopPropagation();
+            this._setConsumer(index, ev.detail.value);
+          }}
+        ></ha-form>
+      </ha-expansion-panel>
+    `;
+  }
+
+  private _consumerLabel = (item: { name: string }): string => {
+    const own = `editor.consumer_${item.name}`;
+    const text = localize(own, this.hass);
+    return text === own ? localize(`editor.${item.name}`, this.hass) : text;
+  };
+
+  private _consumerHelper = (item: { name: string }): string => {
+    const key = `editor_help.consumer_${item.name}`;
+    const text = localize(key, this.hass);
+    return text === key ? "" : text;
+  };
+
+  private _setConsumer(index: number, value: Record<string, unknown>): void {
+    const rows = [...this._consumerRows()];
+    rows[index] = value;
+    this._writeConsumers(rows, [...this._consumerKeys]);
+  }
+
+  /** A new entry stays in the form until it has an entity; the YAML only gets it then (E-1). */
+  private _addConsumer = (): void => {
+    const rows = [...this._consumerRows(), {}];
+    const keys = [...this._keysFor(rows.length - 1), this._nextConsumerKey++];
+    this._openConsumers = new Set([...this._openConsumers, keys[keys.length - 1]]);
+    this._writeConsumers(rows, keys);
+  };
+
+  private _removeConsumer(index: number): void {
+    const rows = [...this._consumerRows()];
+    const keys = [...this._consumerKeys];
+    rows.splice(index, 1);
+    keys.splice(index, 1);
+    this._writeConsumers(rows, keys);
+  }
+
+  private _moveConsumer = (ev: CustomEvent<{ oldIndex: number; newIndex: number }>): void => {
+    ev.stopPropagation();
+    this._moveTo(ev.detail.oldIndex, ev.detail.newIndex);
+  };
+
+  private _moveTo(oldIndex: number, newIndex: number): void {
+    const rows = [...this._consumerRows()];
+    const keys = [...this._consumerKeys];
+    if (oldIndex === newIndex || oldIndex >= rows.length) return;
+    rows.splice(newIndex, 0, ...rows.splice(oldIndex, 1));
+    keys.splice(newIndex, 0, ...keys.splice(oldIndex, 1));
+    this._writeConsumers(rows, keys);
   }
 
   static styles: CSSResultGroup = css`
@@ -1579,6 +1864,127 @@ class EnerLensCardEditor extends LitElement {
 
     ha-form {
       display: block;
+    }
+
+    /* The consumers (REQ E-4): one unfoldable entry each, its form inside. */
+    .consumers {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px 0 4px;
+    }
+
+    .consumer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .consumer {
+      --expansion-panel-summary-padding: 0 8px 0 4px;
+      --expansion-panel-content-padding: 4px 12px 12px;
+    }
+
+    .consumer-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .handle {
+      cursor: grab;
+      color: var(--secondary-text-color);
+      padding: 4px;
+    }
+
+    .consumer-icon {
+      flex: none;
+    }
+
+    .consumer-title {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .consumer-name,
+    .consumer-title small {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .consumer-title small {
+      color: var(--secondary-text-color);
+    }
+
+    .badge {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 0.8em;
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      --mdc-icon-size: 14px;
+    }
+
+    .move {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .move button {
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      color: var(--secondary-text-color);
+      display: flex;
+      --mdc-icon-size: 18px;
+    }
+
+    .move button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .remove,
+    .add-consumer {
+      background: none;
+      border: 0;
+      cursor: pointer;
+      color: var(--secondary-text-color);
+      font: inherit;
+    }
+
+    .remove {
+      flex: none;
+      padding: 6px;
+      border-radius: 50%;
+      display: flex;
+    }
+
+    .add-consumer {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 18px;
+      color: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      font-weight: 500;
+    }
+
+    .remove:focus-visible,
+    .add-consumer:focus-visible {
+      outline: 2px solid var(--primary-color);
     }
 
     .colors {

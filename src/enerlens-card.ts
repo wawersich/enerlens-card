@@ -3,7 +3,8 @@
  */
 import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { AveragingBuffer, fetchHistory } from "./averaging";
-import { collectEntityIds, normalizeConfig } from "./config";
+import { ChargeTracker } from "./charge";
+import { collectChargeIds, collectEntityIds, normalizeConfig } from "./config";
 import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
@@ -25,6 +26,7 @@ import {
   type GridStatusSpec,
   type HomeAssistant,
   type Model,
+  type NormalizedCharge,
   type OutageState,
   type RawConfig,
   type Sample,
@@ -77,6 +79,12 @@ class EnerLensCard extends LitElement {
   private _config?: Config;
   private _rawConfig?: RawConfig;
   private _entityIds: string[] = [];
+  /** State-of-charge and plugged entities: watched, never averaged (REQ L-15). */
+  private _chargeIds: string[] = [];
+  private readonly _charge = new ChargeTracker();
+  /** Hands the model a consumer's charge as the tracker knows it now. */
+  private readonly _chargeOf = (charge: NormalizedCharge) =>
+    this._charge.state(this._hass as HomeAssistant, charge);
   private _model?: Model;
   /** Snapshot the list, ring and dots work from - advanced on the tick. */
   private _tickModel?: Model;
@@ -150,7 +158,8 @@ class EnerLensCard extends LitElement {
     if (this._config.gridStatus) {
       this._outage = readStatus(hass, this._config.gridStatus, this._outage);
     }
-    this._model = buildModel(hass, this._config);
+    this._observeCharge(hass);
+    this._model = buildModel(hass, this._config, this._chargeOf);
     this._tickModel ??= this._model;
     this._recordSamples(hass);
   }
@@ -163,7 +172,34 @@ class EnerLensCard extends LitElement {
     for (const id of this._entityIds) {
       if (a.states[id] !== b.states[id]) return true;
     }
+    for (const id of this._chargeIds) {
+      if (a.states[id] !== b.states[id]) return true;
+    }
     return false;
+  }
+
+  /**
+   * Remembers plugged state and the last state of charge, and asks the
+   * recorder once for the last value of a sensor that has none right now - a
+   * car asleep since before the card opened (REQ L-15). Not in the editor
+   * preview, which is recreated on every keystroke.
+   */
+  private _observeCharge(hass: HomeAssistant): void {
+    if (!this._config || this._chargeIds.length === 0) return;
+    this._charge.observe(hass, this._config.consumers);
+    if ((this as unknown as { preview?: boolean }).preview) return;
+    const missing = this._charge.missing(hass, this._config.consumers);
+    if (missing.length === 0) return;
+    this._charge
+      .prefill(hass, missing)
+      .catch(() => undefined)
+      .finally(() => {
+        if (this._hass && this._config) {
+          this._model = buildModel(this._hass, this._config, this._chargeOf);
+          this._tickModel = this._modelForMode(this._hass, this._config);
+        }
+        this.requestUpdate();
+      });
   }
 
   /**
@@ -180,6 +216,7 @@ class EnerLensCard extends LitElement {
     this._config = normalizeConfig(config, this._hass);
     this._rawConfig = config;
     this._entityIds = collectEntityIds(this._config);
+    this._chargeIds = collectChargeIds(this._config);
 
     const view = this._config.view;
     if (!previous || previous.view.avgLongMinutes !== view.avgLongMinutes) {
@@ -208,7 +245,8 @@ class EnerLensCard extends LitElement {
     }
 
     if (this._hass) {
-      this._model = buildModel(this._hass, this._config);
+      this._observeCharge(this._hass);
+      this._model = buildModel(this._hass, this._config, this._chargeOf);
       this._tickModel = this._model;
     }
     if (!previous || previous.updateIntervalS !== this._config.updateIntervalS) {
@@ -289,14 +327,19 @@ class EnerLensCard extends LitElement {
 
   /** Model for the active mode: raw readings, or window means (REQ V-4). */
   private _modelForMode(hass: HomeAssistant, config: Config): Model {
-    if (this._mode === "current" || !this._buffer) return buildModel(hass, config);
+    if (this._mode === "current" || !this._buffer) return buildModel(hass, config, this._chargeOf);
     const minutes =
       this._mode === "avg_short" ? config.view.avgShortMinutes : config.view.avgLongMinutes;
     const windowMs = minutes * 60_000;
     const now = Date.now();
     const buffer = this._buffer;
     // The state of charge is never averaged, so buildModelFrom reads it live.
-    return buildModelFrom(hass, config, (entityId) => buffer.mean(entityId, windowMs, now));
+    return buildModelFrom(
+      hass,
+      config,
+      (entityId) => buffer.mean(entityId, windowMs, now),
+      this._chargeOf,
+    );
   }
 
   /**
@@ -623,7 +666,8 @@ class EnerLensCard extends LitElement {
     // to reach the screen.
     this._dots.setDesign(design, dark);
 
-    const ticked = this._tickModel ?? this._model ?? buildModel(this._hass, this._config);
+    const ticked =
+      this._tickModel ?? this._model ?? buildModel(this._hass, this._config, this._chargeOf);
     // Still, a dot says nothing - its speed is the message, and the line's
     // colour already tells whether anything flows.
     const plans = this._dotsMove ? planDots(computeFlows(ticked), this._config) : [];

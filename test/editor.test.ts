@@ -937,10 +937,10 @@ describe("editor - every colour the card has (REQ C-1, C-3, C-4)", () => {
 
     it("no longer offers a second place to set the same colour", async () => {
       const el = await mount(WITH_CONSUMERS);
-      const consumers = findField(el, "consumers");
-      const fields = (consumers?.selector?.object as { fields: Record<string, unknown> }).fields;
-      expect(Object.keys(fields)).not.toContain("color");
-      expect(Object.keys(fields)).toContain("icon");
+      const consumerForm = el.shadowRoot?.querySelector(".consumer ha-form") as Form;
+      const names = consumerForm.schema.map((field) => field.name);
+      expect(names).not.toContain("color");
+      expect(names).toContain("icon");
     });
   });
 
@@ -1251,5 +1251,226 @@ describe("editor - reading a colour by its channels (REQ E-3)", () => {
     // Black has no hue of its own; the strip must not snap back to red.
     const after = el.shadowRoot?.querySelector(".picker") as HTMLElement;
     expect(numbers(after)[0]).toBe(36);
+  });
+});
+
+describe("editor - the consumer list (REQ E-4, L-15)", () => {
+  const STATES = {
+    "sensor.status": {
+      entity_id: "sensor.status",
+      state: "available",
+      attributes: { options: ["none", "available", "charging"] },
+      last_changed: "",
+      last_updated: "",
+    },
+  };
+  const withStates = { ...hass, states: STATES } as unknown as HomeAssistant;
+
+  async function mountList(config: RawConfig): Promise<Editor> {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    el.hass = withStates;
+    el.setConfig(config);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    return el;
+  }
+
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+    consumers: [
+      { entity: "sensor.wallbox", name: "Wallbox" },
+      { entity: "sensor.pump", name: "Pump" },
+    ],
+  };
+
+  const entries = (el: Editor) => [...(el.shadowRoot?.querySelectorAll(".consumer") ?? [])];
+  const titles = (el: Editor) =>
+    entries(el).map((e) => e.querySelector(".consumer-name")?.textContent?.trim());
+  const consumerForm = (el: Editor, index: number) =>
+    entries(el)[index].querySelector("ha-form") as Form;
+
+  /** Collects the config the editor emits while `run` acts on it. */
+  async function act(el: Editor, run: () => void): Promise<RawConfig> {
+    let saved: RawConfig | undefined;
+    const listener = (ev: Event) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    };
+    el.addEventListener("config-changed", listener);
+    run();
+    el.removeEventListener("config-changed", listener);
+    if (!saved) throw new Error("no config-changed event");
+    el.setConfig(saved);
+    await el.updateComplete;
+    return saved;
+  }
+
+  const setRow = (el: Editor, index: number, value: Record<string, unknown>) =>
+    act(el, () =>
+      consumerForm(el, index).dispatchEvent(
+        new CustomEvent("value-changed", { detail: { value }, bubbles: true, composed: true }),
+      ),
+    );
+
+  it("draws one unfoldable entry per consumer, in order", async () => {
+    const el = await mountList(BASE);
+    expect(titles(el)).toEqual(["Wallbox", "Pump"]);
+  });
+
+  it("keeps a new entry in the form until it has an entity (E-1)", async () => {
+    const el = await mountList(BASE);
+    const add = el.shadowRoot?.querySelector(".add-consumer") as HTMLButtonElement;
+    const saved = await act(el, () => add.click());
+    expect(saved.consumers).toHaveLength(2);
+    expect(entries(el)).toHaveLength(3);
+    expect(() => normalizeConfig(saved)).not.toThrow();
+    const filled = await setRow(el, 2, { entity: "sensor.oven" });
+    expect(filled.consumers?.map((c) => c.entity)).toEqual([
+      "sensor.wallbox",
+      "sensor.pump",
+      "sensor.oven",
+    ]);
+  });
+
+  it("removes an entry and leaves the others", async () => {
+    const el = await mountList(BASE);
+    const remove = entries(el)[0].querySelector(".remove") as HTMLButtonElement;
+    const saved = await act(el, () => remove.click());
+    expect(saved.consumers).toEqual([{ entity: "sensor.pump", name: "Pump" }]);
+  });
+
+  it("sorts by dragging", async () => {
+    const el = await mountList(BASE);
+    const sortable = el.shadowRoot?.querySelector("ha-sortable") as HTMLElement;
+    const saved = await act(el, () =>
+      sortable.dispatchEvent(
+        new CustomEvent("item-moved", { detail: { oldIndex: 1, newIndex: 0 } }),
+      ),
+    );
+    expect(saved.consumers?.map((c) => c.entity)).toEqual(["sensor.pump", "sensor.wallbox"]);
+    expect(titles(el)).toEqual(["Pump", "Wallbox"]);
+  });
+
+  it("writes a state of charge into the consumer, cleaned", async () => {
+    const el = await mountList(BASE);
+    const saved = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      name: "Wallbox",
+      charge: {
+        soc: "sensor.car",
+        show: "plugged",
+        plugged: "sensor.status",
+        unplugged: ["none", ""],
+      },
+    });
+    expect(saved.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      name: "Wallbox",
+      charge: { soc: "sensor.car", show: "plugged", plugged: "sensor.status", unplugged: ["none"] },
+    });
+    expect(normalizeConfig(saved).consumers[0].charge?.show).toBe("plugged");
+  });
+
+  it("writes no plug and no unplugged states the form does not show", async () => {
+    const el = await mountList(BASE);
+    const onOff = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      charge: {
+        soc: "sensor.car",
+        show: "plugged",
+        plugged: "binary_sensor.plug",
+        unplugged: ["none"],
+      },
+    });
+    expect(onOff.consumers?.[0].charge).toEqual({
+      soc: "sensor.car",
+      show: "plugged",
+      plugged: "binary_sensor.plug",
+    });
+    const notWaiting = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      charge: { soc: "sensor.car", show: "always", plugged: "sensor.status", unplugged: ["none"] },
+    });
+    expect(notWaiting.consumers?.[0].charge).toEqual({ soc: "sensor.car", show: "always" });
+  });
+
+  it("moves by buttons where HA has not loaded its drag helper", async () => {
+    const el = await mountList(BASE);
+    // The test DOM has no ha-sortable, like a view that never loads it.
+    const down = entries(el)[0].querySelectorAll(".move button")[1] as HTMLButtonElement;
+    const saved = await act(el, () => down.click());
+    expect(saved.consumers?.map((c) => c.entity)).toEqual(["sensor.pump", "sensor.wallbox"]);
+  });
+
+  it("keeps the same entry unfolded when the list is sorted", async () => {
+    const el = await mountList(BASE);
+    const second = entries(el)[1] as HTMLElement & { expanded: boolean };
+    second.dispatchEvent(new CustomEvent("expanded-changed", { detail: { expanded: true } }));
+    await el.updateComplete;
+    const sortable = el.shadowRoot?.querySelector("ha-sortable") as HTMLElement;
+    await act(el, () =>
+      sortable.dispatchEvent(
+        new CustomEvent("item-moved", { detail: { oldIndex: 1, newIndex: 0 } }),
+      ),
+    );
+    const open = entries(el).map(
+      (e) => (e as HTMLElement & { expanded?: boolean }).expanded === true,
+    );
+    expect(titles(el)).toEqual(["Pump", "Wallbox"]);
+    expect(open).toEqual([true, false]);
+  });
+
+  it("leaves a charge without its entity out of the YAML", async () => {
+    const el = await mountList(BASE);
+    const saved = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      name: "Wallbox",
+      charge: { show: "always" },
+    });
+    expect(saved.consumers?.[0]).toEqual({ entity: "sensor.wallbox", name: "Wallbox" });
+    // The form keeps what was chosen, so the entry can be finished.
+    expect((consumerForm(el, 0).data.charge as Record<string, unknown>).show).toBe("always");
+  });
+
+  const chargeFields = (el: Editor, index: number) =>
+    (consumerForm(el, index).schema.find((f) => f.name === "charge")?.schema ?? []).map(
+      (f) => f.name,
+    );
+
+  it("asks for the plug only where the display waits for it", async () => {
+    const el = await mountList(BASE);
+    expect(chargeFields(el, 0)).toEqual(["soc", "show"]);
+    await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      charge: { soc: "sensor.car", show: "plugged" },
+    });
+    expect(chargeFields(el, 0)).toEqual(["soc", "show", "plugged"]);
+  });
+
+  it("offers the states of an enum plug entity, and none for on/off", async () => {
+    const el = await mountList(BASE);
+    await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      charge: { soc: "sensor.car", show: "plugged", plugged: "sensor.status" },
+    });
+    const unplugged = consumerForm(el, 0)
+      .schema.find((f) => f.name === "charge")
+      ?.schema?.find((f) => f.name === "unplugged");
+    const options = (unplugged?.selector?.select as { options: Array<{ value: string }> }).options;
+    expect(options.map((o) => o.value)).toEqual(["none", "available", "charging"]);
+
+    await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
+    });
+    expect(chargeFields(el, 0)).toEqual(["soc", "show", "plugged"]);
+  });
+
+  it("marks an entry that has a state of charge", async () => {
+    const el = await mountList({
+      ...BASE,
+      consumers: [{ entity: "sensor.wallbox", charge: { soc: "sensor.car" } }],
+    } as RawConfig);
+    expect(entries(el)[0].querySelector(".badge")).toBeTruthy();
   });
 });

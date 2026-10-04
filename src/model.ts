@@ -4,10 +4,12 @@
  * Owner: agent 2. REQ 4.1 - 4.3, K-8, K-9, A-1 - A-6.
  */
 import type {
+  ChargeState,
   Config,
   ConsumerReading,
   HomeAssistant,
   Model,
+  NormalizedCharge,
   Reading,
   Signed,
   SourceSpec,
@@ -153,9 +155,12 @@ function readSoc(hass: HomeAssistant, entityId: string | undefined): Reading {
 }
 
 /** Builds the model for the current instant. Never throws (REQ N-5). */
-export function buildModel(hass: HomeAssistant, config: Config): Model {
-  return buildModelFrom(hass, config, (entityId) => readPowerW(hass, entityId));
+export function buildModel(hass: HomeAssistant, config: Config, chargeOf?: ChargeOf): Model {
+  return buildModelFrom(hass, config, (entityId) => readPowerW(hass, entityId), chargeOf);
 }
+
+/** The state of charge of a consumer that has one (REQ L-15); read live, never averaged. */
+export type ChargeOf = (charge: NormalizedCharge) => ChargeState;
 
 /**
  * Same as `buildModel`, but every power value is supplied by `valueOf` instead of
@@ -168,6 +173,7 @@ export function buildModelFrom(
   config: Config,
   // biome-ignore lint/suspicious/noShadowRestrictedNames: documented API parameter name.
   valueOf: (entityId: string) => number | null,
+  chargeOf?: ChargeOf,
 ): Model {
   const safeValueOf: ValueOf = (entityId) => {
     try {
@@ -265,6 +271,14 @@ export function buildModelFrom(
       // icons for one consumer in ten and dots for the rest - worse than dots.
       icon: consumer.icon,
       reading: makeReading(safeValueOf(consumer.entity), consumer.entity, false),
+      charge:
+        consumer.charge && chargeOf
+          ? {
+              ...chargeOf(consumer.charge),
+              entity: consumer.charge.soc,
+              show: consumer.charge.show,
+            }
+          : undefined,
     };
   });
 

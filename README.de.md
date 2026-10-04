@@ -228,6 +228,34 @@ erscheint darin als *weniger Hauslast*, nicht als Erzeugung. Enthält `solar`
 solche Quellen und stammt `house` vom Wechselrichter, ist das Haus um genau
 diesen Betrag zu klein — dann besser ableiten.
 
+### Wallbox und E-Auto (optional)
+
+Eine Wallbox ist ein Verbraucher wie jeder andere. Den Ladestand des Autos
+liefert die Integration des Autos, nicht die Wallbox – Home Assistant verknüpft
+beide nicht, deshalb wird dem Verbraucher gesagt, welches Auto zu ihm gehört:
+
+```yaml
+consumers:
+  - entity: sensor.wallbox_leistung
+    name: Wallbox
+    icon: mdi:ev-station
+    charge:
+      soc: sensor.auto_ladestand             # das Auto, in %
+      show: plugged                          # charging (Standard) | plugged | always
+      plugged: binary_sensor.auto_ladekabel
+```
+
+Ein dünner Ring um das Icon zeigt den Ladestand. Lädt das Auto, zeigt die
+Zeile die Leistung, sonst stattdessen den Ladestand – die Zeile braucht also
+keinen zusätzlichen Platz. Mit `show: plugged` bleibt die Zeile in der Liste,
+solange das Auto angesteckt ist, auch voll und bei 0 W. `plugged` darf auch ein
+Status-Sensor der Wallbox sein; `unplugged: [available, none]` nennt dann die
+Zustände, die „nicht angesteckt" bedeuten. Schläft das Auto und ist sein Sensor
+nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
+über dem Icon steht der Wert, ein Tipp darauf öffnet den Verlauf; im Editor
+steht es beim Verbraucher unter *Ladestand*. Das geht nicht nur mit Autos –
+eine Powerstation funktioniert genauso.
+
 ### Netzausfall (optional)
 
 Manche Anlagen melden, ob überhaupt Netz anliegt — ein Wechselrichter, der
@@ -287,7 +315,7 @@ zusätzliche Abfrage.
 | `entities.battery` | — | Batterieleistung, signiert |
 | `entities.battery_soc` | — | Ladezustand in % |
 | `entities.grid_status` | — | `{entity, outage, ok}` — siehe *Netzausfall* |
-| `consumers` | — | Liste aus `{entity, name, color, icon, min_w}` |
+| `consumers` | — | Liste aus `{entity, name, color, icon, min_w, charge}` – `charge` siehe *Wallbox und E-Auto* |
 | `min_consumer_w` | `10` | Verbraucher darunter zählen zum Rest; ein eigenes `min_w` am Verbraucher hat Vorrang |
 | `max_consumers` | alle | Nur die stärksten werden gelistet |
 | `update_interval_s` | `5` | Wie oft die Liste neu sortiert |

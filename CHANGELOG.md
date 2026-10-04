@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **A consumer can carry a state of charge** - a car at its wallbox, a power
+  station. `consumers[].charge` names the state-of-charge sensor; a thin ring
+  around the row's icon shows it, and while nothing charges the row shows the
+  charge instead of the power. `show: plugged` keeps the row in the list while
+  the car is plugged in, full and at 0 W too, with `plugged` as an on/off
+  sensor or a wallbox status plus its `unplugged` states. An unavailable
+  sensor - a car asleep - shows the last known charge grey. The icon has the
+  value as a tooltip and opens its history.
+
+### Changed
+- **Two more flow designs:** Proton and Neutrino.
+- **The consumers in the editor are a list of their own.** Every consumer
+  unfolds in place instead of opening a dialog, sorts by its handle, and has a
+  *State of charge* section that offers the states of the chosen status sensor.
+
 ## [0.7.0] - 2026-10-03
 
 ### Added

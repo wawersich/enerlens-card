@@ -8,6 +8,7 @@ import { normalizeState, warnUnusable } from "./outage";
 import {
   type AnimationMode,
   type Appearance,
+  type ChargeShow,
   type ColorKey,
   type Config,
   ConfigError,
@@ -16,6 +17,7 @@ import {
   type IconKey,
   type InactiveLines,
   type NodeKey,
+  type NormalizedCharge,
   type NormalizedConsumer,
   type PowerFormat,
   type PowerUnit,
@@ -433,6 +435,55 @@ function readIcons(value: unknown, hass?: HomeAssistant): Partial<Record<IconKey
   return icons;
 }
 
+const CHARGE_SHOWS: readonly ChargeShow[] = ["charging", "plugged", "always"];
+
+/**
+ * A consumer's state of charge (REQ L-15). Half-filled forms are ordinary
+ * editor states (E-1): without `soc` there is nothing to show, and `plugged`
+ * display without a plugged entity cannot decide - both are dropped back to
+ * something that works, with a word in the console, never an error card.
+ */
+function readCharge(
+  value: unknown,
+  field: string,
+  hass?: HomeAssistant,
+): NormalizedCharge | undefined {
+  if (isUnset(value)) return undefined;
+  const raw = requireRecord(value, field, hass);
+  const soc = readString(raw.soc, `${field}.soc`, hass);
+  if (!soc) {
+    console.warn(localize("error.config.charge_no_soc", hass, { field }));
+    return undefined;
+  }
+  let show = readEnum(raw.show, CHARGE_SHOWS, `${field}.show`, "charging", hass);
+  const plugged = readString(raw.plugged, `${field}.plugged`, hass);
+  if (show === "plugged" && !plugged) {
+    console.warn(localize("error.config.charge_no_plugged", hass, { field }));
+    show = "charging";
+  }
+  return {
+    soc,
+    show,
+    plugged,
+    // An on/off plug answers on or off; states listed for it would turn every
+    // "off" into "plugged in" (REQ L-15).
+    unplugged: /^(binary_sensor|input_boolean)\./.test(plugged ?? "")
+      ? []
+      : readStateList(raw.unplugged, `${field}.unplugged`, hass),
+  };
+}
+
+/** Entities the charge display reads; watched for changes, never averaged (REQ L-15). */
+export function collectChargeIds(config: Config): string[] {
+  const ids: string[] = [];
+  for (const consumer of config.consumers) {
+    const charge = consumer.charge;
+    if (!charge) continue;
+    for (const id of [charge.soc, charge.plugged]) if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
 function readConsumers(
   value: unknown,
   palette: string[],
@@ -469,6 +520,7 @@ function readConsumers(
         entry.min_w === undefined
           ? undefined
           : atLeast(readNumber(entry.min_w, `${field}.min_w`, 0, hass), 0, `${field}.min_w`, hass),
+      charge: readCharge(entry.charge, `${field}.charge`, hass),
     });
   }
   return consumers;

@@ -221,6 +221,33 @@ micro-inverter feeding in behind the meter shows up as *less house load*, not
 as production. If `solar` includes such sources and `house` comes from the
 inverter, the house is low by exactly that amount — derive it instead.
 
+### Wallbox and EV (optional)
+
+A wallbox is a consumer like any other. The car's state of charge comes from
+the car's own integration, not from the wallbox - Home Assistant does not link
+the two, so the consumer is told which one belongs to it:
+
+```yaml
+consumers:
+  - entity: sensor.wallbox_power
+    name: Wallbox
+    icon: mdi:ev-station
+    charge:
+      soc: sensor.car_battery_level          # the car, in %
+      show: plugged                          # charging (default) | plugged | always
+      plugged: binary_sensor.car_charge_cable
+```
+
+A thin ring around the icon shows the charge. While the car charges, the row
+shows the power; otherwise it shows the charge instead, so the row needs no
+extra room. With `show: plugged` the row stays in the list as long as the car
+is plugged in - full and at 0 W too. `plugged` can also be a wallbox status
+sensor; `unplugged: [available, none]` then lists the states that mean "not
+plugged in". When the car is asleep and its sensor unavailable, the last known
+charge is shown grey. Hover the icon for the value, tap it for its history; in
+the editor it is under the consumer, *State of charge*. It is not limited to
+cars - a power station works the same way.
+
 ### Grid outage (optional)
 
 Some installations report whether the grid is there at all — an inverter that
@@ -274,7 +301,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `entities.battery` | — | Battery power, signed |
 | `entities.battery_soc` | — | State of charge in % |
 | `entities.grid_status` | — | `{entity, outage, ok}` — see *Grid outage* |
-| `consumers` | — | List of `{entity, name, color, icon, min_w}` |
+| `consumers` | — | List of `{entity, name, color, icon, min_w, charge}` - `charge` see *Wallbox and EV* |
 | `min_consumer_w` | `10` | Consumers below this are folded into the remainder; a consumer's own `min_w` overrides it |
 | `max_consumers` | all | Only the strongest are listed |
 | `update_interval_s` | `5` | How often the list reorders |

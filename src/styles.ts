@@ -645,6 +645,76 @@ export const styles = css`
     background: currentColor;
   }
 
+  /* A state of charge on the row (REQ L-15): a thin ring around the mark.
+     Track faint, fill in the row colour; a value that is only the last known
+     one turns both grey. */
+  .row.charge .swatch {
+    position: relative;
+  }
+
+  /* The icon keeps the size of every other row's icon; the ring is added
+     around it, beyond the slot, so it keeps clear of the icon (Markus,
+     04.10.2026). The row's height is not touched. */
+  .charge-ring {
+    position: absolute;
+    inset: -4px;
+    width: calc(100% + 8px);
+    height: calc(100% + 8px);
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .charge-ring circle {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+  }
+
+  .charge-ring .track {
+    opacity: 0.22;
+  }
+
+  .charge-ring .fill {
+    stroke-linecap: round;
+  }
+
+  .row.stale .charge-ring,
+  .row.stale .row-value.soc {
+    color: var(--secondary-text-color);
+  }
+
+  .row.stale .row-value.soc {
+    font-weight: 400;
+  }
+
+  /* The mark and a charge in the value column open the charge's history,
+     the rest of the row the power's (REQ L-15). Above the row target, as tall
+     as it is, and at least 36 px wide so a thumb finds the mark. */
+  .row .row-value {
+    position: relative;
+  }
+
+  .soc-hit {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: var(--el-row-h, 34px);
+    min-width: 36px;
+    width: calc(100% + 8px);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .soc-hit:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    border-radius: 4px;
+  }
+
   /* The runway the fan lines cross in the stacked layout. It draws nothing:
      the lines and their dots live on the overlay, so they can converge on one
      point instead of running as a parallel bar per row (REQ L-13). Its only

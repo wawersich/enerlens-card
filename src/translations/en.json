@@ -15,7 +15,10 @@
     "rest": "Other",
     "title": "Consumers",
     "show_all": "Show every consumer, even without power",
-    "filter_on": "Show active consumers only"
+    "filter_on": "Show active consumers only",
+    "charge": "State of charge {value}",
+    "charge_stale": "State of charge {value} · as of {time}",
+    "charge_unknown": "State of charge unknown"
   },
   "view": {
     "now": "Now",
@@ -49,7 +52,9 @@
       "duplicate_consumer": "{field}: entity {entity} is listed more than once; the later entry is skipped.",
       "unknown_key": "Unknown option {field} - ignored.",
       "order_fixed": "{first} must be less than {second} - {second} was raised to {value}.",
-      "grid_status_no_outage": "{field} needs an entity and at least one outage state - without them the grid status is ignored."
+      "grid_status_no_outage": "{field} needs an entity and at least one outage state - without them the grid status is ignored.",
+      "charge_no_soc": "{field} has no soc entity and is ignored.",
+      "charge_no_plugged": "{field}: show plugged needs a plugged entity - shown while charging instead."
     }
   },
   "editor": {
@@ -156,7 +161,20 @@
     "colors_dots": "Dots",
     "dot_color_follow": "Dots in the colour of their line",
     "power_auto": "Automatic",
-    "power_digits": "Significant digits"
+    "power_digits": "Significant digits",
+    "consumer_add": "Add consumer",
+    "consumer_new": "New consumer",
+    "consumer_remove": "Remove consumer",
+    "charge": "State of charge",
+    "charge_show_charging": "While charging",
+    "charge_show_plugged": "While plugged in",
+    "charge_show_always": "Always",
+    "consumer_soc": "State of charge entity (%)",
+    "consumer_show": "Show in the list",
+    "consumer_plugged": "Plugged in",
+    "consumer_unplugged": "Not plugged in when",
+    "consumer_up": "Move up",
+    "consumer_down": "Move down"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -182,7 +200,6 @@
     "battery_charge": "Charging from all sources, as a magnitude ≥ 0.",
     "derived": "Calculated from the other three quantities so the balance adds up. Only one quantity can be derived.",
     "min_w": "From this power on a connection counts as active: dots move, grid and battery show their state. Below it everything is neutral.",
-    "consumers": "A consumer's own minimum power overrides the global one - say 50 W for a heat pump, so its standby draw does not count as a consumer.",
     "icon_battery": "Empty = icon follows the state of charge.",
     "peak_w": "One value for the whole motion: at this power the most dots run at their fastest. The three thresholds below derive from it (1/12, 1/3, 1/1) while they are empty. Default 6000 W.",
     "flow_fine": "Only needed when the peak power alone does not do. A set value overrides the one derived from the peak. If the order is wrong, the card raises the second value and says so in the browser console.",
@@ -201,7 +218,13 @@
     "appearance": "Shows this one card light or dark – whatever the theme says, and without touching the rest of the dashboard. It also settles which of its two value sets a flow design takes. “Follow the theme” reads the ground, which works nearly always – but not for themes that paint no card background of their own. Light and dark use Home Assistant's default colours, not those of a custom theme.",
     "icon_rest": "Empty = a plain dot.",
     "dot_color": "Empty = each dot carries the colour of its flow, which is what shows where the energy comes from. A colour here applies to every dot on the card; the lines keep theirs.",
-    "power_digits": "How much the number says, not how many places follow the point. With 3: 1.23 kW · 12.3 kW · 123 kW. A decimal place means something different at 1.23 kW than at 123 kW; this keeps what the figure tells constant. Watts are always whole."
+    "power_digits": "How much the number says, not how many places follow the point. With 3: 1.23 kW · 12.3 kW · 123 kW. A decimal place means something different at 1.23 kW than at 123 kW; this keeps what the figure tells constant. Watts are always whole.",
+    "consumers_list": "Unfold to edit, drag by the handle to sort. The colour is under “Colours”.",
+    "consumer_min_w": "Overrides the global minimum power - say 50 W for a heat pump, so its standby does not count as a consumer.",
+    "consumer_soc": "For a wallbox, the car’s state of charge from the car’s own integration. Shown as a ring around the icon; while nothing charges it stands in the row instead of the power.",
+    "consumer_show": "“While plugged in” keeps the row in the list as long as the car is plugged in - full and at 0 W too.",
+    "consumer_plugged": "An on/off sensor (on = plugged in) or a status sensor of the wallbox.",
+    "consumer_unplugged": "The status sensor’s states that mean “not plugged in”; all others count as plugged in."
   },
   "outage": {
     "banner": "Island mode — no grid",
