@@ -553,9 +553,13 @@ class EnerLensCard extends LitElement {
           : row;
         const box = target.getBoundingClientRect();
         const rowBox = row.getBoundingClientRect();
+        // A state-of-charge ring reaches beyond the mark; the line stops at
+        // the ring instead of running into it (REQ L-15).
+        const ring = row.querySelector(".charge-ring");
+        const left = ring ? Math.min(box.left, ring.getBoundingClientRect().left) : box.left;
         return {
           key: key as string,
-          x: box.left - origin.left,
+          x: left - origin.left,
           y: rowBox.top + rowBox.height / 2 - origin.top,
           color: entry.color,
           // No dots without motion, as on the cross (P-7).
