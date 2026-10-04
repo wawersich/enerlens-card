@@ -40,6 +40,14 @@ ihren neuen Platz und überholen auf einer inneren Bahn — oder sie bleiben mit
   <img src="docs/images/card-de-light-fade.svg" alt="EnerLens Card, der Ring blendet seine Farben über" width="690">
 </picture>
 
+**Der Fluss ist frei einstellbar.** Die Punkte zeigen die Leistung: Sie werden
+schneller und zahlreicher, je mehr fließt. Ab welcher Leistung sie loslaufen,
+wie schnell sie höchstens werden und wie viele es höchstens sind, lässt sich
+einstellen — mit einem einzigen Regler `flow.peak_w` für alles oder Schwelle
+für Schwelle. Dazu kommen sechs Designs für die Punkte, eine gemeinsame
+Punktfarbe, und ruhende Linien lassen sich abdunkeln oder ausblenden. Alles
+davon steht auch im Editor.
+
 Ein **Netzausfall** wird angezeigt, sofern die Anlage den Netzstatus erfasst.
 
 <picture>

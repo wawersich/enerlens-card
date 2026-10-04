@@ -38,6 +38,13 @@ here:
   <img src="docs/images/card-en-light-fade.svg" alt="EnerLens Card, the ring blending its colours" width="690">
 </picture>
 
+**The flow is yours to tune.** The dots show the power: the more flows, the
+faster and the more of them. When they start, how fast they get and how many
+there can be are all settings — one knob, `flow.peak_w`, for all of it, or
+threshold by threshold. On top come six dot designs, a single dot colour for
+the whole card, and idle lines that can be dimmed or hidden. All of it is in
+the editor too.
+
 A **grid outage** is shown, provided the installation reports the grid status.
 
 <picture>
