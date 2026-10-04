@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.0] - 2026-10-04
 
 ### Added
 - **A consumer can carry a state of charge** - a car at its wallbox, a power
@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The consumers in the editor are a list of their own.** Every consumer
   unfolds in place instead of opening a dialog, sorts by its handle, and has a
   *State of charge* section that offers the states of the chosen status sensor.
+- **The README pictures show a car charging at its wallbox** - at 80 % in the
+  title pictures, at 66 % in the editor screenshots.
 
 ## [0.7.0] - 2026-10-03
 
