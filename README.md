@@ -226,7 +226,51 @@ The exception is a house sensor that does not see all of your PV. A hybrid
 inverter computes "house" from its own strings, the grid and the battery; a
 micro-inverter feeding in behind the meter shows up as *less house load*, not
 as production. If `solar` includes such sources and `house` comes from the
-inverter, the house is low by exactly that amount — derive it instead.
+inverter, the house is low by exactly that amount — see *Balcony solar and
+more PV*.
+
+### Balcony solar and more PV (optional)
+
+Many installations have more than one PV source: the roof array on the hybrid
+inverter plus a balcony plant or further micro-inverters. `solar` takes exactly
+one entity. A helper combines several sources; the card does not add them up
+itself.
+
+**1. PV sum.** Under *Settings → Devices & services → Helpers → Create helper →
+Group → Sensor group*, add every PV power as a *member*, choose *Type* **Sum**
+and turn on **Ignore non-numeric**. Micro-inverters often report unavailable
+at night; without that option the whole sum would be unavailable then. Use the
+new sensor as `solar`.
+
+**2. Correct the house consumption.** A hybrid inverter only sees its own
+strings. A balcony plant feeding in behind the meter shows up in its house
+value as *less consumption*, not as production, so the house value is low by
+exactly that power. A *Template → Sensor* helper (unit `W`, device class
+`power`, state class `measurement`) adds it back:
+
+```jinja
+{{ [0, states('sensor.house_inverter')|float(0)
+     + states('sensor.balcony_solar')|float(0)]|max|round(0) }}
+```
+
+with this under *Availability*:
+
+```jinja
+{{ states('sensor.house_inverter')|is_number }}
+```
+
+That way the sensor is only unavailable when the inverter is. A sleeping
+balcony plant counts as 0. Use this sensor as `house`.
+
+**Or simpler:** skip step 2 and leave `house` out. The card then derives the
+house from the PV sum, grid and battery (see *Deriving a missing quantity*).
+That saves a helper, but tapping the house opens no history, and the accuracy
+depends on the slowest of the sensors. If the inverter has a fast house
+sensor, the corrected sensor is the better choice.
+
+`grid` needs no correction as long as the grid sensor measures at the house
+connection, as a smart meter or the inverter's current clamp does. It sees the
+balcony plant's feed-in anyway.
 
 ### Wallbox and EV (optional)
 
