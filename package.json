@@ -17,6 +17,7 @@
     "check": "./scripts/check.sh",
     "hero": "node scripts/hero.mjs",
     "editor-shot": "node scripts/editor-shot.mjs",
+    "webkit-check": "node scripts/webkit-check.mjs",
     "leuchtspur": "./scripts/leuchtspur.sh"
   },
   "dependencies": {

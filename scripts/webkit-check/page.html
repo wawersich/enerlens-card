@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<!--
+  The page `npm run webkit-check` loads in WebKit and Chromium: the built card
+  with invented values, and window.check(), which measures what WebKit has got
+  wrong before (issue #7 and the ring's sizing) - see scripts/webkit-check.mjs.
+-->
+<style>
+  html, body { margin: 0; background: #fff; font: 15px/1.5 system-ui, sans-serif; }
+  #frame { margin: 12px; transform-origin: 0 0; }
+  #host { width: 600px; }
+  :root {
+    --ha-card-background:#fff; --card-background-color:#fff; --primary-text-color:#212121;
+    --secondary-text-color:#727272; --divider-color:rgba(127,127,127,.3); --primary-color:#03a9f4;
+    --energy-solar-color:#ff9800; --energy-grid-consumption-color:#488fc2;
+    --energy-grid-return-color:#8353d1; --energy-battery-in-color:#f06292;
+    --energy-battery-out-color:#4db6ac; --error-color:#db4437; --text-primary-color:#fff;
+  }
+</style>
+<script>
+  customElements.define("ha-card", class extends HTMLElement {
+    connectedCallback(){ this.style.display="block"; this.style.background="var(--ha-card-background)";
+      this.style.borderRadius="12px"; }
+  });
+  // No network: an icon is an empty box of the size Home Assistant gives it.
+  customElements.define("ha-icon", class extends HTMLElement {
+    connectedCallback(){ this.style.display="inline-block";
+      this.style.width = this.style.height = "var(--mdc-icon-size, 24px)"; }
+  });
+  // Another build can be checked against this one, e.g. a release before a
+  // fix. Written as a tag while the page is parsed: Chromium's virtual clock
+  // (--virtual-time-budget) does not wait for a dynamic import().
+  const bundle = new URLSearchParams(location.search).get("bundle") ?? "../../dist/enerlens-card.js";
+  document.write(`<script type="module" src="${bundle.replace(/"/g, "&quot;")}"><\/script>`);
+</script>
+</head><body><div id="frame"><div id="host"></div></div><pre id="out"></pre>
+<script type="module">
+addEventListener("error", (e) => { document.getElementById("out").textContent = JSON.stringify({ error: e.message }); });
+
+/* plain: the card as it stands. scaled: inside an element scaled to 80 %, as
+ * card-mod or an opening dialog does - WebKit's getScreenCTM() leaves that
+ * scale out, which fooled the first fix for issue #7. below: the list under
+ * the cross, in a narrow column. */
+const params = new URLSearchParams(location.search);
+const scene = params.get("scene") ?? "plain";
+if (scene === "scaled") document.getElementById("frame").style.transform = "scale(0.8)";
+if (scene === "below") document.getElementById("host").style.width = "400px";
+
+const W = (id, w) => [id, { entity_id: id, state: String(w),
+  attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
+const states = Object.fromEntries([
+  W("sensor.s", 6000), W("sensor.g", 1500), W("sensor.h", 4500), W("sensor.b", -3000),
+  W("sensor.c1", 2400), W("sensor.c2", 1200), W("sensor.c3", 600),
+]);
+
+await customElements.whenDefined("enerlens-card");
+const card = document.createElement("enerlens-card");
+card.setConfig({
+  type: "custom:enerlens-card", title: "Energie",
+  entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
+  consumers: [
+    { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave" },
+    { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine" },
+    { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
+  ],
+  flow: { min_w: 20, peak_w: 8000 },
+  ...(scene === "below" ? { list: { always_below: true } } : {}),
+});
+card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
+document.getElementById("host").appendChild(card);
+
+const NS = "http://www.w3.org/2000/svg";
+const centre = (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
+
+/** Distance from p to the segment a-b. */
+function toSegment(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+
+/**
+ * How far the dots in `svg` are from the drawn lines, in screen pixels. Each
+ * line is sampled into marks measured as boxes - the same way the dots are, so
+ * a transform above the card treats both alike - and every dot is put at three
+ * places along its path. The worst distance counts.
+ */
+function offLines(svg, dotSelector, lineSelector) {
+  if (!svg) return { dots: 0, worst: 0 };
+  const lines = [...svg.querySelectorAll(lineSelector)];
+  const marks = document.createElementNS(NS, "g");
+  marks.style.visibility = "hidden";
+  const sampled = lines.map((line) => {
+    const length = line.getTotalLength();
+    const steps = Math.max(2, Math.ceil(length / 2));
+    return Array.from({ length: steps + 1 }, (_, i) => {
+      const at = line.getPointAtLength((length * i) / steps);
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", at.x); c.setAttribute("cy", at.y); c.setAttribute("r", "1");
+      marks.appendChild(c);
+      return c;
+    });
+  });
+  svg.appendChild(marks);
+  const polylines = sampled.map((cs) => cs.map(centre));
+  marks.remove();
+  let worst = 0, dots = 0;
+  for (const dot of svg.querySelectorAll(dotSelector)) {
+    if (!dot.firstChild) continue;
+    dots++;
+    for (const share of [15, 50, 85]) {
+      dot.style.offsetDistance = `${share}%`;
+      const p = centre(dot);
+      let nearest = Infinity;
+      for (const pts of polylines) {
+        for (let i = 1; i < pts.length; i++) nearest = Math.min(nearest, toSegment(p, pts[i - 1], pts[i]));
+      }
+      worst = Math.max(worst, nearest);
+    }
+  }
+  return { dots, worst: +worst.toFixed(2) };
+}
+
+/** Elements that reach outside the card by more than a pixel. */
+function outside(root) {
+  const card = root.querySelector("ha-card").getBoundingClientRect();
+  const out = [];
+  for (const el of root.querySelectorAll(".node, .row, svg.ring, g.dot, g.fan-dot")) {
+    const r = el.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    if (r.left < card.left - 1 || r.top < card.top - 1 || r.right > card.right + 1 || r.bottom > card.bottom + 1) {
+      out.push(el.getAttribute("class"));
+    }
+  }
+  return out;
+}
+
+window.check = () => {
+  const root = card.shadowRoot;
+  // Dots stop where they are told: no animation may move them while measured.
+  for (const a of root.getAnimations()) {
+    if (a.effect?.getTiming?.().iterations === Infinity) a.cancel();
+  }
+  const house = root.querySelector(".node.house");
+  const ring = root.querySelector(".node.house svg.ring");
+  const h = house && centre(house), r = ring && centre(ring);
+  const result = {
+    vendor: navigator.vendor,
+    zoom: card._pathZoom,
+    cross: offLines(root.querySelector(".plot svg"), "g.dot", "path.link"),
+    fan: offLines(root.querySelector("svg.fan"), "g.fan-dot", "path.fan-line"),
+    ring: h && r ? +Math.hypot(h.x - r.x, h.y - r.y).toFixed(2) : null,
+    outside: outside(root),
+  };
+  return JSON.stringify(result);
+};
+
+// Chromium has no way to call in; it reads the answer out of the page.
+if (location.hash === "#auto") {
+  setTimeout(() => { document.getElementById("out").textContent = window.check(); }, 2500);
+}
+</script></body></html>
