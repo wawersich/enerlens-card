@@ -346,6 +346,11 @@ export interface Config {
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
   icons: Partial<Record<IconKey, string>>;
   power: PowerFormat;
+  /**
+   * The card-mod block, passed through untouched and never read by the card.
+   * card-mod looks for it on the card's `_config` - see normalizeConfig.
+   */
+  card_mod?: unknown;
 }
 
 /**

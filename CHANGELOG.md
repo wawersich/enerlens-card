@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **card-mod works with the card** (#8). card-mod takes its `card_mod` block
+  from the card's own copy of the configuration, and the card dropped every
+  key it did not know while reading it - so any card-mod style was silently
+  ignored. The block is now handed on untouched, and the card no longer warns
+  about it in the browser console.
+
 ## [0.8.1] - 2026-10-16
 
 ### Fixed

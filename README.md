@@ -433,6 +433,29 @@ colors:
   battery_discharge: "#e53935"
 ```
 
+### Transparent background (card-mod)
+
+To let a dashboard wallpaper show through, the card can be made transparent
+with [card-mod](https://github.com/thomasloven/lovelace-card-mod) (card version
+0.8.2 or later):
+
+```yaml
+card_mod:
+  style: |
+    ha-card {
+      --ha-card-background: transparent;
+      background: none;
+      box-shadow: none;
+      border: none;
+    }
+```
+
+The first line is the one that matters here: the four nodes are filled with the
+card's background colour, and `background: none` on its own leaves them
+standing as solid discs. This works with `appearance: auto` only - set to
+`light` or `dark`, the card paints its own background, and card-mod does not
+reach it.
+
 ## Languages
 
 The card follows the language of the signed-in Home Assistant user (*Profile →

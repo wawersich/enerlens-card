@@ -68,12 +68,16 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "power",
 ]);
 
-/** Keys Lovelace itself puts on a card config - ours to ignore, never to warn about. */
+/**
+ * Keys Lovelace itself puts on a card config, and card_mod from the card-mod
+ * plugin - ours to ignore, never to warn about.
+ */
 const HOST_KEYS: ReadonlySet<string> = new Set([
   "view_layout",
   "layout_options",
   "grid_options",
   "visibility",
+  "card_mod",
 ]);
 
 /** Key names of the two-entity form per REQ E-2; `positive` is always the positive direction. */
@@ -770,6 +774,14 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     colors,
     icons: readIcons(rawRecord.icons, hass),
     power: readPower(rawRecord.power, hass),
+    /*
+     * Not ours, but it has to survive normalizing (issue #8). card-mod does
+     * not read the config Lovelace hands to setConfig: it walks up from the
+     * card's ha-card and takes the card's `config` or `_config` property -
+     * which here is this normalized object. Without the block in it, every
+     * card_mod style was silently ignored.
+     */
+    ...(rawRecord.card_mod === undefined ? {} : { card_mod: rawRecord.card_mod }),
   };
 }
 

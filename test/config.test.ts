@@ -962,6 +962,19 @@ describe("unknown keys (E-1)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("stays quiet about card_mod and hands it on untouched (issue #8)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const cardMod = { style: "ha-card { background: none; }" };
+    const config = normalizeConfig(cfg({ card_mod: cardMod }));
+    expect(warn).not.toHaveBeenCalled();
+    // card-mod reads the block from the normalized config - see normalizeConfig.
+    expect(config.card_mod).toBe(cardMod);
+  });
+
+  it("adds no card_mod key when there is none (issue #8)", () => {
+    expect("card_mod" in normalizeConfig(cfg({}))).toBe(false);
+  });
+
   it("stays quiet about a valid config (E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     normalizeConfig(cfg({ title: "Energie", consumers: [{ entity: "sensor.a" }] }));

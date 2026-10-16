@@ -91,6 +91,33 @@ describe("enerlens-card element", () => {
     expect(active.slice(firstActive).every(Boolean), "an idle line after a working one").toBe(true);
   });
 
+  it("lets card-mod find its block from the ha-card (issue #8)", async () => {
+    // card-mod's own lookup, as in its source: from ha-card up to the first
+    // node with a config or _config property. It never sees what Lovelace
+    // passed to setConfig - only what the card keeps.
+    type Lookup = Node & { config?: unknown; _config?: unknown; host?: Node };
+    const findConfig = (node: Lookup | null): unknown => {
+      if (!node) return null;
+      if (node.config) return node.config;
+      if (node._config) return node._config;
+      return findConfig((node.host ?? node.parentElement ?? node.parentNode) as Lookup | null);
+    };
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+    };
+    const cardMod = { style: "ha-card { --ha-card-background: transparent; }" };
+    el.setConfig({ ...CONFIG, card_mod: cardMod });
+    el.hass = fakeHass(STATES);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const card = el.shadowRoot?.querySelector("ha-card") as Lookup | null;
+    expect(card, "no ha-card").toBeTruthy();
+    expect((findConfig(card) as { card_mod?: unknown } | null)?.card_mod).toBe(cardMod);
+    el.remove();
+  });
+
   it("registers the element", () => {
     expect(customElements.get("enerlens-card")).toBeTruthy();
   });

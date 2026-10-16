@@ -454,6 +454,28 @@ colors:
   battery_discharge: "#e53935"
 ```
 
+### Transparenter Hintergrund (card-mod)
+
+Soll das Hintergrundbild des Dashboards durchscheinen, lässt sich die Karte mit
+[card-mod](https://github.com/thomasloven/lovelace-card-mod) durchsichtig machen
+(ab Kartenversion 0.8.2):
+
+```yaml
+card_mod:
+  style: |
+    ha-card {
+      --ha-card-background: transparent;
+      background: none;
+      box-shadow: none;
+      border: none;
+    }
+```
+
+Auf die erste Zeile kommt es an: Die vier Knoten sind mit der Hintergrundfarbe
+der Karte gefüllt, und `background: none` allein lässt sie als volle Scheiben
+stehen. Das klappt nur mit `appearance: auto` – bei `light` oder `dark` malt die
+Karte ihren Hintergrund selbst, und dorthin reicht card-mod nicht.
+
 ## Sprachen
 
 Die Karte richtet sich nach der Sprache des angemeldeten Home-Assistant-Nutzers
