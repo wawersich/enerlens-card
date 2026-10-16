@@ -58,7 +58,7 @@ interface Link {
   count: number;
 }
 
-/** Same 10 px as the colour mark in the list - one dot size everywhere (K-12). */
+/** Base size of a plain dot, as the colour mark in the list (K-12). */
 const DOT_PX = 10;
 
 export class DotLayer {
@@ -71,6 +71,8 @@ export class DotLayer {
   private defs?: SVGDefsElement;
   /** How much the browser stretches motion paths - see path-zoom.ts (issue #7). */
   private pathZoom = 1;
+  /** Dot size on screen relative to the base size - see sizing.ts (K-12). */
+  private dotScale = 1;
 
   constructor(
     private readonly container: SVGGElement,
@@ -85,6 +87,13 @@ export class DotLayer {
   setScale(scale: number): void {
     if (!Number.isFinite(scale) || scale <= 0 || scale === this.scale) return;
     this.scale = scale;
+    this.repaint();
+  }
+
+  /** The dots' size relative to their base size, from sizeFactors() (K-12). */
+  setDotScale(factor: number): void {
+    if (!Number.isFinite(factor) || factor <= 0 || factor === this.dotScale) return;
+    this.dotScale = factor;
     this.repaint();
   }
 
@@ -327,7 +336,7 @@ export class DotLayer {
     while (dot.el.firstChild) dot.el.removeChild(dot.el.firstChild);
     const ground = this.ground();
     const colour = link.colour;
-    const r = (ground?.dot ?? DOT_PX) / 2 / this.scale;
+    const r = ((ground?.dot ?? DOT_PX) / 2 / this.scale) * this.dotScale;
 
     if (ground && ground.glow === GLOW_DRAWN && ground.glowStrength > 0) {
       // The halo rides inside the dot's own group: no edges, no animation of
@@ -360,7 +369,7 @@ export class DotLayer {
   private applyGlow(link: Link): void {
     const ground = this.ground();
     link.group.style.filter = ground
-      ? glowFilter(ground.glow, ground.glowStrength, link.colour, 1 / this.scale)
+      ? glowFilter(ground.glow, ground.glowStrength, link.colour, this.dotScale / this.scale)
       : "";
   }
 

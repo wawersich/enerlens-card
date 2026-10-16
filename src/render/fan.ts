@@ -53,6 +53,8 @@ export class FanLayer {
   private defs?: SVGDefsElement;
   /** How much the browser stretches motion paths - see path-zoom.ts (issue #7). */
   private pathZoom = 1;
+  /** Dot size on screen relative to the base size - see sizing.ts (K-12). */
+  private dotScale = 1;
 
   constructor(private readonly svg: SVGSVGElement) {}
 
@@ -127,9 +129,13 @@ export class FanLayer {
       // something they depend on moved - not on every tick.
       // The line keeps the flow's colour; only the dots on it may differ.
       const dotColour = this.dotColor ?? row.color;
-      const paintKey = [dotColour, this.dotRadius, ground ? this.design?.id : "", this.dark].join(
-        "|",
-      );
+      const paintKey = [
+        dotColour,
+        this.dotRadius,
+        this.dotScale,
+        ground ? this.design?.id : "",
+        this.dark,
+      ].join("|");
       const moved = line.paintKey !== paintKey;
       line.paintKey = paintKey;
       if (moved) line.mixFrom = undefined;
@@ -255,7 +261,9 @@ export class FanLayer {
 
   /** The blur, one filter for the whole row rather than one per dot. */
   private applyGlow(line: FanLine, colour: string, ground: FlowDesignGround | undefined): void {
-    line.group.style.filter = ground ? glowFilter(ground.glow, ground.glowStrength, colour, 1) : "";
+    line.group.style.filter = ground
+      ? glowFilter(ground.glow, ground.glowStrength, colour, this.dotScale)
+      : "";
   }
 
   /**
@@ -271,7 +279,7 @@ export class FanLayer {
     while (dot.firstChild) dot.removeChild(dot.firstChild);
     // The size comes from the design, as it does on the cross - not from the
     // layer's own default, or the rows would carry different dots.
-    const r = ground ? ground.dot / 2 : this.dotRadius;
+    const r = (ground ? ground.dot / 2 : this.dotRadius) * this.dotScale;
 
     if (ground && ground.glow === GLOW_DRAWN && ground.glowStrength > 0) {
       const halo = document.createElementNS(SVG_NS, "circle");
@@ -310,6 +318,11 @@ export class FanLayer {
 
   setDotRadius(px: number): void {
     this.dotRadius = px;
+  }
+
+  /** The dots' size relative to their base size, from sizeFactors() (K-12). */
+  setDotScale(factor: number): void {
+    if (Number.isFinite(factor) && factor > 0) this.dotScale = factor;
   }
 
   pause(): void {

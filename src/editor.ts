@@ -191,6 +191,8 @@ interface FlatConfig {
   animation?: string;
   design?: string;
   dot_color?: string;
+  dot_size?: number;
+  line_width?: number;
   min_w?: number;
   peak_w?: number;
   slow_below_w?: number;
@@ -306,6 +308,9 @@ function toFlat(config: RawConfig): FlatConfig {
     animation: config.flow?.animation,
     design: config.flow?.design,
     dot_color: config.flow?.dot_color,
+    // A slider needs a position; 100 % is what an absent value means (K-12).
+    dot_size: config.flow?.dot_size ?? 100,
+    line_width: config.flow?.line_width ?? 100,
     min_w: config.flow?.min_w,
     peak_w: config.flow?.peak_w,
     slow_below_w: config.flow?.slow_below_w,
@@ -365,6 +370,12 @@ const opt = <T>(v: T | null | ""): T | undefined => (v === null || v === "" ? un
  *  be safe about that too. */
 function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+/** A size in percent: 100 is the default and stays out of the YAML (K-12). */
+function percent(v: unknown): number | undefined {
+  const n = num(v);
+  return n === 100 ? undefined : n;
 }
 
 /** Chips from a multi-select: cleared entries dropped, an empty list omitted. */
@@ -491,6 +502,8 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       animation: flat.animation,
       design: flat.design,
       dot_color: opt(flat.dot_color),
+      dot_size: percent(flat.dot_size),
+      line_width: percent(flat.line_width),
       min_w: num(flat.min_w),
       peak_w: num(flat.peak_w),
       slow_below_w: num(flat.slow_below_w),
@@ -771,6 +784,20 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 })),
               ],
             },
+          },
+        },
+        // Sliders over the card's own range. Their number field can still be
+        // typed into; the card draws a value outside to the limit (E-1, K-12).
+        {
+          name: "dot_size",
+          selector: {
+            number: { min: 40, max: 150, step: 1, mode: "slider", unit_of_measurement: "%" },
+          },
+        },
+        {
+          name: "line_width",
+          selector: {
+            number: { min: 30, max: 150, step: 1, mode: "slider", unit_of_measurement: "%" },
           },
         },
         {

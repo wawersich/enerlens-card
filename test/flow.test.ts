@@ -70,6 +70,8 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       animation: "auto",
       inactiveLines: "show" as const,
       design: "none",
+      dotSize: 100,
+      lineWidth: 100,
       ...over,
     },
     appearance: "auto" as const,

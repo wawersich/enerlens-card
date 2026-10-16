@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Dot size and line width can be set** (#10): `flow.dot_size` and
+  `flow.line_width` in percent, two sliders in the editor under the look of
+  the dots. 100 % is what the card draws today on a card with large nodes.
+
+### Changed
+- **Dots and lines grow with the card** (#12). They used to keep one size on
+  screen however small the card was, and beside the list - nodes of about
+  77 px - the dots looked like thick beads. They now shrink with the card,
+  damped by the square root of its scale: about 77 % there, unchanged on a
+  card with large nodes. A glow shrinks with its dot.
+
 ## [0.8.2] - 2026-10-16
 
 ### Fixed

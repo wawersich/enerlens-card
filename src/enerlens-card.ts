@@ -20,6 +20,7 @@ import { renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
+import { sizeFactors } from "./render/sizing";
 import { styles } from "./styles";
 import {
   type Config,
@@ -125,6 +126,8 @@ class EnerLensCard extends LitElement {
   private _showAll = false;
   /** Plot width over VIEW_W - the ring inside the house node is sized by it. */
   private _scale = 1;
+  /** The plot's width over the viewBox's, as last measured - unrounded, unlike _scale. */
+  private _plotScale = 1;
   /** Latched grid outage; undefined until a real status has been seen (REQ NS-3). */
   private _outage: OutageState;
   /** The one history lookup that gives the latch its starting point (REQ NS-6). */
@@ -455,6 +458,7 @@ class EnerLensCard extends LitElement {
     const width = plot?.getBoundingClientRect().width ?? 0;
     if (width > 0) {
       const scale = width / VIEW_W;
+      this._plotScale = scale;
       this.style.setProperty("--el-scale", String(scale));
       this._dots?.setScale(scale);
       // Only a real change re-renders; sub-pixel noise from the observer does not.
@@ -604,8 +608,10 @@ class EnerLensCard extends LitElement {
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
-    // 10 px like the connection dots, the lane dots and the colour mark (K-12).
+    // The base size of the connection dots and the colour mark, grown with the
+    // card like the cross (K-12).
     this._fan.setDotRadius(5);
+    this._fan.setDotScale(sizeFactors(this._plotScale, this._config.flow).dot);
     this._fan.update(
       fanRows,
       start,
@@ -695,6 +701,13 @@ class EnerLensCard extends LitElement {
     if (this._config.appearance === "auto") this.removeAttribute("data-appearance");
     else this.setAttribute("data-appearance", this._config.appearance);
 
+    if (width > 0) this._plotScale = width / VIEW_W;
+    // Dots and lines grow with the card, damped (K-12, sizing.ts). The lines
+    // take theirs through the stylesheet; a factor on the CSS variable keeps
+    // the calc() in styles.ts free of any root or power WebKit might mishandle.
+    const sizes = sizeFactors(this._plotScale, this._config.flow);
+    this.style.setProperty("--el-line-k", sizes.line.toFixed(4));
+
     if (!this._dots) {
       this._dots = new DotLayer(group, this._technique);
       if (width > 0) this._dots.setScale(width / VIEW_W);
@@ -707,6 +720,7 @@ class EnerLensCard extends LitElement {
     // reloaded design file returns a new one under the same id, and that has
     // to reach the screen.
     this._dots.setDesign(design, dark);
+    this._dots.setDotScale(sizes.dot);
 
     const ticked =
       this._tickModel ?? this._model ?? buildModel(this._hass, this._config, this._chargeOf);

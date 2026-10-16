@@ -74,6 +74,8 @@ function configOf(
       animation: "auto",
       inactiveLines: "show" as const,
       design: "none",
+      dotSize: 100,
+      lineWidth: 100,
     },
     appearance: "auto" as const,
     colors: {

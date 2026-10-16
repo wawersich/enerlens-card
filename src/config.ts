@@ -183,6 +183,24 @@ function inRange(
   return value;
 }
 
+/**
+ * A value outside its range is drawn to the nearer limit with a warning, not
+ * refused: the editor's slider has a text field beside it, and on the way to
+ * "100" it reports "1" (E-1).
+ */
+function clamped(
+  value: number,
+  min: number,
+  max: number,
+  field: string,
+  hass?: HomeAssistant,
+): number {
+  if (value >= min && value <= max) return value;
+  const fixed = Math.min(max, Math.max(min, value));
+  console.warn(localize("error.config.clamped", hass, { field, min, max, value: fixed }));
+  return fixed;
+}
+
 function greaterThanZero(value: number, field: string, hass?: HomeAssistant): number {
   if (value <= 0) throw fail("error.config.positive", field, hass);
   return value;
@@ -763,6 +781,20 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
         typeof rawFlow.dot_color === "string" && rawFlow.dot_color.trim()
           ? rawFlow.dot_color.trim()
           : undefined,
+      dotSize: clamped(
+        readNumber(rawFlow.dot_size, "flow.dot_size", 100, hass),
+        40,
+        150,
+        "flow.dot_size",
+        hass,
+      ),
+      lineWidth: clamped(
+        readNumber(rawFlow.line_width, "flow.line_width", 100, hass),
+        30,
+        150,
+        "flow.line_width",
+        hass,
+      ),
       inactiveLines: readEnum(
         rawFlow.inactive_lines,
         INACTIVE_LINES,

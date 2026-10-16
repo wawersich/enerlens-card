@@ -1012,3 +1012,101 @@ describe("enerlens-card - an edit in the editor is not a reset (REQ P-6)", () =>
     expect((fresh as unknown as { _settled: boolean })._settled).toBe(false);
   });
 });
+
+describe("dots and lines grow with the card (REQ K-12, issues #10 and #12)", () => {
+  it("draws them at the base size times sqrt(s) times the configured percentages", async () => {
+    // happy-dom lays nothing out, so the plot's width is handed in: 144 px of
+    // a 400-unit viewBox is scale 0.36, and its square root 0.6.
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      return this.classList.contains("plot")
+        ? ({
+            x: 0,
+            y: 0,
+            top: 0,
+            left: 0,
+            right: 144,
+            bottom: 144,
+            width: 144,
+            height: 144,
+          } as DOMRect)
+        : real.call(this);
+    };
+    try {
+      const el = document.createElement("enerlens-card") as HTMLElement & {
+        setConfig: (c: unknown) => void;
+        hass: HomeAssistant;
+        updateComplete: Promise<unknown>;
+      };
+      el.setConfig({ ...CONFIG, flow: { dot_size: 50, line_width: 120 } });
+      el.hass = fakeHass(STATES);
+      document.body.appendChild(el);
+      await el.updateComplete;
+
+      // Lines: 0.6 x 120 % through the stylesheet variable.
+      expect(Number(el.style.getPropertyValue("--el-line-k"))).toBeCloseTo(0.72, 4);
+      // Dots: 10 px x 0.6 x 50 % = 3 px on screen, at 0.36 px per unit.
+      const circle = el.shadowRoot?.querySelector("g.dot circle");
+      expect(circle, "no dot drawn").toBeTruthy();
+      expect(2 * Number(circle?.getAttribute("r")) * 0.36).toBeCloseTo(3, 1);
+
+      // A changed percentage reaches the running dots without a reload.
+      el.setConfig({ ...CONFIG, flow: { dot_size: 100, line_width: 100 } });
+      el.hass = fakeHass({ ...STATES, "sensor.solar": "9331" });
+      await el.updateComplete;
+      expect(Number(el.style.getPropertyValue("--el-line-k"))).toBeCloseTo(0.6, 4);
+      const again = el.shadowRoot?.querySelector("g.dot circle");
+      expect(2 * Number(again?.getAttribute("r")) * 0.36).toBeCloseTo(6, 1);
+      el.remove();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = real;
+    }
+  });
+
+  it("gives the dots beside the list the same size as those on the cross", async () => {
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      return this.classList.contains("plot")
+        ? ({
+            x: 0,
+            y: 0,
+            top: 0,
+            left: 0,
+            right: 144,
+            bottom: 144,
+            width: 144,
+            height: 144,
+          } as DOMRect)
+        : real.call(this);
+    };
+    try {
+      const el = document.createElement("enerlens-card") as HTMLElement & {
+        setConfig: (c: unknown) => void;
+        hass: HomeAssistant;
+        updateComplete: Promise<unknown>;
+      };
+      el.setConfig({
+        ...CONFIG,
+        consumers: [{ entity: "sensor.c1" }, { entity: "sensor.c2" }],
+        flow: { dot_size: 50 },
+      });
+      el.hass = fakeHass({ ...STATES, "sensor.c1": "1500", "sensor.c2": "900" });
+      document.body.appendChild(el);
+      await el.updateComplete;
+      await new Promise((r) => setTimeout(r, 0));
+
+      const cross = el.shadowRoot?.querySelector("g.dot circle");
+      const fan = el.shadowRoot?.querySelector("g.fan-dot circle");
+      expect(cross, "no dot on the cross").toBeTruthy();
+      expect(fan, "no dot beside the list").toBeTruthy();
+      // The cross draws in viewBox units (0.36 px each), the fan in px.
+      const crossPx = 2 * Number(cross?.getAttribute("r")) * 0.36;
+      const fanPx = 2 * Number(fan?.getAttribute("r"));
+      expect(crossPx).toBeCloseTo(3, 1);
+      expect(fanPx).toBeCloseTo(crossPx, 1);
+      el.remove();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = real;
+    }
+  });
+});

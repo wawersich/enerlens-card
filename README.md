@@ -373,6 +373,8 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
 | `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |
+| `flow.dot_size` | `100` | Dot size in percent, 40–150. 100 is the dot of the design on a card with large nodes; smaller cards draw somewhat smaller dots on their own |
+| `flow.line_width` | `100` | Line width in percent, 30–150 - 100 is 3 px for the connections and 2 px for the lines to the list on a card with large nodes, thinner on smaller cards |
 | `flow.inactive_lines` | `show` | `show`, `dim` or `hide` |
 | `flow.animation` | `auto` | `auto`, `on` or `off` |
 | `flow.min_w` | `10` | Below this no dots move. In the cross it also turns the line grey and drops the state word; for a consumer row the colour and the ring segment follow the list instead |

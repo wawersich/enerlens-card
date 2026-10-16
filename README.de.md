@@ -391,6 +391,8 @@ zusätzliche Abfrage.
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
 | `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |
+| `flow.dot_size` | `100` | Punktgröße in Prozent, 40–150. 100 ist der Punkt des Designs auf einer Karte mit großen Knoten; kleinere Karten zeichnen von sich aus etwas kleinere Punkte |
+| `flow.line_width` | `100` | Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner |
 | `flow.inactive_lines` | `show` | `show`, `dim` oder `hide` |
 | `flow.animation` | `auto` | `auto`, `on` oder `off` |
 | `flow.min_w` | `10` | Darunter laufen keine Punkte. Im Kreuz wird die Linie zusätzlich grau und das Zustandswort entfällt; bei einer Verbraucherzeile richten sich Farbe und Ring-Segment stattdessen nach der Liste |

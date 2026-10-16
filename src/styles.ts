@@ -139,7 +139,8 @@ export const styles = css`
   }
 
   .fan-line {
-    stroke-width: 2px;
+    /* 2 px at full node size, like the connections (K-12, sizing.ts). */
+    stroke-width: calc(2px * var(--el-line-k, 1));
     opacity: 0.45;
     fill: none;
   }
@@ -356,7 +357,9 @@ export const styles = css`
   .link {
     fill: none;
     stroke: var(--el-line);
-    stroke-width: calc(3px / var(--el-scale, 1));
+    /* 3 px at full node size, grown with the card and the configured
+       line_width - --el-line-k comes from sizing.ts (K-12). */
+    stroke-width: calc(3px * var(--el-line-k, 1) / var(--el-scale, 1));
     stroke-linecap: round;
   }
 

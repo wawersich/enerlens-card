@@ -231,6 +231,10 @@ export interface RawConfig extends LovelaceCardConfig {
     design?: string;
     /** One colour for every dot on the card; unset each follows its line. */
     dot_color?: string;
+    /** Dot size in percent of the base size, 40-150 (K-12). */
+    dot_size?: number;
+    /** Line width in percent of the base width, 30-150 (K-12). */
+    line_width?: number;
   };
   colors?: Partial<Record<ColorKey, string>> & {
     soc_stops?: SocStop[];
@@ -340,6 +344,9 @@ export interface Config {
      */
     dotColor?: string;
     design: string;
+    /** Dots and lines in percent of their base size at full node size (K-12). */
+    dotSize: number;
+    lineWidth: number;
   };
   /** Which half of a flow design applies (REQ P-10). */
   appearance: Appearance;

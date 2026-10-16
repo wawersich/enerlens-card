@@ -537,6 +537,8 @@ describe("defaults (section 3)", () => {
       animation: "auto",
       inactiveLines: "show",
       design: "none",
+      dotSize: 100,
+      lineWidth: 100,
     });
   });
 
@@ -756,6 +758,8 @@ describe("numeric ranges (schema rules)", () => {
       animation: "off",
       inactiveLines: "show",
       design: "none",
+      dotSize: 100,
+      lineWidth: 100,
     });
   });
 
@@ -960,6 +964,36 @@ describe("unknown keys (E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     normalizeConfig(cfg({ view_layout: { position: "sidebar" }, grid_options: { columns: 12 } }));
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reads dot_size and line_width as given, 100 when absent (K-12)", () => {
+    const config = normalizeConfig(cfg({ flow: { dot_size: 70, line_width: 130 } }));
+    expect(config.flow.dotSize).toBe(70);
+    expect(config.flow.lineWidth).toBe(130);
+  });
+
+  it("draws dot_size and line_width to their limits with a warning, never refuses (K-12, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const low = normalizeConfig(cfg({ flow: { dot_size: 1, line_width: 10 } }));
+    expect(low.flow.dotSize).toBe(40);
+    expect(low.flow.lineWidth).toBe(30);
+    const high = normalizeConfig(cfg({ flow: { dot_size: 1000, line_width: 151 } }));
+    expect(high.flow.dotSize).toBe(150);
+    expect(high.flow.lineWidth).toBe(150);
+    expect(warn).toHaveBeenCalledTimes(4);
+    expect(String(warn.mock.calls[0][0])).toContain("error.config.clamped");
+    expect(String(warn.mock.calls[0][0])).toContain("flow.dot_size");
+  });
+
+  it("takes the limits themselves without a word (K-12)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    normalizeConfig(cfg({ flow: { dot_size: 40, line_width: 30 } }));
+    normalizeConfig(cfg({ flow: { dot_size: 150, line_width: 150 } }));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("refuses a dot_size that is not a number (K-12)", () => {
+    expect(() => normalizeConfig(cfg({ flow: { dot_size: "big" } }))).toThrow(ConfigError);
   });
 
   it("stays quiet about appearance, an option of its own (P-12)", () => {

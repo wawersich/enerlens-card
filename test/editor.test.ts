@@ -421,6 +421,47 @@ describe("editor - flow design (P-10)", () => {
   });
 });
 
+describe("editor - dot size and line width (K-12)", () => {
+  const base: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  };
+
+  it("offers two sliders over exactly the range the card takes (E-1)", async () => {
+    const el = await mount(base);
+    for (const [name, min] of [
+      ["dot_size", 40],
+      ["line_width", 30],
+    ] as const) {
+      const number = findField(el, name)?.selector?.number as Record<string, unknown> | undefined;
+      expect(number?.mode, name).toBe("slider");
+      expect(number?.min, name).toBe(min);
+      expect(number?.max, name).toBe(150);
+      expect(number?.unit_of_measurement, name).toBe("%");
+    }
+  });
+
+  it("shows 100 % when nothing is set, and keeps 100 % out of the YAML", async () => {
+    const el = await mount(base);
+    expect(form(el).data.dot_size).toBe(100);
+    expect(form(el).data.line_width).toBe(100);
+    const saved = await change(el, { dot_size: 100, line_width: 100 });
+    expect(saved.flow?.dot_size).toBeUndefined();
+    expect(saved.flow?.line_width).toBeUndefined();
+  });
+
+  it("writes a chosen size and reads it back", async () => {
+    const el = await mount(base);
+    const saved = await change(el, { dot_size: 70, line_width: 85 });
+    expect(saved.flow?.dot_size).toBe(70);
+    expect(saved.flow?.line_width).toBe(85);
+    expect(normalizeConfig(saved).flow.dotSize).toBe(70);
+    const again = await mount(saved);
+    expect(form(again).data.dot_size).toBe(70);
+    expect(form(again).data.line_width).toBe(85);
+  });
+});
+
 describe("editor - flow: peak power and fine tuning", () => {
   const base: RawConfig = {
     type: "custom:enerlens-card",
