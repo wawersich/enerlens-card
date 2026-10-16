@@ -138,6 +138,22 @@ function outside(root) {
   return out;
 }
 
+/* The lines' width on screen against what the card asked for (K-12): 3 px
+ * and 2 px times --el-line-k. Read from the computed style, which WebKit
+ * reports divided by its page zoom - builds before the sizing did the same - so
+ * it is only compared where the page is not zoomed. */
+function lineWidths(root) {
+  if (Math.abs((card._pathZoom ?? 1) - 1) > 0.002) return null;
+  const s = parseFloat(card.style.getPropertyValue("--el-scale"));
+  const k = parseFloat(card.style.getPropertyValue("--el-line-k")) || 1;
+  const link = root.querySelector("path.link");
+  const fan = root.querySelector("path.fan-line");
+  if (!link || !fan || !s) return { error: "keine Linien" };
+  const width = (el) => parseFloat(getComputedStyle(el).strokeWidth);
+  const off = Math.max(Math.abs(width(link) * s - 3 * k), Math.abs(width(fan) - 2 * k));
+  return { off: +off.toFixed(3) };
+}
+
 window.check = () => {
   const root = card.shadowRoot;
   // Dots stop where they are told: no animation may move them while measured.
@@ -154,6 +170,7 @@ window.check = () => {
     fan: offLines(root.querySelector("svg.fan"), "g.fan-dot", "path.fan-line"),
     ring: h && r ? +Math.hypot(h.x - r.x, h.y - r.y).toFixed(2) : null,
     outside: outside(root),
+    lines: lineWidths(root),
   };
   return JSON.stringify(result);
 };

@@ -12,7 +12,8 @@
  *
  *   - every dot lies on a drawn line (cross and fan), at three places each;
  *   - the consumer ring sits centred on the house node;
- *   - nodes, rows, ring and dots stay inside the card.
+ *   - nodes, rows, ring and dots stay inside the card;
+ *   - the lines are as wide as the card asked for (K-12), where unzoomed.
  *
  *   npm run build && npm run webkit-check
  *   npm run webkit-check -- --shots /tmp/wk     # also a picture per WebKit run
@@ -43,6 +44,8 @@ const shots = option("--shots");
 
 /** How far a dot or the ring may be off, in screen pixels. */
 const TOLERANCE_PX = 1.5;
+/** How far a line's width may be off what the card asked for, in screen pixels. */
+const LINE_TOLERANCE_PX = 0.1;
 const SCENES = ["plain", "scaled", "below"];
 /* 100 % once; the zooms both set before loading (Safari remembers them per
  * site) and changed while the card runs (Cmd + / Cmd -). */
@@ -132,6 +135,9 @@ function problems(m) {
   if (m.ring === null) found.push("kein Ring am Haus");
   else if (m.ring > TOLERANCE_PX) found.push(`Ring ${m.ring} px neben der Hausmitte`);
   if (m.outside.length) found.push(`außerhalb der Karte: ${[...new Set(m.outside)].join(", ")}`);
+  if (m.lines?.error) found.push(m.lines.error);
+  else if (m.lines && m.lines.off > LINE_TOLERANCE_PX)
+    found.push(`Linien ${m.lines.off} px zu dick oder zu dünn`);
   return found;
 }
 
@@ -157,14 +163,14 @@ for (const scene of SCENES) {
 let failed = 0;
 const pad = (s, n) => String(s).padEnd(n);
 console.log(
-  `${pad("Engine", 9)}${pad("Szene", 8)}${pad("Zoom", 16)}${pad("Faktor", 8)}${pad("Kreuz", 11)}${pad("Fächer", 11)}${pad("Ring", 9)}Ergebnis`,
+  `${pad("Engine", 9)}${pad("Szene", 8)}${pad("Zoom", 16)}${pad("Faktor", 8)}${pad("Kreuz", 11)}${pad("Fächer", 11)}${pad("Ring", 9)}${pad("Linien", 10)}Ergebnis`,
 );
 for (const { engine, scene, how, m } of rows) {
   const found = problems(m);
   if (found.length) failed++;
   const px = (v) => (v === undefined || v === null ? "-" : `${v} px`);
   console.log(
-    `${pad(engine, 9)}${pad(scene, 8)}${pad(how, 16)}${pad(m.zoom === undefined ? "-" : Number(m.zoom).toFixed(2), 8)}${pad(px(m.cross?.worst), 11)}${pad(px(m.fan?.worst), 11)}${pad(px(m.ring), 9)}${found.length ? `FEHLER: ${found.join("; ")}` : "ok"}`,
+    `${pad(engine, 9)}${pad(scene, 8)}${pad(how, 16)}${pad(m.zoom === undefined ? "-" : Number(m.zoom).toFixed(2), 8)}${pad(px(m.cross?.worst), 11)}${pad(px(m.fan?.worst), 11)}${pad(px(m.ring), 9)}${pad(px(m.lines?.off), 10)}${found.length ? `FEHLER: ${found.join("; ")}` : "ok"}`,
   );
 }
 if (shots) console.log(`Bilder: ${shots}`);
