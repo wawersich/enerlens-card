@@ -4,8 +4,10 @@
  * or a missing update trigger shows up - unit tests on the modules cannot see it.
  */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { unzoomPath } from "../src/render/path-zoom";
 import type { HomeAssistant } from "../src/types";
 import { fakeMotion } from "./motion";
+import { emulateStretch, emulateVendor } from "./webkit-stretch";
 
 // The card only draws dots it can move (P-7).
 beforeAll(fakeMotion);
@@ -608,6 +610,104 @@ describe("show-all toggle (REQ L-12)", () => {
     await el.updateComplete;
     expect(el.shadowRoot?.querySelectorAll("g.dots g.dot")).toHaveLength(0);
     expect(el.shadowRoot?.querySelectorAll("svg.fan g.fan-dot circle")).toHaveLength(0);
+  });
+
+  it("puts the dots back onto their lines in a zoomed WebKit, and only there (issue #7)", async () => {
+    const el = await mountWithConsumers();
+    const paths = (selector: string) =>
+      Array.from(el.shadowRoot?.querySelectorAll<SVGGElement>(selector) ?? []).map(
+        (dot) => dot.style.offsetPath,
+      );
+    const unzoomed = (list: string[], zoom: number) =>
+      list.map((p) => `path("${unzoomPath(p.replace(/^path\("(.*)"\)$/, "$1"), zoom)}")`);
+    const cross = paths("g.dots g.dot");
+    const fan = paths("svg.fan g.fan-dot");
+    expect(cross.length, "the card should have drawn cross dots").toBeGreaterThan(0);
+    expect(fan.length, "the card should have drawn fan dots").toBeGreaterThan(0);
+
+    // Zooming fires a window resize; that is where the card measures again.
+    const browser = emulateStretch({ stretch: 1.5 });
+    const leave = emulateVendor("Apple Computer, Inc.");
+    try {
+      window.dispatchEvent(new Event("resize"));
+      expect(paths("g.dots g.dot")).toEqual(unzoomed(cross, 1.5));
+      expect(paths("svg.fan g.fan-dot")).toEqual(unzoomed(fan, 1.5));
+
+      // Back to 100 %: the paths are the drawn ones again.
+      browser.stretch = 1;
+      window.dispatchEvent(new Event("resize"));
+      expect(paths("g.dots g.dot")).toEqual(cross);
+      expect(paths("svg.fan g.fan-dot")).toEqual(fan);
+    } finally {
+      browser.restore();
+      leave();
+    }
+  });
+
+  it("opens in an already zoomed WebKit with every dot on its line (issue #7)", async () => {
+    // Safari remembers the zoom per site, so the card often starts zoomed:
+    // no resize comes, the first measure has to do it - for the fan too,
+    // which does not exist yet when that measure runs.
+    const dotPaths = (el: Card, selector: string) =>
+      Array.from(el.shadowRoot?.querySelectorAll<SVGGElement>(selector) ?? []).map(
+        (dot) => dot.style.offsetPath,
+      );
+    const unzoomed = (list: string[], zoom: number) =>
+      list.map((p) => `path("${unzoomPath(p.replace(/^path\("(.*)"\)$/, "$1"), zoom)}")`);
+    const plain = await mountWithConsumers();
+    const cross = dotPaths(plain, "g.dots g.dot");
+    const fan = dotPaths(plain, "svg.fan g.fan-dot");
+    plain.remove();
+    expect(cross.length).toBeGreaterThan(0);
+    expect(fan.length).toBeGreaterThan(0);
+
+    const browser = emulateStretch({ stretch: 1.5 });
+    const leave = emulateVendor("Apple Computer, Inc.");
+    try {
+      const el = await mountWithConsumers();
+      expect(dotPaths(el, "g.dots g.dot")).toEqual(unzoomed(cross, 1.5));
+      expect(dotPaths(el, "svg.fan g.fan-dot")).toEqual(unzoomed(fan, 1.5));
+
+      // Taken off the page and put back - a dashboard view switch: the new
+      // dot layers start with the factor the card already knows.
+      el.remove();
+      document.body.appendChild(el);
+      el.hass = fakeHass({ ...STATES, "sensor.pump": "1200", "sensor.idle": "3" });
+      await el.updateComplete;
+      expect(dotPaths(el, "g.dots g.dot")).toEqual(unzoomed(cross, 1.5));
+      expect(dotPaths(el, "svg.fan g.fan-dot")).toEqual(unzoomed(fan, 1.5));
+
+      // Off the page it no longer listens: a zoom then is measured on return.
+      el.remove();
+      browser.stretch = 2;
+      window.dispatchEvent(new Event("resize"));
+      expect((el as unknown as { _pathZoom: number })._pathZoom).toBe(1.5);
+    } finally {
+      browser.restore();
+      leave();
+    }
+  });
+
+  it("does not measure outside WebKit, so it cannot move a dot there (issue #7)", async () => {
+    const el = await mountWithConsumers();
+    const paths = () =>
+      Array.from(
+        el.shadowRoot?.querySelectorAll<SVGGElement>("g.dots g.dot, svg.fan g.fan-dot") ?? [],
+      ).map((dot) => dot.style.offsetPath);
+    const before = paths();
+    expect(before.length).toBeGreaterThan(0);
+    // Even a stretch measured by mistake must not reach Chrome or Firefox.
+    const browser = emulateStretch({ stretch: 1.5 });
+    try {
+      for (const vendor of ["Google Inc.", ""]) {
+        const leave = emulateVendor(vendor);
+        window.dispatchEvent(new Event("resize"));
+        leave();
+        expect(paths(), vendor || "Firefox").toEqual(before);
+      }
+    } finally {
+      browser.restore();
+    }
   });
 
   it("puts the ring on its values as soon as the card goes out of sight (REQ P-8)", async () => {

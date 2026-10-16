@@ -14,10 +14,18 @@
  * animation along the path. The core cannot slide out of its circle and the
  * halo cannot lag behind - which is what killed the trail this replaced.
  */
-import type { ColorKey, Config, DotPlan, FlowDesign, FlowDesignGround } from "../types";
+import type {
+  ColorKey,
+  Config,
+  ConnectionId,
+  DotPlan,
+  FlowDesign,
+  FlowDesignGround,
+} from "../types";
 import { GLOW_DRAWN, HALO_R, dotRings, glowFilter, haloStops } from "./dot-shape";
 import { PATHS } from "./geometry";
 import { resolveColour } from "./ground";
+import { unzoomPath } from "./path-zoom";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** Reference duration; actual speed is a playback rate relative to this. */
@@ -54,13 +62,15 @@ interface Link {
 const DOT_PX = 10;
 
 export class DotLayer {
-  private readonly links = new Map<string, Link>();
+  private readonly links = new Map<ConnectionId, Link>();
   private paused = false;
   /** Card width divided by the viewBox width - user units per CSS pixel. */
   private scale = 1;
   private design?: FlowDesign;
   private dark = true;
   private defs?: SVGDefsElement;
+  /** How much the browser stretches motion paths - see path-zoom.ts (issue #7). */
+  private pathZoom = 1;
 
   constructor(
     private readonly container: SVGGElement,
@@ -76,6 +86,18 @@ export class DotLayer {
     if (!Number.isFinite(scale) || scale <= 0 || scale === this.scale) return;
     this.scale = scale;
     this.repaint();
+  }
+
+  /**
+   * Hands over a new measure of the WebKit zoom bug (issue #7, path-zoom.ts).
+   * Only the path changes; the animations run on and keep their phase.
+   */
+  setPathZoom(zoom: number): void {
+    if (zoom === this.pathZoom) return;
+    this.pathZoom = zoom;
+    for (const [connection, link] of this.links) {
+      for (const dot of link.dots) dot.el.style.offsetPath = this.offsetPath(connection);
+    }
   }
 
   /**
@@ -238,6 +260,11 @@ export class DotLayer {
     return this.technique === "waapi" && animate && typeof dot.el.animate === "function";
   }
 
+  /** The path a dot rides, corrected for the WebKit zoom bug (issue #7). */
+  private offsetPath(connection: ConnectionId): string {
+    return `path("${unzoomPath(PATHS[connection], this.pathZoom)}")`;
+  }
+
   /** Current position of a dot as a fraction of one lap, 0..1. */
   private phaseOf(dot: Dot | undefined): number {
     const time = dot?.animation?.currentTime;
@@ -263,7 +290,7 @@ export class DotLayer {
     // coordinates and needs no conversion when the card resizes. `auto` turns
     // the group with the lane, so a ring pushed forward is pushed along it -
     // and a circle does not mind being turned.
-    el.style.offsetPath = `path("${PATHS[plan.connection]}")`;
+    el.style.offsetPath = this.offsetPath(plan.connection);
     el.style.offsetRotate = "auto";
     el.style.offsetDistance = `${100 * ((anchor + index / count) % 1)}%`;
     link.group.appendChild(el);

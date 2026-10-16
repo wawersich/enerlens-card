@@ -12,6 +12,7 @@ import type { FlowDesign, FlowDesignGround } from "../types";
  */
 import { GLOW_DRAWN, HALO_R, dotRings, glowFilter, haloStops } from "./dot-shape";
 import { resolveColour } from "./ground";
+import { unzoomPath } from "./path-zoom";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const BASE_MS = 5000;
@@ -50,6 +51,8 @@ export class FanLayer {
   /** One colour for every dot, or undefined to follow each row (P-13). */
   private dotColor?: string;
   private defs?: SVGDefsElement;
+  /** How much the browser stretches motion paths - see path-zoom.ts (issue #7). */
+  private pathZoom = 1;
 
   constructor(private readonly svg: SVGSVGElement) {}
 
@@ -68,6 +71,14 @@ export class FanLayer {
     if (colour === this.dotColor) return;
     this.dotColor = colour;
     for (const line of this.lines.values()) line.paintKey = undefined;
+  }
+
+  /**
+   * A new measure of the WebKit zoom bug (issue #7, path-zoom.ts). Takes
+   * effect on the next update, which redraws every path anyway.
+   */
+  setPathZoom(zoom: number): void {
+    this.pathZoom = zoom;
   }
 
   private ground(): FlowDesignGround | undefined {
@@ -132,6 +143,7 @@ export class FanLayer {
       if (repaint) this.applyGlow(line, dotColour, ground);
 
       const countChanged = line.count !== row.count;
+      const dotPath = unzoomPath(d, this.pathZoom);
       const rate = BASE_MS / 1000 / Math.max(row.durationS, 0.01);
       for (const [i, dot] of line.dots.entries()) {
         // A dot that joined since the last paint is still an empty group -
@@ -140,7 +152,9 @@ export class FanLayer {
         // The path changes with every relayout, so it is set on the element
         // rather than kept in a stylesheet. `auto` turns the dot with the row,
         // so a ring pushed forward is pushed along it.
-        dot.style.offsetPath = `path("${d}")`;
+        // The line is drawn from `d` as it is; only the dots get the path
+        // corrected for the WebKit zoom bug (issue #7).
+        dot.style.offsetPath = `path("${dotPath}")`;
         dot.style.offsetRotate = "auto";
 
         // Same guard as the list: no Web Animations must not crash (REQ N-5).

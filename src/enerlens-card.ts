@@ -18,6 +18,7 @@ import { VIEW_W } from "./render/geometry";
 import { groundIsDark } from "./render/ground";
 import { renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
+import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
 import { styles } from "./styles";
 import {
@@ -143,6 +144,9 @@ class EnerLensCard extends LitElement {
   }
   private readonly _onVisibility = () => this._syncPlayState();
   private readonly _onMotionChange = () => this.requestUpdate();
+  /** How much the browser stretches motion paths (issue #7, render/path-zoom.ts). */
+  private _pathZoom = 1;
+  private readonly _onWindowResize = () => this._measurePathZoom();
 
   set hass(hass: HomeAssistant) {
     const previous = this._hass;
@@ -258,8 +262,15 @@ class EnerLensCard extends LitElement {
     super.connectedCallback();
     // Text keeps a minimum size in CSS pixels while the drawing scales, so the
     // card stays legible on a phone (REQ K-12).
-    this._resizeObserver = new ResizeObserver(() => this._measure());
+    this._resizeObserver = new ResizeObserver(() => {
+      this._measure();
+      // A new layout may come with a new zoom (issue #7, render/path-zoom.ts).
+      this._measurePathZoom();
+    });
     this._resizeObserver.observe(this);
+    // Zooming the page resizes the window in CSS pixels even where the card
+    // keeps its width, so this is where a new zoom shows up (issue #7).
+    window.addEventListener("resize", this._onWindowResize);
 
     this._technique = detectTechnique();
 
@@ -453,6 +464,26 @@ class EnerLensCard extends LitElement {
   }
 
   /**
+   * Measures the WebKit bug that puts the dots beside their lines when the page
+   * is zoomed (issue #7; the why and how are in render/path-zoom.ts). Looks
+   * like it does nothing wherever the bug does not strike: outside WebKit it
+   * does not measure, and in a WebKit without the bug the factor is 1. Called
+   * on a new layout and on every window resize, not on every render: the
+   * probe costs a layout of its own.
+   */
+  private _measurePathZoom(): void {
+    if (this._technique !== "waapi" || !mayStretchPaths()) return;
+    const svg = this.renderRoot?.querySelector(".plot svg") as SVGSVGElement | null;
+    const zoom = svg ? measurePathZoom(svg) : undefined;
+    if (zoom === undefined || Math.abs(zoom - this._pathZoom) < 0.002) return;
+    this._pathZoom = zoom;
+    this._dots?.setPathZoom(zoom);
+    this._fan?.setPathZoom(zoom);
+    // The fan sets its paths when it draws; the cross dots took theirs above.
+    this._drawFan();
+  }
+
+  /**
    * Whether the list wrapped below the cross. Measured rather than derived from
    * a width threshold: the flex bases live in the stylesheet, and a number
    * duplicated here would silently drift apart from them.
@@ -498,7 +529,10 @@ class EnerLensCard extends LitElement {
   private _drawFan(): void {
     const svg = this.renderRoot?.querySelector("svg.fan") as SVGSVGElement | null;
     if (!svg || !this._config) return;
-    if (!this._fan) this._fan = new FanLayer(svg);
+    if (!this._fan) {
+      this._fan = new FanLayer(svg);
+      this._fan.setPathZoom(this._pathZoom);
+    }
     // The rows follow the same design as the cross (P-10).
     this._fan.setDesign(
       flowDesign(this._config.flow.design),
@@ -664,6 +698,10 @@ class EnerLensCard extends LitElement {
     if (!this._dots) {
       this._dots = new DotLayer(group, this._technique);
       if (width > 0) this._dots.setScale(width / VIEW_W);
+      // The first measure, now that the SVG exists; later ones come with
+      // resizes (issue #7).
+      this._dots.setPathZoom(this._pathZoom);
+      this._measurePathZoom();
     }
     // Handed over on every render: the same object does nothing, but a
     // reloaded design file returns a new one under the same id, and that has
@@ -697,6 +735,7 @@ class EnerLensCard extends LitElement {
     this._intersectionObserver?.disconnect();
     this._intersectionObserver = undefined;
     document.removeEventListener("visibilitychange", this._onVisibility);
+    window.removeEventListener("resize", this._onWindowResize);
     this._motionQuery?.removeEventListener?.("change", this._onMotionChange);
     this._motionQuery = undefined;
     this._dots?.destroy();

@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **The dots stay on their lines in a zoomed Safari on the Mac** (#7). WebKit
+  stretches a motion path by the page zoom a second time, so with Cmd + the
+  dots drifted below and right of their lines, with Cmd - above and left. The
+  card now measures the stretch and corrects for it; where there is none, it
+  changes nothing.
+
 ## [0.8.0] - 2026-10-04
 
 ### Added
