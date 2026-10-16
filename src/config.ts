@@ -66,6 +66,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "colors",
   "icons",
   "power",
+  "appearance",
 ]);
 
 /**

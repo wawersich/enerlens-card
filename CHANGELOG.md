@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   key it did not know while reading it - so any card-mod style was silently
   ignored. The block is now handed on untouched, and the card no longer warns
   about it in the browser console.
+- **No false warning for `appearance`.** Choosing light or dark logged
+  "Unknown option appearance - ignored" in the browser console on every
+  change, although the option was applied all along.
 
 ## [0.8.1] - 2026-10-16
 

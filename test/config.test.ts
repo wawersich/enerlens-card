@@ -962,6 +962,12 @@ describe("unknown keys (E-1)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("stays quiet about appearance, an option of its own (P-12)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(normalizeConfig(cfg({ appearance: "dark" })).appearance).toBe("dark");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("stays quiet about card_mod and hands it on untouched (issue #8)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const cardMod = { style: "ha-card { background: none; }" };
