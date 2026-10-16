@@ -125,7 +125,7 @@ async function inChromium(scene, scale) {
 }
 
 /** What is wrong with one measurement, in words; empty when all is well. */
-function problems(m) {
+function problems(m, lines) {
   if (m.error) return [m.error];
   const found = [];
   if (!m.cross.dots) found.push("keine Punkte im Kreuz");
@@ -135,6 +135,7 @@ function problems(m) {
   if (m.ring === null) found.push("kein Ring am Haus");
   else if (m.ring > TOLERANCE_PX) found.push(`Ring ${m.ring} px neben der Hausmitte`);
   if (m.outside.length) found.push(`außerhalb der Karte: ${[...new Set(m.outside)].join(", ")}`);
+  if (!lines) return found;
   if (m.lines?.error) found.push(m.lines.error);
   else if (m.lines && m.lines.off > LINE_TOLERANCE_PX)
     found.push(`Linien ${m.lines.off} px zu dick oder zu dünn`);
@@ -150,12 +151,15 @@ for (const scene of SCENES) {
       scene,
       how: `${setting.zoom * 100} % ${setting.mode === "live" ? "danach" : "vorab"}`,
       m,
+      // Line widths only where this run left the page unzoomed - not read off
+      // the card, whose _pathZoom stays 1 in a WebKit without the issue #7 bug.
+      lines: setting.zoom === 1,
     });
   }
   if (chromium) {
     for (const scale of CHROMIUM_SCALES) {
       const m = await inChromium(scene, scale).catch((e) => ({ error: e.message }));
-      rows.push({ engine: "Chromium", scene, how: `Skalierung ${scale}`, m });
+      rows.push({ engine: "Chromium", scene, how: `Skalierung ${scale}`, m, lines: true });
     }
   }
 }
@@ -165,12 +169,12 @@ const pad = (s, n) => String(s).padEnd(n);
 console.log(
   `${pad("Engine", 9)}${pad("Szene", 8)}${pad("Zoom", 16)}${pad("Faktor", 8)}${pad("Kreuz", 11)}${pad("Fächer", 11)}${pad("Ring", 9)}${pad("Linien", 10)}Ergebnis`,
 );
-for (const { engine, scene, how, m } of rows) {
-  const found = problems(m);
+for (const { engine, scene, how, m, lines } of rows) {
+  const found = problems(m, lines);
   if (found.length) failed++;
   const px = (v) => (v === undefined || v === null ? "-" : `${v} px`);
   console.log(
-    `${pad(engine, 9)}${pad(scene, 8)}${pad(how, 16)}${pad(m.zoom === undefined ? "-" : Number(m.zoom).toFixed(2), 8)}${pad(px(m.cross?.worst), 11)}${pad(px(m.fan?.worst), 11)}${pad(px(m.ring), 9)}${pad(px(m.lines?.off), 10)}${found.length ? `FEHLER: ${found.join("; ")}` : "ok"}`,
+    `${pad(engine, 9)}${pad(scene, 8)}${pad(how, 16)}${pad(m.zoom === undefined ? "-" : Number(m.zoom).toFixed(2), 8)}${pad(px(m.cross?.worst), 11)}${pad(px(m.fan?.worst), 11)}${pad(px(m.ring), 9)}${pad(px(lines ? m.lines?.off : undefined), 10)}${found.length ? `FEHLER: ${found.join("; ")}` : "ok"}`,
   );
 }
 if (shots) console.log(`Bilder: ${shots}`);

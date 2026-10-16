@@ -138,12 +138,11 @@ function outside(root) {
   return out;
 }
 
-/* The lines' width on screen against what the card asked for (K-12): 3 px
- * and 2 px times --el-line-k. Read from the computed style, which WebKit
- * reports divided by its page zoom - builds before the sizing did the same - so
- * it is only compared where the page is not zoomed. */
+/* The lines' width against what the card asked for (K-12): 3 px and 2 px
+ * times --el-line-k. Read from the computed style, which WebKit reports
+ * divided by its page zoom - builds before the sizing did the same - so
+ * webkit-check.mjs only weighs it for runs it started unzoomed. */
 function lineWidths(root) {
-  if (Math.abs((card._pathZoom ?? 1) - 1) > 0.002) return null;
   const s = parseFloat(card.style.getPropertyValue("--el-scale"));
   const k = parseFloat(card.style.getPropertyValue("--el-line-k")) || 1;
   const link = root.querySelector("path.link");
