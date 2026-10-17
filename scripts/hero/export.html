@@ -58,8 +58,11 @@ const BELOW = params.has("below");
 /* ring.animation: fade - the ring's places keep still and their colours blend
  * into the new order (R-4). A circle is then a place, not a consumer. */
 const FADE = params.has("fade");
+/* Extra values at all four nodes (REQ Z-1 to Z-6, issue #9), one quiet scene:
+ * the subject is what stands at the circles, not the list at work. */
+const EXTRAS = params.has("extras");
 if (BELOW) document.getElementById("host").style.width = "440px";
-const RESORT = params.get("scenes") !== "1" && !OUTAGE;
+const RESORT = params.get("scenes") !== "1" && !OUTAGE && !EXTRAS;
 if (params.has("dark")) {
   const dark = {
     "--ha-card-background": "#1d1e21",
@@ -76,8 +79,10 @@ if (params.has("dark")) {
 }
 
 const TEXT = {
-  de: { title: "Energie", c1: "Wärmepumpe", c2: "Waschmaschine", c3: "Klima", c4: "Kühlschränke", wb: "Wallbox" },
-  en: { title: "Energy", c1: "Heat pump", c2: "Washing machine", c3: "Air conditioning", c4: "Fridges", wb: "Wallbox" },
+  de: { title: "Energie", c1: "Wärmepumpe", c2: "Waschmaschine", c3: "Klima", c4: "Kühlschränke", wb: "Wallbox",
+    forecast: "Prognose", imported: "Bezug", autarky: "Autarkie", left: "Rest" },
+  en: { title: "Energy", c1: "Heat pump", c2: "Washing machine", c3: "Air conditioning", c4: "Fridges", wb: "Wallbox",
+    forecast: "Forecast", imported: "Import", autarky: "Autarky", left: "Left" },
 }[lang];
 
 const W = (id, w) => [id, { entity_id: id, state: String(w),
@@ -124,7 +129,15 @@ const scene = (i) => Object.fromEntries(OUTAGE ? [
   W("sensor.c1", SCENES[i].c1), W("sensor.c2", SCENES[i].c2), W("sensor.c3", 900), W("sensor.c4", 350),
   car, soc,
 ]);
-const states = scene(0);
+/* Invented, like everything here: today's yield and what is still forecast,
+ * the energy drawn today, a self-sufficiency rate, the battery's energy left. */
+const E = (id, state, unit) => [id, { entity_id: id, state: String(state),
+  attributes: { unit_of_measurement: unit, state_class: "measurement" }, last_changed: "", last_updated: "" }];
+const extraStates = EXTRAS ? [
+  E("sensor.pv_today", 23.42, "kWh"), E("sensor.pv_forecast", 6.81, "kWh"),
+  E("sensor.import_today", 1.24, "kWh"), E("sensor.autarky", 92, "%"), E("sensor.battery_left", 7.9, "kWh"),
+] : [];
+const states = { ...scene(0), ...Object.fromEntries(extraStates) };
 
 await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
@@ -159,6 +172,18 @@ card.setConfig({
   update_interval_s: 2,
   ...(BELOW ? { list: { always_below: true } } : {}),
   ...(FADE ? { ring: { animation: "fade" } } : {}),
+  // PV and house without their names: with no state word beside them the icon
+  // says enough, and hiding them is one of the options to show (REQ Z-4).
+  ...(EXTRAS ? { nodes: {
+    solar: {
+      show_name: false,
+      inside: { entity: "sensor.pv_today", decimals: 1 },
+      label: { entity: "sensor.pv_forecast", prefix: TEXT.forecast, decimals: 1 },
+    },
+    grid: { label: { entity: "sensor.import_today", prefix: TEXT.imported, decimals: 1 } },
+    house: { show_name: false, label: { entity: "sensor.autarky", prefix: TEXT.autarky, decimals: 0 } },
+    battery: { label: { entity: "sensor.battery_left", prefix: TEXT.left, decimals: 1 } },
+  } } : {}),
 });
 card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
@@ -535,7 +560,7 @@ for (const node of root.querySelectorAll(".node")) {
     out.push(`<g transform="translate(${X(xb.left)},${Y(xb.top)}) scale(${(xb.width / 24).toFixed(4)})" fill="none" stroke="${xs.stroke}" stroke-width="${parseFloat(xs.strokeWidth)}" stroke-linecap="round">` +
       [...cross.querySelectorAll("path")].map((p) => `<path d="${p.getAttribute("d")}"/>`).join("") + `</g>`);
   }
-  for (const v of node.querySelectorAll(".value")) out.push(textOf(v));
+  for (const v of node.querySelectorAll(".value, .extra-inside")) out.push(textOf(v));
   out.push(textOf(node.querySelector(".label")));
 }
 

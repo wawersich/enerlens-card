@@ -45,6 +45,18 @@ threshold by threshold. On top come six dot designs, a single dot colour for
 the whole card, and idle lines that can be dimmed or hidden. All of it is in
 the editor too.
 
+**Extra values at the nodes.** Each circle can show a second value - in the
+circle or right next to it, with a short prefix: today's yield beside the
+solar power, the energy drawn from the grid today, a self-sufficiency rate at
+the house, the battery's remaining energy. It can be any entity; the card
+shows it the way Home Assistant does and computes nothing itself. A node's
+name and state word can be hidden. See *Extra values at the nodes*.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-extras.svg">
+  <img src="docs/images/card-en-light-extras.svg" alt="EnerLens Card with extra values at all four nodes" width="690">
+</picture>
+
 A **grid outage** is shown, provided the installation reports the grid status.
 
 <picture>

@@ -48,6 +48,18 @@ für Schwelle. Dazu kommen sechs Designs für die Punkte, eine gemeinsame
 Punktfarbe, und ruhende Linien lassen sich abdunkeln oder ausblenden. Alles
 davon steht auch im Editor.
 
+**Zusatzwerte an den Knoten.** Jeder Kreis kann einen zweiten Wert zeigen –
+im Kreis oder direkt daneben, mit einem kurzen Vorsatz: den Tagesertrag neben
+der PV-Leistung, den Netzbezug von heute, eine Autarkiequote am Haus, die
+Restenergie der Batterie. Es kann jede Entität sein; die Karte zeigt sie so,
+wie Home Assistant es tut, und rechnet nichts selbst. Name und Zustandswort
+eines Knotens lassen sich ausblenden. Siehe *Zusatzwerte an den Knoten*.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-extras.svg">
+  <img src="docs/images/card-de-light-extras.svg" alt="EnerLens Card mit Zusatzwerten an allen vier Knoten" width="690">
+</picture>
+
 Ein **Netzausfall** wird angezeigt, sofern die Anlage den Netzstatus erfasst.
 
 <picture>
