@@ -51,8 +51,24 @@ const FULL: RawConfig = {
     show_selector: true,
   },
   flow: { inactive_lines: "dim", animation: "auto", min_w: 10 },
-  colors: { solar: "#f90", rest: "#777" },
+  colors: { solar: "#f90", rest: "#777", grid_label: "#123456", solar_inside: "#654321" },
   icons: { house: "mdi:home" },
+  // Extra values (REQ Z-10): every field of every kind, so each one is cleared.
+  nodes: {
+    solar: {
+      show_name: false,
+      inside: { entity: "sensor.today", position: "below", decimals: 1, size: 80, weight: "bold" },
+      label: {
+        entity: "sensor.fc",
+        prefix: "Prognose",
+        decimals: "sig3",
+        size: 120,
+        weight: "medium",
+      },
+    },
+    grid: { show_state: false, label: { entity: "sensor.imp", prefix: "Bezug", decimals: 0 } },
+    battery: { show_name: false, show_state: false, label: { entity: "sensor.rest", size: 60 } },
+  },
 };
 
 async function mount(config: RawConfig): Promise<Editor> {
@@ -88,6 +104,9 @@ const CLEARED: Record<string, unknown[]> = {
 };
 
 function kindOf(name: string): keyof typeof CLEARED {
+  if (/^node_.*_show_(name|state)$/.test(name)) return "boolean";
+  if (/^node_.*_(position|decimals|weight)$/.test(name)) return "select";
+  if (/^node_.*_size$/.test(name)) return "number";
   if (/^grid_status_(outage|ok)$/.test(name)) return "list";
   if (/_source$|default_mode|inactive_lines|animation|power_unit|power_decimals/.test(name))
     return "select";

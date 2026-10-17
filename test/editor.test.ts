@@ -505,13 +505,17 @@ describe("editor - grid status", () => {
   };
 
   function statusFields(el: Editor): Field[] {
-    const group = form(el).schema.find((g) => g.name === "grid_status");
+    const group = forms(el)
+      .flatMap((f) => f.schema)
+      .find((g) => g.name === "grid_status");
     return group?.schema ?? [];
   }
 
   it("keeps the section collapsed - most installations have no such entity", async () => {
     const el = await mount(BASE);
-    const group = form(el).schema.find((g) => g.name === "grid_status") as Field & {
+    const group = forms(el)
+      .flatMap((f) => f.schema)
+      .find((g) => g.name === "grid_status") as Field & {
       expanded?: boolean;
     };
     expect(group).toBeTruthy();

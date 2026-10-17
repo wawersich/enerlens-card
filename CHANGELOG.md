@@ -4,6 +4,29 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Extra values at the nodes** (#9). Each node can show a second value of
+  any entity - in the circle (not the battery) and right next to it, with an
+  optional prefix such as "Self-sufficiency". Shown as Home Assistant writes
+  it, or with fixed decimals or significant digits; size, weight and colour
+  per value. One next to the circle or above the icon opens its own history
+  when tapped. In the editor under *Labels & extra values*.
+- **Name and state word can be hidden** per node, with or without extra
+  values.
+
+### Changed
+- **The editor groups are reordered and renamed:** *Entities* is now *Main
+  entities*, followed by the new *Labels & extra values*; *Grid outage* moved
+  behind *Consumers*.
+- **A calculated PV or battery node gets room for "calculated".** The extra
+  line used to reach into the mode buttons above PV.
+
+### Fixed
+- **Figures in languages with other digits** (Persian, Bengali, Marathi …)
+  were all shown as zero.
+
 ## [0.9.0] - 2026-10-17
 
 ### Added

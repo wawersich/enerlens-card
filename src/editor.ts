@@ -214,6 +214,8 @@ interface FlatConfig {
   icon_house?: string;
   icon_battery?: string;
   icon_rest?: string;
+  /** Label switches and extra fields per node, `node_<node>_<setting>` (REQ Z-10). */
+  [key: `node_${string}`]: unknown;
 }
 
 const COLOR_KEYS: readonly ColorKey[] = [
@@ -276,6 +278,134 @@ function flattenQuantity(quantity: Quantity, ref: EntityRef | undefined, out: Fl
   out[fields[1]] = split[keys[1]];
 }
 
+/** Where an extra field lives: inside the circle (not the battery), or with the label. */
+const PLACES = ["inside", "label"] as const;
+type Place = (typeof PLACES)[number];
+
+const hasPlace = (quantity: Quantity, place: Place): boolean =>
+  place === "label" || quantity !== "battery";
+
+/** Only grid and battery have a state word to switch off (REQ Z-4). */
+const hasStateWord = (quantity: Quantity): boolean => quantity === "grid" || quantity === "battery";
+
+/**
+ * Every setting of the nodes block as a flat form field, defaults filled in:
+ * a switch has to show "on" and a slider needs a position even when the YAML
+ * says nothing - and the defaults go back out of it in fromFlat (REQ Z-10).
+ */
+function flattenNodes(config: RawConfig, out: FlatRecord): void {
+  const colors = (config.colors ?? {}) as Record<string, unknown>;
+  for (const quantity of QUANTITIES) {
+    const node = (config.nodes?.[quantity] ?? {}) as Record<string, unknown>;
+    const p = `node_${quantity}_`;
+    out[`${p}show_name`] = node.show_name !== false;
+    if (hasStateWord(quantity)) out[`${p}show_state`] = node.show_state !== false;
+    for (const place of PLACES) {
+      if (!hasPlace(quantity, place)) continue;
+      const field = (isRecord(node[place]) ? node[place] : {}) as Record<string, unknown>;
+      const f = `${p}${place}_`;
+      out[`${f}entity`] = field.entity;
+      if (place === "inside") out[`${f}position`] = field.position ?? "above";
+      else out[`${f}prefix`] = field.prefix;
+      // Select fields speak text: 2 from the YAML is "2" in the form.
+      // A bare `decimals:` is null in YAML - unset, like an absent one.
+      out[`${f}decimals`] =
+        field.decimals === undefined || field.decimals === null || field.decimals === ""
+          ? "ha"
+          : String(field.decimals);
+      out[`${f}size`] = field.size ?? 100;
+      out[`${f}weight`] = field.weight ?? "normal";
+      out[`color_${quantity}_${place}`] = colors[`${quantity}_${place}`];
+    }
+  }
+}
+
+/**
+ * What a record holds beyond the keys the form knows. Kept, so a misspelt key
+ * survives the first edit and the card can still warn about it.
+ */
+function unknownKeys(value: unknown, known: readonly string[]): Record<string, unknown> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !known.includes(key)));
+}
+
+/** What each field knows, as the card reads it: no prefix inside, no position with the label. */
+const FIELD_KEYS: Record<Place, readonly string[]> = {
+  inside: ["entity", "position", "decimals", "size", "weight"],
+  label: ["entity", "prefix", "decimals", "size", "weight"],
+};
+const NODE_KEYS = ["show_name", "show_state", "inside", "label"];
+
+/** One extra field for the YAML; nothing at all without its entity (REQ E-1, Z-10). */
+function buildField(
+  f: FlatRecord,
+  quantity: Quantity,
+  place: Place,
+  previous: unknown,
+): Record<string, unknown> | undefined {
+  const p = `node_${quantity}_${place}_`;
+  const entity = f[`${p}entity`];
+  if (!nonEmpty(entity)) return undefined;
+  const decimals = f[`${p}decimals`];
+  const prefix = f[`${p}prefix`];
+  const weight = f[`${p}weight`];
+  return prune({
+    ...unknownKeys(previous, FIELD_KEYS[place]),
+    entity,
+    // Each field writes only its own keys - the other one's stay as found.
+    ...(place === "inside"
+      ? { position: f[`${p}position`] === "below" ? "below" : undefined }
+      : // As typed - the card trims; correcting here would fight the keystrokes.
+        { prefix: nonEmpty(prefix) ? prefix : undefined }),
+    decimals:
+      !nonEmpty(decimals) || decimals === "ha"
+        ? undefined
+        : /^\d$/.test(decimals)
+          ? Number(decimals)
+          : decimals,
+    size: percent(f[`${p}size`]),
+    weight: nonEmpty(weight) && weight !== "normal" ? weight : undefined,
+  });
+}
+
+/** The nodes block: only what differs from the defaults, nothing for a missing battery. */
+function buildNodes(f: FlatRecord, withBattery: boolean, previous: unknown): RawConfig["nodes"] {
+  const out: Record<string, unknown> = unknownKeys(previous, QUANTITIES);
+  for (const quantity of QUANTITIES) {
+    if (quantity === "battery" && !withBattery) continue;
+    const p = `node_${quantity}_`;
+    const before = isRecord(previous) ? previous[quantity] : undefined;
+    const old = isRecord(before) ? before : {};
+    const node = prune({
+      ...unknownKeys(old, NODE_KEYS),
+      show_name: f[`${p}show_name`] === false ? false : undefined,
+      show_state: hasStateWord(quantity) && f[`${p}show_state`] === false ? false : undefined,
+      inside: hasPlace(quantity, "inside")
+        ? buildField(f, quantity, "inside", old.inside)
+        : undefined,
+      label: buildField(f, quantity, "label", old.label),
+    });
+    if (node) out[quantity] = node;
+  }
+  return prune(out) as RawConfig["nodes"];
+}
+
+/** A field's colour goes with its entity: no colour left behind that no row shows. */
+function extraColors(f: FlatRecord, withBattery: boolean): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const quantity of QUANTITIES) {
+    for (const place of PLACES) {
+      if (!hasPlace(quantity, place)) continue;
+      const keep =
+        (quantity !== "battery" || withBattery) && nonEmpty(f[`node_${quantity}_${place}_entity`]);
+      out[`${quantity}_${place}`] = keep ? f[`color_${quantity}_${place}`] : undefined;
+    }
+  }
+  // The battery has no inside field, so no row could ever show this colour.
+  out.battery_inside = undefined;
+  return out;
+}
+
 function toFlat(config: RawConfig): FlatConfig {
   const e = config.entities ?? {};
   // The status entity comes as a bare id or as a block with its state names.
@@ -325,6 +455,7 @@ function toFlat(config: RawConfig): FlatConfig {
   const colors = (config.colors ?? {}) as Record<string, unknown>;
   for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
   out.soc_stops = colors.soc_stops;
+  flattenNodes(config, out);
   const icons = (config.icons ?? {}) as Record<string, unknown>;
   for (const key of ICON_KEYS) out[`icon_${key}`] = icons[key];
   return out as FlatConfig;
@@ -521,7 +652,9 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       // Only once they have been touched - an absent key must not overwrite
       // what the YAML already says.
       ...(f.soc_stops !== undefined ? { soc_stops: f.soc_stops } : {}),
+      ...extraColors(f, entities.battery !== undefined),
     }),
+    nodes: buildNodes(f, entities.battery !== undefined, previous.nodes),
     icons: prune(Object.fromEntries(ICON_KEYS.map((key) => [key, f[`icon_${key}`]]))),
   } as RawConfig;
 }
@@ -568,6 +701,92 @@ function quantitySchema(
   return fields;
 }
 
+/** Choices for how an extra value is written (REQ Z-5); select values are text. */
+function decimalsSelector(t: (key: string) => string) {
+  return {
+    select: {
+      mode: "dropdown",
+      options: ["ha", "0", "1", "2", "3", "sig2", "sig3", "sig4"].map((value) => ({
+        value,
+        label: t(`decimals_${value}`),
+      })),
+    },
+  };
+}
+
+function weightSelector(t: (key: string) => string) {
+  return {
+    select: {
+      mode: "dropdown",
+      options: ["normal", "medium", "bold"].map((value) => ({
+        value,
+        label: t(`weight_${value}`),
+      })),
+    },
+  };
+}
+
+/**
+ * One node's section in "Beschriftung & Zusatzwerte" (REQ Z-10): the two switches, then each field
+ * with its entity first - its other settings appear once the entity is there,
+ * because a field without one is dropped and would take them along (E-1).
+ */
+function nodeSchema(
+  quantity: Quantity,
+  flat: FlatRecord,
+  hass: HomeAssistant,
+  t: (key: string) => string,
+) {
+  const p = `node_${quantity}_`;
+  const fields: Record<string, unknown>[] = [{ name: `${p}show_name`, selector: { boolean: {} } }];
+  if (hasStateWord(quantity)) fields.push({ name: `${p}show_state`, selector: { boolean: {} } });
+  for (const place of PLACES) {
+    if (!hasPlace(quantity, place)) continue;
+    const f = `${p}${place}_`;
+    fields.push({ name: `${f}entity`, selector: { entity: {} } });
+    if (!nonEmpty(flat[`${f}entity`])) continue;
+    if (place === "inside") {
+      fields.push({
+        name: `${f}position`,
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: [
+              { value: "above", label: t("position_above") },
+              { value: "below", label: t("position_below") },
+            ],
+          },
+        },
+      });
+    } else {
+      fields.push({ name: `${f}prefix`, selector: { text: {} } });
+    }
+    fields.push(
+      { name: `${f}decimals`, selector: decimalsSelector(t) },
+      {
+        name: `${f}size`,
+        selector: {
+          number: { min: 60, max: 150, step: 5, mode: "slider", unit_of_measurement: "%" },
+        },
+      },
+      { name: `${f}weight`, selector: weightSelector(t) },
+    );
+  }
+  return {
+    name: `node_${quantity}`,
+    type: "expandable",
+    flatten: true,
+    title: localize(`node.${quantity}`, hass),
+    schema: fields,
+  };
+}
+
+/**
+ * A line of text at the end of a group: the colours of what it sets up are
+ * further down, under "Farben" - on a phone that was not to be found (Z-10).
+ */
+const COLORS_HINT = { name: "colors_hint", type: "constant" };
+
 function schema(hass: HomeAssistant, flat: FlatRecord) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   const derivedBy = QUANTITIES.filter((q) => flat[`${q}_source`] === "derived");
@@ -604,8 +823,25 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       type: "expandable",
       flatten: true,
       title: t("entities"),
-      schema: entityFields,
+      schema: [...entityFields, COLORS_HINT],
     },
+    {
+      name: "nodes",
+      type: "expandable",
+      flatten: true,
+      title: t("nodes"),
+      // One section per node; the battery only when there is one (REQ Z-10).
+      schema: [
+        ...QUANTITIES.filter((q) => q !== "battery" || flat.battery_source !== "none").map((q) =>
+          nodeSchema(q, flat, hass, t),
+        ),
+        COLORS_HINT,
+      ],
+    },
+    // The consumers have a panel of their own, drawn between the form pieces
+    // (REQ E-4): the object selector could not unfold a section inside an entry
+    // or react to the entity chosen in it. Marked here so render() knows where.
+    { name: CONSUMERS_SLOT, type: "constant" },
     {
       name: "grid_status",
       type: "expandable",
@@ -617,10 +853,6 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "grid_status_ok", selector: stateSelector },
       ],
     },
-    // The consumers have a panel of their own, drawn between the form pieces
-    // (REQ E-4): the object selector could not unfold a section inside an entry
-    // or react to the entity chosen in it. Marked here so render() knows where.
-    { name: CONSUMERS_SLOT, type: "constant" },
     {
       name: "display",
       type: "expandable",
@@ -899,6 +1131,9 @@ class EnerLensCardEditor extends LitElement {
 
   private _label = (item: { name: string }): string => {
     const name = item.name;
+    // node_<node>_<setting>: one label per setting, the node is the section (Z-10).
+    const nodeSetting = /^node_(?:solar|grid|house|battery)_(.+)$/.exec(name);
+    if (nodeSetting) return localize(`editor.node_${nodeSetting[1]}`, this.hass);
     if (name === "grid_status") return localize("editor.grid_status", this.hass);
     if (name.endsWith("_source"))
       return localize(`editor.${name.replace(/_source$/, "")}`, this.hass);
@@ -911,7 +1146,7 @@ class EnerLensCardEditor extends LitElement {
   /** Helper text under a field. Empty for the self-explanatory ones - localize
    *  returns the key itself when there is no entry. */
   private _helper = (item: { name: string }): string => {
-    let key = `editor_help.${item.name}`;
+    let key = `editor_help.${item.name.replace(/^node_(?:solar|grid|house|battery)_/, "node_")}`;
     if (item.name.startsWith("color_")) key = "editor_help.color";
     if (item.name.endsWith("_source")) {
       const flat = (this._flat ?? {}) as FlatRecord;
@@ -968,16 +1203,11 @@ class EnerLensCardEditor extends LitElement {
   };
 
   /**
-   * The colours, as a panel of our own rather than an ha-form section: no
-   * ha-form row carries both a swatch and the text field a theme variable needs,
-   * and dropping the text would cost var(--energy-solar-color) (REQ C-1).
-   */
-  /**
-   * Every colour the card has, in one panel: the seven nodes, one row per
-   * consumer, and the state-of-charge gradient. ha-form has no row that carries
-   * a swatch next to the text a theme variable needs (REQ C-1), and the object
-   * selector behind the consumer list renders its own fields - so the colours
-   * are gathered here instead of being spread across three editors.
+   * Every colour the card has, in one panel: the seven nodes, the extra values
+   * (Z-6), the dots, one row per consumer, and the state-of-charge gradient.
+   * ha-form has no row that carries a swatch next to the text a theme variable
+   * needs, and dropping the text would cost var(--energy-solar-color) (REQ C-1)
+   * - so the colours are gathered here instead of being spread across editors.
    */
   private _renderColors(): TemplateResult {
     const t = (key: string) => localize(`editor.${key}`, this.hass);
@@ -998,10 +1228,43 @@ class EnerLensCardEditor extends LitElement {
           }
           <p class="hint">${localize("editor_help.color", this.hass)}</p>
           ${COLOR_KEYS.map((key) => this._renderNodeColor(key))}
+          ${this._renderExtraColors()}
           ${this._renderDotColor()} ${this._renderConsumerColors()} ${this._renderSocStops()}
         </div>
       </ha-expansion-panel>
     `;
+  }
+
+  /**
+   * Text colours of the extra fields, one row per field that has an entity -
+   * with all the other colours, as every colour of the card is (REQ Z-6, Z-10).
+   */
+  private _renderExtraColors(): TemplateResult | string {
+    const flat = (this._flat ?? {}) as FlatRecord;
+    const rows: TemplateResult[] = [];
+    for (const quantity of QUANTITIES) {
+      if (quantity === "battery" && flat.battery_source === "none") continue;
+      for (const place of PLACES) {
+        if (!hasPlace(quantity, place) || !nonEmpty(flat[`node_${quantity}_${place}_entity`]))
+          continue;
+        const name = `color_${quantity}_${place}`;
+        const raw = flat[name];
+        const label = localize(`editor.color_extra_${place}`, this.hass, {
+          node: localize(`node.${quantity}`, this.hass),
+        });
+        rows.push(
+          this._colorRow({
+            id: `flat:${name}`,
+            label,
+            name: label,
+            value: typeof raw === "string" ? raw : "",
+            preset: "var(--secondary-text-color)",
+          }),
+        );
+      }
+    }
+    if (!rows.length) return "";
+    return html`${this._group(localize("editor.colors_extras", this.hass))}${rows}`;
   }
 
   private _group(title: string): TemplateResult {
@@ -1712,6 +1975,7 @@ class EnerLensCardEditor extends LitElement {
           <button class="add-consumer" type="button" @click=${this._addConsumer}>
             <ha-icon icon="mdi:plus"></ha-icon>${t("consumer_add")}
           </button>
+          <p class="hint">${t("colors_hint")}</p>
         </div>
       </ha-expansion-panel>
     `;

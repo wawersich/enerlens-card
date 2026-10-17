@@ -311,6 +311,55 @@ nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
 steht es beim Verbraucher unter *Ladestand*. Das geht nicht nur mit Autos –
 eine Powerstation funktioniert genauso.
 
+### Zusatzwerte an den Knoten (optional)
+
+Jeder Knoten kann einen zweiten Wert zeigen: den Tagesertrag neben der
+PV-Leistung, den Netzbezug von heute, eine Autarkiequote am Haus, die
+Restenergie der Batterie. Es kann jede Entität sein – die Karte zeigt ihren
+Zustand so, wie Home Assistant es tut, und rechnet selbst nichts aus.
+
+```yaml
+nodes:
+  solar:
+    inside: { entity: sensor.pv_ertrag_heute, decimals: 1 }      # im Kreis
+    label: { entity: sensor.pv_prognose_rest, prefix: Prognose }
+  grid:
+    label: { entity: sensor.netzbezug_heute, prefix: Bezug, decimals: 0 }
+  house:
+    show_name: false
+    inside: { entity: sensor.autarkie, position: below }
+  battery:
+    show_state: false
+    label: { entity: sensor.batterie_restenergie, prefix: Rest, weight: bold }
+```
+
+- **`inside`** steht im Kreis, über dem Icon (`position: above`, Standard)
+  oder unter dem Wert (`below`). Dort ist Platz für eine Zahl mit Einheit,
+  nicht mehr. Die Batterie hat keins – sie zeigt dort schon zwei Werte.
+- **`label`** steht direkt am Kreis, mit optionalem Vorsatz `prefix`. Reicht
+  der Platz nicht, wird zuerst der Vorsatz gekürzt.
+- **`decimals`**: `ha` (Standard) schreibt den Wert wie Home Assistant,
+  einschließlich der Angezeigten Genauigkeit aus den Einstellungen der Entität.
+  `0`–`3` legt die Nachkommastellen fest, `sig2`–`sig4` die signifikanten
+  Stellen, unabhängig von der Einheit. Die Einheit wird nie umgerechnet – Wh
+  bleiben Wh.
+- **`size`** (60–150 %, Standard 100, bezogen auf den Knotenwert bzw. die
+  Beschriftung) und **`weight`** (`normal` – Standard –, `medium`, `bold`) je Feld; die Farbe steht unter
+  *Farben* (`colors.solar_inside`, `colors.house_label`, … – standardmäßig grau).
+- **`show_name`** und **`show_state`** blenden den Namen („PV", „Netz", …) und
+  das Zustandswort („Einspeisung", „lädt") aus – mit oder ohne Zusatzwerte.
+  Ohne Zustandswort zeigt nur noch die Farbe die Richtung.
+- Zusatzwerte zeigen immer den aktuellen Zustand, auch in den Ø-Ansichten.
+  Antippen eines Werts am Kreis oder über dem Icon öffnet seine eigene
+  Historie; ein Wert unter dem Knotenwert gehört zum Knoten und öffnet dessen
+  Entität.
+- `decimals` wirkt nicht auf Text, Geldbeträge, Dauer und Zeitpunkte – die
+  stehen immer so da wie in Home Assistant. Und die eigene Leistungs-Entität
+  eines Knotens als Zusatzwert erscheint im Format von Home Assistant
+  („3800 W“), nicht in dem der Karte („3,80 kW“).
+
+Im Editor: *Beschriftung & Zusatzwerte*, ein Abschnitt je Knoten.
+
 ### Netzausfall (optional)
 
 Manche Anlagen melden, ob überhaupt Netz anliegt — ein Wechselrichter, der
@@ -408,6 +457,11 @@ zusätzliche Abfrage.
 | `colors.soc_stops` | rot → gelb → grün | Verlauf für den Ladezustand |
 | `colors.consumer_palette` | 10 Farben | Reihum für Verbraucher ohne eigene Farbe |
 | `icons.*` | mdi-Standard | Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts |
+| `nodes.<knoten>.show_name` | `true` | Namen des Knotens zeigen (`solar`, `grid`, `house`, `battery`) |
+| `nodes.<knoten>.show_state` | `true` | Zustandswort zeigen – nur `grid` und `battery` |
+| `nodes.<knoten>.inside` | — | Zusatzwert im Kreis: `{entity, position, decimals, size, weight}`, Standard `above`, `ha`, `100`, `normal` – nicht bei `battery`. Siehe *Zusatzwerte an den Knoten* |
+| `nodes.<knoten>.label` | — | Zusatzwert direkt am Kreis: `{entity, prefix, decimals, size, weight}`, Standard ohne Vorsatz, `ha`, `100`, `normal` |
+| `colors.<knoten>_inside`, `colors.<knoten>_label` | grau | Farbe eines Zusatzwerts |
 
 `flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
 die steht im Betriebssystem, nicht in Home Assistant. Sie gilt für alles, was
@@ -419,9 +473,9 @@ Linie.
 
 ### Farben
 
-Alle Farben der Karte stehen im Editor unter **Farben**, in drei Gruppen: die
-sieben Knoten, eine Zeile je Verbraucher und die Stufen des Ladezustands-
-Verlaufs. Jede Zeile zeigt links die Farbe, die die Karte gerade malt, und
+Alle Farben der Karte stehen im Editor unter **Farben**: die sieben Knoten,
+die Zusatzwerte (eine Zeile je eingerichtetem Wert), eine Zeile je Verbraucher
+und die Stufen des Ladezustands-Verlaufs. Jede Zeile zeigt links die Farbe, die die Karte gerade malt, und
 rechts den konfigurierten Wert — `Standard`, solange keiner gesetzt ist.
 
 Ein Klick auf das Farbfeld öffnet den Farbwähler: eine Fläche für Sättigung und
