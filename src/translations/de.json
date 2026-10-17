@@ -9,6 +9,7 @@
     "battery_charging": "Batterie · lädt",
     "battery_discharging": "Batterie · entlädt",
     "derived_suffix": "· berechnet",
+    "derived_alone": "berechnet",
     "no_grid": "kein Netz"
   },
   "list": {
@@ -55,12 +56,14 @@
       "clamped": "{field} muss zwischen {min} und {max} liegen — es wird {value} verwendet.",
       "grid_status_no_outage": "{field} braucht eine Entität und mindestens einen Ausfall-Zustand — ohne beides wird der Netzstatus ignoriert.",
       "charge_no_soc": "{field} hat keine soc-Entität und wird ignoriert.",
-      "charge_no_plugged": "{field}: show plugged braucht eine plugged-Entität - stattdessen wie beim Laden."
+      "charge_no_plugged": "{field}: show plugged braucht eine plugged-Entität - stattdessen wie beim Laden.",
+      "extra_no_entity": "{field} hat keine entity und wird ignoriert.",
+      "not_for_node": "{field} gibt es bei diesem Knoten nicht und wird ignoriert."
     }
   },
   "editor": {
     "title": "Titel",
-    "entities": "Entitäten",
+    "entities": "Basis-Entitäten",
     "solar": "PV-Leistung",
     "grid": "Netzleistung",
     "house": "Hausverbrauch",
@@ -177,7 +180,37 @@
     "consumer_plugged": "Angesteckt",
     "consumer_unplugged": "Nicht angesteckt bei",
     "consumer_up": "Nach oben",
-    "consumer_down": "Nach unten"
+    "consumer_down": "Nach unten",
+    "nodes": "Beschriftung & Zusatzwerte",
+    "node_show_name": "Name anzeigen",
+    "node_show_state": "Zustandswort anzeigen",
+    "node_inside_entity": "Zusatzwert im Kreis",
+    "node_inside_position": "Lage im Kreis",
+    "node_inside_decimals": "Stellen",
+    "node_inside_size": "Größe",
+    "node_inside_weight": "Schriftstärke",
+    "node_label_entity": "Zusatzwert beim Text",
+    "node_label_prefix": "Vorsatz",
+    "node_label_decimals": "Stellen",
+    "node_label_size": "Größe",
+    "node_label_weight": "Schriftstärke",
+    "position_above": "über dem Icon",
+    "position_below": "unter dem Wert",
+    "decimals_ha": "Wie in Home Assistant",
+    "decimals_0": "0 Nachkommastellen",
+    "decimals_1": "1 Nachkommastelle",
+    "decimals_2": "2 Nachkommastellen",
+    "decimals_3": "3 Nachkommastellen",
+    "decimals_sig2": "2 signifikante Stellen",
+    "decimals_sig3": "3 signifikante Stellen",
+    "decimals_sig4": "4 signifikante Stellen",
+    "weight_normal": "normal",
+    "weight_medium": "mittel",
+    "weight_bold": "fett",
+    "colors_extras": "Zusatzwerte",
+    "color_extra_inside": "{node} · im Kreis",
+    "color_extra_label": "{node} · beim Text",
+    "colors_hint": "Die Farben stellst du weiter unten in der Gruppe „Farben“ ein."
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -229,7 +262,16 @@
     "consumer_soc": "Für eine Wallbox der Ladestand des Autos, aus dessen eigener Integration. Erscheint als Ring um das Icon; lädt nichts, steht er statt der Leistung in der Zeile.",
     "consumer_show": "„Wenn angesteckt“ hält die Zeile in der Liste, solange das Auto angesteckt ist – auch voll und bei 0 W.",
     "consumer_plugged": "Ein Ein/Aus-Sensor (an = angesteckt) oder ein Status-Sensor der Wallbox.",
-    "consumer_unplugged": "Die Zustände des Status-Sensors, die „nicht angesteckt“ bedeuten; alle anderen gelten als angesteckt."
+    "consumer_unplugged": "Die Zustände des Status-Sensors, die „nicht angesteckt“ bedeuten; alle anderen gelten als angesteckt.",
+    "node_show_state": "Ohne Zustandswort zeigt nur noch die Farbe, ob eingespeist oder bezogen, geladen oder entladen wird.",
+    "node_inside_entity": "Eine beliebige Entität. Im Kreis ist nur Platz für Zahl und Einheit. Zeigt immer den aktuellen Zustand, auch in den Ø-Ansichten.",
+    "node_label_entity": "Eine beliebige Entität, direkt am Kreis. Zeigt immer den aktuellen Zustand, auch in den Ø-Ansichten.",
+    "node_label_prefix": "Freier Text vor dem Wert, z. B. „Autarkie“.",
+    "node_inside_decimals": "„Wie in Home Assistant“ übernimmt die Angezeigte Genauigkeit aus den Einstellungen der Entität. Signifikante Stellen gelten unabhängig von der Einheit: 1,23 · 12,3 · 123. Auf Text, Geldbeträge, Dauer und Zeitpunkte wirkt die Auswahl nicht – sie stehen immer so da wie in Home Assistant.",
+    "node_label_decimals": "„Wie in Home Assistant“ übernimmt die Angezeigte Genauigkeit aus den Einstellungen der Entität. Signifikante Stellen gelten unabhängig von der Einheit: 1,23 · 12,3 · 123. Auf Text, Geldbeträge, Dauer und Zeitpunkte wirkt die Auswahl nicht – sie stehen immer so da wie in Home Assistant.",
+    "node_inside_size": "In Prozent des Knotenwerts.",
+    "node_label_size": "In Prozent der Beschriftung (12 px).",
+    "node_inside_position": "Über dem Icon steht der Wert dort, wo die Batterie ihren Ladezustand zeigt, und Antippen öffnet seine eigene Historie. Unter dem Wert öffnet Antippen die Entität des Knotens."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

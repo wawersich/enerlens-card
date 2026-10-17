@@ -236,11 +236,30 @@ export interface RawConfig extends LovelaceCardConfig {
     /** Line width in percent of the base width, 30-150 (K-12). */
     line_width?: number;
   };
-  colors?: Partial<Record<ColorKey, string>> & {
+  colors?: Partial<Record<ColorKey | ExtraColorKey, string>> & {
     soc_stops?: SocStop[];
     consumer_palette?: string[];
   };
   icons?: Partial<Record<IconKey, string>>;
+  /** Extra values and label switches per node (REQ Z-1 to Z-10). */
+  nodes?: Partial<Record<NodeKey, RawNodeOptions>>;
+}
+
+/** One extra field as written in YAML (REQ Z-2, Z-3, Z-5, Z-6). */
+export interface RawExtraField {
+  entity?: string;
+  position?: ExtraPosition;
+  prefix?: string;
+  decimals?: ExtraDecimals | string;
+  size?: number;
+  weight?: ExtraWeight;
+}
+
+export interface RawNodeOptions {
+  show_name?: boolean;
+  show_state?: boolean;
+  inside?: RawExtraField;
+  label?: RawExtraField;
 }
 
 // ---------------------------------------------------------------------------
@@ -353,6 +372,10 @@ export interface Config {
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
   icons: Partial<Record<IconKey, string>>;
   power: PowerFormat;
+  /** Extra values and label switches, one entry per node (REQ Z-1 to Z-6). */
+  nodes: Record<NodeKey, NodeOptions>;
+  /** Text colour of each extra field (REQ Z-6). */
+  extraColors: Record<ExtraColorKey, string>;
   /**
    * The card-mod block, passed through untouched and never read by the card.
    * card-mod looks for it on the card's `_config` - see normalizeConfig.
@@ -379,6 +402,52 @@ export interface PowerFormat {
    */
   digits: number;
 }
+
+/**
+ * How an extra value is written (REQ Z-5): as Home Assistant shows it, with a
+ * fixed number of decimals, or to a number of significant digits.
+ */
+export type ExtraDecimals = "ha" | 0 | 1 | 2 | 3 | "sig2" | "sig3" | "sig4";
+export type ExtraWeight = "normal" | "medium" | "bold";
+export type ExtraPosition = "above" | "below";
+
+/** One extra field, defaults filled in (REQ Z-1). */
+export interface ExtraField {
+  entity: string;
+  decimals: ExtraDecimals;
+  /** Percent of the neighbouring text, 60-150 (REQ Z-6). */
+  size: number;
+  weight: ExtraWeight;
+}
+
+/** Inside the circle: number and unit only, above the icon or under the value. */
+export interface InsideField extends ExtraField {
+  position: ExtraPosition;
+}
+
+/** With the label: an optional prefix in front of the value. */
+export interface LabelField extends ExtraField {
+  prefix?: string;
+}
+
+export interface NodeOptions {
+  showName: boolean;
+  /** Only the grid and the battery have a state word (REQ Z-4). */
+  showState: boolean;
+  /** Never on the battery, which already shows two values (REQ Z-2). */
+  inside?: InsideField;
+  label?: LabelField;
+}
+
+/** Colour keys of the extra fields; the battery has no inside field. */
+export type ExtraColorKey =
+  | "solar_inside"
+  | "solar_label"
+  | "grid_inside"
+  | "grid_label"
+  | "house_inside"
+  | "house_label"
+  | "battery_label";
 
 /** Thrown by `normalizeConfig` for structural problems (REQ E-1, path 1). */
 export class ConfigError extends Error {

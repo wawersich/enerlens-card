@@ -12,11 +12,19 @@ import {
   type ColorKey,
   type Config,
   ConfigError,
+  type ExtraColorKey,
+  type ExtraDecimals,
+  type ExtraField,
+  type ExtraPosition,
+  type ExtraWeight,
   type GridStatusSpec,
   type HomeAssistant,
   type IconKey,
   type InactiveLines,
+  type InsideField,
+  type LabelField,
   type NodeKey,
+  type NodeOptions,
   type NormalizedCharge,
   type NormalizedConsumer,
   type PowerFormat,
@@ -67,6 +75,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "icons",
   "power",
   "appearance",
+  "nodes",
 ]);
 
 /**
@@ -404,6 +413,45 @@ function readPalette(value: unknown, hass?: HomeAssistant): string[] {
   return value.map((entry: unknown, i) => requireString(entry, `${field}[${i}]`, hass));
 }
 
+const EXTRA_COLOR_KEYS: readonly ExtraColorKey[] = [
+  "solar_inside",
+  "solar_label",
+  "grid_inside",
+  "grid_label",
+  "house_inside",
+  "house_label",
+  "battery_label",
+];
+
+/** Grey by default: the main values keep the text colour, these step back (REQ Z-6, C-5). */
+const DEFAULT_EXTRA_COLOR = "var(--secondary-text-color)";
+
+/** Every extra field grey - what a configuration without colours gets. */
+export function defaultExtraColors(): Record<ExtraColorKey, string> {
+  return Object.fromEntries(EXTRA_COLOR_KEYS.map((key) => [key, DEFAULT_EXTRA_COLOR])) as Record<
+    ExtraColorKey,
+    string
+  >;
+}
+
+/**
+ * Text colours of the extra fields (REQ Z-6). An emptied colour field is no
+ * colour of its own, as everywhere in the editor (E-1); a colour for the
+ * battery's inside field, which does not exist, is dropped with a word.
+ */
+function readExtraColors(value: unknown, hass?: HomeAssistant): Record<ExtraColorKey, string> {
+  const colors = defaultExtraColors();
+  if (!isRecord(value)) return colors;
+  for (const key of EXTRA_COLOR_KEYS) {
+    const colour = readString(value[key], `colors.${key}`, hass);
+    if (colour) colors[key] = colour;
+  }
+  if (!isUnset(value.battery_inside)) {
+    console.warn(localize("error.config.not_for_node", hass, { field: "colors.battery_inside" }));
+  }
+  return colors;
+}
+
 function readColors(value: unknown, hass?: HomeAssistant): Config["colors"] {
   const colors: Config["colors"] = {
     ...DEFAULT_COLORS,
@@ -503,6 +551,140 @@ export function collectChargeIds(config: Config): string[] {
     const charge = consumer.charge;
     if (!charge) continue;
     for (const id of [charge.soc, charge.plugged]) if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+const NODE_KEYS: readonly NodeKey[] = ["solar", "grid", "house", "battery"];
+const EXTRA_POSITIONS: readonly ExtraPosition[] = ["above", "below"];
+const EXTRA_WEIGHTS: readonly ExtraWeight[] = ["normal", "medium", "bold"];
+const DECIMAL_WORDS: readonly string[] = ["ha", "sig2", "sig3", "sig4"];
+const NODE_OPTION_KEYS: ReadonlySet<string> = new Set([
+  "show_name",
+  "show_state",
+  "inside",
+  "label",
+]);
+const FIELD_KEYS: Record<"inside" | "label", ReadonlySet<string>> = {
+  inside: new Set(["entity", "position", "decimals", "size", "weight"]),
+  label: new Set(["entity", "prefix", "decimals", "size", "weight"]),
+};
+
+/**
+ * `ha`, a word for significant digits, or 0-3 decimals - as a number from
+ * YAML or as the text a select field reports (REQ Z-5, Z-10).
+ */
+function readDecimals(value: unknown, field: string, hass?: HomeAssistant): ExtraDecimals {
+  if (isUnset(value)) return "ha";
+  if (typeof value === "string" && DECIMAL_WORDS.includes(value)) return value as ExtraDecimals;
+  const n = typeof value === "string" && /^\d$/.test(value) ? Number(value) : value;
+  if (n === 0 || n === 1 || n === 2 || n === 3) return n;
+  throw fail("error.config.enum", field, hass, { allowed: "ha, 0, 1, 2, 3, sig2, sig3, sig4" });
+}
+
+function warnUnknownIn(
+  raw: Record<string, unknown>,
+  known: ReadonlySet<string>,
+  field: string,
+  hass?: HomeAssistant,
+): void {
+  for (const key of Object.keys(raw)) {
+    if (!known.has(key)) {
+      console.warn(localize("error.config.unknown_key", hass, { field: `${field}.${key}` }));
+    }
+  }
+}
+
+/**
+ * One extra field. A field without an entity is an ordinary editor state - the
+ * entity picker cleared, or a size set first - and is dropped with a word,
+ * never an error card (REQ E-1).
+ */
+function readExtraField(
+  value: unknown,
+  place: "inside" | "label",
+  field: string,
+  hass?: HomeAssistant,
+): InsideField | LabelField | undefined {
+  if (isUnset(value)) return undefined;
+  const raw = requireRecord(value, field, hass);
+  warnUnknownIn(raw, FIELD_KEYS[place], field, hass);
+  const entity = typeof raw.entity === "string" ? raw.entity.trim() : "";
+  if (!entity) {
+    console.warn(localize("error.config.extra_no_entity", hass, { field }));
+    return undefined;
+  }
+  const common: ExtraField = {
+    entity,
+    decimals: readDecimals(raw.decimals, `${field}.decimals`, hass),
+    size: clamped(readNumber(raw.size, `${field}.size`, 100, hass), 60, 150, `${field}.size`, hass),
+    weight: readEnum(raw.weight, EXTRA_WEIGHTS, `${field}.weight`, "normal", hass),
+  };
+  if (place === "inside") {
+    return {
+      ...common,
+      position: readEnum(raw.position, EXTRA_POSITIONS, `${field}.position`, "above", hass),
+    };
+  }
+  if (!isUnset(raw.prefix) && typeof raw.prefix !== "string") {
+    throw fail("error.config.string", `${field}.prefix`, hass);
+  }
+  // Free text: a stray space from the editor must not refuse the card.
+  const prefix = typeof raw.prefix === "string" ? raw.prefix.trim() : "";
+  return { ...common, prefix: prefix || undefined };
+}
+
+/** Names and state words on, no extra fields - the card as it always was. */
+export function defaultNodes(): Record<NodeKey, NodeOptions> {
+  return Object.fromEntries(
+    NODE_KEYS.map((key) => [key, { showName: true, showState: true }]),
+  ) as Record<NodeKey, NodeOptions>;
+}
+
+/**
+ * Label switches and extra fields per node (REQ Z-1 to Z-6). What does not
+ * exist - a field inside the battery, a state word for solar or house - is
+ * dropped with a warning: the editor can produce it on the way (E-1).
+ */
+function readNodes(value: unknown, hass?: HomeAssistant): Record<NodeKey, NodeOptions> {
+  const nodes = defaultNodes();
+  if (isUnset(value)) return nodes;
+  const raw = requireRecord(value, "nodes", hass);
+  warnUnknownIn(raw, new Set(NODE_KEYS), "nodes", hass);
+  for (const key of NODE_KEYS) {
+    if (isUnset(raw[key])) continue;
+    const field = `nodes.${key}`;
+    const entry = requireRecord(raw[key], field, hass);
+    warnUnknownIn(entry, NODE_OPTION_KEYS, field, hass);
+    const options = nodes[key];
+    options.showName = readBoolean(entry.show_name, `${field}.show_name`, true, hass);
+    const showState = readBoolean(entry.show_state, `${field}.show_state`, true, hass);
+    if (key === "grid" || key === "battery") options.showState = showState;
+    else if (!isUnset(entry.show_state)) {
+      console.warn(localize("error.config.not_for_node", hass, { field: `${field}.show_state` }));
+    }
+    if (key !== "battery") {
+      options.inside = readExtraField(entry.inside, "inside", `${field}.inside`, hass) as
+        | InsideField
+        | undefined;
+    } else if (!isUnset(entry.inside)) {
+      console.warn(localize("error.config.not_for_node", hass, { field: `${field}.inside` }));
+    }
+    options.label = readExtraField(entry.label, "label", `${field}.label`, hass) as
+      | LabelField
+      | undefined;
+  }
+  return nodes;
+}
+
+/** Entities the extra fields show; watched for changes, never averaged (REQ Z-9). */
+export function collectExtraIds(config: Config): string[] {
+  const ids: string[] = [];
+  for (const key of NODE_KEYS) {
+    // Without a battery there is no node to show its field.
+    if (key === "battery" && config.sources.battery.kind === "absent") continue;
+    const { inside, label } = config.nodes[key];
+    for (const id of [inside?.entity, label?.entity]) if (id && !ids.includes(id)) ids.push(id);
   }
   return ids;
 }
@@ -806,6 +988,8 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     appearance: readEnum(rawRecord.appearance, APPEARANCES, "appearance", "auto", hass),
     colors,
     icons: readIcons(rawRecord.icons, hass),
+    nodes: readNodes(rawRecord.nodes, hass),
+    extraColors: readExtraColors(rawRecord.colors, hass),
     power: readPower(rawRecord.power, hass),
     /*
      * Not ours, but it has to survive normalizing (issue #8). card-mod does

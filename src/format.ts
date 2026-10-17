@@ -2,7 +2,8 @@
  * Number formatting that follows the user's Home Assistant profile.
  * Owner: agent 4. REQ K-7, K-4.
  */
-import type { HassEntity, HomeAssistant, PowerFormat } from "./types";
+import { localize } from "./localize";
+import type { ExtraDecimals, HassEntity, HomeAssistant, PowerFormat } from "./types";
 
 const DEFAULT_FORMAT: PowerFormat = { unit: "kW", decimals: 2, digits: 3 };
 
@@ -78,10 +79,16 @@ export function formatPower(
     maximumFractionDigits: digits,
     ...(hass?.locale?.number_format === "none" ? { useGrouping: false } : {}),
   });
-  const text = formatter.format(unit === "W" ? w : w / 1000);
-  // A value that rounds to zero must not keep its sign (REQ K-7); testing the
-  // digits works for every locale, whereas comparing against "-0" does not.
-  return `${/[1-9]/.test(text) ? text : formatter.format(0)} ${unit}`;
+  const value = unit === "W" ? w : w / 1000;
+  // A value that rounds to zero must not keep its sign (REQ K-7). Decided on
+  // the number: the text may be written in digits other than 0-9 (Persian,
+  // Bengali, Marathi), where a test for "1-9" took every value for zero.
+  return `${formatter.format(roundsToZero(value, digits) ? 0 : value)} ${unit}`;
+}
+
+/** Whether `value` is zero once written with `digits` decimals - "-0,00" is not a reading. */
+function roundsToZero(value: number, digits: number): boolean {
+  return Number(value.toFixed(digits)) === 0;
 }
 
 /** The default format - kW with two decimals. */
@@ -154,4 +161,61 @@ export function formatClock(t: number, hass: HomeAssistant, now = Date.now()): s
   if (when.toDateString() === new Date(now).toDateString()) return time;
   const date = when.toLocaleDateString(localeFor(hass), { day: "numeric", month: "numeric" });
   return `${date} ${time}`;
+}
+
+/**
+ * Device classes Home Assistant writes in its own way - a currency symbol, a
+ * duration in hours and minutes, a date. A chosen number of digits would only
+ * get in the way there (REQ Z-5).
+ */
+const OWN_FORMAT_CLASSES = new Set(["monetary", "duration", "timestamp", "date"]);
+
+/** Home Assistant's rule: a space before every unit but "°", and before "%" by language. */
+function blankBeforeUnit(unit: string, hass: HomeAssistant): string {
+  if (unit === "°") return "";
+  if (unit === "%") {
+    return BLANK_BEFORE_PERCENT.has(baseLanguage(hass?.locale?.language ?? hass?.language))
+      ? " "
+      : "";
+  }
+  return " ";
+}
+
+/**
+ * The state of any entity for an extra field (REQ Z-5): as Home Assistant
+ * shows it, or with a chosen number of decimals or significant digits. The
+ * unit stays the entity's own - nothing is converted, nothing computed (Z-1).
+ */
+export function formatExtra(
+  stateObj: HassEntity | undefined,
+  hass: HomeAssistant,
+  decimals: ExtraDecimals,
+): string {
+  if (!stateObj || stateObj.state === "unavailable" || stateObj.state === "unknown") {
+    return localize("state.unavailable", hass);
+  }
+  const unit = stateObj.attributes.unit_of_measurement;
+  const value = Number(stateObj.state);
+  // Numeric the way Home Assistant decides it: a unit or a state class, and a number.
+  const numeric =
+    (Boolean(unit) || Boolean(stateObj.attributes.state_class)) &&
+    stateObj.state.trim() !== "" &&
+    Number.isFinite(value);
+  const own = OWN_FORMAT_CLASSES.has(String(stateObj.attributes.device_class ?? ""));
+  if (decimals === "ha" || !numeric || own) {
+    if (hass?.formatEntityState) return hass.formatEntityState(stateObj);
+    return unit ? `${stateObj.state}${blankBeforeUnit(unit, hass)}${unit}` : stateObj.state;
+  }
+  const significant = typeof decimals === "number" ? 0 : Number(decimals.slice(3));
+  const wanted = typeof decimals === "number" ? decimals : significantDecimals(value, significant);
+  // Intl takes at most 20 fraction digits on older engines; a value that small
+  // is a zero for any display, and written as one.
+  const digits = wanted > 20 ? significantDecimals(0, significant) : wanted;
+  const formatter = new Intl.NumberFormat(localeFor(hass), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    ...(hass?.locale?.number_format === "none" ? { useGrouping: false } : {}),
+  });
+  const number = formatter.format(roundsToZero(value, digits) ? 0 : value);
+  return unit ? `${number}${blankBeforeUnit(unit, hass)}${unit}` : number;
 }

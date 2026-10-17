@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { defaultExtraColors, defaultNodes } from "../src/config";
 import { POWER_UNITS, buildModel, buildModelFrom } from "../src/model";
 import type {
   Config,
@@ -94,6 +95,8 @@ function configOf(
     },
     icons: {},
     power: { unit: "kW", decimals: 2, digits: 3 },
+    nodes: defaultNodes(),
+    extraColors: defaultExtraColors(),
   };
 }
 

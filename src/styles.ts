@@ -300,8 +300,9 @@ export const styles = css`
     min-width: 225px;
     max-width: min(320px, 52%);
     /* Room for the labels, which reach beyond the drawing, and for the large
-       nodes, which overhang the viewBox by a few units. */
-    padding: 26px 8px 28px;
+       nodes, which overhang the viewBox by a few units. Above PV and below the
+       battery it follows the configured label lines (REQ Z-8, cross.ts). */
+    padding: var(--el-pad-top, 26px) 8px var(--el-pad-bottom, 28px);
   }
 
   /* Positioning context for the nodes: exactly the area the SVG covers. */
@@ -566,6 +567,98 @@ export const styles = css`
     opacity: 0.7;
   }
 
+  /* Extra values (REQ Z-2, Z-3). Colour, size and weight come inline per field;
+     figures line up like the node values. */
+  .extra {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .node > .extra-inside {
+    position: relative;
+    z-index: 1;
+    line-height: 1.1;
+  }
+
+  /* The prefix gives way first, the value only when it is too long on its own -
+     a timestamp or a text sensor can be any length (REQ Z-3). A target of its
+     own, at least 24 px either way (REQ Z-7, I-3). */
+  .extra-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    line-height: 1.25;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+
+  .extra-label:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  /* Under grid and house a label must not run into the battery circle, past the
+     card's edge or into the fan lines beside the house (REQ Z-3, Z-8). The room
+     on either side of the node's centre: s px per viewBox unit, the nodes 58
+     units from the plot's edge and 142 from the battery's centre. A label
+     wider than the narrower side leans towards the wider one instead of being
+     cut - centred while it fits, never past either limit. */
+  .node.grid .label {
+    --el-room-l: calc(58px * var(--el-scale, 1) + 16px);
+    --el-room-r: calc(142px * var(--el-scale, 1) - var(--el-node-size) / 2 - 8px);
+  }
+
+  .node.house .label {
+    --el-room-l: calc(142px * var(--el-scale, 1) - var(--el-node-size) / 2 - 8px);
+    --el-room-r: calc(58px * var(--el-scale, 1) + 8px);
+  }
+
+  /* Without a battery there is no circle below the middle: the two labels may
+     reach to the middle between grid and house, with 8 px between them. */
+  .cross.no-battery .node.grid .label {
+    --el-room-r: calc(142px * var(--el-scale, 1) - 4px);
+  }
+
+  .cross.no-battery .node.house .label {
+    --el-room-l: calc(142px * var(--el-scale, 1) - 4px);
+  }
+
+  .node.grid .label,
+  .node.house .label {
+    max-width: min(150px, calc(var(--el-node-size) * 2), calc(var(--el-room-l) + var(--el-room-r)));
+    transform: translateX(
+      min(max(-50%, calc(-1 * var(--el-room-l))), calc(var(--el-room-r) - 100%))
+    );
+  }
+
+  .extra-prefix {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-inline-end: 0.3em;
+  }
+
+  /* The prefix shrinks to nothing, its gap does not: leave the value room for it. */
+  .extra-prefix + .extra-value {
+    max-width: calc(100% - 0.3em);
+  }
+
+  .extra-value {
+    flex: 0 0 auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* Beside the house node on a wide card, underneath it on a narrow one.
      The flex basis is the switch: below roughly 500 px of content the list
      wraps to its own line (REQ L-1). */
@@ -584,6 +677,13 @@ export const styles = css`
      */
     --el-swatch: clamp(18px, calc(var(--el-row-h, 34px) * 0.6), 26px);
   }
+
+  /* Level with the house when the room above and below the cross differs (REQ L-1, Z-8). */
+  .body:not(.stacked) .list {
+    margin-top: var(--el-list-mt, 0px);
+    margin-bottom: var(--el-list-mb, 0px);
+  }
+
 
   /* Beside the cross the rows are only as wide as the longest name and the
      widest figure need, and sit at the list's right edge - everything between

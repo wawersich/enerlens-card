@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultExtraColors, defaultNodes } from "../src/config";
 import { buildBreakdown, refreshBreakdownValues } from "../src/consumers";
 import { dotParams } from "../src/flow";
 import type { Config, ConsumerReading, Model, Reading } from "../src/types";
@@ -96,6 +97,8 @@ function config(
     },
     icons: {},
     power: { unit: "kW", decimals: 2, digits: 3 },
+    nodes: defaultNodes(),
+    extraColors: defaultExtraColors(),
   };
   return cfg;
 }

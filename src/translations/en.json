@@ -9,6 +9,7 @@
     "battery_charging": "Battery · charging",
     "battery_discharging": "Battery · discharging",
     "derived_suffix": "· calculated",
+    "derived_alone": "calculated",
     "no_grid": "no grid"
   },
   "list": {
@@ -55,12 +56,14 @@
       "clamped": "{field} must be between {min} and {max} - {value} is used.",
       "grid_status_no_outage": "{field} needs an entity and at least one outage state - without them the grid status is ignored.",
       "charge_no_soc": "{field} has no soc entity and is ignored.",
-      "charge_no_plugged": "{field}: show plugged needs a plugged entity - shown while charging instead."
+      "charge_no_plugged": "{field}: show plugged needs a plugged entity - shown while charging instead.",
+      "extra_no_entity": "{field} has no entity and is ignored.",
+      "not_for_node": "{field} does not exist for this node and is ignored."
     }
   },
   "editor": {
     "title": "Title",
-    "entities": "Entities",
+    "entities": "Main entities",
     "solar": "Solar power",
     "grid": "Grid power",
     "house": "House consumption",
@@ -177,7 +180,37 @@
     "consumer_plugged": "Plugged in",
     "consumer_unplugged": "Not plugged in when",
     "consumer_up": "Move up",
-    "consumer_down": "Move down"
+    "consumer_down": "Move down",
+    "nodes": "Labels & extra values",
+    "node_show_name": "Show name",
+    "node_show_state": "Show state word",
+    "node_inside_entity": "Extra value in the circle",
+    "node_inside_position": "Position in the circle",
+    "node_inside_decimals": "Digits",
+    "node_inside_size": "Size",
+    "node_inside_weight": "Font weight",
+    "node_label_entity": "Extra value with the label",
+    "node_label_prefix": "Prefix",
+    "node_label_decimals": "Digits",
+    "node_label_size": "Size",
+    "node_label_weight": "Font weight",
+    "position_above": "above the icon",
+    "position_below": "below the value",
+    "decimals_ha": "As in Home Assistant",
+    "decimals_0": "0 decimals",
+    "decimals_1": "1 decimal",
+    "decimals_2": "2 decimals",
+    "decimals_3": "3 decimals",
+    "decimals_sig2": "2 significant digits",
+    "decimals_sig3": "3 significant digits",
+    "decimals_sig4": "4 significant digits",
+    "weight_normal": "normal",
+    "weight_medium": "medium",
+    "weight_bold": "bold",
+    "colors_extras": "Extra values",
+    "color_extra_inside": "{node} · in the circle",
+    "color_extra_label": "{node} · with the label",
+    "colors_hint": "Colours are set further down, in the group “Colours”."
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -229,7 +262,16 @@
     "consumer_soc": "For a wallbox, the car’s state of charge from the car’s own integration. Shown as a ring around the icon; while nothing charges it stands in the row instead of the power.",
     "consumer_show": "“While plugged in” keeps the row in the list as long as the car is plugged in - full and at 0 W too.",
     "consumer_plugged": "An on/off sensor (on = plugged in) or a status sensor of the wallbox.",
-    "consumer_unplugged": "The status sensor’s states that mean “not plugged in”; all others count as plugged in."
+    "consumer_unplugged": "The status sensor’s states that mean “not plugged in”; all others count as plugged in.",
+    "node_show_state": "Without the state word only the colour tells export from import, charging from discharging.",
+    "node_inside_entity": "Any entity. The circle only has room for a number and its unit. Always shows the current state, also in the average views.",
+    "node_label_entity": "Any entity, right next to the circle. Always shows the current state, also in the average views.",
+    "node_label_prefix": "Free text in front of the value, e.g. \"Self-sufficiency\".",
+    "node_inside_decimals": "\"As in Home Assistant\" uses the display precision from the entity's settings. Significant digits apply whatever the unit: 1.23 · 12.3 · 123. Text, money, durations and points in time are not affected - they always look as in Home Assistant.",
+    "node_label_decimals": "\"As in Home Assistant\" uses the display precision from the entity's settings. Significant digits apply whatever the unit: 1.23 · 12.3 · 123. Text, money, durations and points in time are not affected - they always look as in Home Assistant.",
+    "node_inside_size": "In percent of the node value.",
+    "node_label_size": "In percent of the label (12 px).",
+    "node_inside_position": "Above the icon the value sits where the battery shows its charge, and tapping it opens its own history. Below the value, tapping opens the node's entity."
   },
   "outage": {
     "banner": "Island mode — no grid",

@@ -4,14 +4,14 @@
 import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { AveragingBuffer, fetchHistory } from "./averaging";
 import { ChargeTracker } from "./charge";
-import { collectChargeIds, collectEntityIds, normalizeConfig } from "./config";
+import { collectChargeIds, collectEntityIds, collectExtraIds, normalizeConfig } from "./config";
 import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
-import { openMoreInfo, renderCross } from "./render/cross";
+import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import { VIEW_W } from "./render/geometry";
@@ -83,6 +83,8 @@ class EnerLensCard extends LitElement {
   private _entityIds: string[] = [];
   /** State-of-charge and plugged entities: watched, never averaged (REQ L-15). */
   private _chargeIds: string[] = [];
+  /** Entities of the extra fields: watched, never averaged (REQ Z-9). */
+  private _extraIds: string[] = [];
   private readonly _charge = new ChargeTracker();
   /** Hands the model a consumer's charge as the tracker knows it now. */
   private readonly _chargeOf = (charge: NormalizedCharge) =>
@@ -182,6 +184,14 @@ class EnerLensCard extends LitElement {
     for (const id of this._chargeIds) {
       if (a.states[id] !== b.states[id]) return true;
     }
+    if (this._extraIds.length === 0) return false;
+    // An extra field is written the way Home Assistant writes it. HA rebuilds
+    // its formatter after a new precision, number format or translation - only
+    // then is the new text there to show, so that is what counts (REQ Z-5, Z-9).
+    if (a.formatEntityState !== b.formatEntityState || a.locale !== b.locale) return true;
+    for (const id of this._extraIds) {
+      if (a.states[id] !== b.states[id]) return true;
+    }
     return false;
   }
 
@@ -224,6 +234,7 @@ class EnerLensCard extends LitElement {
     this._rawConfig = config;
     this._entityIds = collectEntityIds(this._config);
     this._chargeIds = collectChargeIds(this._config);
+    this._extraIds = collectExtraIds(this._config);
 
     const view = this._config.view;
     if (!previous || previous.view.avgLongMinutes !== view.avgLongMinutes) {
@@ -829,6 +840,7 @@ class EnerLensCard extends LitElement {
           class="body ${this._stacked ? "stacked" : ""} ${
             this._config.list.alwaysBelow ? "force-below" : ""
           } ${this._config.list.enabled ? "" : "no-list"}"
+          style=${labelRoom(this._config, model.battery !== null)}
         >
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(

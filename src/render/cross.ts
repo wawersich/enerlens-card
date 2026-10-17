@@ -4,11 +4,14 @@
  */
 import { type TemplateResult, html, svg } from "lit";
 import { resolveCssColor, socColor } from "../colors";
-import { formatPower, formatSoc } from "../format";
+import { formatExtra, formatPower, formatSoc } from "../format";
 import { localize } from "../localize";
 import type {
   ColorKey,
   Config,
+  ExtraColorKey,
+  ExtraField,
+  ExtraWeight,
   HomeAssistant,
   Model,
   NodeKey,
@@ -101,17 +104,178 @@ function readingValue(r: Reading, hass: HomeAssistant, config: Config): string {
   return r.available ? formatPower(r.w, hass, config.power) : localize("state.unavailable", hass);
 }
 
+const WEIGHTS: Record<ExtraWeight, number> = { normal: 400, medium: 500, bold: 700 };
+
+/** Colour, size and weight of one extra field, relative to the text beside it (REQ Z-6). */
+function extraStyle(field: ExtraField, color: string, base: string): string {
+  return `color:${color};font-size:calc(var(${base}) * ${field.size / 100});font-weight:${WEIGHTS[field.weight]}`;
+}
+
+/** An extra value inside the circle: number and unit, nothing else (REQ Z-2). */
+function insideField(v: NodeView, config: Config, hass: HomeAssistant): TemplateResult {
+  const field = config.nodes[v.key].inside;
+  if (!field) return html``;
+  const color = config.extraColors[`${v.key}_inside` as ExtraColorKey];
+  // Its own class, never "value": the outage colours the node value red, and the
+  // measuring tools read .value as the node figure.
+  return html`<div class="extra-inside extra" style=${extraStyle(field, color, "--el-value-size")}>${formatExtra(
+    hass.states[field.entity],
+    hass,
+    field.decimals,
+  )}</div>`;
+}
+
+/** One line of label text: 12 px at line height 1.25 (REQ K-12). */
+const LABEL_LINE = 15;
 /**
- * Splits "Netz · Einspeisung" onto two lines. A single long line reaches into
- * the neighbouring circle once the nodes sit close together.
+ * A label field is a tap target, at least 24 px high (REQ Z-7, I-3). Even at
+ * the largest size, 150 % of 12 px at line height 1.25 is 22.5 px - so the
+ * target, not the type, sets the field's height.
  */
-function label(base: string, derived: boolean, hass: HomeAssistant): TemplateResult {
-  const [name, ...rest] = base.split(" · ");
-  const state = rest.join(" · ");
-  const suffix = derived ? localize("node.derived_suffix", hass) : "";
-  return html`<span class="label-name">${name}</span>${
+const FIELD_HEIGHT = 24;
+/** Room above and below the cross for one and two label lines, as it always was. */
+const PAD_TOP = 26;
+const PAD_BOTTOM = 28;
+
+/** Height of a label block as configured - lines that may show, not what shows now. */
+function blockHeight(config: Config, key: NodeKey, stateWord: boolean): number {
+  const options = config.nodes[key];
+  const field = options.label;
+  const text =
+    (options.showName ? LABEL_LINE : 0) +
+    (stateWord && options.showState ? LABEL_LINE : 0) +
+    (config.sources[key].kind === "derived" ? LABEL_LINE : 0);
+  if (!field) return text;
+  // A field with no text beyond it is the outermost line - a target next to the
+  // mode chips above PV and the list rows below the battery, which needs its
+  // 8 px of air to them, where plain text needed none (I-3).
+  return text + FIELD_HEIGHT + (text === 0 ? 8 : 0);
+}
+
+/**
+ * Room for the label blocks above PV and below the battery, from the
+ * configuration rather than from measuring: a state word comes and goes at
+ * flow.min_w, and measured room would make the cross jump with it (REQ Z-8).
+ * One line above and two below are what the room always held.
+ *
+ * The list beside the cross centres on the cross's box, the house sits at the
+ * centre of the plot: room that grows more on one side moves the house by half
+ * the difference, and the list's margins move it along (L-1). Measured against
+ * the room as it always was, so a card without extra values stays as it was -
+ * except a calculated PV or battery, whose "calculated" line now has room too.
+ * As custom properties for .body, where both the cross and the list read them.
+ */
+export function labelRoom(config: Config, withBattery: boolean): string {
+  const top = Math.max(8, PAD_TOP + blockHeight(config, "solar", false) - LABEL_LINE);
+  const bottom = withBattery
+    ? Math.max(8, PAD_BOTTOM + blockHeight(config, "battery", true) - 2 * LABEL_LINE)
+    : PAD_BOTTOM;
+  const shift = top - PAD_TOP - (bottom - PAD_BOTTOM);
+  return `--el-pad-top:${top}px;--el-pad-bottom:${bottom}px;--el-list-mt:${Math.max(0, shift)}px;--el-list-mb:${Math.max(0, -shift)}px`;
+}
+
+/**
+ * The node's tap targets. A field above the icon splits the node like the
+ * battery: upper half the field's entity, lower half the node's (REQ Z-7, I-2).
+ * A label field next to the circle is a target of its own, so the node's
+ * target stops 8 px short of it: 2 px past the node's box, where the field's box
+ * starts 10 px past it - measured from the visible rim, 0 and 8 px (I-3).
+ */
+function renderHits(
+  v: NodeView,
+  config: Config,
+  hass: HomeAssistant,
+  tap: (entity?: string) => (ev: Event) => void,
+): TemplateResult | string {
+  const options = config.nodes[v.key];
+  const near = options.label ? "-2px" : "-22px";
+  const top = v.key === "solar" ? near : "-22px";
+  const bottom = v.key === "solar" ? "-22px" : near;
+  const above = options.inside?.position === "above" ? options.inside : undefined;
+  const upper = v.socEntity
+    ? { entity: v.socEntity, text: v.socValue ?? "" }
+    : above
+      ? { entity: above.entity, text: formatExtra(hass.states[above.entity], hass, above.decimals) }
+      : undefined;
+  if (upper) {
+    // A half that stops short of a label field keeps its 44 px by growing
+    // towards the middle, not past the field: the minimum height would
+    // otherwise push it back over the gap (I-3).
+    const half = "height:max(44px, calc(50% + 2px))";
+    return html`
+      <button
+        class="hit upper"
+        style=${
+          // Later in the document, the lower half would take back the overlap.
+          v.key === "solar" && options.label
+            ? `top:${top};bottom:auto;${half};z-index:3`
+            : `top:${top}`
+        }
+        aria-label=${`${v.label} ${upper.text}`}
+        @click=${tap(upper.entity)}
+      ></button>
+      <button
+        class="hit lower"
+        style=${v.key !== "solar" && options.label ? `top:auto;bottom:${bottom};${half}` : `bottom:${bottom}`}
+        aria-label=${`${v.label} ${v.value}`}
+        @click=${tap(v.entity)}
+        ?disabled=${!v.entity}
+      ></button>
+    `;
+  }
+  if (!v.entity) return "";
+  return html`<button
+    class="hit"
+    style="top:${top};bottom:${bottom}"
+    aria-label=${`${v.label} ${v.value}`}
+    @click=${tap(v.entity)}
+  ></button>`;
+}
+
+/**
+ * The label block: the extra field next to the circle, then name, state word
+ * and "calculated" further out - above the circle for solar, so the field
+ * comes last, below it for the others, so it comes first (REQ Z-3, Z-4). "Netz · Einspeisung" is split onto two lines: a
+ * single long line reaches into the neighbouring circle once the nodes sit
+ * close together. An empty block is not drawn at all.
+ */
+function renderLabel(
+  v: NodeView,
+  config: Config,
+  hass: HomeAssistant,
+  tap: (entity?: string) => (ev: Event) => void,
+): TemplateResult | string {
+  const options = config.nodes[v.key];
+  const [name, ...rest] = v.label.split(" · ");
+  const state = options.showState ? rest.join(" · ") : "";
+  // The outage is the message of the grid node; its name stays with it (NS-4).
+  const showName = options.showName || v.outage === true;
+  const suffix = v.derived
+    ? localize(showName ? "node.derived_suffix" : "node.derived_alone", hass)
+    : "";
+  const field = options.label;
+  let extra: TemplateResult | string = "";
+  if (field) {
+    const prefix = field.prefix ?? "";
+    const text = formatExtra(hass.states[field.entity], hass, field.decimals);
+    const color = config.extraColors[`${v.key}_label` as ExtraColorKey];
+    const full = prefix ? `${prefix} ${text}` : text;
+    // A target of its own: the field shows another entity than the node (REQ Z-7).
+    extra = html`<button
+      class="extra-label extra"
+      style=${extraStyle(field, color, "--el-label-size")}
+      title=${full}
+      aria-label=${full}
+      @click=${tap(field.entity)}
+    >${prefix ? html`<span class="extra-prefix">${prefix}</span> ` : ""}<span class="extra-value"
+        >${text}</span
+      ></button>`;
+  }
+  if (!showName && !state && !suffix && !field) return "";
+  const lines = html`${showName ? html`<span class="label-name">${name}</span>` : ""}${
     state ? html`<span class="label-state">${state}</span>` : ""
   }${suffix ? html`<span class="label-state derived">${suffix}</span>` : ""}`;
+  return html`<div class="label">${v.key === "solar" ? html`${lines}${extra}` : html`${extra}${lines}`}</div>`;
 }
 
 export function buildNodeViews(
@@ -254,7 +418,7 @@ export function renderCross(
   );
 
   return html`
-    <div class="cross">
+    <div class="cross ${model.battery === null ? "no-battery" : ""}">
       <div class="plot">
         <svg viewBox="0 0 ${VIEW_W} ${VIEW_H}" aria-hidden="true">
         ${links.map(
@@ -294,6 +458,7 @@ export function renderCross(
                 : ""
             }
             ${v.socValue ? html`<div class="value">${v.socValue}</div>` : ""}
+            ${config.nodes[v.key].inside?.position === "above" ? insideField(v, config, hass) : ""}
             ${
               v.outage
                 ? // A big X over the symbol, not a slash through it: the slash
@@ -309,30 +474,12 @@ export function renderCross(
                 : html`<ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>`
             }
             <div class="value ${v.available ? "" : "unavailable"}">${v.value}</div>
-            <div class="label">${label(v.label, v.derived, hass)}</div>
+            ${config.nodes[v.key].inside?.position === "below" ? insideField(v, config, hass) : ""}
+            ${v.key === "solar" ? renderLabel(v, config, hass, tap) : ""}
+            ${renderHits(v, config, hass, tap)}
             ${
-              v.socEntity
-                ? html`
-                    <button
-                      class="hit upper"
-                      aria-label=${`${v.label} ${v.socValue ?? ""}`}
-                      @click=${tap(v.socEntity)}
-                    ></button>
-                    <button
-                      class="hit lower"
-                      aria-label=${`${v.label} ${v.value}`}
-                      @click=${tap(v.entity)}
-                      ?disabled=${!v.entity}
-                    ></button>
-                  `
-                : v.entity
-                  ? html`<button
-                      class="hit"
-                      style="top:-22px;bottom:-22px"
-                      aria-label=${`${v.label} ${v.value}`}
-                      @click=${tap(v.entity)}
-                    ></button>`
-                  : ""
+              // After the node's targets below the circle, so Tab runs top to bottom (I-5).
+              v.key === "solar" ? "" : renderLabel(v, config, hass, tap)
             }
           </div>
           `;

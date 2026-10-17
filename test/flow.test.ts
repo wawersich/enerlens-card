@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeConfig } from "../src/config";
+import { defaultExtraColors, defaultNodes, normalizeConfig } from "../src/config";
 import { computeFlows, dotParams, planDots } from "../src/flow";
 import type { Config, ConnectionId, Flows, Model, Reading, Signed } from "../src/types";
 
@@ -91,6 +91,8 @@ function config(over: Partial<Config["flow"]> = {}): Config {
     },
     icons: {},
     power: { unit: "kW", decimals: 2, digits: 3 },
+    nodes: defaultNodes(),
+    extraColors: defaultExtraColors(),
   };
 }
 
