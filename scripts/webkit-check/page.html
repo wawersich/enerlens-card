@@ -45,25 +45,44 @@ const params = new URLSearchParams(location.search);
 const scene = params.get("scene") ?? "plain";
 if (scene === "scaled") document.getElementById("frame").style.transform = "scale(0.8)";
 if (scene === "below") document.getElementById("host").style.width = "400px";
+// extras: the card as it stands on a dashboard column, with extra values (Z-1)
+// whose prefixes are long enough to make the labels lean and shorten (Z-3).
+// nobatt: the same without a battery, where grid and house labels may reach
+// to the middle between them (Z-3).
+if (scene === "extras" || scene === "nobatt") document.getElementById("host").style.width = "486px";
 
 const W = (id, w) => [id, { entity_id: id, state: String(w),
   attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
 const states = Object.fromEntries([
   W("sensor.s", 6000), W("sensor.g", 1500), W("sensor.h", 4500), W("sensor.b", -3000),
   W("sensor.c1", 2400), W("sensor.c2", 1200), W("sensor.c3", 600),
+  // Extra values (Z-1): a figure in the PV circle, and a label field at every
+  // node, wide enough to need the room and the width limits of Z-3 and Z-8.
+  ["sensor.today", { entity_id: "sensor.today", state: "12.4", attributes: { unit_of_measurement: "kWh" }, last_changed: "", last_updated: "" }],
+  ["sensor.share", { entity_id: "sensor.share", state: "82", attributes: { unit_of_measurement: "%" }, last_changed: "", last_updated: "" }],
 ]);
 
 await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
 card.setConfig({
   type: "custom:enerlens-card", title: "Energie",
-  entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
+  entities: scene === "nobatt"
+    ? { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" }
+    : { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
   consumers: [
     { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave" },
     { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine" },
     { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
   ],
   flow: { min_w: 20, peak_w: 8000 },
+  ...(scene === "extras" || scene === "nobatt" ? { nodes: {
+    solar: { inside: { entity: "sensor.today" }, label: { entity: "sensor.today", prefix: "Prognose" } },
+    grid: { label: { entity: "sensor.today", prefix: "Netzbezug heute" } },
+    house: { label: { entity: "sensor.share", prefix: "Autarkie heute" } },
+    // No state word below the battery: more room above than below, which is
+    // what moves the list off the house's height if nothing makes up for it.
+    battery: { show_state: false, label: { entity: "sensor.today", prefix: "Rest" } },
+  } } : {}),
   ...(scene === "below" ? { list: { always_below: true } } : {}),
 });
 card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
@@ -124,6 +143,55 @@ function offLines(svg, dotSelector, lineSelector) {
   return { dots, worst: +worst.toFixed(2) };
 }
 
+/**
+ * Label blocks against everything they must leave alone (Z-8): the card's
+ * edge, the header with the mode chips, and every other node's circle.
+ */
+function labels(root) {
+  const card = root.querySelector("ha-card").getBoundingClientRect();
+  const header = root.querySelector(".header")?.getBoundingClientRect();
+  const out = [];
+  const circle = (node) => {
+    const r = node.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 };
+  };
+  for (const node of root.querySelectorAll(".node")) {
+    const label = node.querySelector(".label");
+    if (!label) continue;
+    const key = [...node.classList].find((c) => ["solar", "grid", "house", "battery"].includes(c));
+    const b = label.getBoundingClientRect();
+    if (b.top < card.top - 1 || b.bottom > card.bottom + 1) out.push(`${key}: Beschriftung ragt aus der Karte`);
+    // Sideways Z-3 asks for 8 px of air; one pixel of rounding is allowed.
+    if (b.left < card.left + 7 || b.right > card.right - 7) out.push(`${key}: Beschriftung zu nah am Kartenrand`);
+    if (header && b.top < header.bottom - 1 && b.left < header.right && header.left < b.right) {
+      out.push(`${key}: Beschriftung unter den Chips`);
+    }
+    for (const other of root.querySelectorAll(".node")) {
+      if (other === node) continue;
+      const c = circle(other);
+      const nx = Math.max(b.left, Math.min(c.x, b.right));
+      const ny = Math.max(b.top, Math.min(c.y, b.bottom));
+      // Z-3 asks for 8 px of air; one pixel of rounding is allowed.
+      if (Math.hypot(nx - c.x, ny - c.y) < c.r + 7) out.push(`${key}: Beschriftung zu nah am Nachbarkreis`);
+    }
+  }
+  // Grid and house labels side by side keep 8 px apart (Z-3, without a battery).
+  const grid = root.querySelector(".node.grid .label")?.getBoundingClientRect();
+  const home = root.querySelector(".node.house .label")?.getBoundingClientRect();
+  if (grid && home && grid.bottom > home.top && home.bottom > grid.top && home.left - grid.right < 7) {
+    out.push(`Netz- und Haus-Beschriftung ${(home.left - grid.right).toFixed(1)} px auseinander`);
+  }
+  // Beside the cross the list stays level with the house (L-1, Z-8).
+  const list = root.querySelector(".list");
+  const house = root.querySelector(".node.house");
+  if (list && house && !root.querySelector(".body.stacked")) {
+    const l = list.getBoundingClientRect(), h = house.getBoundingClientRect();
+    const off = l.top + l.height / 2 - (h.top + h.height / 2);
+    if (Math.abs(off) > 2) out.push(`Liste ${off.toFixed(1)} px neben der Haushöhe`);
+  }
+  return out;
+}
+
 /** Elements that reach outside the card by more than a pixel. */
 function outside(root) {
   const card = root.querySelector("ha-card").getBoundingClientRect();
@@ -169,6 +237,7 @@ window.check = () => {
     fan: offLines(root.querySelector("svg.fan"), "g.fan-dot", "path.fan-line"),
     ring: h && r ? +Math.hypot(h.x - r.x, h.y - r.y).toFixed(2) : null,
     outside: outside(root),
+    labels: labels(root),
     lines: lineWidths(root),
   };
   return JSON.stringify(result);

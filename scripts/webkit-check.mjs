@@ -7,13 +7,17 @@
  * it: the ring needed an explicit size, page zoom pushed the dots off their
  * lines (issue #7), and getScreenCTM() leaves out the scale of an element above
  * the card. This loads `scripts/webkit-check/page.html` at several page zooms,
- * in a plain, a scaled and a narrow setting, and measures what went wrong
- * before:
+ * in a plain, a scaled and a narrow setting with the card as most people have
+ * it, and in two settings with extra values (with and without a battery,
+ * issue #9), and measures what went wrong before:
  *
  *   - every dot lies on a drawn line (cross and fan), at three places each;
  *   - the consumer ring sits centred on the house node;
  *   - nodes, rows, ring and dots stay inside the card;
- *   - the lines are as wide as the card asked for (K-12), where unzoomed.
+ *   - the lines are as wide as the card asked for (K-12), where unzoomed;
+ *   - the label blocks stay 8 px clear of the card's edge, the other nodes'
+ *     circles and each other, never reach under the mode chips, and the list
+ *     beside the cross stays level with the house (Z-3, Z-8).
  *
  *   npm run build && npm run webkit-check
  *   npm run webkit-check -- --shots /tmp/wk     # also a picture per WebKit run
@@ -46,7 +50,7 @@ const shots = option("--shots");
 const TOLERANCE_PX = 1.5;
 /** How far a line's width may be off what the card asked for, in screen pixels. */
 const LINE_TOLERANCE_PX = 0.1;
-const SCENES = ["plain", "scaled", "below"];
+const SCENES = ["plain", "scaled", "below", "extras", "nobatt"];
 /* 100 % once; the zooms both set before loading (Safari remembers them per
  * site) and changed while the card runs (Cmd + / Cmd -). */
 const WEBKIT_RUNS = [
@@ -135,6 +139,7 @@ function problems(m, lines) {
   if (m.ring === null) found.push("kein Ring am Haus");
   else if (m.ring > TOLERANCE_PX) found.push(`Ring ${m.ring} px neben der Hausmitte`);
   if (m.outside.length) found.push(`außerhalb der Karte: ${[...new Set(m.outside)].join(", ")}`);
+  if (m.labels?.length) found.push(`Beschriftungen: ${[...new Set(m.labels)].join(", ")}`);
   if (!lines) return found;
   if (m.lines?.error) found.push(m.lines.error);
   else if (m.lines && m.lines.off > LINE_TOLERANCE_PX)
