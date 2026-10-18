@@ -81,6 +81,21 @@ class EntitySeries {
     return weight > 0 ? sum / weight : null;
   }
 
+  /** Whether a sample sits exactly at `t`. */
+  has(t: number): boolean {
+    const i = this.lowerBound(t);
+    return i < this.count && this.ts[i] === t;
+  }
+
+  /** Drops the sample at `t` if it is a gap - a reading there stays (REQ V-7). */
+  removeGap(t: number): void {
+    const i = this.lowerBound(t);
+    if (i >= this.count || this.ts[i] !== t || !Number.isNaN(this.vs[i])) return;
+    this.ts.copyWithin(i, i + 1, this.count);
+    this.vs.copyWithin(i, i + 1, this.count);
+    this.count--;
+  }
+
   /** Keeps the newest sample at or before `cutoff` - it covers the window start. */
   prune(cutoff: number): void {
     const keepFrom = this.upperBound(cutoff) - 1;
@@ -160,6 +175,8 @@ class EntitySeries {
 export class AveragingBuffer {
   private readonly windowMs: number;
   private readonly series = new Map<string, EntitySeries>();
+  /** Where a pause began, until the history has described it (REQ V-7). */
+  private gaps: Array<{ t: number; markedAt: number; at: Map<string, number> }> = [];
 
   /** `windowMs` is the long window; older samples are dropped (REQ V-10). */
   constructor(windowMs: number) {
@@ -174,6 +191,49 @@ export class AveragingBuffer {
       this.series.set(entityId, series);
     }
     series.push(t, v);
+  }
+
+  /**
+   * A pause from `t` on: no value is held across it, every entity counts as
+   * unavailable until its next reading (REQ V-7, issue #18). A reading at the
+   * very same moment keeps its place; the mark goes a millisecond after it.
+   */
+  markGap(t: number, markedAt = t): void {
+    if (!Number.isFinite(t)) return;
+    const at = new Map<string, number>();
+    for (const [entityId, series] of this.series) {
+      const mark = series.has(t) ? t + 1 : t;
+      series.push(mark, null);
+      at.set(entityId, mark);
+    }
+    this.gaps.push({ t, markedAt, at });
+  }
+
+  /**
+   * Takes back the marks a history fetch has described: those set before it
+   * was asked for - the pause was over by then - and only for the entities
+   * it answered for. The value in effect when the pause began held on until
+   * its next change, which the history now holds. An entity the recorder does
+   * not keep stays unknown across the pause (REQ V-7); a sensor's own
+   * unavailable readings are not marks and stay too.
+   */
+  healGaps(asked: number, answered: Iterable<string>): void {
+    const known = new Set(answered);
+    const open: typeof this.gaps = [];
+    for (const gap of this.gaps) {
+      if (gap.markedAt > asked) {
+        open.push(gap);
+        continue;
+      }
+      for (const [entityId, mark] of gap.at) {
+        if (known.has(entityId)) {
+          this.series.get(entityId)?.removeGap(mark);
+          gap.at.delete(entityId);
+        }
+      }
+      if (gap.at.size > 0) open.push(gap);
+    }
+    this.gaps = open;
   }
 
   /**
@@ -215,6 +275,10 @@ export class AveragingBuffer {
   prune(now: number): void {
     const cutoff = now - this.windowMs;
     for (const series of this.series.values()) series.prune(cutoff);
+    // A mark that has left the window has nothing left to heal: the reading
+    // before it went with it. Without this the list grew in views that never
+    // fetch (the current view, the preview, the example).
+    this.gaps = this.gaps.filter((gap) => gap.t >= cutoff);
   }
 
   /** Samples currently held for one entity. Exposed for the memory bound (V-10). */

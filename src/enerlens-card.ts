@@ -178,7 +178,43 @@ class EnerLensCard extends LitElement {
     // glides the rows that move.
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
   }
-  private readonly _onVisibility = () => this._syncPlayState();
+  private readonly _onVisibility = () => {
+    this._syncPlayState();
+    if (document.visibilityState === "hidden") this._pause(Date.now());
+    else this._resume();
+  };
+
+  /** When the card stopped seeing readings: page hidden, connection lost,
+   *  taken out of the page, or a tick that came far too late (REQ V-7). */
+  private _pausedAt?: number;
+  /** When the last tick ran - a device asleep says nothing, its timers just stop. */
+  private _lastTick?: number;
+
+  private _pause(at: number): void {
+    this._pausedAt ??= at;
+  }
+
+  /**
+   * Back from a pause: one that outlasted update_interval_s is a gap. The
+   * buffer holds no value across it, and counts as not prefilled, so the
+   * check after the next render fetches the history again - at once in an
+   * average view, otherwise when one is chosen (REQ V-7, issue #18).
+   */
+  private _resume(): void {
+    const since = this._pausedAt;
+    if (since === undefined || !this.isConnected || document.visibilityState === "hidden") return;
+    if (this._realHass?.connected === false) return;
+    this._pausedAt = undefined;
+    const now = Date.now();
+    // The tick that was due during the pause comes late now - it must not
+    // count the same pause a second time.
+    this._lastTick = now;
+    if (!this._config || now - since <= this._config.updateIntervalS * 1000) return;
+    this._buffer?.markGap(since, now);
+    this._historyFor = undefined;
+    if (this._hass) this._tickModel = this._modelForMode(this._hass, this._config);
+    this.requestUpdate();
+  }
   private readonly _onMotionChange = () => this.requestUpdate();
   /** How much the browser stretches motion paths (issue #7, render/path-zoom.ts). */
   private _pathZoom = 1;
@@ -186,6 +222,8 @@ class EnerLensCard extends LitElement {
 
   set hass(real: HomeAssistant) {
     this._realHass = real;
+    if (real.connected === false) this._pause(Date.now());
+    else this._resume();
     const wasExample = this._example;
     const hass = this._withExample(real);
     const previous = this._hass;
@@ -395,6 +433,7 @@ class EnerLensCard extends LitElement {
     this._intersectionObserver.observe(this);
     this._pickUpLiveDesigns();
     document.addEventListener("visibilitychange", this._onVisibility);
+    this._resume();
 
     // The system setting can change while the card is open (REQ P-7).
     this._motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
@@ -409,7 +448,17 @@ class EnerLensCard extends LitElement {
   private _restartTick(): void {
     if (this._tickTimer) clearInterval(this._tickTimer);
     const seconds = this._config?.updateIntervalS ?? 5;
+    this._lastTick = Date.now();
     this._tickTimer = setInterval(() => {
+      // A tick more than twice late means the timers stood still - a device
+      // asleep without a visibility event. The gap began at the last tick.
+      const now = Date.now();
+      const last = this._lastTick ?? now;
+      this._lastTick = now;
+      if (now - last > 2 * seconds * 1000) {
+        this._pause(last);
+        this._resume();
+      }
       if (!this._hass || !this._config) return;
       // In an average mode the window keeps moving even when no sensor changed,
       // so the tick recomputes rather than reusing the last model (REQ T-1).
@@ -492,6 +541,7 @@ class EnerLensCard extends LitElement {
     const hass = this._hass;
     const config = this._config;
     if (!hass || !config) return;
+    const asked = Date.now();
     try {
       const history = await fetchHistory(hass, this._entityIds, config.view.avgLongMinutes);
       // A new window length brought a new buffer meanwhile: this answer is
@@ -503,6 +553,14 @@ class EnerLensCard extends LitElement {
           buffer.push(entityId, sample.t, this._toWatts(sample.v, unit));
         }
       }
+      // The history describes every pause that was over when it was asked for,
+      // for the entities it answered for (REQ V-7); the rest stays a gap.
+      buffer.healGaps(
+        asked,
+        Object.entries(history)
+          .filter(([, samples]) => samples.length > 0)
+          .map(([entityId]) => entityId),
+      );
       // List order, ring and dots follow the full mean now, not at the next
       // tick up to update_interval_s later (V-8).
       if (this._hass && this._config) {
@@ -923,6 +981,7 @@ class EnerLensCard extends LitElement {
     this._intersectionObserver?.disconnect();
     this._intersectionObserver = undefined;
     document.removeEventListener("visibilitychange", this._onVisibility);
+    this._pause(Date.now());
     window.removeEventListener("resize", this._onWindowResize);
     this._motionQuery?.removeEventListener?.("change", this._onMotionChange);
     this._motionQuery = undefined;
