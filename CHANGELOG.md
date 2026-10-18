@@ -4,91 +4,53 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.10.0] - 2026-10-18
 
 ### Added
-- **Extra values at the nodes** (#9). Each node can show a second value of
-  any entity - in the circle (not the battery) and right next to it, with an
-  optional prefix such as "Self-sufficiency". Shown as Home Assistant writes
-  it, or with fixed decimals or significant digits; size, weight and colour
-  per value. One next to the circle or above the icon opens its own history
-  when tapped. In the editor under *Labels & extra values*.
-- **Name and state word can be hidden** per node, with or without extra
-  values.
+- **Extra values at the nodes** (#9). Each node can show up to two more
+  values of any entity - one inside the circle (not the battery) and one
+  next to it, with an optional prefix such as "Self-sufficiency". Decimals,
+  size, weight and colour per value; tapping one opens its history. In the
+  editor under *Labels & extra values*.
+- **Name and direction can be hidden** per node - the node's name, and the
+  "import / export" under grid or "charging / discharging" under battery.
 
 ### Changed
-- **The editor groups are reordered and renamed:** *Entities* is now *Main
-  entities*, followed by the new *Labels & extra values*; *Grid outage* moved
-  behind *Consumers*.
-- **Main entities come in one section per node** - solar, grid, house and
-  battery, closed until opened, with the state of charge under the battery.
-  The four used to run into each other with nothing in between.
-- **A calculated PV or battery node gets room for "calculated".** The extra
-  line used to reach into the mode buttons above PV.
-- **A new card shows example values until its sensors are picked.** Added
-  through the dashboard, the card used to take the first two sensors of any
-  kind - often something like a temperature - and showed dashes or nonsense.
-  It now starts with the placeholders `sensor.solar_power` and
-  `sensor.grid_power` and, as long as nothing but these placeholders is set
-  and Home Assistant knows neither of them, shows invented values under a
-  banner that says so.
-- **A new card shows an icon on the remainder row.** Added through the
-  dashboard, the card now starts with `icons.rest: mdi:cloud-question`;
-  delete it for the colour dot. Existing cards keep what they have.
+- **Editor:** the groups are reordered and renamed (*Main entities*, the new
+  *Labels & extra values*, *Grid outage* after *Consumers*), and each main
+  entity has its own section, with the state of charge under the battery.
+- **The card redraws only for changes it shows** - its own entities,
+  language, theme, connection and its beat. About 85 % fewer redraws on a
+  large installation; in an average view the figures no longer move
+  between beats.
+- **A new card starts with example values** under a banner until its
+  sensors are picked, instead of grabbing any two sensors, and with an
+  icon on the remainder row (`icons.rest`). Existing cards are unchanged.
 
 ### Fixed
+- **An empty key in YAML no longer breaks the card** (#15). `icons:`,
+  `colors:` or `flow:` left without a value showed an error box; an empty
+  `max_consumers:` cut the list to one consumer, an empty `min_w:` set a
+  consumer's threshold to 0 W. Empty now means "not set".
+- **The visual editor opens on any configuration** (#19). Some hand-typed
+  values crashed it or were rewritten on the next edit; it now changes only
+  what you edit and keeps the rest as written. `list.title` and
+  `view.remember` are no longer deleted by the editor.
+- **Averages after a pause** (#18). After the phone slept, the tab was in the
+  background or the connection was lost, "Ø 15 min" carried the last value
+  across the pause. The pause now counts as unknown, and the card fetches
+  the history again to fill it in.
+- **An average view opened directly has its history** (#16) instead of
+  averaging only the seconds since loading.
+- **The editor opens complete straight away.** It used to show only some
+  groups for about a second after a page reload.
+- **The editor preview no longer queries the recorder** (#17) on opening
+  and on every keystroke.
+- **A calculated PV or battery node** has room for "calculated" again.
+- **Lines no longer show inside the circles** on a card made transparent
+  with card-mod.
 - **Figures in languages with other digits** (Persian, Bengali, Marathi …)
-  were all shown as zero.
-- **An average view opened directly has its history again** (#16). A card
-  that opened in "Ø 2 min" or "Ø 15 min" - set as the start view, or
-  remembered from last time - never fetched the recent history, so right
-  after loading the mean covered only the seconds since then. It now fetches
-  it once on opening; the editor preview still fetches nothing.
-- **An empty key in YAML no longer breaks the card** (#15). A key left
-  without a value - `icons:`, `colors:`, `flow:`, the `rest:` under
-  `icons:` and the like - turned the whole card into an error box, and the
-  editor did not open on an empty main entity. It now counts as not set,
-  exactly like a missing key; so does text of nothing but spaces, which the
-  title field could produce. Two of them did worse without a word: an empty
-  `max_consumers:` cut the list down to one consumer, and an empty `min_w:`
-  at a consumer set its threshold to 0 W.
-- **The visual editor opens on any configuration and leaves alone what it
-  cannot show** (#19). Some hand-typed shapes crashed it - `battery: false`,
-  an unquoted `#` in a battery gradient colour, `plugged: true` - or made
-  every later change go nowhere. Text where a block belongs was taken apart
-  letter by letter on the first edit, and a misspelt key or a value of the
-  wrong type was dropped. The editor now only rewrites the part of the
-  configuration that is actually edited and writes everything else back as
-  it was; a gradient it cannot show says "only editable in YAML".
-- **`list.title` and `view.remember` survive the visual editor** (#19). Any
-  change in the editor used to delete both.
-- **Averages after a pause** (#18). When the phone slept, the tab was in the
-  background or the connection to Home Assistant was lost, the averages
-  simply carried the last value across the pause - after waking up,
-  "Ø 15 min" could be mostly the value from before. A pause longer than
-  `update_interval_s` now counts as unknown, and the card fetches the
-  history again, which fills it in.
-- **Lines no longer show inside the circles on a transparent card.** With
-  the card made transparent through card-mod, as the README shows, the ends
-  of the lines and the dots on them could be seen inside every circle; the
-  fill of the circles used to hide them. They now stop at the circle's rim,
-  and the card looks the same as before on an opaque background.
-- **The editor opens complete straight away.** After a page reload the first
-  open showed only *Consumers* and *Colours* for about a second, in Firefox
-  longer; every further open took over a second as well. Each group now
-  builds its fields when it is first unfolded. The help of *Grid outage*
-  stands once at the top instead of twice.
-- **The card no longer redraws for changes it does not show.** Home Assistant
-  hands every card news of every entity, several times a second on a large
-  installation, and the card redrew itself in full each time. It now redraws
-  for its own entities, language, number format, theme and connection, and
-  on its beat - about 85 % fewer redraws. In an average view the figures no
-  longer move between beats.
-- **The editor preview no longer asks the recorder anything** (#17). It looked
-  up the last grid status and a car's last state of charge when the editor
-  opened and again on every keystroke, because Home Assistant marks the
-  preview only after handing it the first states. An answer that arrives for
-  a grid status entity the card no longer uses is now dropped as well.
+  were shown as zero.
 
 ## [0.9.0] - 2026-10-17
 
