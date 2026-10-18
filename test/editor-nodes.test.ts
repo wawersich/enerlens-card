@@ -104,6 +104,28 @@ describe("editor - nodes (REQ Z-10)", () => {
     expect(panels.indexOf("consumers")).toBe(1);
   });
 
+  it("splits the main entities into one closed section per node (E-3)", async () => {
+    const el = await mount(BASE);
+    const sections = group(el, "entities")?.schema ?? [];
+    expect(sections.map((s) => s.name)).toEqual([
+      "entities_solar",
+      "entities_grid",
+      "entities_house",
+      "entities_battery",
+      "colors_hint",
+    ]);
+    const titled = sections.filter((s) => s.type === "expandable");
+    expect(titled.map((s) => s.title)).toEqual(["PV", "Netz", "Haus", "Batterie"]);
+    expect(titled.every((s) => !("expanded" in s))).toBe(true);
+    const of = (node: string) => names(sections.find((s) => s.name === `entities_${node}`)?.schema);
+    expect(of("solar")).toEqual(["solar_source", "solar", "solar_invert"]);
+    expect(of("battery")).toContain("battery_soc");
+    // No battery: its section stays, to pick one, but without a state of charge.
+    const without = await mount({ ...BASE, entities: { solar: "sensor.s", grid: "sensor.g" } });
+    const battery = group(without, "entities")?.schema?.find((s) => s.name === "entities_battery");
+    expect(names(battery?.schema)).toEqual(["battery_source"]);
+  });
+
   it("has one sub-section per node, the battery only with a battery", async () => {
     const el = await mount(BASE);
     expect(group(el, "nodes")?.schema?.map((s) => s.name)).toEqual([

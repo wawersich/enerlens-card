@@ -790,17 +790,27 @@ const COLORS_HINT = { name: "colors_hint", type: "constant" };
 function schema(hass: HomeAssistant, flat: FlatRecord) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   const derivedBy = QUANTITIES.filter((q) => flat[`${q}_source`] === "derived");
-  const entityFields = QUANTITIES.flatMap((q) =>
-    quantitySchema(
+  // One closed section per node, as in "Beschriftung & Zusatzwerte" (E-3):
+  // without them the four quantities ran into each other, and what each was
+  // about stood only in the small title of its select.
+  const entitySections = QUANTITIES.map((q) => {
+    const fields = quantitySchema(
       q,
       flat,
       derivedBy.some((d) => d !== q),
       t,
-    ),
-  );
-  if (flat.battery_source !== "none") {
-    entityFields.push({ name: "battery_soc", selector: { entity: { filter: BATTERY_FILTER } } });
-  }
+    );
+    if (q === "battery" && flat.battery_source !== "none") {
+      fields.push({ name: "battery_soc", selector: { entity: { filter: BATTERY_FILTER } } });
+    }
+    return {
+      name: `entities_${q}`,
+      type: "expandable",
+      flatten: true,
+      title: localize(`node.${q}`, hass),
+      schema: fields,
+    };
+  });
 
   // Enum sensors and input_selects publish their own values, so the two lists
   // can be picked instead of typed - nobody has to know how their integration
@@ -823,7 +833,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       type: "expandable",
       flatten: true,
       title: t("entities"),
-      schema: [...entityFields, COLORS_HINT],
+      schema: [...entitySections, COLORS_HINT],
     },
     {
       name: "nodes",

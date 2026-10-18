@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The editor groups are reordered and renamed:** *Entities* is now *Main
   entities*, followed by the new *Labels & extra values*; *Grid outage* moved
   behind *Consumers*.
+- **Main entities come in one section per node** - solar, grid, house and
+  battery, closed until opened, with the state of charge under the battery.
+  The four used to run into each other with nothing in between.
 - **A calculated PV or battery node gets room for "calculated".** The extra
   line used to reach into the mode buttons above PV.
 - **A new card shows example values until its sensors are picked.** Added

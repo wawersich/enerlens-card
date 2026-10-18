@@ -84,8 +84,8 @@ function entityFields(el: Editor): string[] {
 }
 
 function sourceOptions(el: Editor, quantity: string): string[] {
-  const group = form(el).schema.find((g) => g.name === "entities");
-  const field = group?.schema?.find((f) => f.name === `${quantity}_source`);
+  // Each quantity sits in its own section under "entities" (E-3).
+  const field = findField(el, `${quantity}_source`);
   const select = field?.selector?.select as { options: Array<{ value: string }> };
   return select.options.map((o) => o.value);
 }
