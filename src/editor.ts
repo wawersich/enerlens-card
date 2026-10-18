@@ -248,9 +248,13 @@ const DOT_COLOR_SEED = "var(--primary-text-color)";
 // ---------------------------------------------------------------------------
 
 /** Which source a YAML entry represents. Absent means "derived" for the house
- *  (REQ A-1), "none" for the battery (A-5) and an empty entity picker otherwise. */
+ *  (REQ A-1), "none" for the battery (A-5) and an empty entity picker otherwise.
+ *  A YAML key left empty (null, "") is absent too, as for the card (issue #15). */
+const isAbsent = (ref: EntityRef | null | undefined): ref is undefined =>
+  ref === undefined || ref === null || (typeof ref === "string" && ref.trim() === "");
+
 function sourceOf(quantity: Quantity, ref: EntityRef | undefined): Source {
-  if (ref === undefined) {
+  if (isAbsent(ref)) {
     return quantity === "house" ? "derived" : quantity === "battery" ? "none" : "entity";
   }
   if (ref === "derived") return "derived";
@@ -260,7 +264,7 @@ function sourceOf(quantity: Quantity, ref: EntityRef | undefined): Source {
 
 function flattenQuantity(quantity: Quantity, ref: EntityRef | undefined, out: FlatRecord): void {
   out[`${quantity}_source`] = sourceOf(quantity, ref);
-  if (ref === undefined || ref === "derived") return;
+  if (isAbsent(ref) || ref === "derived") return;
   if (typeof ref === "string") {
     out[quantity] = ref;
     return;

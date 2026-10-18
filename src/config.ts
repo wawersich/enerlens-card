@@ -59,7 +59,7 @@ const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
 const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
 const APPEARANCES: readonly Appearance[] = ["auto", "light", "dark"];
 
-const KNOWN_KEYS: ReadonlySet<string> = new Set([
+export const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "type",
   "title",
   "entities",
@@ -134,16 +134,27 @@ function requireString(value: unknown, field: string, hass?: HomeAssistant): str
 
 /**
  * "Not set" has three spellings once a GUI is involved: undefined from YAML,
- * `null` from a cleared number or boolean field, `""` from a cleared text or
- * select. None of them is a configuration error - it is the absence of one
- * (REQ E-1). Every optional reader below goes through this.
+ * `null` from a cleared number or boolean field or a YAML key left without a
+ * value, `""` from a cleared text or select - and text of nothing but spaces
+ * is no more than that. None of them is a configuration error - it is the
+ * absence of one (REQ E-1, issue #15). Every optional reader below goes
+ * through this.
  */
-const isUnset = (value: unknown): boolean => value === undefined || value === null || value === "";
+const isUnset = (value: unknown): boolean =>
+  value === undefined || value === null || (typeof value === "string" && value.trim() === "");
 
 /** Optional text. */
 function readString(value: unknown, field: string, hass?: HomeAssistant): string | undefined {
   if (isUnset(value)) return undefined;
   return requireString(value, field, hass);
+}
+
+/**
+ * Optional block. A YAML key left without a value is `null` - the block is
+ * not set, not broken (issue #15).
+ */
+function readBlock(value: unknown, field: string, hass?: HomeAssistant): Record<string, unknown> {
+  return isUnset(value) ? {} : requireRecord(value, field, hass);
 }
 
 function readBoolean(
@@ -270,11 +281,12 @@ function parseSource(
   split: SplitKeys | undefined,
   hass?: HomeAssistant,
 ): SourceSpec {
-  if (value === undefined || value === null) return { kind: "absent" };
+  // Empty text is no reference either; a required quantity still fails in
+  // requireConfigured, with the message that says what is missing (E-1).
+  if (isUnset(value)) return { kind: "absent" };
 
   if (typeof value === "string") {
     if (value === "derived") return { kind: "derived" };
-    if (value.trim() === "") throw fail("error.config.mixed_form", field, hass);
     return { kind: "single", entity: value, invert: false };
   }
 
@@ -458,14 +470,13 @@ function readColors(value: unknown, hass?: HomeAssistant): Config["colors"] {
     socStops: DEFAULT_SOC_STOPS.map((stop) => ({ ...stop })),
     consumerPalette: [...DEFAULT_CONSUMER_PALETTE],
   };
-  if (value === undefined) return colors;
-
-  const raw = requireRecord(value, "colors", hass);
+  const raw = readBlock(value, "colors", hass);
   for (const key of COLOR_KEYS) {
-    if (raw[key] !== undefined) colors[key] = requireString(raw[key], `colors.${key}`, hass);
+    const colour = readString(raw[key], `colors.${key}`, hass);
+    if (colour) colors[key] = colour;
   }
-  if (raw.soc_stops !== undefined) colors.socStops = readSocStops(raw.soc_stops, hass);
-  if (raw.consumer_palette !== undefined) {
+  if (!isUnset(raw.soc_stops)) colors.socStops = readSocStops(raw.soc_stops, hass);
+  if (!isUnset(raw.consumer_palette)) {
     colors.consumerPalette = readPalette(raw.consumer_palette, hass);
   }
   return colors;
@@ -475,7 +486,7 @@ const POWER_UNITS_DISPLAY: readonly PowerUnit[] = ["kW", "W", "auto"];
 
 /** kW with 1-3 decimals (default 2), or whole watts (REQ K-7). */
 function readPower(value: unknown, hass?: HomeAssistant): PowerFormat {
-  const raw = value === undefined ? {} : requireRecord(value, "power", hass);
+  const raw = readBlock(value, "power", hass);
   return {
     // The default stays kW: an installation that never touched this should
     // not change its look because a new option appeared.
@@ -497,11 +508,10 @@ function readIcons(value: unknown, hass?: HomeAssistant): Partial<Record<IconKey
   // The rest has no default: unset it stays the plain colour dot it has always
   // been, and only a configured icon replaces it.
   const icons: Partial<Record<IconKey, string>> = { ...DEFAULT_ICONS };
-  if (value === undefined) return icons;
-
-  const raw = requireRecord(value, "icons", hass);
+  const raw = readBlock(value, "icons", hass);
   for (const key of ["solar", "grid", "house", "battery", "rest"] as const) {
-    if (raw[key] !== undefined) icons[key] = requireString(raw[key], `icons.${key}`, hass);
+    const icon = readString(raw[key], `icons.${key}`, hass);
+    if (icon) icons[key] = icon;
   }
   return icons;
 }
@@ -694,7 +704,7 @@ function readConsumers(
   palette: string[],
   hass?: HomeAssistant,
 ): NormalizedConsumer[] {
-  if (value === undefined) return [];
+  if (isUnset(value)) return [];
   if (!Array.isArray(value)) throw fail("error.config.list", "consumers", hass);
 
   const seen = new Set<string>();
@@ -721,10 +731,9 @@ function readConsumers(
       // Palette wraps so that even 100 consumers get a colour (REQ C-4, L-11).
       color: readString(entry.color, `${field}.color`, hass) ?? palette[i % palette.length],
       icon: readString(entry.icon, `${field}.icon`, hass),
-      minW:
-        entry.min_w === undefined
-          ? undefined
-          : atLeast(readNumber(entry.min_w, `${field}.min_w`, 0, hass), 0, `${field}.min_w`, hass),
+      minW: isUnset(entry.min_w)
+        ? undefined
+        : atLeast(readNumber(entry.min_w, `${field}.min_w`, 0, hass), 0, `${field}.min_w`, hass),
       charge: readCharge(entry.charge, `${field}.charge`, hass),
     });
   }
@@ -753,7 +762,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   const rawRecord = requireRecord(raw, "config", hass);
   warnUnknownKeys(rawRecord, hass);
 
-  if (rawRecord.entities === undefined) {
+  if (isUnset(rawRecord.entities)) {
     throw fail("error.config.missing_entities", "entities", hass);
   }
   const rawEntities = requireRecord(rawRecord.entities, "entities", hass);
@@ -784,8 +793,8 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   }
 
   let batterySoc: string | undefined;
-  if (rawEntities.battery_soc !== undefined) {
-    batterySoc = requireString(rawEntities.battery_soc, "entities.battery_soc", hass);
+  batterySoc = readString(rawEntities.battery_soc, "entities.battery_soc", hass);
+  if (batterySoc !== undefined) {
     if (battery.kind === "absent") {
       // Reachable from the editor: the SoC picked before the battery entity.
       // Not an error worth a dead card - the value is simply not shown (REQ A-5).
@@ -808,15 +817,14 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     hass,
   );
   // No limit configured means no limit at all (REQ section 3, L-4).
-  const maxConsumers =
-    rawRecord.max_consumers === undefined
-      ? Number.POSITIVE_INFINITY
-      : atLeast(
-          readInteger(rawRecord.max_consumers, "max_consumers", 1, hass),
-          1,
-          "max_consumers",
-          hass,
-        );
+  const maxConsumers = isUnset(rawRecord.max_consumers)
+    ? Number.POSITIVE_INFINITY
+    : atLeast(
+        readInteger(rawRecord.max_consumers, "max_consumers", 1, hass),
+        1,
+        "max_consumers",
+        hass,
+      );
   const updateIntervalS = atLeast(
     readNumber(rawRecord.update_interval_s, "update_interval_s", 5, hass),
     1,
@@ -824,11 +832,11 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     hass,
   );
 
-  const rawList = rawRecord.list === undefined ? {} : requireRecord(rawRecord.list, "list", hass);
-  const rawRing = rawRecord.ring === undefined ? {} : requireRecord(rawRecord.ring, "ring", hass);
+  const rawList = readBlock(rawRecord.list, "list", hass);
+  const rawRing = readBlock(rawRecord.ring, "ring", hass);
   const hasConsumers = consumers.length > 0;
 
-  const rawView = rawRecord.view === undefined ? {} : requireRecord(rawRecord.view, "view", hass);
+  const rawView = readBlock(rawRecord.view, "view", hass);
   const avgShortMinutes = inRange(
     readInteger(rawView.avg_short_minutes, "view.avg_short_minutes", 2, hass),
     1,
@@ -852,7 +860,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     hass,
   );
 
-  const rawFlow = rawRecord.flow === undefined ? {} : requireRecord(rawRecord.flow, "flow", hass);
+  const rawFlow = readBlock(rawRecord.flow, "flow", hass);
   const minW = atLeast(readNumber(rawFlow.min_w, "flow.min_w", 10, hass), 0, "flow.min_w", hass);
   // peak_w sets the whole step rule at once - the three thresholds keep the
   // ratios of the defaults (500 / 2000 / 6000). An explicit threshold wins.

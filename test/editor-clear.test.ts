@@ -199,4 +199,40 @@ describe("editor: clearing fields never yields an invalid configuration (REQ E-1
     const saved = emit(el, value);
     expect(() => normalizeConfig(saved)).not.toThrow();
   });
+  // Issue #15: a key left empty in YAML is null. The editor opens on it, writes
+  // none of it back, and what it saves the card takes.
+  it("a config with empty YAML keys", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      title: "T",
+      entities: { solar: "sensor.s", grid: "sensor.g", battery: "sensor.b" },
+      colors: null,
+      icons: { rest: null },
+      flow: "",
+      list: null,
+      consumers: null,
+    } as unknown as RawConfig);
+    const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;
+    const saved = emit(el, { ...data, title: "New" }) as Record<string, unknown>;
+    expect(saved.title).toBe("New");
+    for (const key of ["colors", "icons", "flow", "list", "consumers"]) {
+      expect(saved[key], key).toBeUndefined();
+    }
+    expect(() => normalizeConfig(saved as RawConfig)).not.toThrow();
+  });
+  it("a main entity left empty in YAML", async () => {
+    for (const quantity of ["solar", "grid", "battery", "house"]) {
+      for (const empty of [null, ""]) {
+        const el = await mount({
+          type: "custom:enerlens-card",
+          entities: { solar: "sensor.s", grid: "sensor.g", battery: "sensor.b", [quantity]: empty },
+        } as unknown as RawConfig);
+        const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;
+        expect(data[`${quantity}_source`], `${quantity}: ${empty}`).toBe(
+          quantity === "house" ? "derived" : quantity === "battery" ? "none" : "entity",
+        );
+        el.remove();
+      }
+    }
+  });
 });

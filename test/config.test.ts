@@ -173,10 +173,10 @@ describe("entity reference forms (E-2)", () => {
     );
   });
 
-  it("rejects an empty entity string (E-1)", () => {
+  it("rejects an empty entity string as missing (E-1, issue #15)", () => {
     expectError(
       () => normalizeConfig(withEntities({ ...ENTITIES, solar: "" })),
-      "error.config.mixed_form",
+      "error.config.missing_entities",
       "entities.solar",
     );
   });

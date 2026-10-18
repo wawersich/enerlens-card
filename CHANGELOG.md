@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   remembered from last time - never fetched the recent history, so right
   after loading the mean covered only the seconds since then. It now fetches
   it once on opening; the editor preview still fetches nothing.
+- **An empty key in YAML no longer breaks the card** (#15). A key left
+  without a value - `icons:`, `colors:`, `flow:`, the `rest:` under
+  `icons:` and the like - turned the whole card into an error box, and the
+  editor did not open on an empty main entity. It now counts as not set,
+  exactly like a missing key; so does text of nothing but spaces, which the
+  title field could produce. Two of them did worse without a word: an empty
+  `max_consumers:` cut the list down to one consumer, and an empty `min_w:`
+  at a consumer set its threshold to 0 W.
 - **Lines no longer show inside the circles on a transparent card.** With
   the card made transparent through card-mod, as the README shows, the ends
   of the lines and the dots on them could be seen inside every circle; the
