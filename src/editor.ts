@@ -254,32 +254,37 @@ const isAbsent = (ref: EntityRef | null | undefined): ref is undefined =>
   ref === undefined || ref === null || (typeof ref === "string" && ref.trim() === "");
 
 function sourceOf(quantity: Quantity, ref: EntityRef | undefined): Source {
-  if (isAbsent(ref)) {
-    return quantity === "house" ? "derived" : quantity === "battery" ? "none" : "entity";
-  }
   if (ref === "derived") return "derived";
-  if (typeof ref === "string" || "entity" in ref) return "entity";
-  return "split";
+  if (typeof ref === "string" && !isAbsent(ref)) return "entity";
+  if (isRecord(ref) && "entity" in ref) return "entity";
+  const keys = SPLIT_KEYS[quantity];
+  if (isRecord(ref) && keys && (keys[0] in ref || keys[1] in ref)) return "split";
+  // Absent - or something hand-typed the form cannot show (false, 5, a
+  // misspelt key): the empty choice, and fromFlat keeps the YAML as it is
+  // until this quantity is edited (issue #19).
+  return quantity === "house" ? "derived" : quantity === "battery" ? "none" : "entity";
 }
 
 function flattenQuantity(quantity: Quantity, ref: EntityRef | undefined, out: FlatRecord): void {
-  out[`${quantity}_source`] = sourceOf(quantity, ref);
-  if (isAbsent(ref) || ref === "derived") return;
+  const source = sourceOf(quantity, ref);
+  out[`${quantity}_source`] = source;
   if (typeof ref === "string") {
-    out[quantity] = ref;
+    if (source === "entity") out[quantity] = ref;
     return;
   }
-  if ("entity" in ref) {
-    out[quantity] = ref.entity;
-    out[`${quantity}_invert`] = ref.invert === true;
+  const record: unknown = ref;
+  if (!isRecord(record)) return;
+  const text = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+  if (source === "entity") {
+    out[quantity] = text(record.entity);
+    out[`${quantity}_invert`] = record.invert === true;
     return;
   }
   const fields = SPLIT_FIELDS[quantity];
   const keys = SPLIT_KEYS[quantity];
-  if (!fields || !keys) return;
-  const split = ref as Record<string, string>;
-  out[fields[0]] = split[keys[0]];
-  out[fields[1]] = split[keys[1]];
+  if (source !== "split" || !fields || !keys) return;
+  out[fields[0]] = text(record[keys[0]]);
+  out[fields[1]] = text(record[keys[1]]);
 }
 
 /** Where an extra field lives: inside the circle (not the battery), or with the label. */
@@ -555,10 +560,11 @@ function cleanCharge(value: unknown): Record<string, unknown> | undefined {
   // show: plugged, and an on/off plug has no "unplugged" states - a list left
   // over from a status sensor would otherwise read every "off" as plugged in.
   const waits = value.show === "plugged";
-  const plugged = waits ? opt(value.plugged as string) : undefined;
+  const text = (v: unknown): string | undefined => (nonEmpty(v) ? v : undefined);
+  const plugged = waits ? text(value.plugged) : undefined;
   const charge = prune({
-    soc: opt(value.soc as string),
-    show: opt(value.show as string),
+    soc: text(value.soc),
+    show: text(value.show),
     plugged,
     unplugged: plugged && !isOnOff(plugged) ? states(value.unplugged) : undefined,
   });
@@ -578,23 +584,169 @@ function prune<T extends Record<string, unknown>>(obj: T): T | undefined {
   return Object.keys(out).length ? (out as T) : undefined;
 }
 
+// ---------------------------------------------------------------------------
+// What an edit touched (issue #19)
+// ---------------------------------------------------------------------------
+
+const FLOW_FIELDS = [
+  "inactive_lines",
+  "animation",
+  "design",
+  "dot_color",
+  "dot_size",
+  "line_width",
+  "min_w",
+  "peak_w",
+  "slow_below_w",
+  "full_speed_w",
+  "more_dots_above_w",
+  "max_dots_at_w",
+  "max_dots",
+  "slow_s",
+  "fast_s",
+];
+const VIEW_FIELDS = ["default_mode", "avg_short_minutes", "avg_long_minutes", "show_selector"];
+const OWN_GROUP = ["title", "max_consumers", "min_consumer_w", "update_interval_s", "appearance"];
+
+/**
+ * The part of the YAML a form field writes: a top-level key, a block, or one
+ * entry of `entities`. Undefined for a name that is no field of the form -
+ * test/editor-malformed.test.ts holds every field to having an owner.
+ */
+export function fieldOwner(name: string): string | undefined {
+  if (OWN_GROUP.includes(name) || name === "consumers") return name;
+  if (name === "battery_soc") return "entities.battery_soc";
+  if (name.startsWith("grid_status")) return "entities.grid_status";
+  for (const quantity of QUANTITIES) {
+    const split: readonly string[] = SPLIT_FIELDS[quantity] ?? [];
+    if (
+      name === quantity ||
+      name === `${quantity}_source` ||
+      name === `${quantity}_invert` ||
+      split.includes(name)
+    )
+      return `entities.${quantity}`;
+  }
+  if (name === "rest_label" || name.startsWith("list_")) return "list";
+  if (name.startsWith("ring_")) return "ring";
+  if (name.startsWith("power_")) return "power";
+  if (VIEW_FIELDS.includes(name)) return "view";
+  if (FLOW_FIELDS.includes(name)) return "flow";
+  if (name.startsWith("color_") || name === "soc_stops") return "colors";
+  if (name.startsWith("node_")) return "nodes";
+  if (name.startsWith("icon_")) return "icons";
+  return undefined;
+}
+
+/** Parts the editor writes from another part as well: the state of charge and
+ *  the extra fields go with the battery, the extra colours with their fields. */
+const DEPENDS: Record<string, readonly string[]> = {
+  "entities.battery_soc": ["entities.battery"],
+  nodes: ["entities.battery"],
+  colors: ["entities.battery", "nodes"],
+};
+
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((value, i) => same(value, b[i]));
+  }
+  if (isRecord(a) && isRecord(b)) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    return [...keys].every((key) => same(a[key], b[key]));
+  }
+  return false;
+}
+
+/** The parts of the YAML whose fields differ from what the YAML itself gives. */
+function touchedParts(flat: FlatRecord, before: FlatRecord): Set<string> {
+  const touched = new Set<string>();
+  for (const name of new Set([...Object.keys(flat), ...Object.keys(before)])) {
+    const owner = fieldOwner(name);
+    if (owner && !same(flat[name], before[name])) touched.add(owner);
+  }
+  for (const [part, on] of Object.entries(DEPENDS)) {
+    if (on.some((other) => touched.has(other))) touched.add(part);
+  }
+  return touched;
+}
+
+/**
+ * A part nobody edited, as the YAML has it - whatever its shape. Only empty
+ * values go, as everywhere the editor writes (REQ E-1, issue #15).
+ */
+function kept(value: unknown): unknown {
+  if (value === null || (typeof value === "string" && value.trim() === "")) return undefined;
+  if (Array.isArray(value)) {
+    const list = value.map(kept).filter((entry) => entry !== undefined);
+    return list.length ? list : undefined;
+  }
+  if (isRecord(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const k = kept(entry);
+      if (k !== undefined) out[key] = k;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value;
+}
+
+/** A block that is not a block - text, a list - contributes nothing to spread. */
+const rec = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
+
 function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
   const f = flat as FlatRecord;
-  const entities: Record<string, unknown> = { ...previous.entities };
-  for (const quantity of QUANTITIES) entities[quantity] = buildRef(quantity, f);
+  // Only what an edit touched is rebuilt from the form. The rest goes back as
+  // the YAML has it, so a shape the form cannot show - a hand-typed `false`, a
+  // misspelt key, text where a block belongs - survives an edit elsewhere
+  // (REQ E-1, issue #19).
+  const touched = touchedParts(f, toFlat(previous) as FlatRecord);
+  const raw = previous as Record<string, unknown>;
+  const rawEntities = rec(previous.entities);
+  const part = (name: string, build: () => unknown, before: unknown): unknown =>
+    touched.has(name) ? build() : kept(before);
+
+  const entities: Record<string, unknown> = { ...rawEntities };
+  for (const quantity of QUANTITIES) {
+    entities[quantity] = part(
+      `entities.${quantity}`,
+      () => buildRef(quantity, f),
+      rawEntities[quantity],
+    );
+  }
+  const withBattery = entities.battery !== undefined;
   // No battery (none, or not picked yet), no state of charge in the YAML - the
   // form keeps the choice and writes it once the battery is there (REQ A-5).
-  entities.battery_soc = entities.battery === undefined ? undefined : opt(flat.battery_soc);
+  entities.battery_soc = part(
+    "entities.battery_soc",
+    () => (withBattery ? opt(flat.battery_soc) : undefined),
+    rawEntities.battery_soc,
+  );
   // Always the long form, so the YAML never depends on guessed state names
   // (REQ NS-1). Without an entity the whole block goes.
-  const statusEntity = opt(flat.grid_status);
-  entities.grid_status = statusEntity
-    ? prune({
-        entity: statusEntity,
-        outage: states(flat.grid_status_outage),
-        ok: states(flat.grid_status_ok),
-      })
-    : undefined;
+  entities.grid_status = part(
+    "entities.grid_status",
+    () => {
+      const statusEntity = opt(flat.grid_status);
+      return statusEntity
+        ? prune({
+            entity: statusEntity,
+            outage: states(flat.grid_status_outage),
+            ok: states(flat.grid_status_ok),
+          })
+        : undefined;
+    },
+    rawEntities.grid_status,
+  );
+  const entityParts = [...(QUANTITIES as readonly string[]), "battery_soc", "grid_status"].map(
+    (q) => `entities.${q}`,
+  );
+  // Entities that are no block at all stay as typed until one of them is set.
+  const entitiesOut =
+    isRecord(previous.entities) || entityParts.some((name) => touched.has(name))
+      ? prune(entities)
+      : kept(previous.entities);
 
   // Numbers are written as typed. Relations between fields (short < long
   // window, the threshold chain) are NOT enforced here: ha-form reports every
@@ -604,62 +756,115 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
   return {
     ...previous,
     type: previous.type,
-    title: opt(flat.title),
-    entities: prune(entities) as RawConfig["entities"],
-    consumers: cleanConsumers(flat.consumers),
-    max_consumers: num(flat.max_consumers),
-    min_consumer_w: num(flat.min_consumer_w),
-    update_interval_s: num(flat.update_interval_s),
-    appearance: opt(flat.appearance) as RawConfig["appearance"],
-    list: prune({
-      enabled: flat.list_enabled,
-      rest_label: flat.rest_label,
-      always_below: flat.list_always_below,
-    }),
-    ring: prune({
-      enabled: flat.ring_enabled,
-      animation: opt(flat.ring_animation) as RingAnimation | undefined,
-    }),
-    power: prune({
-      unit: opt(flat.power_unit),
-      decimals: num(flat.power_decimals),
-      digits: num(flat.power_digits),
-    }),
-    view: prune({
-      default_mode: flat.default_mode,
-      avg_short_minutes: num(flat.avg_short_minutes),
-      avg_long_minutes: num(flat.avg_long_minutes),
-      show_selector: flat.show_selector,
-    }),
-    flow: prune({
-      ...previous.flow,
-      inactive_lines: flat.inactive_lines,
-      animation: flat.animation,
-      design: flat.design,
-      dot_color: opt(flat.dot_color),
-      dot_size: percent(flat.dot_size),
-      line_width: percent(flat.line_width),
-      min_w: num(flat.min_w),
-      peak_w: num(flat.peak_w),
-      slow_below_w: num(flat.slow_below_w),
-      full_speed_w: num(flat.full_speed_w),
-      more_dots_above_w: num(flat.more_dots_above_w),
-      max_dots_at_w: num(flat.max_dots_at_w),
-      max_dots: num(flat.max_dots),
-      slow_s: num(flat.slow_s),
-      fast_s: num(flat.fast_s),
-    }),
+    title: part("title", () => opt(flat.title), raw.title),
+    entities: entitiesOut,
+    consumers: part("consumers", () => cleanConsumers(flat.consumers), raw.consumers),
+    max_consumers: part("max_consumers", () => num(flat.max_consumers), raw.max_consumers),
+    min_consumer_w: part("min_consumer_w", () => num(flat.min_consumer_w), raw.min_consumer_w),
+    update_interval_s: part(
+      "update_interval_s",
+      () => num(flat.update_interval_s),
+      raw.update_interval_s,
+    ),
+    appearance: part("appearance", () => opt(flat.appearance), raw.appearance),
+    // A rebuilt block keeps the keys the form has no field for - list.title,
+    // view.remember and whatever comes next (issue #19).
+    list: part(
+      "list",
+      () =>
+        prune({
+          ...unknownKeys(raw.list, ["enabled", "rest_label", "always_below"]),
+          enabled: flat.list_enabled,
+          rest_label: flat.rest_label,
+          always_below: flat.list_always_below,
+        }),
+      raw.list,
+    ),
+    ring: part(
+      "ring",
+      () =>
+        prune({
+          ...unknownKeys(raw.ring, ["enabled", "animation"]),
+          enabled: flat.ring_enabled,
+          animation: opt(flat.ring_animation) as RingAnimation | undefined,
+        }),
+      raw.ring,
+    ),
+    power: part(
+      "power",
+      () =>
+        prune({
+          ...unknownKeys(raw.power, ["unit", "decimals", "digits"]),
+          unit: opt(flat.power_unit),
+          decimals: num(flat.power_decimals),
+          digits: num(flat.power_digits),
+        }),
+      raw.power,
+    ),
+    view: part(
+      "view",
+      () =>
+        prune({
+          ...unknownKeys(raw.view, [
+            "default_mode",
+            "avg_short_minutes",
+            "avg_long_minutes",
+            "show_selector",
+          ]),
+          default_mode: flat.default_mode,
+          avg_short_minutes: num(flat.avg_short_minutes),
+          avg_long_minutes: num(flat.avg_long_minutes),
+          show_selector: flat.show_selector,
+        }),
+      raw.view,
+    ),
+    flow: part(
+      "flow",
+      () =>
+        prune({
+          ...rec(previous.flow),
+          inactive_lines: flat.inactive_lines,
+          animation: flat.animation,
+          design: flat.design,
+          dot_color: opt(flat.dot_color),
+          dot_size: percent(flat.dot_size),
+          line_width: percent(flat.line_width),
+          min_w: num(flat.min_w),
+          peak_w: num(flat.peak_w),
+          slow_below_w: num(flat.slow_below_w),
+          full_speed_w: num(flat.full_speed_w),
+          more_dots_above_w: num(flat.more_dots_above_w),
+          max_dots_at_w: num(flat.max_dots_at_w),
+          max_dots: num(flat.max_dots),
+          slow_s: num(flat.slow_s),
+          fast_s: num(flat.fast_s),
+        }),
+      raw.flow,
+    ),
     // consumer_palette has no fields of its own; it rides along untouched.
-    colors: prune({
-      ...previous.colors,
-      ...Object.fromEntries(COLOR_KEYS.map((key) => [key, f[`color_${key}`]])),
-      // Only once they have been touched - an absent key must not overwrite
-      // what the YAML already says.
-      ...(f.soc_stops !== undefined ? { soc_stops: f.soc_stops } : {}),
-      ...extraColors(f, entities.battery !== undefined),
-    }),
-    nodes: buildNodes(f, entities.battery !== undefined, previous.nodes),
-    icons: prune(Object.fromEntries(ICON_KEYS.map((key) => [key, f[`icon_${key}`]]))),
+    colors: part(
+      "colors",
+      () =>
+        prune({
+          ...rec(previous.colors),
+          ...Object.fromEntries(COLOR_KEYS.map((key) => [key, f[`color_${key}`]])),
+          // Only once they have been touched - an absent key must not overwrite
+          // what the YAML already says.
+          ...(f.soc_stops !== undefined ? { soc_stops: f.soc_stops } : {}),
+          ...extraColors(f, withBattery),
+        }),
+      raw.colors,
+    ),
+    nodes: part("nodes", () => buildNodes(f, withBattery, previous.nodes), raw.nodes),
+    icons: part(
+      "icons",
+      () =>
+        prune({
+          ...unknownKeys(raw.icons, ICON_KEYS),
+          ...Object.fromEntries(ICON_KEYS.map((key) => [key, f[`icon_${key}`]])),
+        }),
+      raw.icons,
+    ),
   } as RawConfig;
 }
 
@@ -821,7 +1026,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
   // spells "no grid" (REQ NS-7). Custom values stay allowed for the rest.
   const statusEntity = typeof flat.grid_status === "string" ? flat.grid_status : undefined;
   const statusOptions = statusEntity
-    ? (hass.states[statusEntity]?.attributes.options as unknown)
+    ? (hass.states?.[statusEntity]?.attributes.options as unknown)
     : undefined;
   const stateChoices = (Array.isArray(statusOptions) ? statusOptions : [])
     .filter((option): option is string => typeof option === "string")
@@ -1386,6 +1591,14 @@ class EnerLensCardEditor extends LitElement {
    */
   private _renderSocStops(): TemplateResult {
     const stops = this._socStops();
+    if (!stops) {
+      // Rows for stops that are not stops would show colours the card does not
+      // paint, and the first edit would overwrite what the YAML says (issue #19).
+      return html`
+        ${this._group(localize("editor.colors_soc", this.hass))}
+        <p class="hint">${localize("editor.yaml_only", this.hass)}</p>
+      `;
+    }
     const last = stops.length - 1;
     return html`
       ${this._group(localize("editor.colors_soc", this.hass))}
@@ -1710,7 +1923,7 @@ class EnerLensCardEditor extends LitElement {
       if (!isRecord(entry)) return;
       add(entry.color ?? DEFAULT_CONSUMER_PALETTE[index % DEFAULT_CONSUMER_PALETTE.length]);
     });
-    for (const stop of this._socStops()) add(stop.color);
+    for (const stop of this._socStops() ?? []) add(stop.color);
     // No cut: a card with a dozen consumers pushed the last of them out of a
     // list that claims to show what the card uses. Repeats are already gone,
     // and the palette cycles, so the list stays short by itself; an extreme
@@ -1774,11 +1987,25 @@ class EnerLensCardEditor extends LitElement {
     this._emit({ ...flat, consumers: list } as FlatConfig);
   }
 
-  /** The stops as they are, or the built-in gradient while none are configured. */
-  private _socStops(): SocStop[] {
+  /** The stops as they are, or the built-in gradient while none are configured.
+   *  Undefined for a hand-typed list the rows cannot show - an unquoted `#` in
+   *  YAML leaves a colour null - which stays in the YAML as it is (issue #19). */
+  private _socStops(): SocStop[] | undefined {
     const raw = (this._flat as FlatRecord | undefined)?.soc_stops;
-    if (Array.isArray(raw) && raw.length >= 2) return raw as SocStop[];
-    return DEFAULT_SOC_STOPS.map((stop) => ({ ...stop }));
+    if (raw === undefined || raw === null || raw === "") {
+      return DEFAULT_SOC_STOPS.map((stop) => ({ ...stop }));
+    }
+    const readable =
+      Array.isArray(raw) &&
+      raw.length >= 2 &&
+      raw.every(
+        (stop) =>
+          isRecord(stop) &&
+          typeof stop.at === "number" &&
+          Number.isFinite(stop.at) &&
+          nonEmpty(stop.color),
+      );
+    return readable ? (raw as SocStop[]) : undefined;
   }
 
   private _writeStops(stops: SocStop[]): void {
@@ -1789,14 +2016,15 @@ class EnerLensCardEditor extends LitElement {
   private _setStopColor(index: number, value: string): void {
     // A stop without a colour is not a stop the card accepts, so an emptied
     // field keeps the one it had rather than writing nothing.
-    if (value.trim() === "") return;
-    this._writeStops(this._socStops().map((s, i) => (i === index ? { ...s, color: value } : s)));
+    const stops = this._socStops();
+    if (value.trim() === "" || !stops) return;
+    this._writeStops(stops.map((s, i) => (i === index ? { ...s, color: value } : s)));
   }
 
   /** Percentages stay in order: the card refuses a list that runs backwards. */
   private _setStopAt(index: number, at: number): void {
     const stops = this._socStops();
-    if (!Number.isFinite(at) || index <= 0 || index >= stops.length - 1) return;
+    if (!stops || !Number.isFinite(at) || index <= 0 || index >= stops.length - 1) return;
     const low = stops[index - 1].at;
     const high = stops[index + 1].at;
     const clamped = Math.min(high, Math.max(low, Math.round(at)));
@@ -1806,12 +2034,13 @@ class EnerLensCardEditor extends LitElement {
   private _removeStop(index: number): void {
     const stops = this._socStops();
     // Two stops are the fewest a gradient can be made of (REQ C-3).
-    if (stops.length <= 2 || index === 0 || index === stops.length - 1) return;
+    if (!stops || stops.length <= 2 || index === 0 || index === stops.length - 1) return;
     this._writeStops(stops.filter((_, i) => i !== index));
   }
 
   private _addStop = (): void => {
     const stops = this._socStops();
+    if (!stops) return;
     const last = stops.length - 1;
     // Halfway into the widest gap, so a new stop never lands on top of another.
     let at = 50;

@@ -136,6 +136,7 @@
     "color_used": "In dieser Karte verwendet",
     "colors_consumers": "Verbraucher",
     "colors_soc": "Ladestand",
+    "yaml_only": "Nur im YAML bearbeitbar – die Werte dort haben eine Form, die dieser Editor nicht anzeigen kann.",
     "color_at": "Bei Prozent",
     "color_remove": "Stufe entfernen",
     "color_add_stop": "Stufe hinzufügen",

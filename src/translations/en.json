@@ -136,6 +136,7 @@
     "color_used": "Used in this card",
     "colors_consumers": "Consumers",
     "colors_soc": "State of charge",
+    "yaml_only": "Only editable in YAML - the values there are not in a form this editor can show.",
     "color_at": "At percent",
     "color_remove": "Remove stop",
     "color_add_stop": "Add stop",

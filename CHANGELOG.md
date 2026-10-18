@@ -52,6 +52,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   title field could produce. Two of them did worse without a word: an empty
   `max_consumers:` cut the list down to one consumer, and an empty `min_w:`
   at a consumer set its threshold to 0 W.
+- **The visual editor opens on any configuration and leaves alone what it
+  cannot show** (#19). Some hand-typed shapes crashed it - `battery: false`,
+  an unquoted `#` in a battery gradient colour, `plugged: true` - or made
+  every later change go nowhere. Text where a block belongs was taken apart
+  letter by letter on the first edit, and a misspelt key or a value of the
+  wrong type was dropped. The editor now only rewrites the part of the
+  configuration that is actually edited and writes everything else back as
+  it was; a gradient it cannot show says "only editable in YAML".
+- **`list.title` and `view.remember` survive the visual editor** (#19). Any
+  change in the editor used to delete both.
 - **Lines no longer show inside the circles on a transparent card.** With
   the card made transparent through card-mod, as the README shows, the ends
   of the lines and the dots on them could be seen inside every circle; the

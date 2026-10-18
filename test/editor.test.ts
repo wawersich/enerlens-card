@@ -260,9 +260,15 @@ describe("editor", () => {
       },
     };
     const el = await mount(config);
-    const saved = await change(el, { title: "x" });
-    // house: "derived" is written as absence (REQ A-1); everything else verbatim.
-    expect(saved.entities).toEqual({ ...config.entities, house: undefined });
+    // An edit elsewhere leaves the entities exactly as typed (issue #19).
+    expect((await change(el, { title: "x" })).entities).toEqual(config.entities);
+    // Only the edited one is rebuilt; the others stay as typed, house:
+    // "derived" included (issue #19).
+    const saved = await change(el, { solar_invert: false });
+    expect(saved.entities).toEqual({ ...config.entities, solar: "sensor.solar" });
+    // Derived by leaving it out once the house itself is edited (REQ A-1).
+    const house = await change(el, { house_source: "derived", house: "sensor.x" });
+    expect((house.entities as Record<string, unknown>).house).toBeUndefined();
   });
 });
 

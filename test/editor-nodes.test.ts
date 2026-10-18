@@ -295,7 +295,9 @@ describe("editor - nodes (REQ Z-10)", () => {
         grid: { label: { entity: "sensor.imp", decimals: "2" } },
       },
     });
-    const saved = await change(el, {});
+    // Rewritten once the nodes are edited; an edit elsewhere leaves them as
+    // typed (issue #19).
+    const saved = await change(el, { node_house_show_name: false });
     expect(saved.nodes?.solar?.inside?.decimals).toBe(0);
     expect(saved.nodes?.grid?.label?.decimals).toBe(2);
   });
@@ -318,8 +320,9 @@ describe("editor - nodes (REQ Z-10)", () => {
       ...BASE,
       colors: { battery_inside: "#123456", solar: "#ff0000" } as RawConfig["colors"],
     });
-    const saved = await change(el, { title: "x" });
-    expect(saved.colors).toEqual({ solar: "#ff0000" });
+    // Once the colours are edited; an edit elsewhere leaves them as typed (#19).
+    const saved = await change(el, { color_house: "#00ff00" });
+    expect(saved.colors).toEqual({ solar: "#ff0000", house: "#00ff00" });
   });
 
   it("writes a colour from its row and removes it again (REQ Z-6)", async () => {
