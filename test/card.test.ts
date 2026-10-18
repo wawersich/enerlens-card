@@ -79,6 +79,22 @@ describe("enerlens-card element", () => {
     return el;
   }
 
+  it("starts a new card with an icon on the remainder row (E-5)", async () => {
+    // Only the starting configuration carries it: the card itself has no
+    // default, so an existing card keeps its dot, and deleting the icon
+    // brings the dot back.
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: (hass: HomeAssistant, entities: string[]) => Record<string, unknown>;
+    };
+    const stub = card.getStubConfig(fakeHass({}), ["sensor.a", "sensor.b"]);
+    expect(stub.icons).toEqual({ rest: "mdi:cloud-question" });
+    // And it renders without any input (E-5).
+    const { normalizeConfig } = await import("../src/config");
+    expect(normalizeConfig({ type: "custom:enerlens-card", ...stub }).icons.rest).toBe(
+      "mdi:cloud-question",
+    );
+  });
+
   it("draws a working connection on top of an idle one", async () => {
     // Two connections reach the battery along the same last stretch. Drawn in
     // the fixed order, the grey of an idle one lay over the colour of a

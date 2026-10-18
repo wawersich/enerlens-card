@@ -290,6 +290,19 @@ describe("editor - colours, icons and thresholds", () => {
     expect(saved.icons).toEqual({ house: "mdi:home-lightning-bolt", grid: "mdi:flash" });
   });
 
+  it("brings the dot back when a new card's remainder icon is deleted (E-5)", async () => {
+    // The starting configuration carries icons.rest; the card has no default
+    // for it, so clearing the field must drop it - and the block with it.
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      icons: { rest: "mdi:cloud-question" },
+    });
+    expect(form(el).data.icon_rest).toBe("mdi:cloud-question");
+    const saved = await change(el, { icon_rest: "" });
+    expect(saved.icons).toBeUndefined();
+  });
+
   it("drops the colours block entirely when the last colour is cleared", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

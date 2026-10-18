@@ -448,7 +448,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `colors.*` | HA energy colours | Any CSS value, including `var(--…)` |
 | `colors.soc_stops` | red → yellow → green | Gradient for the charge level |
 | `colors.consumer_palette` | 10 colours | Cycled through consumers without a colour of their own |
-| `icons.*` | mdi defaults | Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot |
+| `icons.*` | mdi defaults | Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with `mdi:cloud-question` there; delete it for the colour dot |
 | `nodes.<node>.show_name` | `true` | Show the node's name (`solar`, `grid`, `house`, `battery`) |
 | `nodes.<node>.show_state` | `true` | Show the state word - `grid` and `battery` only |
 | `nodes.<node>.inside` | — | Extra value in the circle: `{entity, position, decimals, size, weight}`, defaults `above`, `ha`, `100`, `normal` - not for `battery`. See *Extra values at the nodes* |

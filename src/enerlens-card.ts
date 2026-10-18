@@ -844,6 +844,10 @@ class EnerLensCard extends LitElement {
         solar: pool[0] ?? "sensor.solar_power",
         grid: pool[1] ?? "sensor.grid_power",
       },
+      // Among the consumers' icons a lone dot looks out of place. Set here
+      // rather than as the card's default, so existing cards keep their dot
+      // and deleting the icon brings it back (E-5).
+      icons: { rest: "mdi:cloud-question" },
     };
   }
 

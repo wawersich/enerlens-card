@@ -468,7 +468,7 @@ zusätzliche Abfrage.
 | `colors.*` | HA-Energiefarben | Jeder CSS-Wert, auch `var(--…)` |
 | `colors.soc_stops` | rot → gelb → grün | Verlauf für den Ladezustand |
 | `colors.consumer_palette` | 10 Farben | Reihum für Verbraucher ohne eigene Farbe |
-| `icons.*` | mdi-Standard | Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts |
+| `icons.*` | mdi-Standard | Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts. Eine über das Dashboard neu angelegte Karte bringt dort `mdi:cloud-question` mit; wird es gelöscht, erscheint wieder der Farbpunkt |
 | `nodes.<knoten>.show_name` | `true` | Namen des Knotens zeigen (`solar`, `grid`, `house`, `battery`) |
 | `nodes.<knoten>.show_state` | `true` | Zustandswort zeigen – nur `grid` und `battery` |
 | `nodes.<knoten>.inside` | — | Zusatzwert im Kreis: `{entity, position, decimals, size, weight}`, Standard `above`, `ha`, `100`, `normal` – nicht bei `battery`. Siehe *Zusatzwerte an den Knoten* |

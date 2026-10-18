@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   behind *Consumers*.
 - **A calculated PV or battery node gets room for "calculated".** The extra
   line used to reach into the mode buttons above PV.
+- **A new card shows an icon on the remainder row.** Added through the
+  dashboard, the card now starts with `icons.rest: mdi:cloud-question`;
+  delete it for the colour dot. Existing cards keep what they have.
 
 ### Fixed
 - **Figures in languages with other digits** (Persian, Bengali, Marathi …)
