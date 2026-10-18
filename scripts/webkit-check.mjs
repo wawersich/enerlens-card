@@ -17,7 +17,10 @@
  *   - the lines are as wide as the card asked for (K-12), where unzoomed;
  *   - the label blocks stay 8 px clear of the card's edge, the other nodes'
  *     circles and each other, never reach under the mode chips, and the list
- *     beside the cross stays level with the house (Z-3, Z-8).
+ *     beside the cross stays level with the house (Z-3, Z-8);
+ *   - every line reaches its circle, and with the card made transparent
+ *     (card-mod, issue #8) no line or dot shows inside one, read off a
+ *     picture of each run (K-16).
  *
  *   npm run build && npm run webkit-check
  *   npm run webkit-check -- --shots /tmp/wk     # also a picture per WebKit run
@@ -25,13 +28,16 @@
  *
  * Needs WebKitGTK in the container, not persistent:
  *   apk add webkit2gtk-4.1 py3-gobject3 py3-cairo xvfb-run font-dejavu
- * and Chromium (`apk add chromium`). Exits non-zero when a check fails.
+ * and Chromium and Firefox (`apk add chromium firefox`). Exits non-zero when
+ * a check fails.
  */
-import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { execFile, execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { readPng } from "./webkit-check/png.mjs";
 
 const run = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -50,7 +56,9 @@ const shots = option("--shots");
 const TOLERANCE_PX = 1.5;
 /** How far a line's width may be off what the card asked for, in screen pixels. */
 const LINE_TOLERANCE_PX = 0.1;
-const SCENES = ["plain", "scaled", "below", "extras", "nobatt"];
+const SCENES = ["plain", "scaled", "below", "extras", "nobatt", "clear", "clearring", "clearlate"];
+/** How far a pixel may stray from the page's white and still count as white. */
+const CLEAR_TOLERANCE = 24;
 /* 100 % once; the zooms both set before loading (Safari remembers them per
  * site) and changed while the card runs (Cmd + / Cmd -). */
 const WEBKIT_RUNS = [
@@ -91,17 +99,30 @@ if (!webkit) {
 const chromium = ["chromium", "chromium-browser", "google-chrome"].find((bin) =>
   has("which", [bin]),
 );
-if (!chromium) console.warn("Kein Chromium gefunden (`apk add chromium`) - nur WebKit.");
+const firefox = has("which", ["firefox"]) ? "firefox" : undefined;
+// All three or none: a release must not pass for want of a browser (18.10.2026).
+if (!chromium || !firefox) {
+  console.error(
+    `${[!chromium && "Chromium", !firefox && "Firefox"].filter(Boolean).join(" und ")} fehlt: apk add chromium firefox`,
+  );
+  process.exit(1);
+}
 if (shots) mkdirSync(shots, { recursive: true });
+/* Every run is also judged by its picture, so it always takes one. */
+const pictures = shots ?? mkdtempSync(resolve(tmpdir(), "webkit-check-"));
+if (!shots) process.on("exit", () => rmSync(pictures, { recursive: true, force: true }));
 
 const url = (scene) =>
   `${page}?scene=${scene}&bundle=${encodeURIComponent(pathToFileURL(bundle).href)}`;
 
 async function inWebkit(scene, { zoom, mode }) {
   const args = ["-a", "python3", runner, url(scene), String(zoom), mode];
-  if (shots) args.push(resolve(shots, `${scene}-${mode}-${zoom}.png`));
+  const picture = resolve(pictures, `${scene}-${mode}-${zoom}.png`);
+  args.push(picture);
   const { stdout } = await run("xvfb-run", args, { timeout: 60000 });
-  return JSON.parse(stdout.trim().split("\n").pop());
+  const m = JSON.parse(stdout.trim().split("\n").pop());
+  if (!m.error) m.circles = judge(scene, m.rims, picture);
+  return m;
 }
 
 async function inChromium(scene, scale) {
@@ -114,6 +135,8 @@ async function inChromium(scene, scale) {
       "--allow-file-access-from-files",
       `--force-device-scale-factor=${scale}`,
       "--virtual-time-budget=8000",
+      // The same window as the picture below, which is measured against it.
+      "--window-size=1000,1100",
       "--dump-dom",
       `${url(scene)}#auto`,
     ],
@@ -125,7 +148,187 @@ async function inChromium(scene, scale) {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&");
-  return json ? JSON.parse(json) : { error: "keine Antwort" };
+  const m = json ? JSON.parse(json) : { error: "keine Antwort" };
+  if (!m.error) {
+    // The same page once more, as a picture: the DOM run above cannot take one.
+    // It is judged with the circles measured in that run, which holds because
+    // the layout is fixed and the #auto timer places the dots alike in both.
+    const picture = resolve(pictures, `${scene}-chromium-${scale}.png`);
+    await run(
+      chromium,
+      [
+        "--headless=new",
+        "--no-sandbox",
+        "--disable-gpu",
+        "--allow-file-access-from-files",
+        `--force-device-scale-factor=${scale}`,
+        "--virtual-time-budget=8000",
+        "--window-size=1000,1100",
+        "--hide-scrollbars",
+        `--screenshot=${picture}`,
+        `${url(scene)}#auto`,
+      ],
+      { timeout: 60000 },
+    );
+    m.circles = judge(scene, m.rims, picture);
+  }
+  return m;
+}
+
+/**
+ * Firefox, driven over WebDriver BiDi: one load, measured and pictured, at a
+ * device scale of 1. Its own profile, so local files may load the bundle from
+ * another folder; thrown away afterwards.
+ */
+async function inFirefox(scene) {
+  const profile = mkdtempSync(resolve(tmpdir(), "webkit-check-ff-"));
+  writeFileSync(
+    resolve(profile, "user.js"),
+    'user_pref("security.fileuri.strict_origin_policy", false);\n',
+  );
+  // Port 0: Firefox picks a free one and names it on stderr.
+  const browser = spawn(
+    firefox,
+    ["--headless", "--no-remote", "--profile", profile, "--remote-debugging-port=0"],
+    { stdio: ["ignore", "ignore", "pipe"] },
+  );
+  const exited = new Promise((r) => browser.once("exit", r));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const within = (promise, ms, what) =>
+    Promise.race([promise, wait(ms).then(() => Promise.reject(new Error(`Firefox: ${what}`)))]);
+  let socket;
+  try {
+    const port = await within(
+      new Promise((r) => {
+        let text = "";
+        browser.stderr.on("data", (chunk) => {
+          text += chunk;
+          const found = /ws:\/\/127\.0\.0\.1:(\d+)/.exec(text);
+          if (found) r(found[1]);
+        });
+      }),
+      30000,
+      "startet nicht",
+    );
+    socket = new WebSocket(`ws://127.0.0.1:${port}/session`);
+    await within(
+      new Promise((r, reject) => {
+        socket.onopen = r;
+        socket.onerror = () => reject(new Error("Firefox: keine Verbindung"));
+      }),
+      10000,
+      "keine Verbindung",
+    );
+    let id = 0;
+    const pending = new Map();
+    socket.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      pending.get(msg.id)?.(msg);
+      pending.delete(msg.id);
+    };
+    socket.onclose = () => {
+      for (const settle of pending.values()) settle({ error: true, message: "Verbindung weg" });
+      pending.clear();
+    };
+    const send = (method, params = {}) =>
+      within(
+        new Promise((r, reject) => {
+          const n = ++id;
+          pending.set(n, (msg) => (msg.error ? reject(new Error(msg.message)) : r(msg.result)));
+          socket.send(JSON.stringify({ id: n, method, params }));
+        }),
+        30000,
+        `${method} ohne Antwort`,
+      );
+    await send("session.new", { capabilities: {} });
+    const { contexts } = await send("browsingContext.getTree", {});
+    const context = contexts[0].context;
+    await send("browsingContext.setViewport", {
+      context,
+      viewport: { width: 1000, height: 1100 },
+      devicePixelRatio: 1,
+    });
+    await send("browsingContext.navigate", { context, url: url(scene), wait: "complete" });
+    await wait(2500);
+    const answer = await send("script.evaluate", {
+      expression: "window.check()",
+      target: { context },
+      awaitPromise: false,
+    });
+    const m = JSON.parse(answer.result.value);
+    const picture = resolve(pictures, `${scene}-firefox.png`);
+    const { data } = await send("browsingContext.captureScreenshot", { context });
+    writeFileSync(picture, Buffer.from(data, "base64"));
+    if (!m.error) m.circles = judge(scene, m.rims, picture);
+    return m;
+  } finally {
+    socket?.close();
+    browser.kill();
+    // The profile only goes once Firefox has stopped writing to it.
+    await Promise.race([exited, wait(5000)]);
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
+/** What the picture of one run shows wrong at the circles (K-16). */
+function judge(scene, rims, picture) {
+  if (!rims?.nodes?.length) return ["keine Kreise gemessen"];
+  const png = readPng(readFileSync(picture));
+  const found = gaps(rims, png);
+  if (scene.startsWith("clear")) found.push(...insideCircles(rims, png));
+  return found;
+}
+
+const white = (rgb) => rgb.every((v) => 255 - v <= CLEAR_TOLERANCE);
+
+/**
+ * Whether the lines reach every circle: just outside its edge, on the way
+ * towards the middle of the cross where all of a node's lines arrive, the
+ * picture must not be white. 1.5 px out the border's anti-aliasing is past,
+ * so a gap narrower than that goes unseen. The page draws idle lines plainly;
+ * a dimmed one (inactive_lines: dim) would read as white here.
+ */
+function gaps(rims, png) {
+  const k = png.width / rims.view;
+  const found = [];
+  for (const { key, x, y, outer, towards } of rims.nodes) {
+    for (let d = outer + 1.5; d <= outer + 3; d += 0.5) {
+      const px = Math.round((x + d * towards[0]) * k);
+      const py = Math.round((y + d * towards[1]) * k);
+      if (white(png.pixel(px, py))) {
+        found.push(`Lücke vor ${key}`);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * What shows inside each circle of the transparent card, from its picture: a
+ * ring of samples 2.5 to 6 px within the border, where the value and icon
+ * never reach and the page's white should show through. Closer to the border
+ * its own anti-aliasing shows at 1x, so a cut up to 2.5 px short of it goes
+ * unseen. The band fits the plain layout only: on smaller nodes the value
+ * reaches into it. Returns one entry per circle with something drawn there,
+ * in device pixels.
+ */
+function insideCircles(rims, png) {
+  const k = png.width / rims.view;
+  const found = [];
+  for (const { key, x, y, inner } of rims.nodes) {
+    const hit = new Set();
+    for (let d = inner - 6; d <= inner - 2.5; d += 0.5) {
+      for (let deg = 0; deg < 360; deg += 0.5) {
+        const px = Math.round((x + d * Math.cos((deg * Math.PI) / 180)) * k);
+        const py = Math.round((y + d * Math.sin((deg * Math.PI) / 180)) * k);
+        if (px < 0 || py < 0 || px >= png.width || py >= png.height) continue;
+        if (!white(png.pixel(px, py))) hit.add(`${px},${py}`);
+      }
+    }
+    if (hit.size) found.push(`${key} ${hit.size} px`);
+  }
+  return found;
 }
 
 /** What is wrong with one measurement, in words; empty when all is well. */
@@ -136,10 +339,25 @@ function problems(m, lines) {
   if (!m.fan.dots) found.push("keine Punkte am Fächer");
   if (m.cross.worst > TOLERANCE_PX) found.push(`Kreuz-Punkte ${m.cross.worst} px neben der Linie`);
   if (m.fan.worst > TOLERANCE_PX) found.push(`Fächer-Punkte ${m.fan.worst} px neben der Linie`);
-  if (m.ring === null) found.push("kein Ring am Haus");
-  else if (m.ring > TOLERANCE_PX) found.push(`Ring ${m.ring} px neben der Hausmitte`);
+  // The clear scene has no ring on purpose.
+  if (m.ring === null) {
+    if (!m.ringOff) found.push("kein Ring am Haus");
+  } else if (m.ring > TOLERANCE_PX) found.push(`Ring ${m.ring} px neben der Hausmitte`);
   if (m.outside.length) found.push(`außerhalb der Karte: ${[...new Set(m.outside)].join(", ")}`);
   if (m.labels?.length) found.push(`Beschriftungen: ${[...new Set(m.labels)].join(", ")}`);
+  if (m.circles?.length) found.push(`Kreise: ${m.circles.join(", ")}`);
+  // Opaque circles are drawn as before K-16, transparent ones are cut out.
+  if (m.rims && m.clipped !== m.clear) {
+    found.push(
+      m.clipped ? "Ausschnitt bei deckender Karte" : "kein Ausschnitt bei durchsichtiger Karte",
+    );
+  }
+  // The fan's own cut-out at the house, beside the cross (all scenes but below).
+  if (m.rims && m.fanClipped !== m.clear) {
+    found.push(
+      m.fanClipped ? "Fächer bei deckender Karte ausgeschnitten" : "Fächer nicht ausgeschnitten",
+    );
+  }
   if (!lines) return found;
   if (m.lines?.error) found.push(m.lines.error);
   else if (m.lines && m.lines.off > LINE_TOLERANCE_PX)
@@ -161,12 +379,12 @@ for (const scene of SCENES) {
       lines: setting.zoom === 1,
     });
   }
-  if (chromium) {
-    for (const scale of CHROMIUM_SCALES) {
-      const m = await inChromium(scene, scale).catch((e) => ({ error: e.message }));
-      rows.push({ engine: "Chromium", scene, how: `Skalierung ${scale}`, m, lines: true });
-    }
+  for (const scale of CHROMIUM_SCALES) {
+    const m = await inChromium(scene, scale).catch((e) => ({ error: e.message }));
+    rows.push({ engine: "Chromium", scene, how: `Skalierung ${scale}`, m, lines: true });
   }
+  const m = await inFirefox(scene).catch((e) => ({ error: e.message }));
+  rows.push({ engine: "Firefox", scene, how: "Skalierung 1", m, lines: true });
 }
 
 let failed = 0;

@@ -2,7 +2,7 @@
  * Draws the cross: connection lines as SVG, node contents as HTML on top
  * (REQ K-1 to K-6, ENT-20).
  */
-import { type TemplateResult, html, svg } from "lit";
+import { type TemplateResult, html, nothing, svg } from "lit";
 import { resolveCssColor, socColor } from "../colors";
 import { formatExtra, formatPower, formatSoc } from "../format";
 import { localize } from "../localize";
@@ -19,7 +19,15 @@ import type {
   Segment,
   Signed,
 } from "../types";
-import { DRAWN_CONNECTIONS, PATHS, VIEW_H, VIEW_W, nodePercent } from "./geometry";
+import {
+  DRAWN_CONNECTIONS,
+  NODE_R,
+  PATHS,
+  VIEW_H,
+  VIEW_W,
+  holesPath,
+  nodePercent,
+} from "./geometry";
 import { renderRing } from "./ring";
 
 /**
@@ -391,6 +399,10 @@ export function renderCross(
   outage = false,
   /** Whether the card moves at all (P-7); the ring blends colours only then. */
   moving = false,
+  /** Inside of a circle in user units, as measured (K-16); the lines end at NODE_R. */
+  holeR = NODE_R,
+  /** Whether the nodes let the lines show through, and they are cut out (K-16). */
+  cut = false,
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass, outage);
   // No battery configured: its lines go with it, the rest of the cross stays put.
@@ -421,15 +433,26 @@ export function renderCross(
     <div class="cross ${model.battery === null ? "no-battery" : ""}">
       <div class="plot">
         <svg viewBox="0 0 ${VIEW_W} ${VIEW_H}" aria-hidden="true">
-        ${links.map(
-          (id) =>
-            svg`<path
-              class="link ${activeConnections.has(id) ? "active" : `inactive-${config.flow.inactiveLines}`}"
-              style=${activeConnections.has(id) ? `stroke:${activeConnections.get(id)}` : ""}
-              d=${PATHS[id]}
-            ></path>`,
-        )}
-          <g class="dots"></g>
+          ${
+            cut
+              ? svg`<defs>
+            <clipPath id="el-holes" clipPathUnits="userSpaceOnUse">
+              <path class="holes" clip-rule="evenodd" d=${holesPath(holeR)}></path>
+            </clipPath>
+          </defs>`
+              : nothing
+          }
+          <g clip-path=${cut ? "url(#el-holes)" : nothing}>
+          ${links.map(
+            (id) =>
+              svg`<path
+                class="link ${activeConnections.has(id) ? "active" : `inactive-${config.flow.inactiveLines}`}"
+                style=${activeConnections.has(id) ? `stroke:${activeConnections.get(id)}` : ""}
+                d=${PATHS[id]}
+              ></path>`,
+          )}
+            <g class="dots"></g>
+          </g>
         </svg>
         ${views.map((v) => {
           const pos = nodePercent(v.key);

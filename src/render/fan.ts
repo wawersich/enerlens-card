@@ -11,6 +11,7 @@ import type { FlowDesign, FlowDesignGround } from "../types";
  * re-render would recreate them and restart every animation (REQ P-6).
  */
 import { GLOW_DRAWN, HALO_R, dotRings, glowFilter, haloStops } from "./dot-shape";
+import { circlePath } from "./geometry";
 import { resolveColour } from "./ground";
 import { unzoomPath } from "./path-zoom";
 
@@ -51,6 +52,8 @@ export class FanLayer {
   /** One colour for every dot, or undefined to follow each row (P-13). */
   private dotColor?: string;
   private defs?: SVGDefsElement;
+  /** The cut-out at the house the lines carry, if any (K-16). */
+  private clip?: string;
   /** How much the browser stretches motion paths - see path-zoom.ts (issue #7). */
   private pathZoom = 1;
   /** Dot size on screen relative to the base size - see sizing.ts (K-12). */
@@ -96,17 +99,31 @@ export class FanLayer {
     origin: { x: number; y: number },
     size: { width: number; height: number },
     animate: boolean,
+    /** The house's circle within its border, when the fan leaves from it (K-16). */
+    hole?: { x: number; y: number; r: number },
   ): void {
     this.svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
     this.svg.setAttribute("width", String(size.width));
     this.svg.setAttribute("height", String(size.height));
+    const clip = this.holeClip(hole, size);
+    const clipChanged = clip !== this.clip;
+    this.clip = clip;
 
     const seen = new Set<string>();
     for (const row of rows) {
       seen.add(row.key);
       const d = this.pathFor(origin, row);
+      const fresh = !this.lines.has(row.key);
       const line = this.lines.get(row.key) ?? this.createLine(row.key);
       line.path.setAttribute("d", d);
+      // Only on a change: a clip touched repaints all it covers, and the fan
+      // is redrawn every frame while the list moves.
+      if (clipChanged || fresh) {
+        for (const el of [line.path, line.group]) {
+          if (clip) el.setAttribute("clip-path", clip);
+          else el.removeAttribute("clip-path");
+        }
+      }
       // Colour through CSS classes rather than the attribute, so the neutral
       // shade can be a theme variable (attributes do not resolve var()).
       line.path.setAttribute("class", `fan-line${row.inactive ? ` inactive-${row.inactive}` : ""}`);
@@ -237,6 +254,36 @@ export class FanLayer {
     return line;
   }
 
+  /**
+   * The cut-out at the house (K-16): the dots start on the node's edge, half
+   * of them inside, where only an opaque fill hid them. A frame around the
+   * overlay and the circle, filled even-odd, as on the cross.
+   */
+  private holeClip(
+    hole: { x: number; y: number; r: number } | undefined,
+    size: { width: number; height: number },
+  ): string | undefined {
+    if (!hole || !(hole.r > 0)) return undefined;
+    if (!this.defs) {
+      this.defs = document.createElementNS(SVG_NS, "defs");
+      this.svg.appendChild(this.defs);
+    }
+    let path = this.defs.querySelector("#el-fan-hole path");
+    if (!path) {
+      const clip = document.createElementNS(SVG_NS, "clipPath");
+      clip.setAttribute("id", "el-fan-hole");
+      clip.setAttribute("clipPathUnits", "userSpaceOnUse");
+      path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("clip-rule", "evenodd");
+      clip.appendChild(path);
+      this.defs.appendChild(clip);
+    }
+    const { width: w, height: h } = size;
+    const d = `M${-w},${-h}H${2 * w}V${2 * h}H${-w}Z${circlePath(hole.x, hole.y, hole.r)}`;
+    if (path.getAttribute("d") !== d) path.setAttribute("d", d);
+    return "url(#el-fan-hole)";
+  }
+
   /** A radial gradient for the drawn halo, one per colour and strength. */
   private haloGradient(colour: string, ground: FlowDesignGround): string {
     const id = `fan-${colour.replace(/[^a-z0-9]/gi, "")}-${ground.glowStrength}`;
@@ -351,5 +398,6 @@ export class FanLayer {
     this.lines.clear();
     this.defs?.remove();
     this.defs = undefined;
+    this.clip = undefined;
   }
 }

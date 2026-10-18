@@ -14,8 +14,8 @@ import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./
 import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
-import { VIEW_W } from "./render/geometry";
-import { groundIsDark } from "./render/ground";
+import { NODE_R, VIEW_W, holesPath } from "./render/geometry";
+import { groundIsDark, seeThrough } from "./render/ground";
 import { renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
@@ -75,6 +75,7 @@ class EnerLensCard extends LitElement {
     _showAll: { state: true },
     _outage: { state: true },
     _scale: { state: true },
+    _seeThrough: { state: true },
   };
 
   private _hass?: HomeAssistant;
@@ -130,6 +131,10 @@ class EnerLensCard extends LitElement {
   private _scale = 1;
   /** The plot's width over the viewBox's, as last measured - unrounded, unlike _scale. */
   private _plotScale = 1;
+  /** Inside of a circle in the plot's user units, as measured (K-16). */
+  private _holeR = NODE_R;
+  /** Whether the nodes' fill lets the lines show through (K-16), as read. */
+  private _seeThrough = false;
   /** Latched grid outage; undefined until a real status has been seen (REQ NS-3). */
   private _outage: OutageState;
   /** The one history lookup that gives the latch its starting point (REQ NS-6). */
@@ -474,8 +479,39 @@ class EnerLensCard extends LitElement {
       this._dots?.setScale(scale);
       // Only a real change re-renders; sub-pixel noise from the observer does not.
       if (Math.abs(scale - this._scale) > 0.005) this._scale = scale;
+      this._measureHoles(plot as HTMLElement);
     }
     return this._checkStacked();
+  }
+
+  /**
+   * How far the inside of a circle reaches in the plot's user units, for the
+   * cut-out under the nodes (REQ K-16). Measured on a drawn node rather than
+   * taken from its size formula: both sizes come from the computed style, in
+   * layout pixels, which the SVG's user units follow. A scaled element above
+   * the card shrinks the boxes on screen, not these. Read after --el-scale is
+   * set, so the node already has the size that scale gives it.
+   */
+  private _measureHoles(plot: HTMLElement): void {
+    const node = plot.querySelector(".node") as HTMLElement | null;
+    if (!node) return;
+    const style = getComputedStyle(node);
+    // Only a fill that lets the lines show through gets the cut-out; behind
+    // an opaque one the card draws as it did before K-16, without the cost of
+    // clipping the moving dots. Read on every measurement, so a theme change
+    // or card-mod arriving late is picked up with the next update.
+    const through = seeThrough(style.backgroundColor);
+    if (through !== this._seeThrough) this._seeThrough = through;
+    if (!through) return;
+    const plotPx = Number.parseFloat(getComputedStyle(plot).width);
+    const insidePx =
+      Number.parseFloat(style.width) / 2 - Number.parseFloat(style.borderTopWidth || "0");
+    const r = (insidePx * VIEW_W) / plotPx;
+    if (!(r > 0) || !Number.isFinite(r) || Math.abs(r - this._holeR) < 0.005) return;
+    this._holeR = r;
+    // Straight onto the path: a measurement does not re-render. The next
+    // render writes the same value from _holeR.
+    plot.querySelector("path.holes")?.setAttribute("d", holesPath(r));
   }
 
   /**
@@ -623,11 +659,21 @@ class EnerLensCard extends LitElement {
     // card like the cross (K-12).
     this._fan.setDotRadius(5);
     this._fan.setDotScale(sizeFactors(this._plotScale, this._config.flow).dot);
+    // Beside the cross the fan leaves the house's circle, and its dots start
+    // half inside it (K-16). Measured like the start, on screen, the border
+    // taken at the same scale as the box.
+    let hole: { x: number; y: number; r: number } | undefined;
+    if (!this._stacked && this._seeThrough) {
+      const border = Number.parseFloat(getComputedStyle(house).borderTopWidth) || 0;
+      const scale = source.width / (house.offsetWidth || source.width);
+      hole = { x: start.x - source.width / 2, y: start.y, r: source.width / 2 - border * scale };
+    }
     this._fan.update(
       fanRows,
       start,
       { width: origin.width, height: origin.height },
       this._animationsWanted,
+      hole,
     );
   }
 
@@ -852,6 +898,8 @@ class EnerLensCard extends LitElement {
             this._nodePx,
             this._outage === true,
             this._animationsWanted,
+            this._holeR,
+            this._seeThrough,
           )}
           ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
         </div>

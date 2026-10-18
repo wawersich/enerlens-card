@@ -50,6 +50,15 @@ if (scene === "below") document.getElementById("host").style.width = "400px";
 // nobatt: the same without a battery, where grid and house labels may reach
 // to the middle between them (Z-3).
 if (scene === "extras" || scene === "nobatt") document.getElementById("host").style.width = "486px";
+// clear: the card made transparent the way the README shows with card-mod
+// (issue #8), without the ring, so nothing but the fill could hide a line
+// end inside the house. Nothing may show inside a circle then (K-16).
+// clearring: the same with the ring, whose gaps must not show a line either.
+// clearlate: as clear, but made transparent the way card-mod does it - after
+// the card has drawn and measured, with no re-render of its own; the next
+// state update has to pick it up.
+const clear = scene === "clear" || scene === "clearring" || scene === "clearlate";
+const ringOff = scene === "clear" || scene === "clearlate";
 
 const W = (id, w) => [id, { entity_id: id, state: String(w),
   attributes: { unit_of_measurement: "W", device_class: "power" }, last_changed: "", last_updated: "" }];
@@ -84,9 +93,21 @@ card.setConfig({
     battery: { show_state: false, label: { entity: "sensor.today", prefix: "Rest" } },
   } } : {}),
   ...(scene === "below" ? { list: { always_below: true } } : {}),
+  ...(ringOff ? { ring: { enabled: false } } : {}),
 });
 card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
+if (clear) {
+  await card.updateComplete;
+  const transparent = () =>
+    card.shadowRoot.querySelector("ha-card").style.setProperty("--ha-card-background", "transparent");
+  if (scene === "clearlate") {
+    setTimeout(() => {
+      transparent();
+      setTimeout(() => { card.hass = { ...card.hass }; }, 200);
+    }, 800);
+  } else transparent();
+}
 
 const NS = "http://www.w3.org/2000/svg";
 const centre = (el) => {
@@ -221,6 +242,45 @@ function lineWidths(root) {
   return { off: +off.toFixed(3) };
 }
 
+/** From each node towards the middle of the cross, where its lines arrive. */
+const TOWARDS = { solar: [0, 1], grid: [1, 0], house: [-1, 0], battery: [0, -1] };
+
+/**
+ * For the pictures webkit-check.mjs takes (K-16): each circle's centre, outer
+ * radius, the direction its lines come from, and how far in nothing but the
+ * page may show - within the border, or within the ring where there is one.
+ * CSS pixels, with the viewport width to scale them onto the picture. In the
+ * clear scenes every dot of the cross also stands once at each end of its
+ * path, and the fan's dots at their start on the house.
+ */
+function rims(root) {
+  if (clear) {
+    for (const dot of root.querySelectorAll(".plot svg g.dot")) {
+      if (!dot.firstChild) continue;
+      const twin = dot.cloneNode(true);
+      dot.style.offsetDistance = "0%";
+      twin.style.offsetDistance = "100%";
+      dot.after(twin);
+    }
+    for (const dot of root.querySelectorAll("svg.fan g.fan-dot")) dot.style.offsetDistance = "0%";
+  }
+  return {
+    view: innerWidth,
+    nodes: [...root.querySelectorAll(".node")].map((node) => {
+      const b = node.getBoundingClientRect();
+      const key = [...node.classList].find((c) => Object.hasOwn(TOWARDS, c));
+      let inner = b.width / 2 - parseFloat(getComputedStyle(node).borderTopWidth);
+      const ring = node.querySelector("svg.ring");
+      const seg = ring?.querySelector(".ring-seg");
+      if (seg) {
+        const r = +seg.getAttribute("r"), sw = +seg.getAttribute("stroke-width");
+        inner = Math.min(inner, ((r - sw / 2) / 100) * ring.getBoundingClientRect().width);
+      }
+      return { key, x: b.left + b.width / 2, y: b.top + b.height / 2, outer: b.width / 2, inner, towards: TOWARDS[key] };
+    }),
+  };
+}
+
 window.check = () => {
   const root = card.shadowRoot;
   // Dots stop where they are told: no animation may move them while measured.
@@ -240,6 +300,12 @@ window.check = () => {
     labels: labels(root),
     lines: lineWidths(root),
   };
+  result.rims = rims(root);
+  // Cut out only where the circles let the lines show (K-16).
+  result.clipped = !!root.querySelector(".plot svg [clip-path]");
+  result.fanClipped = !!root.querySelector("svg.fan [clip-path]");
+  result.clear = clear;
+  result.ringOff = ringOff;
   return JSON.stringify(result);
 };
 

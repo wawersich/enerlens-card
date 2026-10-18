@@ -60,6 +60,31 @@ export const DRAWN_CONNECTIONS: ConnectionId[] = [
   "battery_house",
 ];
 
+/**
+ * The cut-out for everything drawn under the nodes (REQ K-16): a frame well
+ * around the viewBox and one circle of radius `r` per node, filled even-odd,
+ * so a clip with it keeps all but the insides of the circles. The lines run
+ * on under each circle so that no gap can open; the card measures `r` to the
+ * inner edge of the border, so the cut lies under the border and a node
+ * without an opaque fill (card-mod, issue #8) shows nothing of them inside.
+ */
+export function holesPath(r: number): string {
+  const frame = `M${-VIEW_W},${-VIEW_H}H${2 * VIEW_W}V${2 * VIEW_H}H${-VIEW_W}Z`;
+  return (
+    frame +
+    Object.values(NODE_POS)
+      .map(({ x, y }) => circlePath(x, y, r))
+      .join("")
+  );
+}
+
+/** A full circle as a closed path, two half arcs - for the cut-outs. */
+export function circlePath(x: number, y: number, r: number): string {
+  const f = (v: number) => Number(v.toFixed(3));
+  const a = `A${f(r)},${f(r)} 0 1 0`;
+  return `M${f(x - r)},${f(y)}${a} ${f(x + r)},${f(y)}${a} ${f(x - r)},${f(y)}Z`;
+}
+
 /** Position as a percentage of the viewBox, for absolutely placed HTML nodes. */
 export function nodePercent(key: NodeKey): { left: string; top: string } {
   const p = NODE_POS[key];

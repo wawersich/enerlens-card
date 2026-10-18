@@ -22,6 +22,24 @@ export function brightness(colour: string): number | undefined {
 }
 
 /**
+ * Whether a computed fill lets what lies under it show through - the lines
+ * under the nodes, on a card made transparent (REQ K-16). Any alpha below 1,
+ * in the legacy rgba() form or the slash form of the newer colour functions.
+ * A colour it cannot read counts as opaque: the card then draws as it always
+ * has.
+ */
+export function seeThrough(colour: string): boolean {
+  const value = colour.trim().toLowerCase();
+  if (value === "transparent") return true;
+  const slash = value.match(/\/\s*([\d.]+)(%?)\s*\)$/);
+  const legacy = value.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)(%?)\s*\)$/);
+  const match = slash ?? legacy;
+  if (!match) return false;
+  const alpha = Number(match[1]) / (match[2] ? 100 : 1);
+  return Number.isFinite(alpha) && alpha < 1;
+}
+
+/**
  * Which ground applies, with the setting having the last word.
  *
  * Reading the theme is a guess, and a good one - but a theme that paints no

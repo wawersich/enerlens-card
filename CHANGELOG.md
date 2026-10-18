@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **Figures in languages with other digits** (Persian, Bengali, Marathi …)
   were all shown as zero.
+- **Lines no longer show inside the circles on a transparent card.** With
+  the card made transparent through card-mod, as the README shows, the ends
+  of the lines and the dots on them could be seen inside every circle; the
+  fill of the circles used to hide them. They now stop at the circle's rim,
+  and the card looks the same as before on an opaque background.
 
 ## [0.9.0] - 2026-10-17
 
