@@ -1142,6 +1142,163 @@ describe("grid outage on the element (REQ NS-4, NS-5)", () => {
   });
 });
 
+describe("recorder lookups in the editor preview (NS-6, L-15, issue #17)", () => {
+  beforeAll(loadCard);
+  type Card = HTMLElement & {
+    setConfig: (c: unknown) => void;
+    hass: HomeAssistant;
+    updateComplete: Promise<unknown>;
+    preview?: boolean;
+  };
+  const settle = async (el: Card) => {
+    for (let i = 0; i < 3; i++) {
+      await el.updateComplete;
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  };
+
+  // A grid status to look up, and a car whose state of charge has no value
+  // right now - the two lookups besides the averaging history.
+  const CONFIG_WITH_LOOKUPS = {
+    ...CONFIG,
+    entities: {
+      ...CONFIG.entities,
+      grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] },
+    },
+    consumers: [{ entity: "sensor.wallbox", name: "Wallbox", charge: { soc: "sensor.car" } }],
+  };
+
+  type Answer = (msg: Record<string, unknown>) => Promise<unknown>;
+
+  /** Built in hui-card's order: setConfig, hass, then (in the editor) preview. */
+  function build(
+    preview: boolean,
+    answer: Answer = async () => ({}),
+    status = "ok",
+    config: Record<string, unknown> = CONFIG_WITH_LOOKUPS,
+  ) {
+    const asked: string[] = [];
+    const hass = {
+      ...fakeHass({ ...STATES, "sensor.grid_status": status, "sensor.wallbox": "0" }),
+      callWS: async (msg: Record<string, unknown>) => {
+        asked.push(...((msg.entity_ids as string[] | undefined) ?? [String(msg.type)]));
+        return (await answer(msg)) as never;
+      },
+    } as HomeAssistant;
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig(config);
+    el.hass = hass;
+    if (preview) el.preview = true;
+    return { el, hass, asked };
+  }
+  const banner = (el: Card) => el.shadowRoot?.querySelector(".outage-banner");
+  const lastState = (s: string) => [{ s, lu: Date.now() / 1000 - 600 }];
+
+  it("asks the recorder nothing in the preview, which HA flags only after hass", async () => {
+    const { el, asked } = build(true);
+    document.body.appendChild(el);
+    await settle(el);
+    expect(asked).toEqual([]);
+    el.remove();
+  });
+
+  it("asks nothing either when the editor hands over a new config", async () => {
+    const { el, hass, asked } = build(true);
+    document.body.appendChild(el);
+    await settle(el);
+    asked.length = 0;
+    // Another status entity resets what was looked up - in the preview too.
+    el.setConfig({
+      ...CONFIG_WITH_LOOKUPS,
+      title: "Typed",
+      entities: {
+        ...CONFIG_WITH_LOOKUPS.entities,
+        grid_status: { entity: "sensor.other_status", outage: ["off"] },
+      },
+    });
+    el.hass = { ...hass };
+    await settle(el);
+    expect(asked).toEqual([]);
+    el.remove();
+  });
+
+  it("asks once for the outage and once for the charge on a dashboard", async () => {
+    const { el, hass, asked } = build(false);
+    document.body.appendChild(el);
+    await settle(el);
+    expect([...asked].sort()).toEqual(["sensor.car", "sensor.grid_status"]);
+    el.setConfig({ ...CONFIG_WITH_LOOKUPS, title: "Other" });
+    el.hass = { ...hass, states: { ...hass.states } };
+    await settle(el);
+    expect(asked).toHaveLength(2);
+    el.remove();
+  });
+
+  it("asks again for a new status entity and for a new car, once each", async () => {
+    const { el, asked } = build(false);
+    document.body.appendChild(el);
+    await settle(el);
+    asked.length = 0;
+    el.setConfig({
+      ...CONFIG_WITH_LOOKUPS,
+      entities: {
+        ...CONFIG_WITH_LOOKUPS.entities,
+        grid_status: { entity: "sensor.other_status", outage: ["off"] },
+      },
+      consumers: [
+        ...CONFIG_WITH_LOOKUPS.consumers,
+        { entity: "sensor.pump", name: "Pump", charge: { soc: "sensor.van" } },
+      ],
+    });
+    await settle(el);
+    expect([...asked].sort()).toEqual(["sensor.other_status", "sensor.van"]);
+    el.remove();
+  });
+
+  it("starts with the outage the recorder remembers when the status is silent", async () => {
+    const { el } = build(
+      false,
+      async (msg) =>
+        (msg.entity_ids as string[]).includes("sensor.grid_status")
+          ? { "sensor.grid_status": lastState("not_detected") }
+          : {},
+      "unavailable",
+    );
+    document.body.appendChild(el);
+    await settle(el);
+    expect(banner(el), "remembered outage not shown").toBeTruthy();
+    el.remove();
+  });
+
+  it("drops an answer for a status entity the config has replaced meanwhile", async () => {
+    let release: (value: unknown) => void = () => undefined;
+    const { el } = build(
+      false,
+      (msg) =>
+        (msg.entity_ids as string[]).includes("sensor.grid_status")
+          ? new Promise((r) => {
+              release = r;
+            })
+          : Promise.resolve({}),
+      "unavailable",
+    );
+    document.body.appendChild(el);
+    await settle(el);
+    el.setConfig({
+      ...CONFIG_WITH_LOOKUPS,
+      entities: {
+        ...CONFIG_WITH_LOOKUPS.entities,
+        grid_status: { entity: "sensor.other_status", outage: ["off"] },
+      },
+    });
+    await settle(el);
+    release({ "sensor.grid_status": lastState("not_detected") });
+    await settle(el);
+    expect(banner(el), "the old entity's outage was taken over").toBeNull();
+    el.remove();
+  });
+});
+
 describe("enerlens-card - an edit in the editor is not a reset (REQ P-6)", () => {
   beforeAll(async () => {
     (globalThis as unknown as Record<string, unknown>).ResizeObserver = class {

@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   for its own entities, language, number format, theme and connection, and
   on its beat - about 85 % fewer redraws. In an average view the figures no
   longer move between beats.
+- **The editor preview no longer asks the recorder anything** (#17). It looked
+  up the last grid status and a car's last state of charge when the editor
+  opened and again on every keystroke, because Home Assistant marks the
+  preview only after handing it the first states. An answer that arrives for
+  a grid status entity the card no longer uses is now dropped as well.
 
 ## [0.9.0] - 2026-10-17
 

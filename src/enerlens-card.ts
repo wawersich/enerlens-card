@@ -191,11 +191,6 @@ class EnerLensCard extends LitElement {
     const previous = this._hass;
     this._hass = hass;
     if (!this._config) return;
-    // The history lookup needs a hass, so it cannot run in setConfig (REQ NS-6).
-    if (this._config.gridStatus && !this._outagePrefilled) {
-      this._outagePrefilled = true;
-      void this._prefillOutage();
-    }
     // Only rebuild and draw when something the card shows changed (REQ T-3).
     if (previous && wasExample === this._example && !this._shownChanged(previous, hass)) return;
     if (this._config.gridStatus) {
@@ -278,16 +273,32 @@ class EnerLensCard extends LitElement {
     );
   }
 
-  /**
-   * Remembers plugged state and the last state of charge, and asks the
-   * recorder once for the last value of a sensor that has none right now - a
-   * car asleep since before the card opened (REQ L-15). Not in the editor
-   * preview, which is recreated on every keystroke.
-   */
+  /** Remembers plugged state and the last state of charge (REQ L-15). */
   private _observeCharge(hass: HomeAssistant): void {
     if (!this._config || this._chargeIds.length === 0) return;
     this._charge.observe(hass, this._config.consumers);
-    if ((this as unknown as { preview?: boolean }).preview) return;
+  }
+
+  /**
+   * The two recorder lookups besides the averaging history: the last real
+   * grid status, so an outage that began before the card opened is shown
+   * (REQ NS-6), and the last value of a state of charge that has none right
+   * now - a car asleep since before the card opened (REQ L-15).
+   *
+   * After a render, like _ensureHistory and for the same reason: Home
+   * Assistant sets `preview` only after the first hass, and the editor
+   * preview, rebuilt on every keystroke, must not ask at all (issue #17).
+   */
+  private _ensureLookups(): void {
+    const hass = this._hass;
+    if (!hass || !this._config) return;
+    // Example values have nothing to look up (E-5).
+    if (this._example || (this as unknown as { preview?: boolean }).preview) return;
+    if (this._config.gridStatus && !this._outagePrefilled) {
+      this._outagePrefilled = true;
+      void this._prefillOutage();
+    }
+    if (this._chargeIds.length === 0) return;
     const missing = this._charge.missing(hass, this._config.consumers);
     if (missing.length === 0) return;
     this._charge
@@ -517,11 +528,11 @@ class EnerLensCard extends LitElement {
   private async _prefillOutage(): Promise<void> {
     const spec = this._config?.gridStatus;
     if (!this._hass || !spec) return;
-    if ((this as unknown as { preview?: boolean }).preview) return;
     try {
       const state = await fetchLastKnownStatus(this._hass, spec.entity);
       // A live state that arrived meanwhile wins - it is newer than the query.
-      if (this._outage === undefined) {
+      // An answer for a status entity the config has since replaced is dropped.
+      if (this._outage === undefined && sameStatus(this._config?.gridStatus, spec)) {
         this._outage = applyStatus(undefined, state, spec, statusOptions(this._hass, spec.entity));
       }
     } catch {
@@ -836,6 +847,7 @@ class EnerLensCard extends LitElement {
 
   protected updated(): void {
     this._ensureHistory();
+    this._ensureLookups();
     this._rows.play(
       this.renderRoot.querySelector(".body"),
       this._animationsWanted && this._settled,
