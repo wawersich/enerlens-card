@@ -79,6 +79,64 @@ describe("enerlens-card element", () => {
     return el;
   }
 
+  it("starts a new card with power sensors only (E-5)", () => {
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: (
+        hass: HomeAssistant,
+        entities: string[],
+        fallback: string[],
+      ) => { entities: Record<string, string> };
+    };
+    const state = (entity_id: string, state: string, attributes: Record<string, unknown>) => ({
+      entity_id,
+      state,
+      attributes,
+      last_changed: "",
+      last_updated: "",
+    });
+    const hass = {
+      ...fakeHass({}),
+      states: {
+        "sensor.outside": state("sensor.outside", "12.5", { unit_of_measurement: "°C" }),
+        "sensor.mode": state("sensor.mode", "eco", {}),
+        "sensor.pv": state("sensor.pv", "1200", { unit_of_measurement: "W" }),
+        "sensor.meter": state("sensor.meter", "0.4", { device_class: "power" }),
+        "sensor.boiler": state("sensor.boiler", "2", { unit_of_measurement: "kW" }),
+        "sensor.heat": state("sensor.heat", "900", {
+          unit_of_measurement: "BTU/h",
+          device_class: "power",
+        }),
+        "number.limit": state("number.limit", "800", { unit_of_measurement: "W" }),
+      },
+    } as HomeAssistant;
+    // Temperatures, modes, a power unit the card cannot read, a W that is no
+    // sensor and an entity that is gone are skipped; the first list (on no
+    // dashboard yet) comes before the second (already in use).
+    expect(
+      card.getStubConfig(
+        hass,
+        [
+          "sensor.outside",
+          "sensor.mode",
+          "sensor.heat",
+          "number.limit",
+          "sensor.gone",
+          "sensor.boiler",
+        ],
+        ["sensor.pv"],
+      ).entities,
+    ).toEqual({ solar: "sensor.boiler", grid: "sensor.pv" });
+    expect(card.getStubConfig(hass, [], ["sensor.meter", "sensor.pv"]).entities).toEqual({
+      solar: "sensor.meter",
+      grid: "sensor.pv",
+    });
+    // Nothing that measures power: the example names.
+    expect(card.getStubConfig(hass, ["sensor.outside"], ["sensor.mode"]).entities).toEqual({
+      solar: "sensor.solar_power",
+      grid: "sensor.grid_power",
+    });
+  });
+
   it("starts a new card with an icon on the remainder row (E-5)", async () => {
     // Only the starting configuration carries it: the card itself has no
     // default, so an existing card keeps its dot, and deleting the icon

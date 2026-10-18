@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **Figures in languages with other digits** (Persian, Bengali, Marathi …)
   were all shown as zero.
+- **A new card starts with power sensors.** Added through the dashboard, it
+  took the first two sensors of any kind, such as a temperature, so the
+  preview showed dashes or nonsense. It now only picks sensors in watts
+  (W, kW …), or with the power device class and no unit.
 - **Lines no longer show inside the circles on a transparent card.** With
   the card made transparent through card-mod, as the README shows, the ends
   of the lines and the dots on them could be seen inside every circle; the

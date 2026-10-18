@@ -9,7 +9,7 @@ import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } 
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
 import { computeFlows, dotParams, planDots } from "./flow";
-import { buildModel, buildModelFrom, readPowerW } from "./model";
+import { POWER_UNITS, buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
 import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
@@ -834,11 +834,23 @@ class EnerLensCard extends LitElement {
   }
 
   static getStubConfig(
-    _hass: HomeAssistant,
+    hass: HomeAssistant,
     entities: string[] = [],
     entitiesFallback: string[] = [],
   ): Record<string, unknown> {
-    const pool = [...entities, ...entitiesFallback].filter((id) => id.startsWith("sensor."));
+    // Only sensors the card can read as power - the first ones of any kind
+    // put a backup status or a temperature into the circles (E-5). Judged
+    // as readPowerW does: a unit must be a power unit, the device class
+    // counts only without one. In Home Assistant's order: entities on no
+    // dashboard yet first, then those already in use.
+    const measuresPower = (id: string): boolean => {
+      const attributes = hass?.states?.[id]?.attributes;
+      if (!id.startsWith("sensor.") || !attributes) return false;
+      const unit = attributes.unit_of_measurement;
+      if (typeof unit === "string" && unit !== "") return typeof POWER_UNITS[unit] === "number";
+      return attributes.device_class === "power";
+    };
+    const pool = [...new Set([...entities, ...entitiesFallback])].filter(measuresPower);
     return {
       entities: {
         solar: pool[0] ?? "sensor.solar_power",
