@@ -51,6 +51,8 @@ export interface HomeAssistant {
   formatEntityState?: (stateObj: HassEntity, state?: string) => string;
   callWS: <T>(msg: Record<string, unknown>) => Promise<T>;
   connected?: boolean;
+  /** Only compared: a new object means the theme or dark mode changed (REQ T-3). */
+  themes?: unknown;
 }
 
 export interface LovelaceCardConfig {

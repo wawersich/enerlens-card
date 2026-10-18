@@ -93,7 +93,10 @@ class EnerLensCard extends LitElement {
   static styles = styles;
 
   static properties = {
-    hass: { attribute: false },
+    // The setter below decides when hass is worth a render. Lit would wrap it
+    // and render on every hass - and Home Assistant hands over a new one
+    // whenever any entity anywhere changes (REQ T-3, EL-I1).
+    hass: { attribute: false, noAccessor: true },
     _model: { state: true },
     _showAll: { state: true },
     _outage: { state: true },
@@ -183,6 +186,7 @@ class EnerLensCard extends LitElement {
 
   set hass(real: HomeAssistant) {
     this._realHass = real;
+    const wasExample = this._example;
     const hass = this._withExample(real);
     const previous = this._hass;
     this._hass = hass;
@@ -192,8 +196,8 @@ class EnerLensCard extends LitElement {
       this._outagePrefilled = true;
       void this._prefillOutage();
     }
-    // Only rebuild when one of our entities actually changed (REQ T-3).
-    if (previous && !this._entitiesChanged(previous, hass)) return;
+    // Only rebuild and draw when something the card shows changed (REQ T-3).
+    if (previous && wasExample === this._example && !this._shownChanged(previous, hass)) return;
     if (this._config.gridStatus) {
       this._outage = readStatus(hass, this._config.gridStatus, this._outage);
     }
@@ -203,6 +207,9 @@ class EnerLensCard extends LitElement {
     // Invented readings never go into the averages: they would outlive the
     // example as a "measured" mean (E-5).
     if (!this._example) this._recordSamples(hass);
+    // A new model asks for a render by itself; a theme, a language or a
+    // reconnect changes none, so the request is made here for all of them.
+    this.requestUpdate("hass", previous);
   }
   /** Whether the card shows invented readings, marked as such (REQ E-5). */
   private _example = false;
@@ -240,22 +247,35 @@ class EnerLensCard extends LitElement {
     return this._hass;
   }
 
-  private _entitiesChanged(a: HomeAssistant, b: HomeAssistant): boolean {
-    for (const id of this._entityIds) {
-      if (a.states[id] !== b.states[id]) return true;
-    }
-    for (const id of this._chargeIds) {
-      if (a.states[id] !== b.states[id]) return true;
-    }
-    if (this._extraIds.length === 0) return false;
+  /**
+   * Whether anything the card shows differs between two hass objects (REQ
+   * T-3): the state of any entity it reads, and what Home Assistant writes
+   * them with - language, number format, its formatter, a display precision -
+   * plus the theme and the connection. The list follows what HA's own cards
+   * compare (has-changed.ts), less what this card never reads. What render
+   * reads directly and is missed here waits for the next tick at most; what
+   * only this setter derives - the outage latch, the charge memory, the
+   * samples - waits for the next change that passes, so its inputs belong here.
+   */
+  private _shownChanged(a: HomeAssistant, b: HomeAssistant): boolean {
+    const ids = [...this._entityIds, ...this._chargeIds, ...this._extraIds];
+    if (ids.some((id) => a.states[id] !== b.states[id])) return true;
     // An extra field is written the way Home Assistant writes it. HA rebuilds
     // its formatter after a new precision, number format or translation - only
-    // then is the new text there to show, so that is what counts (REQ Z-5, Z-9).
-    if (a.formatEntityState !== b.formatEntityState || a.locale !== b.locale) return true;
-    for (const id of this._extraIds) {
-      if (a.states[id] !== b.states[id]) return true;
+    // then is the new text there to show (REQ Z-5, Z-9).
+    if (
+      a.language !== b.language ||
+      a.locale !== b.locale ||
+      a.formatEntityState !== b.formatEntityState ||
+      a.themes !== b.themes ||
+      a.connected !== b.connected
+    ) {
+      return true;
     }
-    return false;
+    if (a.entities === b.entities) return false;
+    return ids.some(
+      (id) => a.entities?.[id]?.display_precision !== b.entities?.[id]?.display_precision,
+    );
   }
 
   /**

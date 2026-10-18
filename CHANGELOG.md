@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   longer; every further open took over a second as well. Each group now
   builds its fields when it is first unfolded. The help of *Grid outage*
   stands once at the top instead of twice.
+- **The card no longer redraws for changes it does not show.** Home Assistant
+  hands every card news of every entity, several times a second on a large
+  installation, and the card redrew itself in full each time. It now redraws
+  for its own entities, language, number format, theme and connection, and
+  on its beat - about 85 % fewer redraws. In an average view the figures no
+  longer move between beats.
 
 ## [0.9.0] - 2026-10-17
 
