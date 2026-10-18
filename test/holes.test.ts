@@ -6,7 +6,7 @@
  * the cut lands on the border is measured in real browsers by
  * `npm run webkit-check`; here: that it exists and wraps the right things.
  */
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { FanLayer } from "../src/render/fan";
 import { NODE_POS, NODE_R, holesPath } from "../src/render/geometry";
 import type { HomeAssistant } from "../src/types";
@@ -126,5 +126,116 @@ describe("the fan", () => {
     expect(svg.querySelector("path.fan-line")?.hasAttribute("clip-path")).toBe(false);
     fan.destroy();
     svg.remove();
+  });
+});
+
+describe("a ground that changes later", () => {
+  // card-mod makes the card transparent after it has drawn, and a theme can
+  // change at any time. Nothing in hass says so, and since a state update
+  // that changes nothing shown no longer redraws (T-3, EL-I1), the browser
+  // reports it instead: a 1 ms transition on the circles' fill ends, and the
+  // card measures (K-16; found by the late scene of the WebKit check).
+  const W = (id: string, w: number) => ({
+    entity_id: id,
+    state: String(w),
+    attributes: { unit_of_measurement: "W" },
+    last_changed: "",
+    last_updated: "",
+  });
+
+  async function mounted() {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      isUpdatePending: boolean;
+      _seeThrough: boolean;
+    };
+    el.setConfig({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" },
+    });
+    el.hass = {
+      states: {
+        "sensor.s": W("sensor.s", 3000),
+        "sensor.g": W("sensor.g", 500),
+        "sensor.h": W("sensor.h", 2500),
+      },
+      locale: { language: "de", number_format: "language" },
+      language: "de",
+      callWS: async () => ({}) as never,
+    } as HomeAssistant;
+    document.body.appendChild(el);
+    // The first measurement gives the card its scale and draws once more;
+    // only then is it at rest, as on a dashboard.
+    while (el.isUpdatePending) await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(el.isUpdatePending).toBe(false);
+    return el;
+  }
+
+  /** The circles' fill turns see-through, as card-mod would make it. */
+  function transparentFill() {
+    const real = window.getComputedStyle.bind(window);
+    return vi.spyOn(window, "getComputedStyle").mockImplementation((node, pseudo) => {
+      const style = real(node, pseudo);
+      if (!(node as Element).classList?.contains("node")) return style;
+      return new Proxy(style, {
+        get: (target, key) =>
+          key === "backgroundColor" ? "rgba(0, 0, 0, 0)" : Reflect.get(target, key, target),
+      });
+    });
+  }
+
+  /** What the browser fires when a transition on a node ends. */
+  function transitionEnd(el: HTMLElement, property: string) {
+    const node = el.shadowRoot?.querySelector(".plot .node") as HTMLElement;
+    const event = new Event("transitionend", { bubbles: true, composed: true });
+    Object.defineProperty(event, "propertyName", { value: property });
+    node.dispatchEvent(event);
+  }
+
+  it("cuts the lines out once the fill has turned see-through, without new states", async () => {
+    // happy-dom lays nothing out; with a width the card measures as in a browser.
+    const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      const width = this.classList.contains("plot") ? 400 : 0;
+      return {
+        width,
+        height: width,
+        top: 0,
+        left: 0,
+        right: width,
+        bottom: width,
+        x: 0,
+        y: 0,
+      } as DOMRect;
+    });
+    const el = await mounted();
+    const fill = transparentFill();
+    try {
+      expect(el._seeThrough).toBe(false);
+      transitionEnd(el, "outline-color");
+      await el.updateComplete;
+      expect(el._seeThrough).toBe(true);
+    } finally {
+      fill.mockRestore();
+      rect.mockRestore();
+      el.remove();
+    }
+  });
+
+  it("reads nothing for other transitions, such as the battery's fill level", async () => {
+    const el = await mounted();
+    const fill = transparentFill();
+    try {
+      transitionEnd(el, "height");
+      await el.updateComplete;
+      expect(el._seeThrough).toBe(false);
+    } finally {
+      fill.mockRestore();
+      el.remove();
+    }
   });
 });

@@ -412,6 +412,14 @@ export const styles = css`
     align-items: center;
     justify-content: center;
     gap: 1px;
+    /* Not for the eye: when card-mod or a theme changes the fill after the
+       card has drawn, the end of this transition tells the card to measure
+       whether the lines now show through (REQ K-16). On an outline that is
+       never drawn, following the fill - a transition on the fill itself would
+       let the measurement read the old colour while it runs. */
+    outline: 0 none;
+    outline-color: var(--ha-card-background, var(--card-background-color, #fff));
+    transition: outline-color 1ms;
   }
 
   /* Fill level rises from the bottom with the state of charge (REQ K-5).
@@ -966,6 +974,11 @@ export const styles = css`
     * {
       transition: none !important;
       animation: none !important;
+    }
+    /* 1 ms is no motion; without it a fill made see-through late would show
+       the lines in the circles until the next beat (REQ K-16). */
+    .node {
+      transition: outline-color 1ms !important;
     }
   }
 `;

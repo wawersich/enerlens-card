@@ -55,8 +55,8 @@ if (scene === "extras" || scene === "nobatt") document.getElementById("host").st
 // end inside the house. Nothing may show inside a circle then (K-16).
 // clearring: the same with the ring, whose gaps must not show a line either.
 // clearlate: as clear, but made transparent the way card-mod does it - after
-// the card has drawn and measured, with no re-render of its own; the next
-// state update has to pick it up.
+// the card has drawn and measured, with no re-render of its own and no state
+// update after it: the fill's own change has to make the card measure (K-16).
 const clear = scene === "clear" || scene === "clearring" || scene === "clearlate";
 const ringOff = scene === "clear" || scene === "clearlate";
 
@@ -101,12 +101,8 @@ if (clear) {
   await card.updateComplete;
   const transparent = () =>
     card.shadowRoot.querySelector("ha-card").style.setProperty("--ha-card-background", "transparent");
-  if (scene === "clearlate") {
-    setTimeout(() => {
-      transparent();
-      setTimeout(() => { card.hass = { ...card.hass }; }, 200);
-    }, 800);
-  } else transparent();
+  if (scene === "clearlate") setTimeout(transparent, 800);
+  else transparent();
 }
 
 const NS = "http://www.w3.org/2000/svg";

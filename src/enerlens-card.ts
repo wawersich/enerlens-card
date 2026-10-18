@@ -216,6 +216,14 @@ class EnerLensCard extends LitElement {
     this.requestUpdate();
   }
   private readonly _onMotionChange = () => this.requestUpdate();
+  /** The fill of a circle changed after drawing - card-mod arriving late, a
+   *  theme - and the browser says so; nothing in hass would (REQ K-16, T-3). */
+  private readonly _onTransitionEnd = (ev: Event) => {
+    const { propertyName, target } = ev as TransitionEvent;
+    if (propertyName !== "outline-color" || !(target instanceof HTMLElement)) return;
+    const plot = target.classList.contains("node") ? target.closest(".plot") : null;
+    if (plot) this._measureHoles(plot as HTMLElement);
+  };
   /** How much the browser stretches motion paths (issue #7, render/path-zoom.ts). */
   private _pathZoom = 1;
   private readonly _onWindowResize = () => this._measurePathZoom();
@@ -433,6 +441,7 @@ class EnerLensCard extends LitElement {
     this._intersectionObserver.observe(this);
     this._pickUpLiveDesigns();
     document.addEventListener("visibilitychange", this._onVisibility);
+    this.renderRoot.addEventListener("transitionend", this._onTransitionEnd);
     this._resume();
 
     // The system setting can change while the card is open (REQ P-7).
@@ -981,6 +990,7 @@ class EnerLensCard extends LitElement {
     this._intersectionObserver?.disconnect();
     this._intersectionObserver = undefined;
     document.removeEventListener("visibilitychange", this._onVisibility);
+    this.renderRoot.removeEventListener("transitionend", this._onTransitionEnd);
     this._pause(Date.now());
     window.removeEventListener("resize", this._onWindowResize);
     this._motionQuery?.removeEventListener?.("change", this._onMotionChange);

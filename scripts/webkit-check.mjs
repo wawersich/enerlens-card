@@ -125,8 +125,16 @@ async function inWebkit(scene, { zoom, mode }) {
   return m;
 }
 
+/**
+ * Chromium, driven over the DevTools protocol in real time: one load,
+ * measured and pictured. Not --dump-dom with a virtual time budget, as until
+ * 18.10.2026: virtual time runs timers but no frames, so a CSS transition
+ * never ends there - and the card learns of a fill made see-through late
+ * from the end of one (K-16, scene clearlate).
+ */
 async function inChromium(scene, scale) {
-  const { stdout } = await run(
+  const profile = mkdtempSync(resolve(tmpdir(), "webkit-check-cr-"));
+  const browser = spawn(
     chromium,
     [
       "--headless=new",
@@ -134,45 +142,112 @@ async function inChromium(scene, scale) {
       "--disable-gpu",
       "--allow-file-access-from-files",
       `--force-device-scale-factor=${scale}`,
-      "--virtual-time-budget=8000",
-      // The same window as the picture below, which is measured against it.
+      // The same window the circles are measured in and pictured at.
       "--window-size=1000,1100",
-      "--dump-dom",
-      `${url(scene)}#auto`,
+      "--hide-scrollbars",
+      `--user-data-dir=${profile}`,
+      "--remote-debugging-port=0",
+      // Blank first: the viewport is set before the page loads (below).
+      "about:blank",
     ],
-    { timeout: 60000, maxBuffer: 16 * 1024 * 1024 },
+    { stdio: ["ignore", "ignore", "pipe"] },
   );
-  const text = /<pre id="out">([^<]*)<\/pre>/.exec(stdout)?.[1] ?? "";
-  const json = text
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
-  const m = json ? JSON.parse(json) : { error: "keine Antwort" };
-  if (!m.error) {
-    // The same page once more, as a picture: the DOM run above cannot take one.
-    // It is judged with the circles measured in that run, which holds because
-    // the layout is fixed and the #auto timer places the dots alike in both.
-    const picture = resolve(pictures, `${scene}-chromium-${scale}.png`);
-    await run(
-      chromium,
-      [
-        "--headless=new",
-        "--no-sandbox",
-        "--disable-gpu",
-        "--allow-file-access-from-files",
-        `--force-device-scale-factor=${scale}`,
-        "--virtual-time-budget=8000",
-        "--window-size=1000,1100",
-        "--hide-scrollbars",
-        `--screenshot=${picture}`,
-        `${url(scene)}#auto`,
-      ],
-      { timeout: 60000 },
+  const exited = new Promise((r) => browser.once("exit", r));
+  const failed = new Promise((_r, reject) =>
+    browser.once("error", (e) => reject(new Error(`Chromium: ${e.message}`))),
+  );
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const within = (promise, ms, what) =>
+    Promise.race([
+      promise,
+      failed,
+      wait(ms).then(() => Promise.reject(new Error(`Chromium: ${what}`))),
+    ]);
+  let socket;
+  try {
+    // Port 0: Chromium picks a free one and names it on stderr.
+    const port = await within(
+      new Promise((resolvePort, reject) => {
+        let text = "";
+        const timer = setTimeout(() => reject(new Error("Chromium: kein DevTools-Port")), 20000);
+        browser.stderr.on("data", (chunk) => {
+          text += chunk;
+          const found = /DevTools listening on ws:\/\/[^:]+:(\d+)\//.exec(text);
+          if (found) {
+            clearTimeout(timer);
+            resolvePort(Number(found[1]));
+          }
+        });
+      }),
+      25000,
+      "kein DevTools-Port",
     );
-    m.circles = judge(scene, m.rims, picture);
+    let target;
+    for (let i = 0; i < 50 && !target; i++) {
+      const list = await fetch(`http://127.0.0.1:${port}/json`)
+        .then((r) => r.json())
+        .catch(() => []);
+      target = list.find((t) => t.type === "page");
+      if (!target) await wait(200);
+    }
+    if (!target) throw new Error("Chromium: keine Seite");
+    socket = new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((r, reject) => {
+      socket.onopen = r;
+      socket.onerror = () => reject(new Error("Chromium: DevTools nicht erreichbar"));
+    });
+    let next = 0;
+    const pending = new Map();
+    socket.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      pending.get(msg.id)?.(msg);
+      pending.delete(msg.id);
+    };
+    let closed;
+    socket.onclose = () => {
+      closed = new Error("Chromium: DevTools-Verbindung weg");
+    };
+    const send = (method, params = {}) => {
+      if (closed) return Promise.reject(closed);
+      const id = ++next;
+      const answer = new Promise((r) => pending.set(id, r));
+      socket.send(JSON.stringify({ id, method, params }));
+      return within(answer, 15000, `keine Antwort auf ${method}`);
+    };
+    // The whole window is the viewport, as the circles are judged against a
+    // picture of it - headless=new would otherwise keep part of it for itself.
+    await send("Emulation.setDeviceMetricsOverride", {
+      width: 1000,
+      height: 1100,
+      deviceScaleFactor: scale,
+      mobile: false,
+    });
+    await send("Page.navigate", { url: `${url(scene)}#auto` });
+    // The page writes its answer 2.5 s after load (#auto).
+    let json = "";
+    for (let i = 0; i < 60 && !json; i++) {
+      await wait(250);
+      const answer = await send("Runtime.evaluate", {
+        expression: "document.getElementById('out')?.textContent ?? ''",
+        returnByValue: true,
+      });
+      json = answer.result?.result?.value ?? "";
+    }
+    const m = json ? JSON.parse(json) : { error: "keine Antwort" };
+    if (!m.error) {
+      const picture = resolve(pictures, `${scene}-chromium-${scale}.png`);
+      const shot = await send("Page.captureScreenshot", { format: "png" });
+      writeFileSync(picture, Buffer.from(shot.result.data, "base64"));
+      m.circles = judge(scene, m.rims, picture);
+    }
+    return m;
+  } finally {
+    socket?.close();
+    browser.kill("SIGKILL");
+    await Promise.race([exited, wait(5000)]);
+    // Helper processes may still be writing a moment after the kill.
+    rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
-  return m;
 }
 
 /**
