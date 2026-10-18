@@ -10,6 +10,7 @@ import { DEFAULT_CONSUMER_PALETTE, swatchHex } from "../src/colors";
 import { normalizeConfig } from "../src/config";
 import { NO_DESIGN, flowDesigns } from "../src/designs";
 import type { HomeAssistant, RawConfig } from "../src/types";
+import { topSchema, unfoldAll } from "./editor-panels";
 
 type Editor = HTMLElement & {
   setConfig: (c: RawConfig) => void;
@@ -47,6 +48,7 @@ async function mount(config: RawConfig): Promise<Editor> {
   el.setConfig(config);
   document.body.appendChild(el);
   await el.updateComplete;
+  await unfoldAll(el);
   return el;
 }
 
@@ -71,7 +73,7 @@ function findField(el: Editor, name: string): Field | undefined {
 
 /** Names of all fields under "entities", grids flattened. */
 function entityFields(el: Editor): string[] {
-  const group = form(el).schema.find((g) => g.name === "entities");
+  const group = topSchema(el).find((g) => g.name === "entities");
   const names: string[] = [];
   const walk = (fields: Field[]) => {
     for (const f of fields) {
@@ -518,21 +520,17 @@ describe("editor - grid status", () => {
   };
 
   function statusFields(el: Editor): Field[] {
-    const group = forms(el)
-      .flatMap((f) => f.schema)
-      .find((g) => g.name === "grid_status");
+    const group = topSchema(el).find((g) => g.name === "grid_status");
     return group?.schema ?? [];
   }
 
   it("keeps the section collapsed - most installations have no such entity", async () => {
     const el = await mount(BASE);
-    const group = forms(el)
-      .flatMap((f) => f.schema)
-      .find((g) => g.name === "grid_status") as Field & {
-      expanded?: boolean;
-    };
-    expect(group).toBeTruthy();
-    expect(group.expanded).toBeUndefined();
+    const panel = el.shadowRoot?.querySelector('.section[data-section="grid_status"]') as
+      | (HTMLElement & { expanded?: boolean })
+      | null;
+    expect(panel).toBeTruthy();
+    expect(panel?.expanded).toBeFalsy();
   });
 
   it("round-trips the long form", async () => {
@@ -597,6 +595,7 @@ describe("editor - grid status", () => {
     });
     document.body.appendChild(el);
     await el.updateComplete;
+    await unfoldAll(el);
 
     const outage = statusFields(el).find((f) => f.name === "grid_status_outage");
     const select = outage?.selector?.select as {
@@ -1330,6 +1329,7 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     el.setConfig(config);
     document.body.appendChild(el);
     await el.updateComplete;
+    await unfoldAll(el);
     return el;
   }
 

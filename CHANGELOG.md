@@ -49,6 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   of the lines and the dots on them could be seen inside every circle; the
   fill of the circles used to hide them. They now stop at the circle's rim,
   and the card looks the same as before on an opaque background.
+- **The editor opens complete straight away.** After a page reload the first
+  open showed only *Consumers* and *Colours* for about a second, in Firefox
+  longer; every further open took over a second as well. Each group now
+  builds its fields when it is first unfolded. The help of *Grid outage*
+  stands once at the top instead of twice.
 
 ## [0.9.0] - 2026-10-17
 

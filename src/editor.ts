@@ -1085,6 +1085,8 @@ class EnerLensCardEditor extends LitElement {
     _picker: { state: true },
     _pickerMode: { state: true },
     _openConsumers: { state: true },
+    _builtSections: { state: true },
+    _builtConsumers: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -1126,6 +1128,16 @@ class EnerLensCardEditor extends LitElement {
   private _nextConsumerKey = 0;
   /** Keys of the unfolded consumer entries. */
   private _openConsumers: ReadonlySet<number> = new Set();
+  /**
+   * Sections and consumer entries that have been unfolded at least once. Only
+   * these carry their ha-form (REQ E-3, EL-I2): ha-form builds the fields of
+   * folded groups too, and every entity picker walks all entities of the
+   * installation - 47 of them made a cold first open take 1.6 s in Firefox,
+   * with only the consumers and colours on screen for the first second. Once
+   * built, a form stays, so focus and a half-typed value survive folding.
+   */
+  private _builtSections: ReadonlySet<string> = new Set();
+  private _builtConsumers: ReadonlySet<number> = new Set();
 
   setConfig(config: RawConfig): void {
     this._config = config;
@@ -1156,6 +1168,9 @@ class EnerLensCardEditor extends LitElement {
   /** Helper text under a field. Empty for the self-explanatory ones - localize
    *  returns the key itself when there is no entry. */
   private _helper = (item: { name: string }): string => {
+    // The outage section says it once, above its fields; under the entity
+    // picker it only repeated itself (Markus, 18.10.2026).
+    if (item.name === "grid_status") return "";
     let key = `editor_help.${item.name.replace(/^node_(?:solar|grid|house|battery)_/, "node_")}`;
     if (item.name.startsWith("color_")) key = "editor_help.color";
     if (item.name.endsWith("_source")) {
@@ -1929,7 +1944,13 @@ class EnerLensCardEditor extends LitElement {
     const fields = slot === -1 ? [] : all.slice(slot + 1);
     const cut = fields.findIndex((item) => item.name === "icons");
     const split = cut === -1 ? fields.length : cut;
-    const form = (items: typeof fields) => html`
+    return html`${this._renderPieces(head)}${this._renderConsumers()}${this._renderPieces(
+      fields.slice(0, split),
+    )}${this._renderColors()}${this._renderPieces(fields.slice(split))}`;
+  }
+
+  private _form(items: readonly Record<string, unknown>[]): TemplateResult {
+    return html`
       <ha-form
         .hass=${this.hass}
         .data=${this._flat}
@@ -1939,7 +1960,54 @@ class EnerLensCardEditor extends LitElement {
         @value-changed=${this._valueChanged}
       ></ha-form>
     `;
-    return html`${form(head)}${this._renderConsumers()}${form(fields.slice(0, split))}${this._renderColors()}${form(fields.slice(split))}`;
+  }
+
+  /**
+   * A run of schema items: plain fields go into one ha-form, each top-level
+   * group becomes a panel of our own that builds its form on first unfolding
+   * (REQ E-3, EL-I2). The groups are flattened, so the form inside reads and
+   * reports the same flat data the whole schema did.
+   */
+  private _renderPieces(items: readonly Record<string, unknown>[]): TemplateResult[] {
+    const out: TemplateResult[] = [];
+    let plain: Record<string, unknown>[] = [];
+    for (const item of items) {
+      if (item.type !== "expandable") {
+        plain.push(item);
+        continue;
+      }
+      if (plain.length) out.push(this._form(plain));
+      plain = [];
+      out.push(this._renderSection(item));
+    }
+    if (plain.length) out.push(this._form(plain));
+    return out;
+  }
+
+  private _renderSection(item: Record<string, unknown>): TemplateResult {
+    const name = String(item.name);
+    const built = this._builtSections.has(name);
+    // ha-form-expandable put the group's own help above its fields.
+    const help = localize(`editor_help.${name}`, this.hass);
+    const description = help === `editor_help.${name}` ? "" : help;
+    return html`
+      <ha-expansion-panel
+        outlined
+        class="section"
+        data-section=${name}
+        @expanded-will-change=${(ev: CustomEvent<{ expanded: boolean }>) => {
+          // Before the panel measures its content, so it unfolds to full height.
+          if (ev.target !== ev.currentTarget || !ev.detail.expanded || built) return;
+          this._builtSections = new Set([...this._builtSections, name]);
+        }}
+      >
+        <div slot="header" role="heading" aria-level="3">${item.title}</div>
+        <div class="section-content">
+          ${description ? html`<p class="section-description">${description}</p>` : nothing}
+          ${built ? this._form(item.schema as Record<string, unknown>[]) : nothing}
+        </div>
+      </ha-expansion-panel>
+    `;
   }
 
   // --- consumers (REQ E-4, L-15) -----------------------------------------------
@@ -2013,6 +2081,12 @@ class EnerLensCardEditor extends LitElement {
         outlined
         class="consumer"
         .expanded=${this._openConsumers.has(key)}
+        @expanded-will-change=${(ev: CustomEvent<{ expanded: boolean }>) => {
+          // Built before the panel measures its content (REQ E-3, EL-I2).
+          if (ev.target !== ev.currentTarget || !ev.detail.expanded) return;
+          if (this._builtConsumers.has(key)) return;
+          this._builtConsumers = new Set([...this._builtConsumers, key]);
+        }}
         @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => {
           // Nested panels bubble theirs too; only this entry's own counts.
           if (ev.target !== ev.currentTarget) return;
@@ -2084,17 +2158,21 @@ class EnerLensCardEditor extends LitElement {
             <ha-icon icon="mdi:close"></ha-icon>
           </button>
         </div>
-        <ha-form
-          .hass=${this.hass}
-          .data=${row}
-          .schema=${consumerSchema(this.hass as HomeAssistant, row)}
-          .computeLabel=${this._consumerLabel}
-          .computeHelper=${this._consumerHelper}
-          @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
-            ev.stopPropagation();
-            this._setConsumer(index, ev.detail.value);
-          }}
-        ></ha-form>
+        ${
+          this._builtConsumers.has(key)
+            ? html`<ha-form
+                .hass=${this.hass}
+                .data=${row}
+                .schema=${consumerSchema(this.hass as HomeAssistant, row)}
+                .computeLabel=${this._consumerLabel}
+                .computeHelper=${this._consumerHelper}
+                @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
+                  ev.stopPropagation();
+                  this._setConsumer(index, ev.detail.value);
+                }}
+              ></ha-form>`
+            : nothing
+        }
       </ha-expansion-panel>
     `;
   }
@@ -2122,6 +2200,9 @@ class EnerLensCardEditor extends LitElement {
     const rows = [...this._consumerRows(), {}];
     const keys = [...this._keysFor(rows.length - 1), this._nextConsumerKey++];
     this._openConsumers = new Set([...this._openConsumers, keys[keys.length - 1]]);
+    // Opened from code, so the panel announces nothing: built here, and kept
+    // when it is folded like any other (REQ E-3).
+    this._builtConsumers = new Set([...this._builtConsumers, keys[keys.length - 1]]);
     this._writeConsumers(rows, keys);
   };
 
@@ -2165,6 +2246,22 @@ class EnerLensCardEditor extends LitElement {
 
     ha-form {
       display: block;
+    }
+
+    /* A top-level group, drawn as ha-form-expandable draws its own. */
+    .section {
+      display: block;
+      --expansion-panel-content-padding: 0;
+      border-radius: var(--ha-border-radius-md);
+      --ha-card-border-radius: var(--ha-border-radius-md);
+    }
+
+    .section-content {
+      padding: 12px;
+    }
+
+    .section-description {
+      margin: 0 0 24px;
     }
 
     /* The consumers (REQ E-4): one unfoldable entry each, its form inside. */

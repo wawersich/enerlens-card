@@ -8,6 +8,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { normalizeConfig } from "../src/config";
 import type { HomeAssistant, RawConfig } from "../src/types";
+import { topSchema, unfoldAll } from "./editor-panels";
 
 type Editor = HTMLElement & {
   setConfig: (c: RawConfig) => void;
@@ -42,6 +43,7 @@ async function mount(config: RawConfig): Promise<Editor> {
   el.setConfig(config);
   document.body.appendChild(el);
   await el.updateComplete;
+  await unfoldAll(el);
   return el;
 }
 
@@ -54,11 +56,7 @@ function names(fields: Field[] = []): string[] {
 }
 
 function group(el: Editor, name: string): Field | undefined {
-  for (const form of forms(el)) {
-    const hit = form.schema.find((g) => g.name === name);
-    if (hit) return hit;
-  }
-  return undefined;
+  return topSchema(el).find((g) => g.name === name);
 }
 
 function sub(el: Editor, node: string): Field | undefined {
@@ -89,19 +87,26 @@ describe("editor - nodes (REQ Z-10)", () => {
 
   it("puts the groups in the new order", async () => {
     const el = await mount(BASE);
-    const order = forms(el).map((f) => f.schema.map((g) => g.name));
-    expect(order[0]).toEqual(["title", "entities", "nodes"]);
-    // The consumers panel sits between the first and the second form.
-    expect(order[1]).toEqual(["grid_status", "display", "flow"]);
-    expect(order[2]).toEqual(["icons"]);
     const panels = [...(el.shadowRoot?.children ?? [])].map((c) =>
       c.localName === "ha-form"
-        ? "form"
+        ? (c as unknown as Form).schema.map((g) => g.name).join("+")
         : c.classList.contains("consumers-panel")
           ? "consumers"
-          : c.localName,
+          : c.classList.contains("section")
+            ? (c as HTMLElement).dataset.section
+            : c.localName,
     );
-    expect(panels.indexOf("consumers")).toBe(1);
+    expect(panels).toEqual([
+      "title",
+      "entities",
+      "nodes",
+      "consumers",
+      "grid_status",
+      "display",
+      "flow",
+      "ha-expansion-panel",
+      "icons",
+    ]);
   });
 
   it("splits the main entities into one closed section per node (E-3)", async () => {
