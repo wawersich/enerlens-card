@@ -526,7 +526,20 @@ describe("battery node", () => {
   });
 });
 
+/** The card registered and ResizeObserver stubbed, for a describe run on its own. */
+async function loadCard() {
+  (globalThis as unknown as Record<string, unknown>).ResizeObserver ??= class {
+    observe() {}
+    disconnect() {}
+  };
+  await import("../src/enerlens-card");
+}
+
 describe("view modes (REQ V-1 to V-9)", () => {
+  beforeAll(loadCard);
+  // A remembered view would leak into the tests after it, failed or not.
+  afterEach(() => localStorage.removeItem("enerlens-view-mode"));
+
   async function mountWithModes(view?: Record<string, unknown>) {
     const el = document.createElement("enerlens-card") as HTMLElement & {
       setConfig: (c: unknown) => void;
@@ -540,6 +553,61 @@ describe("view modes (REQ V-1 to V-9)", () => {
     await el.updateComplete;
     return el;
   }
+
+  it("opens an average view with the history already in it (V-6, issue #16)", async () => {
+    // Home Assistant sets the configuration first and hass afterwards
+    // (hui-card.ts); a card opening in an average view must still fetch the
+    // recent history once, so the mean covers its whole window from the start.
+    const open = async (view: Record<string, unknown> | undefined) => {
+      const calls: string[] = [];
+      const longAgo = (Date.now() - 20 * 60_000) / 1000;
+      const history = Object.fromEntries(
+        Object.entries(STATES).map(([id, state]) => [id, [{ s: state, lu: longAgo }]]),
+      );
+      // Live states that changed just now, as on a dashboard: without the
+      // history the window cannot be full.
+      const now = new Date().toISOString();
+      const live = fakeHass(STATES);
+      for (const state of Object.values(live.states)) {
+        state.last_changed = now;
+        state.last_updated = now;
+      }
+      const hass = {
+        ...live,
+        callWS: async (msg: Record<string, unknown>) => {
+          calls.push(String(msg.type));
+          return history as never;
+        },
+      } as HomeAssistant;
+      const el = document.createElement("enerlens-card") as HTMLElement & {
+        setConfig: (c: unknown) => void;
+        hass: HomeAssistant;
+        updateComplete: Promise<unknown>;
+        _buffer?: { status: (now: number) => { complete: boolean } };
+      };
+      el.setConfig(view ? { ...CONFIG, view } : CONFIG);
+      el.hass = hass;
+      document.body.appendChild(el);
+      await el.updateComplete;
+      await new Promise((r) => setTimeout(r, 0));
+      // Further state updates do not fetch again.
+      el.hass = { ...hass, states: { ...hass.states } };
+      await el.updateComplete;
+      await new Promise((r) => setTimeout(r, 0));
+      const history_calls = calls.filter((t) => t === "history/history_during_period").length;
+      const complete = el._buffer?.status(Date.now()).complete;
+      el.remove();
+      return { history_calls, complete };
+    };
+    // Configured as the start view.
+    expect(await open({ default_mode: "avg_long" })).toEqual({ history_calls: 1, complete: true });
+    // Remembered from last time.
+    localStorage.setItem("enerlens-view-mode", "avg_long");
+    expect(await open(undefined)).toEqual({ history_calls: 1, complete: true });
+    localStorage.removeItem("enerlens-view-mode");
+    // Opening on "now" fetches nothing.
+    expect((await open(undefined)).history_calls).toBe(0);
+  });
 
   it("offers three chips with the configured windows", async () => {
     const el = await mountWithModes({ avg_short_minutes: 3, avg_long_minutes: 20 });
@@ -1282,5 +1350,186 @@ describe("dots and lines grow with the card (REQ K-12, issues #10 and #12)", () 
     } finally {
       HTMLElement.prototype.getBoundingClientRect = real;
     }
+  });
+});
+
+describe("history prefill (V-6, issue #16)", () => {
+  beforeAll(loadCard);
+  type Card = HTMLElement & {
+    setConfig: (c: unknown) => void;
+    hass: HomeAssistant;
+    updateComplete: Promise<unknown>;
+    preview?: boolean;
+    _buffer?: { status: (now: number) => { complete: boolean } };
+  };
+  const settle = async (el: Card) => {
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    await el.updateComplete;
+  };
+  afterEach(() => localStorage.removeItem("enerlens-view-mode"));
+
+  /** A card built the way hui-card builds it, with a recorder that counts. */
+  function build(
+    config: Record<string, unknown>,
+    states: Record<string, string> = STATES,
+    answer: (msg: {
+      type: string;
+      start_time?: string;
+      end_time?: string;
+    }) => Promise<unknown> = async () => ({}),
+  ) {
+    const lookups: { type: string; start_time?: string; end_time?: string }[] = [];
+    const live = fakeHass(states);
+    const now = new Date().toISOString();
+    for (const state of Object.values(live.states)) {
+      state.last_changed = now;
+      state.last_updated = now;
+    }
+    const hass = {
+      ...live,
+      callWS: async (msg: Record<string, unknown>) => {
+        lookups.push(msg as { type: string; start_time?: string; end_time?: string });
+        return (await answer(msg as { type: string })) as never;
+      },
+    } as HomeAssistant;
+    const el = document.createElement("enerlens-card") as Card;
+    el.setConfig(config);
+    el.hass = hass;
+    const history = () => lookups.filter((m) => m.type === "history/history_during_period");
+    return { el, hass, history };
+  }
+
+  it("fetches nothing in the editor preview, which HA flags only after hass", async () => {
+    const { el, history } = build({ ...CONFIG, view: { default_mode: "avg_long" } });
+    el.preview = true;
+    document.body.appendChild(el);
+    await settle(el);
+    expect(history()).toHaveLength(0);
+    el.remove();
+  });
+
+  it("fetches nothing for a card that is never shown", async () => {
+    const { el, history } = build({ ...CONFIG, view: { default_mode: "avg_long" } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(el.isConnected).toBe(false);
+    expect(history()).toHaveLength(0);
+  });
+
+  it("fetches nothing for example values, once when real sensors take over (E-5)", async () => {
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: () => Record<string, unknown>;
+    };
+    const stub = {
+      type: "custom:enerlens-card",
+      ...card.getStubConfig(),
+      view: { default_mode: "avg_long" },
+    };
+    const { el, hass, history } = build(stub, {});
+    document.body.appendChild(el);
+    await settle(el);
+    expect(history()).toHaveLength(0);
+    el.hass = {
+      ...hass,
+      states: fakeHass({ "sensor.solar_power": "1000", "sensor.grid_power": "200" }).states,
+    };
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    el.remove();
+  });
+
+  it("fetches once when the editor replaces the placeholders (E-5)", async () => {
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: () => Record<string, unknown>;
+    };
+    const stub = {
+      type: "custom:enerlens-card",
+      ...card.getStubConfig(),
+      view: { default_mode: "avg_long" },
+    };
+    const { el, history } = build(stub);
+    document.body.appendChild(el);
+    await settle(el);
+    expect(history()).toHaveLength(0);
+    el.setConfig({ ...stub, entities: { solar: "sensor.solar", grid: "sensor.grid" } });
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    el.remove();
+  });
+
+  it("fetches again for a new window length, and only for that", async () => {
+    const config = { ...CONFIG, view: { default_mode: "avg_long", avg_long_minutes: 15 } };
+    const { el, history } = build(config);
+    document.body.appendChild(el);
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    el.setConfig({ ...config, title: "Other title" });
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    el.setConfig({ ...config, view: { ...config.view, avg_long_minutes: 30 } });
+    await settle(el);
+    expect(history()).toHaveLength(2);
+    const last = history()[1];
+    const span = Date.parse(last.end_time ?? "") - Date.parse(last.start_time ?? "");
+    expect(Math.round(span / 60_000)).toBe(30);
+    el.remove();
+  });
+
+  it("drops an answer whose buffer was replaced meanwhile", async () => {
+    const pending: ((v: unknown) => void)[] = [];
+    const longAgo = (Date.now() - 40 * 60_000) / 1000;
+    const config = { ...CONFIG, view: { default_mode: "avg_long", avg_long_minutes: 15 } };
+    const { el, history } = build(config, STATES, () => new Promise((r) => pending.push(r)));
+    document.body.appendChild(el);
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    // The window changes while the first answer is still on its way.
+    el.setConfig({ ...config, view: { ...config.view, avg_long_minutes: 30 } });
+    await settle(el);
+    expect(history()).toHaveLength(2);
+    const old = Object.fromEntries(
+      Object.entries(STATES).map(([id, s]) => [id, [{ s, lu: longAgo }]]),
+    );
+    pending[0](old);
+    await settle(el);
+    expect(el._buffer?.status(Date.now()).complete).toBe(false);
+    pending[1](old);
+    await settle(el);
+    expect(el._buffer?.status(Date.now()).complete).toBe(true);
+    el.remove();
+  });
+
+  it("does not retry a failed lookup on every update", async () => {
+    const { el, hass, history } = build(
+      { ...CONFIG, view: { default_mode: "avg_long" } },
+      STATES,
+      async () => {
+        throw new Error("recorder down");
+      },
+    );
+    document.body.appendChild(el);
+    await settle(el);
+    el.hass = { ...hass, states: { ...hass.states } };
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    el.remove();
+  });
+
+  it("fetches again on every tap into an average, not on the active chip (Markus, 18.10.2026)", async () => {
+    const { el, history } = build(CONFIG);
+    document.body.appendChild(el);
+    await settle(el);
+    expect(history()).toHaveLength(0);
+    const chips = () => el.shadowRoot?.querySelectorAll<HTMLElement>(".mode") ?? [];
+    chips()[1]?.click();
+    await settle(el);
+    expect(history()).toHaveLength(1);
+    chips()[2]?.click();
+    await settle(el);
+    expect(history()).toHaveLength(2);
+    chips()[2]?.click();
+    await settle(el);
+    expect(history()).toHaveLength(2);
+    el.remove();
   });
 });

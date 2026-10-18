@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **Figures in languages with other digits** (Persian, Bengali, Marathi …)
   were all shown as zero.
+- **An average view opened directly has its history again** (#16). A card
+  that opened in "Ø 2 min" or "Ø 15 min" - set as the start view, or
+  remembered from last time - never fetched the recent history, so right
+  after loading the mean covered only the seconds since then. It now fetches
+  it once on opening; the editor preview still fetches nothing.
 - **Lines no longer show inside the circles on a transparent card.** With
   the card made transparent through card-mod, as the README shows, the ends
   of the lines and the dots on them could be seen inside every circle; the

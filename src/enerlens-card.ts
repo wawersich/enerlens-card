@@ -122,8 +122,8 @@ class EnerLensCard extends LitElement {
   private _lastEntries = new Map<string, { w: number; color: string; threshold: number }>();
   private _mode: ViewMode = "current";
   private _buffer?: AveragingBuffer;
-  /** Set while a prefill is in flight, so a mode switch does not start a second. */
-  private _prefilling = false;
+  /** The buffer the history was last fetched for (REQ V-6, issue #16). */
+  private _historyFor?: AveragingBuffer;
   /** Oldest sample time when the window is not yet full (REQ V-6). */
   private _since?: string;
   private _resizeObserver?: ResizeObserver;
@@ -316,9 +316,12 @@ class EnerLensCard extends LitElement {
           this._mode = stored;
         }
       }
-      if (this._mode !== "current") void this._prefill();
     }
     if (view.remember && !previous) this._showAll = load(SHOW_ALL_KEY) === "1";
+    // A new buffer or view wants its history, fetched after the next render.
+    // Setting the model above already asks for that render where hass is
+    // there; this only makes sure of it.
+    this.requestUpdate();
 
     // A latched outage is history, not configuration; only a different status
     // entity makes what we latched meaningless.
@@ -436,34 +439,51 @@ class EnerLensCard extends LitElement {
   }
 
   /**
-   * Pulls recent history in one request so a freshly opened card does not have
-   * to wait a quarter of an hour for its first mean (REQ V-6). Skipped in the
-   * editor preview, which recreates the card on every keystroke.
+   * Fetches the recent history into the averaging buffer once it is wanted
+   * (REQ V-6): an average view is on and this buffer has not been filled yet.
+   * Called after every render rather than from setConfig or the hass setter -
+   * Home Assistant calls setConfig before it hands over hass and sets
+   * `preview` only after the first hass, so a fetch started there either went
+   * nowhere (issue #16) or would run in the editor preview. `force` is a tap
+   * on a chip: it fetches again, which also mends a gap (until V-7 does).
    */
-  private async _prefill(): Promise<void> {
-    if (!this._hass || !this._config || !this._buffer || this._prefilling) return;
-    if (this._example) return;
-    if ((this as unknown as { preview?: boolean }).preview) return;
-    this._prefilling = true;
+  private _ensureHistory(force = false): void {
+    const buffer = this._buffer;
+    if (!buffer || this._mode === "current" || !this._hass || !this._config) return;
+    if (!force && this._historyFor === buffer) return;
+    // Example values are never averaged (E-5); the preview fetches nothing.
+    if (this._example || (this as unknown as { preview?: boolean }).preview) return;
+    this._historyFor = buffer;
+    void this._prefill(buffer);
+  }
+
+  private async _prefill(buffer: AveragingBuffer): Promise<void> {
+    const hass = this._hass;
+    const config = this._config;
+    if (!hass || !config) return;
     try {
-      const history = await fetchHistory(
-        this._hass,
-        this._entityIds,
-        this._config.view.avgLongMinutes,
-      );
+      const history = await fetchHistory(hass, this._entityIds, config.view.avgLongMinutes);
+      // A new window length brought a new buffer meanwhile: this answer is
+      // for the old one and has its own fetch coming.
+      if (buffer !== this._buffer) return;
       for (const [entityId, samples] of Object.entries(history)) {
-        const unit = this._hass.states[entityId]?.attributes.unit_of_measurement;
+        const unit = hass.states[entityId]?.attributes.unit_of_measurement;
         for (const sample of samples as Sample[]) {
-          this._buffer.push(entityId, sample.t, this._toWatts(sample.v, unit));
+          buffer.push(entityId, sample.t, this._toWatts(sample.v, unit));
         }
+      }
+      // List order, ring and dots follow the full mean now, not at the next
+      // tick up to update_interval_s later (V-8).
+      if (this._hass && this._config) {
+        this._tickModel = this._modelForMode(this._hass, this._config);
       }
       this._updateSince();
     } catch {
       // Recorder slow or unavailable: carry on with live buffering and label
-      // the mode with "since hh:mm" until the window fills (REQ V-6).
+      // the mode with "since hh:mm" until the window fills (REQ V-6). No retry
+      // on its own - a tap on a chip asks again.
       this._updateSince();
     } finally {
-      this._prefilling = false;
       this.requestUpdate();
     }
   }
@@ -518,7 +538,7 @@ class EnerLensCard extends LitElement {
     if (mode === this._mode) return;
     this._mode = mode;
     if (this._config?.view.remember) store(MODE_KEY, mode);
-    if (mode !== "current") void this._prefill();
+    this._ensureHistory(true);
     this._updateSince();
     // A switch takes effect at once rather than waiting for the next tick (V-8).
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
@@ -795,6 +815,7 @@ class EnerLensCard extends LitElement {
   }
 
   protected updated(): void {
+    this._ensureHistory();
     this._rows.play(
       this.renderRoot.querySelector(".body"),
       this._animationsWanted && this._settled,
