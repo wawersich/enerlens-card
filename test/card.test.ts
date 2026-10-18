@@ -3,7 +3,7 @@
  * Renders the actual custom element. This is the layer where a broken template
  * or a missing update trigger shows up - unit tests on the modules cannot see it.
  */
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { unzoomPath } from "../src/render/path-zoom";
 import type { HomeAssistant } from "../src/types";
 import { fakeMotion } from "./motion";
@@ -56,6 +56,10 @@ const STATES = {
 };
 
 describe("enerlens-card element", () => {
+  // A test that picks an average view leaves it remembered for every card
+  // after it - even when it fails halfway.
+  afterEach(() => localStorage.removeItem("enerlens-view-mode"));
+
   beforeAll(async () => {
     // happy-dom has no ResizeObserver; the card uses it only for the scale factor.
     (globalThis as unknown as Record<string, unknown>).ResizeObserver = class {
@@ -79,7 +83,9 @@ describe("enerlens-card element", () => {
     return el;
   }
 
-  it("starts a new card with power sensors only (E-5)", () => {
+  it("starts a new card with placeholders, never guessing sensors (E-5)", () => {
+    // Guessing by order or by name picks plausible wrong sensors on large
+    // setups - a single PV string, one battery module, a tablet's battery.
     const card = customElements.get("enerlens-card") as unknown as {
       getStubConfig: (
         hass: HomeAssistant,
@@ -87,54 +93,148 @@ describe("enerlens-card element", () => {
         fallback: string[],
       ) => { entities: Record<string, string> };
     };
-    const state = (entity_id: string, state: string, attributes: Record<string, unknown>) => ({
-      entity_id,
-      state,
-      attributes,
-      last_changed: "",
-      last_updated: "",
-    });
-    const hass = {
-      ...fakeHass({}),
-      states: {
-        "sensor.outside": state("sensor.outside", "12.5", { unit_of_measurement: "°C" }),
-        "sensor.mode": state("sensor.mode", "eco", {}),
-        "sensor.pv": state("sensor.pv", "1200", { unit_of_measurement: "W" }),
-        "sensor.meter": state("sensor.meter", "0.4", { device_class: "power" }),
-        "sensor.boiler": state("sensor.boiler", "2", { unit_of_measurement: "kW" }),
-        "sensor.heat": state("sensor.heat", "900", {
-          unit_of_measurement: "BTU/h",
-          device_class: "power",
-        }),
-        "number.limit": state("number.limit", "800", { unit_of_measurement: "W" }),
-      },
-    } as HomeAssistant;
-    // Temperatures, modes, a power unit the card cannot read, a W that is no
-    // sensor and an entity that is gone are skipped; the first list (on no
-    // dashboard yet) comes before the second (already in use).
-    expect(
-      card.getStubConfig(
-        hass,
-        [
-          "sensor.outside",
-          "sensor.mode",
-          "sensor.heat",
-          "number.limit",
-          "sensor.gone",
-          "sensor.boiler",
-        ],
-        ["sensor.pv"],
-      ).entities,
-    ).toEqual({ solar: "sensor.boiler", grid: "sensor.pv" });
-    expect(card.getStubConfig(hass, [], ["sensor.meter", "sensor.pv"]).entities).toEqual({
-      solar: "sensor.meter",
-      grid: "sensor.pv",
-    });
-    // Nothing that measures power: the example names.
-    expect(card.getStubConfig(hass, ["sensor.outside"], ["sensor.mode"]).entities).toEqual({
+    const hass = fakeHass({ "sensor.pv": "1200", "sensor.meter": "300" });
+    expect(card.getStubConfig(hass, ["sensor.pv", "sensor.meter"], []).entities).toEqual({
       solar: "sensor.solar_power",
       grid: "sensor.grid_power",
     });
+  });
+
+  it("shows example values, marked as such, until the placeholders are replaced (E-5)", async () => {
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: (hass: HomeAssistant, entities: string[], fallback: string[]) => object;
+    };
+    const mountWith = async (states: Record<string, string>, config?: object) => {
+      const el = document.createElement("enerlens-card") as HTMLElement & {
+        setConfig: (c: unknown) => void;
+        hass: HomeAssistant;
+        updateComplete: Promise<unknown>;
+      };
+      const hass = fakeHass(states);
+      el.setConfig({
+        type: "custom:enerlens-card",
+        ...(config ?? card.getStubConfig(hass, [], [])),
+      });
+      el.hass = hass;
+      document.body.appendChild(el);
+      await el.updateComplete;
+      return el;
+    };
+    // Nothing configured exists: invented values and a hint that says so.
+    const example = await mountWith({ "sensor.other": "5" });
+    const text = example.shadowRoot?.textContent ?? "";
+    expect(example.shadowRoot?.querySelector(".example-banner")).not.toBeNull();
+    expect(text).toContain("Beispielwerte");
+    expect(text).toContain("3,20 kW");
+    expect(text).toContain("0,45 kW");
+    expect(text).toContain("3,65 kW");
+    example.remove();
+    // The placeholder names exist: they are used, with nothing invented.
+    const real = await mountWith({ "sensor.solar_power": "1000", "sensor.grid_power": "200" });
+    expect(real.shadowRoot?.querySelector(".example-banner")).toBeNull();
+    expect(real.shadowRoot?.textContent ?? "").toContain("1,00 kW");
+    real.remove();
+    // A real configuration whose sensors are missing gets dashes, never examples.
+    const missing = await mountWith(
+      {},
+      { entities: { solar: "sensor.my_pv", grid: "sensor.my_grid" } },
+    );
+    expect(missing.shadowRoot?.querySelector(".example-banner")).toBeNull();
+    expect(missing.shadowRoot?.textContent ?? "").not.toContain("3,20 kW");
+    missing.remove();
+  });
+
+  it("never lets example values outlive the example (E-5)", async () => {
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: () => Record<string, unknown>;
+    };
+    type El = HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+    };
+    const stub = { type: "custom:enerlens-card", ...card.getStubConfig() };
+    const mountWith = async (config: object, hass: HomeAssistant) => {
+      const el = document.createElement("enerlens-card") as El;
+      el.setConfig(config);
+      el.hass = hass;
+      document.body.appendChild(el);
+      await el.updateComplete;
+      return el;
+    };
+    const banner = (el: El) => el.shadowRoot?.querySelector(".example-banner");
+
+    // Tapping an example node opens nothing: the entity does not exist.
+    const opened: string[] = [];
+    const listen = (e: Event) => opened.push((e as CustomEvent).detail?.entityId);
+    document.addEventListener("hass-more-info", listen);
+    const tapped = await mountWith(stub, fakeHass({}));
+    tapped.shadowRoot?.querySelector<HTMLElement>(".node.solar .hit")?.click();
+    document.removeEventListener("hass-more-info", listen);
+    expect(opened).toEqual([]);
+    tapped.remove();
+
+    // Picking a real sensor in the editor ends the example at once, without
+    // waiting for the next state update - and the averages never saw it.
+    const hass = fakeHass({ "sensor.pv": "1000" });
+    const el = await mountWith(stub, hass);
+    expect(banner(el)).not.toBeNull();
+    const avg = el.shadowRoot?.querySelectorAll<HTMLElement>(".mode")[1];
+    avg?.click();
+    await el.updateComplete;
+    el.setConfig({ ...stub, entities: { solar: "sensor.pv", grid: "sensor.grid_power" } });
+    await el.updateComplete;
+    expect(banner(el)).toBeNull();
+    expect(el.shadowRoot?.textContent ?? "").not.toContain("0,45 kW");
+    el.remove();
+
+    // A real extra value is a real configuration: no invented PV beside it.
+    const extra = await mountWith(
+      { ...stub, nodes: { house: { label: { entity: "sensor.share" } } } },
+      fakeHass({ "sensor.share": "80" }),
+    );
+    expect(banner(extra)).toBeNull();
+    extra.remove();
+
+    // A registered sensor that only has no state yet is real, too.
+    const registered = {
+      ...fakeHass({}),
+      entities: { "sensor.solar_power": { entity_id: "sensor.solar_power" } },
+    } as unknown as HomeAssistant;
+    const restart = await mountWith(stub, registered);
+    expect(banner(restart)).toBeNull();
+    restart.remove();
+  });
+
+  it("shows the example in a remembered average view, and fetches no history for it (E-5)", async () => {
+    localStorage.setItem("enerlens-view-mode", "avg_long");
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: () => Record<string, unknown>;
+    };
+    let lookups = 0;
+    const hass = {
+      ...fakeHass({}),
+      callWS: async () => {
+        lookups++;
+        return {} as never;
+      },
+    };
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+    };
+    el.setConfig({ type: "custom:enerlens-card", ...card.getStubConfig() });
+    el.hass = hass;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    // The example has no history to average: it shows its invented now.
+    expect(el.shadowRoot?.textContent ?? "").toContain("3,20 kW");
+    // Picking the view again asks for history - not for placeholders.
+    el.shadowRoot?.querySelectorAll<HTMLElement>(".mode")[1]?.click();
+    await el.updateComplete;
+    expect(lookups).toBe(0);
+    el.remove();
   });
 
   it("starts a new card with an icon on the remainder row (E-5)", async () => {

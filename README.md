@@ -106,6 +106,10 @@ inverted one, two entities, or a derived quantity — is a choice in the form, s
 YAML is never required. Only the consumer palette stays YAML-only. The YAML is
 documented for people who prefer it.
 
+A card added through the dashboard does not guess your sensors: it starts with
+the placeholders `sensor.solar_power` and `sensor.grid_power` and shows example
+values, marked as such, until you pick your own.
+
 ### Minimal
 
 ```yaml

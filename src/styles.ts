@@ -119,6 +119,20 @@ export const styles = css`
     font-weight: 600;
   }
 
+  /* Same strip as the outage one, in neutral colours: a note, not an alarm. */
+  .example-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 16px 6px;
+    padding: 6px 10px;
+    border-radius: 9px;
+    background: var(--secondary-background-color, rgba(127, 127, 127, 0.15));
+    color: var(--primary-text-color);
+    font-size: 13px;
+  }
+
+  .example-banner ha-icon,
   .outage-banner ha-icon {
     --mdc-icon-size: 18px;
     display: flex;

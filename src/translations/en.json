@@ -276,5 +276,8 @@
   "outage": {
     "banner": "Island mode — no grid",
     "label": "Grid status"
+  },
+  "example": {
+    "banner": "Example values — pick your sensors in the editor"
   }
 }

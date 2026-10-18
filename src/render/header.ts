@@ -25,6 +25,14 @@ export function renderOutageBanner(hass: HomeAssistant): TemplateResult {
   </div>`;
 }
 
+/** Marks invented readings while only placeholder sensors are set (REQ E-5). */
+export function renderExampleBanner(hass: HomeAssistant): TemplateResult {
+  return html`<div class="example-banner" role="status">
+    <ha-icon icon="mdi:information-outline"></ha-icon>
+    <span>${localize("example.banner", hass)}</span>
+  </div>`;
+}
+
 export function renderHeader(
   config: Config,
   hass: HomeAssistant,

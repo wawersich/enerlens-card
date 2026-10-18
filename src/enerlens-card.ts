@@ -5,18 +5,27 @@ import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { AveragingBuffer, fetchHistory } from "./averaging";
 import { ChargeTracker } from "./charge";
 import { collectChargeIds, collectEntityIds, collectExtraIds, normalizeConfig } from "./config";
-import { BUILD_ID, CARD_LABEL, CARD_NAME, CARD_VERSION, EDITOR_NAME, REPO_URL } from "./const";
+import {
+  BUILD_ID,
+  CARD_LABEL,
+  CARD_NAME,
+  CARD_VERSION,
+  EDITOR_NAME,
+  EXAMPLE_W,
+  REPO_URL,
+  STUB_ENTITIES,
+} from "./const";
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
 import { computeFlows, dotParams, planDots } from "./flow";
-import { POWER_UNITS, buildModel, buildModelFrom, readPowerW } from "./model";
+import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
 import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import { NODE_R, VIEW_W, holesPath } from "./render/geometry";
 import { groundIsDark, seeThrough } from "./render/ground";
-import { renderHeader, renderOutageBanner } from "./render/header";
+import { renderExampleBanner, renderHeader, renderOutageBanner } from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
@@ -65,6 +74,20 @@ function sameStatus(a?: GridStatusSpec, b?: GridStatusSpec): boolean {
     x.length === y.length && x.every((value, i) => value === y[i]);
   return a.entity === b.entity && same(a.outage, b.outage) && same(a.ok, b.ok);
 }
+
+/** The placeholders' invented readings, built once so they never count as a change. */
+const EXAMPLE_STATES: HomeAssistant["states"] = Object.fromEntries(
+  (Object.keys(STUB_ENTITIES) as (keyof typeof STUB_ENTITIES)[]).map((key) => [
+    STUB_ENTITIES[key],
+    {
+      entity_id: STUB_ENTITIES[key],
+      state: String(EXAMPLE_W[key]),
+      attributes: { unit_of_measurement: "W", device_class: "power" },
+      last_changed: "",
+      last_updated: "",
+    },
+  ]),
+);
 
 class EnerLensCard extends LitElement {
   static styles = styles;
@@ -158,7 +181,9 @@ class EnerLensCard extends LitElement {
   private _pathZoom = 1;
   private readonly _onWindowResize = () => this._measurePathZoom();
 
-  set hass(hass: HomeAssistant) {
+  set hass(real: HomeAssistant) {
+    this._realHass = real;
+    const hass = this._withExample(real);
     const previous = this._hass;
     this._hass = hass;
     if (!this._config) return;
@@ -175,7 +200,40 @@ class EnerLensCard extends LitElement {
     this._observeCharge(hass);
     this._model = buildModel(hass, this._config, this._chargeOf);
     this._tickModel ??= this._model;
-    this._recordSamples(hass);
+    // Invented readings never go into the averages: they would outlive the
+    // example as a "measured" mean (E-5).
+    if (!this._example) this._recordSamples(hass);
+  }
+  /** Whether the card shows invented readings, marked as such (REQ E-5). */
+  private _example = false;
+  /** A tap on an example node would open a dialog for an entity that does not exist. */
+  private _onMoreInfo = (ev: Event): void => {
+    if (this._example) ev.stopPropagation();
+  };
+
+  /** The hass Home Assistant handed over, before any example was put in. */
+  private _realHass?: HomeAssistant;
+
+  /**
+   * A new card starts with placeholder sensors (E-5). Where none of the
+   * configured entities exists and they are only those placeholders, the card
+   * reads invented values instead and says so in a banner - in the card
+   * picker, which sets no preview flag, in the editor and on a dashboard
+   * alike. Any real configuration, even one whose sensors are missing, keeps
+   * its own readings: measured values are never made up.
+   */
+  private _withExample(hass: HomeAssistant): HomeAssistant {
+    // Every entity the configuration names counts - extra values and charge
+    // sensors too - and one Home Assistant knows of, even without a state yet
+    // (a restart), is real.
+    const ids = [...this._entityIds, ...this._extraIds, ...this._chargeIds];
+    const placeholders: string[] = Object.values(STUB_ENTITIES);
+    this._example =
+      this._entityIds.length > 0 &&
+      ids.every((id) => placeholders.includes(id)) &&
+      !ids.some((id) => hass?.states?.[id] || hass?.entities?.[id]);
+    if (!this._example) return hass;
+    return { ...hass, states: { ...hass.states, ...EXAMPLE_STATES } };
   }
 
   get hass(): HomeAssistant | undefined {
@@ -240,6 +298,8 @@ class EnerLensCard extends LitElement {
     this._entityIds = collectEntityIds(this._config);
     this._chargeIds = collectChargeIds(this._config);
     this._extraIds = collectExtraIds(this._config);
+    // An edit can end the example (or start it) before the next state update.
+    if (this._realHass) this._hass = this._withExample(this._realHass);
 
     const view = this._config.view;
     if (!previous || previous.view.avgLongMinutes !== view.avgLongMinutes) {
@@ -357,7 +417,10 @@ class EnerLensCard extends LitElement {
 
   /** Model for the active mode: raw readings, or window means (REQ V-4). */
   private _modelForMode(hass: HomeAssistant, config: Config): Model {
-    if (this._mode === "current" || !this._buffer) return buildModel(hass, config, this._chargeOf);
+    // The example has no history to average; it shows its invented now.
+    if (this._mode === "current" || !this._buffer || this._example) {
+      return buildModel(hass, config, this._chargeOf);
+    }
     const minutes =
       this._mode === "avg_short" ? config.view.avgShortMinutes : config.view.avgLongMinutes;
     const windowMs = minutes * 60_000;
@@ -379,6 +442,7 @@ class EnerLensCard extends LitElement {
    */
   private async _prefill(): Promise<void> {
     if (!this._hass || !this._config || !this._buffer || this._prefilling) return;
+    if (this._example) return;
     if ((this as unknown as { preview?: boolean }).preview) return;
     this._prefilling = true;
     try {
@@ -833,29 +897,9 @@ class EnerLensCard extends LitElement {
     return document.createElement(EDITOR_NAME);
   }
 
-  static getStubConfig(
-    hass: HomeAssistant,
-    entities: string[] = [],
-    entitiesFallback: string[] = [],
-  ): Record<string, unknown> {
-    // Only sensors the card can read as power - the first ones of any kind
-    // put a backup status or a temperature into the circles (E-5). Judged
-    // as readPowerW does: a unit must be a power unit, the device class
-    // counts only without one. In Home Assistant's order: entities on no
-    // dashboard yet first, then those already in use.
-    const measuresPower = (id: string): boolean => {
-      const attributes = hass?.states?.[id]?.attributes;
-      if (!id.startsWith("sensor.") || !attributes) return false;
-      const unit = attributes.unit_of_measurement;
-      if (typeof unit === "string" && unit !== "") return typeof POWER_UNITS[unit] === "number";
-      return attributes.device_class === "power";
-    };
-    const pool = [...new Set([...entities, ...entitiesFallback])].filter(measuresPower);
+  static getStubConfig(): Record<string, unknown> {
     return {
-      entities: {
-        solar: pool[0] ?? "sensor.solar_power",
-        grid: pool[1] ?? "sensor.grid_power",
-      },
+      entities: { ...STUB_ENTITIES },
       // Among the consumers' icons a lone dot looks out of place. Set here
       // rather than as the card's default, so existing cards keep their dot
       // and deleting the icon brings it back (E-5).
@@ -886,7 +930,7 @@ class EnerLensCard extends LitElement {
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`
-      <ha-card translate="no">
+      <ha-card translate="no" @hass-more-info=${this._onMoreInfo}>
         ${renderHeader(
           this._config,
           this._hass,
@@ -898,6 +942,7 @@ class EnerLensCard extends LitElement {
           () => this._toggleShowAll(),
         )}
         ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
+        ${this._example ? renderExampleBanner(this._hass) : nothing}
         <div
           class="body ${this._stacked ? "stacked" : ""} ${
             this._config.list.alwaysBelow ? "force-below" : ""

@@ -111,6 +111,10 @@ ist im Formular eine Auswahl; YAML braucht es also nie. Nur die Verbraucher-
 palette bleibt dem YAML vorbehalten. Das YAML ist für alle dokumentiert, die es
 vorziehen.
 
+Eine über das Dashboard neu angelegte Karte rät deine Sensoren nicht: Sie
+startet mit den Platzhaltern `sensor.solar_power` und `sensor.grid_power` und
+zeigt gekennzeichnete Beispielwerte, bis du deine eigenen auswählst.
+
 ### Minimal
 
 ```yaml

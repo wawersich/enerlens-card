@@ -276,5 +276,8 @@
   "outage": {
     "banner": "Inselbetrieb — kein Netz",
     "label": "Netzstatus"
+  },
+  "example": {
+    "banner": "Beispielwerte — wähle deine Sensoren im Editor"
   }
 }
