@@ -25,7 +25,7 @@
     "now": "Jetzt",
     "average": "Ø {minutes} min",
     "since": "seit {time}",
-    "label": "Ansicht"
+    "chip": "Ansicht: {mode}, weiter zu {next}"
   },
   "state": {
     "unavailable": "—"

@@ -179,7 +179,7 @@ describe("enerlens-card element", () => {
     const hass = fakeHass({ "sensor.pv": "1000" });
     const el = await mountWith(stub, hass);
     expect(banner(el)).not.toBeNull();
-    const avg = el.shadowRoot?.querySelectorAll<HTMLElement>(".mode")[1];
+    const avg = el.shadowRoot?.querySelector<HTMLElement>(".mode-chip");
     avg?.click();
     await el.updateComplete;
     el.setConfig({ ...stub, entities: { solar: "sensor.pv", grid: "sensor.grid_power" } });
@@ -230,9 +230,11 @@ describe("enerlens-card element", () => {
     await el.updateComplete;
     // The example has no history to average: it shows its invented now.
     expect(el.shadowRoot?.textContent ?? "").toContain("3,20 kW");
-    // Picking the view again asks for history - not for placeholders.
-    el.shadowRoot?.querySelectorAll<HTMLElement>(".mode")[1]?.click();
-    await el.updateComplete;
+    // Stepping back into an average asks for history - not for placeholders.
+    for (let i = 0; i < 2; i++) {
+      el.shadowRoot?.querySelector<HTMLElement>(".mode-chip")?.click();
+      await el.updateComplete;
+    }
     expect(lookups).toBe(0);
     el.remove();
   });
@@ -609,36 +611,82 @@ describe("view modes (REQ V-1 to V-9)", () => {
     expect((await open(undefined)).history_calls).toBe(0);
   });
 
-  it("offers three chips with the configured windows", async () => {
+  const chip = (el: HTMLElement) => el.shadowRoot?.querySelector<HTMLElement>(".mode-chip");
+  const shown = (el: HTMLElement) =>
+    chip(el)?.querySelector(".mode-label.active")?.textContent?.trim();
+
+  it("offers one chip that names the active mode (REQ V-2, issue #20)", async () => {
     const el = await mountWithModes({ avg_short_minutes: 3, avg_long_minutes: 20 });
-    const chips = [...(el.shadowRoot?.querySelectorAll(".mode") ?? [])].map((c) =>
-      c.textContent?.trim(),
+    expect(el.shadowRoot?.querySelectorAll(".mode-chip")).toHaveLength(1);
+    expect(shown(el)).toBe("Jetzt");
+    // Every label sits in the chip, so it is as wide as the longest one and
+    // keeps its size while stepping through (REQ V-2).
+    const labels = [...(chip(el)?.querySelectorAll(".mode-label") ?? [])].map((l) =>
+      l.textContent?.trim(),
     );
-    expect(chips).toEqual(["Jetzt", "Ø 3 min", "Ø 20 min"]);
+    expect(labels).toEqual(["Jetzt", "Ø 3 min", "Ø 20 min"]);
+    expect(chip(el)?.querySelectorAll(".mode-label.active")).toHaveLength(1);
+    expect(chip(el)?.getAttribute("aria-label")).toBe("Ansicht: Jetzt, weiter zu Ø 3 min");
   });
 
-  it("marks exactly one chip as selected", async () => {
+  it("steps through the modes (REQ V-2)", async () => {
+    const el = await mountWithModes({ avg_short_minutes: 3, avg_long_minutes: 20 });
+    const seen: (string | undefined)[] = [];
+    for (let i = 0; i < 4; i++) {
+      seen.push(shown(el));
+      chip(el)?.click();
+      await el.updateComplete;
+    }
+    expect(seen).toEqual(["Jetzt", "Ø 3 min", "Ø 20 min", "Jetzt"]);
+  });
+
+  it("keeps the 'since' tooltip on the chip while the window fills (REQ V-6)", async () => {
+    // States that changed just now and no recorder: the window cannot be full.
+    const now = new Date().toISOString();
+    const hass = fakeHass(STATES);
+    for (const state of Object.values(hass.states)) {
+      state.last_changed = now;
+      state.last_updated = now;
+    }
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+    };
+    el.setConfig(CONFIG);
+    el.hass = hass;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(chip(el)?.getAttribute("title")).toBe("");
+    chip(el)?.click();
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    await el.updateComplete;
+    expect(chip(el)?.getAttribute("title")).toMatch(/^seit \d{2}:\d{2}$/);
+    el.remove();
+  });
+
+  it("remembers the mode it stepped to (REQ V-11)", async () => {
     const el = await mountWithModes();
-    const checked = [...(el.shadowRoot?.querySelectorAll('.mode[aria-checked="true"]') ?? [])];
-    expect(checked.length).toBe(1);
-    expect(checked[0].textContent?.trim()).toBe("Jetzt");
+    chip(el)?.click();
+    await el.updateComplete;
+    expect(localStorage.getItem("enerlens-view-mode")).toBe("avg_short");
   });
 
   it("switches mode on click and keeps the state of charge live (REQ V-5, V-8)", async () => {
     const el = await mountWithModes();
-    const chips = el.shadowRoot?.querySelectorAll(".mode");
-    (chips?.[2] as HTMLElement).click();
+    chip(el)?.click();
     await el.updateComplete;
-    expect(el.shadowRoot?.querySelector('.mode[aria-checked="true"]')?.textContent?.trim()).toBe(
-      "Ø 15 min",
-    );
+    chip(el)?.click();
+    await el.updateComplete;
+    expect(shown(el)).toBe("Ø 15 min");
     // 72 % comes straight from the sensor, never from the window mean.
     expect(el.shadowRoot?.textContent).toContain("72");
   });
 
   it("names the active mode even with the selector hidden (REQ V-3)", async () => {
     const el = await mountWithModes({ show_selector: false, default_mode: "avg_long" });
-    expect(el.shadowRoot?.querySelector(".modes")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".mode-chip")).toBeFalsy();
     expect(el.shadowRoot?.querySelector(".mode-note")?.textContent?.trim()).toBe("Ø 15 min");
   });
 });
@@ -1672,19 +1720,19 @@ describe("history prefill (V-6, issue #16)", () => {
     el.remove();
   });
 
-  it("fetches again on every tap into an average, not on the active chip (Markus, 18.10.2026)", async () => {
+  it("fetches again on every tap into an average, not on the way back to now (Markus, 18.10.2026)", async () => {
     const { el, history } = build(CONFIG);
     document.body.appendChild(el);
     await settle(el);
     expect(history()).toHaveLength(0);
-    const chips = () => el.shadowRoot?.querySelectorAll<HTMLElement>(".mode") ?? [];
-    chips()[1]?.click();
+    const tap = () => el.shadowRoot?.querySelector<HTMLElement>(".mode-chip")?.click();
+    tap();
     await settle(el);
     expect(history()).toHaveLength(1);
-    chips()[2]?.click();
+    tap();
     await settle(el);
     expect(history()).toHaveLength(2);
-    chips()[2]?.click();
+    tap();
     await settle(el);
     expect(history()).toHaveLength(2);
     el.remove();

@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **One chip for the view** (#20). The three chips *Now*, *Ø 2 min* and
+  *Ø 15 min* are now a single chip that steps through them on each tap and
+  keeps its width while doing so.
+
 ## [0.10.0] - 2026-10-18
 
 ### Added

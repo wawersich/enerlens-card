@@ -1,5 +1,5 @@
 /**
- * Card header: title plus the view mode chips (REQ V-2, V-3).
+ * Card header: title plus the view mode chip (REQ V-2, V-3).
  *
  * The active mode is always visible, even with the selector switched off -
  * nobody should mistake a 15-minute mean for a live reading (REQ V-3, G-1).
@@ -33,6 +33,39 @@ export function renderExampleBanner(hass: HomeAssistant): TemplateResult {
   </div>`;
 }
 
+const MODES: ViewMode[] = ["current", "avg_short", "avg_long"];
+
+/**
+ * One chip steps through the modes (REQ V-2, issue #20). Every label is laid
+ * into the same grid cell and only the active one is visible, so the chip is
+ * as wide as its longest label and keeps its size while stepping through.
+ */
+function renderModeChip(
+  config: Config,
+  hass: HomeAssistant,
+  mode: ViewMode,
+  since: string | undefined,
+  onMode: (mode: ViewMode) => void,
+): TemplateResult {
+  const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  const label = localize("view.chip", hass, {
+    mode: modeLabel(mode, config, hass),
+    next: modeLabel(next, config, hass),
+  });
+  return html`<button
+    class="mode-chip"
+    aria-label=${label}
+    title=${since ? localize("view.since", hass, { time: since }) : ""}
+    @click=${() => onMode(next)}
+  >
+    ${MODES.map(
+      (m) => html`<span class="mode-label ${m === mode ? "active" : ""}" aria-hidden="true"
+        >${modeLabel(m, config, hass)}</span
+      >`,
+    )}
+  </button>`;
+}
+
 export function renderHeader(
   config: Config,
   hass: HomeAssistant,
@@ -44,8 +77,7 @@ export function renderHeader(
   showAll?: boolean,
   onToggleAll?: () => void,
 ): TemplateResult | typeof nothing {
-  const modes: ViewMode[] = ["current", "avg_short", "avg_long"];
-  // One switch for the whole bar: the three averages and the consumer filter
+  // One switch for the whole bar: the averages and the consumer filter
   // are the bar, and half a bar is not a thing anyone asked for. Turned off,
   // the card starts with the flow and nothing above it.
   const showBar = config.view.showSelector;
@@ -72,19 +104,7 @@ export function renderHeader(
       <div class="controls">
         ${
           showBar
-            ? html`<div class="modes" role="radiogroup" aria-label=${localize("view.label", hass)}>
-                ${modes.map(
-                  (m) => html`<button
-                    class="mode ${m === mode ? "on" : ""}"
-                    role="radio"
-                    aria-checked=${m === mode ? "true" : "false"}
-                    title=${m === mode && since ? localize("view.since", hass, { time: since }) : ""}
-                    @click=${() => onMode(m)}
-                  >
-                    ${modeLabel(m, config, hass)}
-                  </button>`,
-                )}
-              </div>`
+            ? renderModeChip(config, hass, mode, since, onMode)
             : mode !== "current"
               ? // Bar hidden: name the mode anyway, or a card stuck on a mean
                 // would silently read as the current value (REQ V-3).

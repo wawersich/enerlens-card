@@ -19,7 +19,8 @@ The remainder holds everything that is not measured individually.
 
 **Moving average.** A live power diagram jumps by kilowatts within seconds.
 Alternatively the card shows moving averages — over 2 and 15 minutes by
-default, both configurable. They calm the picture down without falsifying the
+default, both configurable; one chip in the header steps through *Now*,
+*Ø 2 min* and *Ø 15 min*. They calm the picture down without falsifying the
 numbers. Clicking any element still opens Home Assistant's own dialog with the
 real history.
 
@@ -431,7 +432,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
 | `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
-| `view.show_selector` | `true` | Show the filter bar above the card - the three averaging switches and the list's filter button |
+| `view.show_selector` | `true` | Show the filter bar above the card - the view chip (*Now* / averages) and the list's filter button |
 | `view.remember` | `true` | Remember the view and the filter button per browser |
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |

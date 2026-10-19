@@ -65,7 +65,7 @@
     width,
     lang,
     // Every visible string, for the language check (REQ N-7, section 5).
-    texts: Array.from(root.querySelectorAll(".label, .value, .name, .row-value, .mode, .filter-toggle"))
+    texts: Array.from(root.querySelectorAll(".label, .value, .name, .row-value, .mode-label.active, .filter-toggle"))
       .map((e) => (e.textContent ?? e.getAttribute("aria-label") ?? "").trim().replace(/\s+/g, " ")).filter(Boolean),
     card: rect(card),
     body: rect(root.querySelector(".body")),

@@ -577,14 +577,15 @@ if (banner) {
 // --- header ----------------------------------------------------------------
 const title = root.querySelector(".title");
 if (title) out.push(textOf(title, "start"));
-for (const chip of root.querySelectorAll(".mode, .filter-toggle")) {
+for (const chip of root.querySelectorAll(".mode-chip, .filter-toggle")) {
   const b = chip.getBoundingClientRect();
   const st = getComputedStyle(chip);
   // A pill is a huge border-radius in CSS; SVG clamps rx and ry per axis, so
   // both have to be written and capped at half the box.
   const radius = Math.min(parseFloat(st.borderTopLeftRadius) || 0, b.width / 2, b.height / 2);
   out.push(`<rect x="${X(b.left)}" y="${Y(b.top)}" width="${b.width.toFixed(1)}" height="${b.height.toFixed(1)}" rx="${radius.toFixed(1)}" ry="${radius.toFixed(1)}" fill="${st.backgroundColor}" stroke="${st.borderTopColor}" stroke-width="${parseFloat(st.borderTopWidth)}"/>`);
-  if (chip.classList.contains("mode")) out.push(textOf(chip));
+  // The chip stacks all labels to keep its width; only the active one shows.
+  if (chip.classList.contains("mode-chip")) out.push(textOf(chip.querySelector(".mode-label.active")));
   else out.push(iconOf(chip.querySelector("ha-icon"), st.color));
 }
 

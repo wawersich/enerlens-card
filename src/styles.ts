@@ -199,7 +199,7 @@ export const styles = css`
     flex: none;
   }
 
-  /* A round chip: same height and border as the mode chips beside it. */
+  /* A round chip: same height and border as the mode chip beside it. */
   .filter-toggle {
     font: inherit;
     width: 36px;
@@ -226,35 +226,39 @@ export const styles = css`
     outline-offset: 2px;
   }
 
-  .modes {
-    display: flex;
-    /* Measured: 4 px left the chips closer than the 8 px I-3 asks between targets. */
-    gap: 8px;
-    flex: none;
-  }
-
-  .mode {
+  /* One chip for the view mode (REQ V-2, issue #20). All labels share one
+     grid cell, so the chip keeps the width of the longest one. */
+  .mode-chip {
     font: inherit;
     font-size: 12px;
     line-height: 1;
-    /* 36 px so the chips stay reachable on a phone (REQ I-3). */
+    /* 36 px so the chip stays reachable on a phone (REQ I-3). */
     min-height: 36px;
     padding: 0 12px;
     border-radius: 999px;
-    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    /* Blue in every mode, "Jetzt" included (Markus, 19.10.2026): the chip
+       always shows a chosen view, the label says which. */
+    border: 1px solid var(--primary-color);
     background: none;
-    color: var(--secondary-text-color);
+    color: var(--primary-color);
     cursor: pointer;
     font-variant-numeric: tabular-nums;
+    display: inline-grid;
+    align-items: center;
+    justify-items: center;
   }
 
-  .mode.on {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-    font-weight: 500;
+  .mode-label {
+    grid-area: 1 / 1;
+    visibility: hidden;
+    white-space: nowrap;
   }
 
-  .mode:focus-visible {
+  .mode-label.active {
+    visibility: visible;
+  }
+
+  .mode-chip:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }

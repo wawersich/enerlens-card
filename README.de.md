@@ -21,7 +21,8 @@ zusammen, was nicht einzeln gemessen wird.
 
 **Zeitlicher Mittelwert.** Ein Live-Leistungsdiagramm springt binnen Sekunden
 um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
-über 2 und 15 Minuten, frei einstellbar. Sie beruhigen das Bild, ohne die
+über 2 und 15 Minuten, frei einstellbar; ein Chip im Kopf schaltet reihum
+*Jetzt*, *Ø 2 min* und *Ø 15 min*. Sie beruhigen das Bild, ohne die
 Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
 von Home Assistant mit der echten Historie.
 
@@ -451,7 +452,7 @@ zusätzliche Abfrage.
 | `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
 | `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
-| `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — die drei Mittelwert-Umschalter und den Filterknopf der Liste |
+| `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — den Ansichts-Chip (*Jetzt* / Mittelwerte) und den Filterknopf der Liste |
 | `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
