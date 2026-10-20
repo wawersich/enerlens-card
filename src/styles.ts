@@ -166,7 +166,8 @@ export const styles = css`
   .fan-line {
     /* 2 px at full node size, like the connections (K-12, sizing.ts). */
     stroke-width: calc(2px * var(--el-line-k, 1));
-    opacity: 0.45;
+    /* --el-fade: a row still fading in brings its line along. */
+    opacity: calc(0.45 * var(--el-fade, 1));
     fill: none;
   }
 
@@ -178,7 +179,7 @@ export const styles = css`
   }
 
   .fan-line.inactive-dim {
-    opacity: 0.2;
+    opacity: calc(0.2 * var(--el-fade, 1));
   }
 
   /* Title left, mode chips right. Below about 400 px the chips drop onto their

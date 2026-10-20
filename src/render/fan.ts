@@ -28,6 +28,8 @@ interface FanRow {
   durationS: number;
   /** Set when nothing flows: "show" draws the line neutral, "dim" fainter. */
   inactive?: "show" | "dim";
+  /** Opacity of a row still fading in; line and dots come with it. */
+  fade?: number;
 }
 
 interface FanLine {
@@ -132,7 +134,11 @@ export class FanLayer {
       // A design asks for a quieter line to stand out against; without one
       // the line keeps the opacity the stylesheet gives it (P-5, P-10).
       const ground = row.inactive ? undefined : this.ground();
-      line.path.style.opacity = ground ? String(ground.line / 100) : "";
+      const fade = row.fade ?? 1;
+      line.path.style.opacity = ground ? String((ground.line / 100) * fade) : "";
+      // Without a design the stylesheet's opacity applies, scaled by this.
+      line.path.style.setProperty("--el-fade", String(fade));
+      line.group.style.opacity = fade < 1 ? String(fade) : "";
 
       while (line.dots.length > row.count) {
         line.dots.pop()?.remove();

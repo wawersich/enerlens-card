@@ -247,8 +247,15 @@ export class RowAnimator {
     // rows come and go). Entering rows start displaced by this much, so they
     // arrive together with their neighbours instead of popping into a moving list.
     const block = container.querySelector(".rows");
-    const blockDelta =
+    const moved =
       block && this.blockTop !== undefined ? this.blockTop - RowAnimator.top(block, container) : 0;
+    // From an empty list the block "moves" from the middle of the card to its
+    // top; rows sent along that far started below the card with their fan
+    // lines ahead of them (20.10.2026). With rows before, they travel with
+    // their neighbours as always.
+    const rowHeight = container.querySelector(".row")?.getBoundingClientRect().height || 28;
+    const blockDelta =
+      this.positions.size > 0 ? moved : Math.max(-rowHeight, Math.min(rowHeight, moved));
     for (const row of container.querySelectorAll<HTMLElement>(".row")) {
       const key = row.dataset.key;
       if (!key) continue;
@@ -266,12 +273,15 @@ export class RowAnimator {
       this.targets.set(key, after);
 
       if (before === undefined) {
-        // New row: fade in while moving with the block, on the glide's own clock.
+        // New row: moves with the block on the glide's own clock, but is
+        // there almost at once - visible from the first frame, opaque after a
+        // third of the glide. It used to stay hidden for 40 % of it while its
+        // fan line was already drawn (Markus, 20.10.2026).
         if (canAnimate) {
           const animation = row.animate(
             [
               { opacity: 0, transform: `translateY(${blockDelta}px)` },
-              { opacity: 0, transform: `translateY(${blockDelta * 0.6}px)`, offset: 0.4 },
+              { opacity: 1, transform: `translateY(${blockDelta * 0.45}px)`, offset: 0.33 },
               { opacity: 1, transform: "none" },
             ],
             { duration: 600, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },

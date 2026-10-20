@@ -91,6 +91,12 @@ function load(key: string): string | null {
   }
 }
 
+/** A row's drawn opacity, mid-animation included; 1 where it cannot be read. */
+function rowOpacity(row: Element): number {
+  const value = Number.parseFloat(getComputedStyle(row).opacity);
+  return Number.isNaN(value) ? 1 : value;
+}
+
 /** Whether two grid-status settings mean the same thing - the entity and the
  *  state names, in order, which is all a latched outage depends on. */
 function sameStatus(a?: GridStatusSpec, b?: GridStatusSpec): boolean {
@@ -198,8 +204,11 @@ class EnerLensCard extends LitElement {
   private _energyViews = new Map<EnergyPeriod, EnergyView>();
   /** What the views were fetched for; a change empties them. */
   private _energyKey = "";
-  /** Last request per period, answered or not - one at a time, then every 5 min. */
-  private _energyAsked = new Map<EnergyPeriod, number>();
+  /** Last request per period and the start it was for - one at a time, then every 5 min. */
+  private _energyAsked = new Map<EnergyPeriod, { at: number; start: number; open: boolean }>();
+  /** A period tapped to but not fetched yet; the card shows it once it is (EM-16).
+   *  null = back to kW, undefined = nothing pending. */
+  private _energyPending: EnergyPeriod | null | undefined;
 
   /**
    * The period the card draws: none for the example (E-5), and none in the
@@ -225,59 +234,102 @@ class EnerLensCard extends LitElement {
     return this._energyViews.get(period)?.flowsW ?? {};
   }
 
+  /**
+   * The chip steps on from what is shown, or from a period still on its way.
+   * A period that is not there yet is fetched first and shown when it is
+   * complete: the card keeps its picture until then, and chip, figures, list
+   * and fan change together - rows glide, come and go as with the filter
+   * button, instead of an empty list filling up (EM-16, 20.10.2026).
+   */
   private _cycleEnergy(): void {
+    const hass = this._hass;
     const periods = this._config?.view.energyPeriods ?? [];
     const order: (EnergyPeriod | null)[] = [null, ...periods];
     // From what is shown: the preview shows kW even with a period remembered.
-    this._energyPeriod = order[(order.indexOf(this._period) + 1) % order.length];
+    const from = this._energyPending !== undefined ? this._energyPending : this._period;
+    const next = order[(order.indexOf(from) + 1) % order.length];
+    const ready = next === null || (hass !== undefined && this._fresh(next, hass, Date.now()));
+    if (ready) {
+      this._energyPending = undefined;
+      this._showEnergy(next);
+      return;
+    }
+    this._energyPending = next;
+    // The chip shows the tap at once; the figures follow when they are there.
+    this.requestUpdate();
+    this._ensureEnergy(next, true);
+  }
+
+  private _showEnergy(period: EnergyPeriod | null): void {
+    this._energyPeriod = period;
+    // Only now: in the preview a remembered period would otherwise show up,
+    // empty, while the tapped one is still loading (EM-14, EM-16).
     this._energyChosen = true;
     // A tap in the editor preview is a look, not a choice for the dashboard.
     const preview = (this as unknown as { preview?: boolean }).preview;
-    if (this._config?.view.remember && !preview) store(ENERGY_KEY, this._energyPeriod ?? "kw");
-    // At once, not on the next tick (V-8); figures still loading show "—".
+    if (this._config?.view.remember && !preview) store(ENERGY_KEY, period ?? "kw");
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
     this.requestUpdate();
   }
 
+  /** A fetched view of the period that is running now. */
+  private _fresh(period: EnergyPeriod, hass: HomeAssistant, now: number): boolean {
+    const view = this._energyViews.get(period);
+    return (
+      view !== undefined &&
+      view.start === periodStart(period, now, timeZoneOf(hass), firstWeekday(hass))
+    );
+  }
+
   /**
-   * Asks for the shown period when it has none yet or the last answer is five
-   * minutes old (EM-4). After a render, like the averaging history, so the
-   * editor preview - flagged only after the first hass - never asks by itself.
+   * Asks for a period when it has none yet, when the last answer is five
+   * minutes old (EM-4), or when a new day, week or month began - the old
+   * figures stay up until the new ones are there. After a render, like the
+   * averaging history, so the editor preview - flagged only after the first
+   * hass - never asks by itself.
    */
-  private _ensureEnergy(): void {
-    const period = this._period;
+  private _ensureEnergy(wanted?: EnergyPeriod, tapped = false): void {
+    const period = wanted ?? this._period;
     const hass = this._hass;
     const config = this._config;
     if (!period || !hass || !config) return;
     const now = Date.now();
-    // Past midnight (or a new week, a new month) the figures are of the last
-    // period: dropped at once rather than shown for minutes under the new name.
-    const view = this._energyViews.get(period);
     const start = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
-    if (view && view.start !== start) {
-      this._energyViews.delete(period);
-      this._energyAsked.delete(period);
-    }
     const asked = this._energyAsked.get(period);
-    if (asked !== undefined && now - asked < ENERGY_REFRESH_MS) return;
-    this._energyAsked.set(period, now);
+    // A tap asks again after a failed try at once - only not twice at a time.
+    if (asked?.open) return;
+    if (!tapped && asked && asked.start === start && now - asked.at < ENERGY_REFRESH_MS) return;
+    const ask = { at: now, start, open: true };
+    this._energyAsked.set(period, ask);
     const key = this._energyKey;
     fetchEnergy(hass, config, period, now)
       .then((view) => {
+        ask.open = false;
         // A configuration with other entities came meanwhile: its own fetch follows.
         if (key !== this._energyKey) return;
         this._energyViews.set(period, view);
+        if (this._energyPending === period) {
+          this._energyPending = undefined;
+          this._showEnergy(period);
+          return;
+        }
         if (this._hass && this._config && this._period === period) {
           this._tickModel = this._modelForMode(this._hass, this._config);
         }
         this.requestUpdate();
       })
       .catch((error) => {
-        // Kept as it was. A slow or restarting Home Assistant gets another try
-        // in half a minute rather than leaving "—" for five.
+        // The picture stays as it was. A slow or restarting Home Assistant
+        // gets another try in half a minute rather than in five.
         console.warn(error);
-        if (this._energyAsked.get(period) === now) {
-          this._energyAsked.set(period, now - ENERGY_REFRESH_MS + ENERGY_RETRY_MS);
+        ask.open = false;
+        // An answer for an older configuration says nothing about a newer tap.
+        if (key !== this._energyKey) return;
+        if (this._energyAsked.get(period) === ask)
+          ask.at = now - ENERGY_REFRESH_MS + ENERGY_RETRY_MS;
+        if (this._energyPending === period) {
+          this._energyPending = undefined;
+          this.requestUpdate();
         }
       });
   }
@@ -286,7 +338,8 @@ class EnerLensCard extends LitElement {
   private _energyChip(hass: HomeAssistant, config: Config): EnergyChip | undefined {
     const periods = config.view.energyPeriods;
     if (periods.length === 0 || this._example) return undefined;
-    const period = this._period;
+    // The tap shows at once, even while the period's figures are on their way.
+    const period = this._energyPending !== undefined ? this._energyPending : this._period;
     const view = period ? this._energyViews.get(period) : undefined;
     const order: (EnergyPeriod | null)[] = [null, ...periods];
     const next = order[(order.indexOf(period) + 1) % order.length];
@@ -546,14 +599,19 @@ class EnerLensCard extends LitElement {
       this._energyKey = key;
       this._energyViews.clear();
       this._energyAsked.clear();
+      this._energyPending = undefined;
     }
     if (!previous && view.remember) {
       const stored = load(ENERGY_KEY);
       this._energyPeriod = view.energyPeriods.find((p) => p === stored) ?? null;
     }
-    // A period no longer offered falls back to the power view, quietly (EM-2).
+    // A period no longer offered falls back to the power view, quietly (EM-2),
+    // and one still loading is not shown when it arrives.
     if (this._energyPeriod && !view.energyPeriods.includes(this._energyPeriod)) {
       this._energyPeriod = null;
+    }
+    if (this._energyPending && !view.energyPeriods.includes(this._energyPending)) {
+      this._energyPending = undefined;
     }
     // A new buffer or view wants its history, fetched after the next render.
     // Setting the model above already asks for that render where hass is
@@ -1000,6 +1058,8 @@ class EnerLensCard extends LitElement {
           count: this._dotsMove ? (params?.count ?? 0) : 0,
           durationS: params?.durationS ?? 1,
           inactive: quiet && mode !== "hide" ? mode : undefined,
+          // A row still fading in brings its line along, not ahead of it.
+          fade: rowOpacity(row),
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);

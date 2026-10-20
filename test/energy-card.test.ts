@@ -62,6 +62,8 @@ type Card = HTMLElement & {
 
 /** Requests to answer with an error, counted down per statistics call. */
 let failing = 0;
+/** While set, statistics answers wait for it - a slow recorder. */
+let hold: Promise<void> | undefined;
 
 function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
   const states: HomeAssistant["states"] = {};
@@ -81,6 +83,7 @@ function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
     config: { time_zone: "UTC" },
     callWS: async (msg: Record<string, unknown>) => {
       asked.push(msg);
+      if (msg.type === "recorder/statistics_during_period" && hold) await hold;
       if (msg.type === "recorder/statistics_during_period" && failing > 0) {
         failing--;
         throw new Error("recorder busy");
@@ -141,6 +144,9 @@ describe("energy mode on the card (REQ 2.15)", () => {
   });
   afterAll(() => vi.useRealTimers());
   afterEach(() => {
+    // A failed test must not leave a slow or broken recorder to the next.
+    hold = undefined;
+    failing = 0;
     localStorage.clear();
     document.body.innerHTML = "";
   });
@@ -230,29 +236,123 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
   });
 
-  it("tries again half a minute after a failed request, not five (EM-4)", async () => {
+  it("keeps the list while a period is still loading (fan glitch, 20.10.2026)", async () => {
+    // The card switched to the period at once and drew it without figures: an
+    // empty list, then ten rows gliding in from far below, the fan lines
+    // running out of the card ahead of them.
+    const { el } = await mount({
+      ...CONFIG,
+      consumers: [{ entity: "sensor.heat", name: "Heizung" }],
+    });
+    const rows = () => el.shadowRoot?.querySelectorAll(".row").length ?? 0;
+    expect(rows()).toBeGreaterThan(0);
+    let release = () => {};
+    hold = new Promise<void>((r) => {
+      release = r;
+    });
+    const before = text(node(el, "solar")?.querySelector(".value"));
+    await tap(el);
+    // The chip answers the tap at once; figures and list wait for the period.
+    expect(label(el)).toBe("Tag");
+    expect(rows()).toBeGreaterThan(0);
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe(before);
+    release();
+    hold = undefined;
+    await settle(el);
+    expect(rows()).toBeGreaterThan(0);
+  });
+
+  it("stays on the old picture when a period fails to load, and lets a tap try again", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     failing = 3;
     const { el, asked } = await mount();
-    await tap(el);
     const stats = () => asked.filter((m) => m.type === "recorder/statistics_during_period").length;
+    await tap(el);
     expect(stats()).toBe(3);
-    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("—");
-    vi.setSystemTime(NOW + 31_000);
+    // Nothing half-shown: still the power view, with its figures.
+    expect(label(el)).toBe("kW");
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("0,30 kW");
+    await tap(el);
+    expect(label(el)).toBe("Tag");
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+    warn.mockRestore();
+  });
+
+  it("shows no remembered period empty in the preview while the tapped one loads (EM-14)", async () => {
+    localStorage.setItem("enerlens-energy-period", "week");
+    const { el, asked } = await mount(
+      { ...CONFIG, view: { energy_periods: ["day", "week"] } },
+      true,
+    );
+    const solar = () => text(node(el, "solar")?.querySelector(".value"));
+    expect(label(el)).toBe("kW");
+    let release = () => {};
+    hold = new Promise<void>((r) => {
+      release = r;
+    });
+    await tap(el);
+    expect(label(el)).toBe("Tag");
+    expect(solar()).toBe("0,30 kW");
+    release();
+    hold = undefined;
+    await settle(el);
+    expect(solar()).toBe("24,0 kWh");
+    // Only the tapped period was asked for, not the remembered one.
+    const periods = asked
+      .filter((m) => m.type === "recorder/statistics_during_period" && m.period === "hour")
+      .map((m) => m.start_time);
+    expect(periods).toHaveLength(1);
+  });
+
+  it("does not show a period that was removed while it loaded (EM-2)", async () => {
+    const { el } = await mount();
+    let release = () => {};
+    hold = new Promise<void>((r) => {
+      release = r;
+    });
+    await tap(el);
+    el.setConfig({ ...CONFIG, view: { energy_periods: ["month"] } });
+    release();
+    hold = undefined;
+    await settle(el);
+    expect(label(el)).toBe("kW");
+    expect(localStorage.getItem("enerlens-energy-period")).toBeNull();
+  });
+
+  it("tries a failed refresh again after half a minute, keeping the figures meanwhile (EM-4)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { el, asked } = await mount();
+    const stats = () => asked.filter((m) => m.type === "recorder/statistics_during_period").length;
+    await tap(el);
+    expect(stats()).toBe(3);
+    failing = 3;
+    vi.setSystemTime(NOW + 5 * 60_000 + 1000);
     (el as unknown as { requestUpdate(): void }).requestUpdate();
     await settle(el);
     expect(stats()).toBe(6);
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+    vi.setSystemTime(NOW + 5 * 60_000 + 32_000);
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(el);
+    expect(stats()).toBe(9);
     vi.setSystemTime(NOW);
     warn.mockRestore();
   });
 
-  it("drops yesterday's figures at midnight instead of showing them as today's (EM-1)", async () => {
+  it("renews the day at midnight, keeping yesterday's figures only until it is there (EM-1)", async () => {
     const { el, asked } = await mount();
     await tap(el);
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
     vi.setSystemTime(Date.parse("2026-10-20T01:10:00Z"));
+    let release = () => {};
+    hold = new Promise<void>((r) => {
+      release = r;
+    });
     (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(el);
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+    release();
+    hold = undefined;
     await settle(el);
     expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(6);
     // One hour of the new day.
