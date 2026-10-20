@@ -335,8 +335,9 @@ export function energyConfig(config: Config, view: EnergyView | undefined): Conf
 
 /**
  * Chip text: the period, with "from <date>" after a late start (EM-9). The
- * power view is named by its unit - "W" where the card writes whole watts,
- * "kW" otherwise, also for "auto", whose figures mix both (EM-2).
+ * power view is named by its unit - "Watt" where the card writes whole watts
+ * (a lone "W" could pass for "Woche"), "kW" otherwise, also for "auto",
+ * whose figures mix both (EM-2).
  */
 export function energyChipLabel(
   period: EnergyPeriod | null,
@@ -344,7 +345,7 @@ export function energyChipLabel(
   hass: HomeAssistant,
   unit: PowerUnit = "kW",
 ): string {
-  if (!period) return unit === "W" ? "W" : "kW";
+  if (!period) return unit === "W" ? "Watt" : "kW";
   const name = localize(`energy.${period}`, hass);
   if (!view?.lateStart || view.period !== period) return name;
   return localize("energy.from", hass, {

@@ -172,7 +172,8 @@ describe("energy mode on the card (REQ 2.15)", () => {
       return label(el);
     };
     expect(await chipFor()).toBe("kW");
-    expect(await chipFor("W")).toBe("W");
+    // Spelt out: a lone "W" next to "Woche" reads like its abbreviation.
+    expect(await chipFor("W")).toBe("Watt");
     expect(await chipFor("auto")).toBe("kW");
   });
 
