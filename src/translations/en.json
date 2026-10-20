@@ -29,7 +29,6 @@
     "chip": "View: {mode}, next: {next}"
   },
   "energy": {
-    "kw": "kW",
     "day": "Day",
     "week": "Week",
     "month": "Month",

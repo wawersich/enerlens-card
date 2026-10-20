@@ -21,6 +21,7 @@ import type {
   EnergyPeriod,
   Flows,
   HomeAssistant,
+  PowerUnit,
   SourceSpec,
 } from "./types";
 
@@ -314,38 +315,36 @@ export function toView(
 }
 
 /**
- * The configuration as the energy mode draws it: figures as kWh, and every
- * threshold meant in W taken as W x 1 h (EM-7, EM-8) - over a period of
- * `hours`, that is a mean of W / hours.
+ * The configuration as the energy mode draws it: figures as kWh, and the list
+ * filter taken as W x 1 h (EM-7) - over a period of `hours`, a mean of
+ * W / hours. The dots keep their thresholds as they are: they run on the mean
+ * power over the period, energy divided by the time it took, which is what
+ * those thresholds were made for (EM-8, Markus 20.10.2026).
  */
 export function energyConfig(config: Config, view: EnergyView | undefined): Config {
   const hours = view?.hours ?? 1;
   const k = 1 / hours;
-  const flow = config.flow;
   return {
     ...config,
     power: { ...config.power, energyHours: hours },
     minConsumerW: config.minConsumerW * k,
     consumers: config.consumers.map((c) => (c.minW === undefined ? c : { ...c, minW: c.minW * k })),
-    flow: {
-      ...flow,
-      minW: flow.minW * k,
-      slowBelowW: flow.slowBelowW * k,
-      fullSpeedW: flow.fullSpeedW * k,
-      moreDotsAboveW: flow.moreDotsAboveW * k,
-      maxDotsAtW: flow.maxDotsAtW * k,
-    },
     energy: view?.marks ?? { roles: {}, consumers: {}, rest: { tier: 0, note: "" } },
   };
 }
 
-/** Chip text: the period, with "from <date>" after a late start (EM-9). */
+/**
+ * Chip text: the period, with "from <date>" after a late start (EM-9). The
+ * power view is named by its unit - "W" where the card writes whole watts,
+ * "kW" otherwise, also for "auto", whose figures mix both (EM-2).
+ */
 export function energyChipLabel(
   period: EnergyPeriod | null,
   view: EnergyView | undefined,
   hass: HomeAssistant,
+  unit: PowerUnit = "kW",
 ): string {
-  if (!period) return localize("energy.kw", hass);
+  if (!period) return unit === "W" ? "W" : "kW";
   const name = localize(`energy.${period}`, hass);
   if (!view?.lateStart || view.period !== period) return name;
   return localize("energy.from", hass, {

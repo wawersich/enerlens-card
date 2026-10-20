@@ -166,6 +166,16 @@ describe("energy mode on the card (REQ 2.15)", () => {
     ]);
   });
 
+  it("names the power view by the configured unit (EM-2)", async () => {
+    const chipFor = async (unit?: string) => {
+      const { el } = await mount({ ...CONFIG, ...(unit ? { power: { unit } } : {}) });
+      return label(el);
+    };
+    expect(await chipFor()).toBe("kW");
+    expect(await chipFor("W")).toBe("W");
+    expect(await chipFor("auto")).toBe("kW");
+  });
+
   it("hides the view chip in a period and remembers the choice (EM-2)", async () => {
     const { el } = await mount();
     await tap(el);

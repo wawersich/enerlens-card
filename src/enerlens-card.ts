@@ -290,14 +290,15 @@ class EnerLensCard extends LitElement {
     const view = period ? this._energyViews.get(period) : undefined;
     const order: (EnergyPeriod | null)[] = [null, ...periods];
     const next = order[(order.indexOf(period) + 1) % order.length];
-    const active = energyChipLabel(period, view, hass);
+    const unit = config.power.unit;
+    const active = energyChipLabel(period, view, hass, unit);
     const late = period !== null && view?.lateStart === true;
     return {
-      labels: order.map((p) => energyChipLabel(p, undefined, hass)),
+      labels: order.map((p) => energyChipLabel(p, undefined, hass, unit)),
       active,
       ariaLabel: localize("energy.chip", hass, {
         mode: active,
-        next: energyChipLabel(next, undefined, hass),
+        next: energyChipLabel(next, undefined, hass, unit),
       }),
       inPeriod: period !== null,
       late,
