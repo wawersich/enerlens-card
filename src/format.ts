@@ -66,6 +66,7 @@ export function formatPower(
   hass: HomeAssistant,
   format: PowerFormat = DEFAULT_FORMAT,
 ): string {
+  if (format.energyHours !== undefined) return formatEnergy(w * format.energyHours, hass);
   const unit = format.unit === "auto" ? autoUnit(w) : format.unit;
   // Watts are always whole: a tenth of a watt is noise, not a reading.
   const digits =
@@ -84,6 +85,22 @@ export function formatPower(
   // the number: the text may be written in digits other than 0-9 (Persian,
   // Bengali, Marathi), where a test for "1-9" took every value for zero.
   return `${formatter.format(roundsToZero(value, digits) ? 0 : value)} ${unit}`;
+}
+
+/**
+ * Energy is always kWh with one decimal (REQ EM-5): a day, a week and a month
+ * then read alike. Less than a tenth that is not nothing says so rather than
+ * claiming 0,0 kWh.
+ */
+export function formatEnergy(wh: number, hass: HomeAssistant): string {
+  const formatter = new Intl.NumberFormat(localeFor(hass), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    ...(hass?.locale?.number_format === "none" ? { useGrouping: false } : {}),
+  });
+  const kwh = wh / 1000;
+  if (kwh > 0 && kwh < 0.05) return `< ${formatter.format(0.1)} kWh`;
+  return `${formatter.format(roundsToZero(kwh, 1) ? 0 : kwh)} kWh`;
 }
 
 /** Whether `value` is zero once written with `digits` decimals - "-0,00" is not a reading. */

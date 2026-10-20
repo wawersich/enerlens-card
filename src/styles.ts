@@ -23,6 +23,11 @@ export const styles = css`
        only the fallback differs per scheme, because the default dark red
        disappears on a dark ground. */
     --el-error: var(--error-color, #db4437);
+    /* Energy figures with gaps filled in (REQ EM-11): a muted grey-blue for a
+       few, amber for many. Red stays the outage's. Not HA's --warning-color:
+       as text on white it has too little contrast (ENT-18). */
+    --el-warn1: #5a7896;
+    --el-warn2: #b26a00;
     /*
      * The charge level fills the battery node with its colour at this opacity.
      * Alpha always blends towards the ground, and that does not behave the
@@ -45,6 +50,8 @@ export const styles = css`
   @media (prefers-color-scheme: dark) {
     :host {
       --el-error: var(--error-color, #f2645a);
+      --el-warn1: #93abc4;
+      --el-warn2: #ffb300;
       --el-soc-alpha: 0.6;
     }
   }
@@ -84,6 +91,8 @@ export const styles = css`
     --divider-color: rgba(225, 225, 225, 0.12);
     --ha-card-border-color: rgba(225, 225, 225, 0.12);
     --el-error: var(--error-color, #f2645a);
+    --el-warn1: #93abc4;
+    --el-warn2: #ffb300;
     --el-soc-alpha: 0.6;
   }
 
@@ -98,6 +107,8 @@ export const styles = css`
     --divider-color: rgba(0, 0, 0, 0.12);
     --ha-card-border-color: rgba(0, 0, 0, 0.12);
     --el-error: var(--error-color, #db4437);
+    --el-warn1: #5a7896;
+    --el-warn2: #b26a00;
     --el-soc-alpha: 0.22;
   }
 
@@ -256,6 +267,44 @@ export const styles = css`
 
   .mode-label.active {
     visibility: visible;
+  }
+
+  /* Energy mode (REQ EM-5, EM-6, EM-11). An inside field keeps its room
+     unseen, so switching to a period never moves anything. */
+  .node.in-period .extra-inside {
+    visibility: hidden;
+  }
+
+  /* Two figures and an arrow each take the width one figure had: a month's
+     "↓ 228,8 kWh" touched the rim of a phone-sized node at full size. */
+  .node .value.figure {
+    display: flex;
+    align-items: baseline;
+    gap: 0.15em;
+    font-size: calc(var(--el-value-size) * 0.85);
+    white-space: nowrap;
+  }
+
+  .node .value.figure .arrow {
+    font-weight: 700;
+  }
+
+  .node .value.warn1,
+  .row-value.warn1,
+  .row.rest .row-value.warn1 {
+    color: var(--el-warn1);
+  }
+
+  .node .value.warn2,
+  .row-value.warn2,
+  .row.rest .row-value.warn2 {
+    color: var(--el-warn2);
+  }
+
+  /* Counted from a late start (REQ EM-9): amber, like a figure with gaps. */
+  .energy-chip.late {
+    border-color: var(--el-warn2);
+    color: var(--el-warn2);
   }
 
   .mode-chip:focus-visible {

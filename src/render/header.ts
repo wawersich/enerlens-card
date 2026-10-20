@@ -66,6 +66,36 @@ function renderModeChip(
   </button>`;
 }
 
+/** The energy chip as the card hands it over (REQ EM-2); undefined = mode off. */
+export interface EnergyChip {
+  /** Every label the chip can show; it keeps the width of the longest. */
+  labels: string[];
+  active: string;
+  ariaLabel: string;
+  /** A period is shown (not kW): the averages make no sense then. */
+  inPeriod: boolean;
+  /** Counted from a late start: amber, with the date in the label (EM-9). */
+  late: boolean;
+  title: string;
+  onCycle: () => void;
+}
+
+function renderEnergyChip(chip: EnergyChip): TemplateResult {
+  const labels = chip.labels.includes(chip.active) ? chip.labels : [...chip.labels, chip.active];
+  return html`<button
+    class="mode-chip energy-chip ${chip.late ? "late" : ""}"
+    aria-label=${chip.ariaLabel}
+    title=${chip.title}
+    @click=${chip.onCycle}
+  >
+    ${labels.map(
+      (l) => html`<span class="mode-label ${l === chip.active ? "active" : ""}" aria-hidden="true"
+        >${l}</span
+      >`,
+    )}
+  </button>`;
+}
+
 export function renderHeader(
   config: Config,
   hass: HomeAssistant,
@@ -76,6 +106,7 @@ export function renderHeader(
   /** Filter lifted on the consumer list (REQ L-12); undefined = no list, no toggle. */
   showAll?: boolean,
   onToggleAll?: () => void,
+  energy?: EnergyChip,
 ): TemplateResult | typeof nothing {
   // One switch for the whole bar: the averages and the consumer filter
   // are the bar, and half a bar is not a thing anyone asked for. Turned off,
@@ -83,7 +114,8 @@ export function renderHeader(
   const showBar = config.view.showSelector;
   const hasToggle = showBar && onToggleAll !== undefined && config.consumers.length > 0;
 
-  if (!title && !showBar && mode === "current") return nothing;
+  const inPeriod = energy?.inPeriod === true;
+  if (!title && !showBar && mode === "current" && !inPeriod) return nothing;
 
   const toggleLabel = localize(showAll ? "list.filter_on" : "list.show_all", hass);
   const toggle = hasToggle
@@ -103,14 +135,19 @@ export function renderHeader(
       ${title ? html`<div class="title">${title}</div>` : html`<span></span>`}
       <div class="controls">
         ${
-          showBar
+          // A period's figures are energies; a mean of them is no view (EM-2).
+          showBar && !inPeriod
             ? renderModeChip(config, hass, mode, since, onMode)
-            : mode !== "current"
-              ? // Bar hidden: name the mode anyway, or a card stuck on a mean
-                // would silently read as the current value (REQ V-3).
-                html`<div class="mode-note">${modeLabel(mode, config, hass)}</div>`
-              : nothing
+            : !showBar && inPeriod
+              ? // Bar hidden: name the period anyway (REQ V-3).
+                html`<div class="mode-note">${energy?.active}</div>`
+              : !showBar && mode !== "current"
+                ? // Bar hidden: name the mode anyway, or a card stuck on a mean
+                  // would silently read as the current value (REQ V-3).
+                  html`<div class="mode-note">${modeLabel(mode, config, hass)}</div>`
+                : nothing
         }
+        ${showBar && energy ? renderEnergyChip(energy) : nothing}
         ${toggle}
       </div>
     </div>

@@ -62,6 +62,7 @@ function configOf(
       avgLongMinutes: 15,
       showSelector: true,
       remember: true,
+      energyPeriods: [],
     },
     flow: {
       minW: 10,

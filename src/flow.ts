@@ -23,12 +23,35 @@ const CONNECTION_ORDER = Object.keys(CONNECTION_COLORS) as ConnectionId[];
  */
 export function computeFlows(model: Model): Flows {
   // Unavailable quantities enter with 0 (REQ 4.5, K-9).
-  let pv = model.solar.available ? model.solar.w : 0;
-  let gridImport = model.grid.available ? model.grid.positive : 0;
-  let gridExport = model.grid.available ? model.grid.negative : 0;
-  let discharge = model.battery?.available ? model.battery.positive : 0;
-  let charge = model.battery?.available ? model.battery.negative : 0;
-  let house = model.house.available ? model.house.w : 0;
+  return splitFlows(
+    model.solar.available ? model.solar.w : 0,
+    model.grid.available ? model.grid.positive : 0,
+    model.grid.available ? model.grid.negative : 0,
+    model.battery?.available ? model.battery.positive : 0,
+    model.battery?.available ? model.battery.negative : 0,
+    model.house.available ? model.house.w : 0,
+  );
+}
+
+/**
+ * The same rule on plain figures. The energy mode runs it once per hour of
+ * statistics and adds the results up (REQ EM-8).
+ */
+export function splitFlows(
+  solarW: number,
+  importW: number,
+  exportW: number,
+  dischargeW: number,
+  chargeW: number,
+  houseW: number,
+): Flows {
+  // What each source still has to give and each sink still takes.
+  let pv = solarW;
+  let gridImport = importW;
+  let gridExport = exportW;
+  let discharge = dischargeW;
+  let charge = chargeW;
+  let house = houseW;
 
   const flows: Flows = {};
   const take = (id: ConnectionId, w: number): number => {

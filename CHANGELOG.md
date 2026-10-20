@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Energy mode** (work in progress). With `view.energy_periods`, a chip next
+  to the filter steps through *kW*, *Day*, *Week* and *Month*. The card then
+  shows the energy since midnight, the start of the week or of the month, worked
+  out from Home Assistant's statistics of the power sensors it already has - no
+  extra entities. Grid and battery need two sensors each (import/export,
+  discharge/charge).
+
 ### Changed
 - **One chip for the view** (#20). The three chips *Now*, *Ø 2 min* and
   *Ø 15 min* are now a single chip that steps through them on each tap and

@@ -64,6 +64,7 @@ function config(
       avgLongMinutes: 15,
       showSelector: true,
       remember: true,
+      energyPeriods: [],
     },
     flow: {
       minW: over.flowMinW ?? 10,

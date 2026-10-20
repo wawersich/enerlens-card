@@ -12,6 +12,7 @@ import {
   type ColorKey,
   type Config,
   ConfigError,
+  type EnergyPeriod,
   type ExtraColorKey,
   type ExtraDecimals,
   type ExtraField,
@@ -54,6 +55,7 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 };
 
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
+const ENERGY_PERIODS: readonly EnergyPeriod[] = ["day", "week", "month"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
 const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
@@ -264,6 +266,31 @@ function readEnum<T extends string>(
     throw fail("error.config.enum", field, hass, { allowed: allowed.join(", ") });
   }
   return value as T;
+}
+
+/**
+ * The energy chip's periods, in calendar order (REQ EM-1). Grid and battery
+ * need their two-sensor form: a signed hourly mean cannot tell how much went
+ * each way (EM-3). Without it the mode is off with a warning, never an error
+ * card - a sensor changed in the editor must not break the card (E-1).
+ */
+function readEnergyPeriods(
+  value: unknown,
+  grid: SourceSpec,
+  battery: SourceSpec,
+  hass?: HomeAssistant,
+): EnergyPeriod[] {
+  if (isUnset(value)) return [];
+  const field = "view.energy_periods";
+  if (!Array.isArray(value)) throw fail("error.config.list", field, hass);
+  for (const entry of value) readEnum(entry, ENERGY_PERIODS, field, "day", hass);
+  const periods = ENERGY_PERIODS.filter((p) => value.includes(p));
+  if (periods.length === 0) return [];
+  if (grid.kind !== "split" || (battery.kind !== "absent" && battery.kind !== "split")) {
+    console.warn(localize("error.config.energy_needs_split", hass, { field }));
+    return [];
+  }
+  return periods;
 }
 
 // ---------------------------------------------------------------------------
@@ -950,6 +977,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       avgLongMinutes: avgLongFixed,
       showSelector: readBoolean(rawView.show_selector, "view.show_selector", true, hass),
       remember: readBoolean(rawView.remember, "view.remember", true, hass),
+      energyPeriods: readEnergyPeriods(rawView.energy_periods, grid, battery, hass),
     },
     flow: {
       minW,

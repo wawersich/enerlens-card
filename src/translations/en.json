@@ -27,6 +27,19 @@
     "since": "since {time}",
     "chip": "View: {mode}, next: {next}"
   },
+  "energy": {
+    "kw": "kW",
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "from": "{period} from {date}",
+    "chip": "Energy: {mode}, next: {next}",
+    "filled": "{percent} of the time filled in from neighbouring values",
+    "since": "Statistics only from {date}",
+    "none": "No statistics",
+    "rest": "Includes filled-in, later or missing consumer values",
+    "late": "Statistics only from {date}; the period counts from then"
+  },
   "state": {
     "unavailable": "—"
   },
@@ -55,6 +68,7 @@
       "order_fixed": "{first} must be less than {second} - {second} was raised to {value}.",
       "clamped": "{field} must be between {min} and {max} - {value} is used.",
       "grid_status_no_outage": "{field} needs an entity and at least one outage state - without them the grid status is ignored.",
+      "energy_needs_split": "{field}: the energy mode needs two sensors each for grid and battery (import/export, discharge/charge); it stays off.",
       "charge_no_soc": "{field} has no soc entity and is ignored.",
       "charge_no_plugged": "{field}: show plugged needs a plugged entity - shown while charging instead.",
       "extra_no_entity": "{field} has no entity and is ignored.",

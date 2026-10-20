@@ -200,3 +200,21 @@ describe("the automatic unit (REQ K-7)", () => {
     expect(show(-0.2)).toBe("0 W");
   });
 });
+
+describe("energy figures (REQ EM-5)", () => {
+  const hass = makeHass("decimal_comma");
+  const kwh = (meanW: number, hours: number) =>
+    formatPower(meanW, hass, { unit: "auto", decimals: 2, digits: 3, energyHours: hours });
+
+  it("writes mean watts over the period as kWh with one decimal", () => {
+    expect(kwh(1000, 24)).toBe("24,0 kWh");
+    expect(kwh(1062.5, 24)).toBe("25,5 kWh");
+    expect(kwh(0, 24)).toBe("0,0 kWh");
+  });
+
+  it("says a little is a little rather than nothing", () => {
+    expect(kwh(1, 24)).toBe("< 0,1 kWh");
+    expect(kwh(2.2, 24)).toBe("0,1 kWh");
+    expect(kwh(-0.1, 24)).toBe("0,0 kWh");
+  });
+});

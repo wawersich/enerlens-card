@@ -9,6 +9,7 @@ import { localize } from "../localize";
 import type {
   ColorKey,
   Config,
+  EnergyMark,
   ExtraColorKey,
   ExtraField,
   ExtraWeight,
@@ -94,6 +95,24 @@ interface NodeView {
   /** Grid node while the status entity reports an outage (REQ NS-4). */
   outage?: boolean;
   socEntity?: string;
+  /** Energy mode, grid and battery: one figure above the icon, one below (EM-5). */
+  figures?: { upper: Figure; lower: Figure };
+  /** Energy mode: how sure the node's figure is (EM-11). */
+  mark?: EnergyMark;
+}
+
+/** One energy figure with its direction arrow (REQ EM-5). */
+interface Figure {
+  arrow: string;
+  color: string;
+  text: string;
+  entity?: string;
+  mark?: EnergyMark;
+}
+
+/** The class and tooltip a figure's warning tier gives it (EM-11). */
+function markClass(mark?: EnergyMark): string {
+  return mark && mark.tier > 0 ? `warn${mark.tier}` : "";
 }
 
 /** Colour of a two-way quantity from the sign of its net value (REQ 4.2). */
@@ -199,12 +218,18 @@ function renderHits(
   const near = options.label ? "-2px" : "-22px";
   const top = v.key === "solar" ? near : "-22px";
   const bottom = v.key === "solar" ? "-22px" : near;
-  const above = options.inside?.position === "above" ? options.inside : undefined;
-  const upper = v.socEntity
-    ? { entity: v.socEntity, text: v.socValue ?? "" }
-    : above
-      ? { entity: above.entity, text: formatExtra(hass.states[above.entity], hass, above.decimals) }
-      : undefined;
+  // In a period the extra fields are hidden, and with them their targets (EM-6).
+  const above = options.inside?.position === "above" && !config.energy ? options.inside : undefined;
+  const upper = v.figures?.upper.entity
+    ? { entity: v.figures.upper.entity, text: v.figures.upper.text }
+    : v.socEntity
+      ? { entity: v.socEntity, text: v.socValue ?? "" }
+      : above
+        ? {
+            entity: above.entity,
+            text: formatExtra(hass.states[above.entity], hass, above.decimals),
+          }
+        : undefined;
   if (upper) {
     // A half that stops short of a label field keeps its 44 px by growing
     // towards the middle, not past the field: the minimum height would
@@ -262,6 +287,9 @@ function renderLabel(
     ? localize(showName ? "node.derived_suffix" : "node.derived_alone", hass)
     : "";
   const field = options.label;
+  // A live value next to a period's energy would mislead. The field keeps its
+  // room, so switching never moves a node or a label (EM-6).
+  const hidden = config.energy !== undefined;
   let extra: TemplateResult | string = "";
   if (field) {
     const prefix = field.prefix ?? "";
@@ -271,7 +299,9 @@ function renderLabel(
     // A target of its own: the field shows another entity than the node (REQ Z-7).
     extra = html`<button
       class="extra-label extra"
-      style=${extraStyle(field, color, "--el-label-size")}
+      style=${extraStyle(field, color, "--el-label-size") + (hidden ? ";visibility:hidden" : "")}
+      tabindex=${hidden ? "-1" : "0"}
+      aria-hidden=${hidden ? "true" : "false"}
       title=${full}
       aria-label=${full}
       @click=${tap(field.entity)}
@@ -379,7 +409,83 @@ export function buildNodeViews(
     });
   }
 
+  if (config.energy) energyViews(views, model, config, hass);
   return views;
+}
+
+/**
+ * A period: grid and battery show both directions, each with its arrow, and
+ * no state word - over a day, the grid did both (EM-5). The state of charge is
+ * a now, not a period: no figure, no fill, no level in the symbol.
+ */
+function energyViews(views: NodeView[], model: Model, config: Config, hass: HomeAssistant): void {
+  const marks = config.energy?.roles ?? {};
+  const unavailable = localize("state.unavailable", hass);
+  const fig = (
+    arrow: string,
+    color: ColorKey,
+    w: number | null,
+    role: string,
+    entity?: string,
+  ): Figure => ({
+    arrow,
+    color: config.colors[color],
+    text: w === null ? unavailable : formatPower(w, hass, config.power),
+    entity,
+    mark: marks[role],
+  });
+  /** The node takes the colour of the larger direction, once anything flowed. */
+  const tone = (a: number, b: number, colorA: ColorKey, colorB: ColorKey): string =>
+    Math.max(a, b) < config.flow.minW ? "var(--el-line)" : config.colors[a >= b ? colorA : colorB];
+  for (const v of views) {
+    if (v.key === "solar") v.mark = marks.solar;
+    if (v.key === "house") v.mark = marks.house;
+    if (v.key === "grid") {
+      const g = model.grid;
+      const imp = g.available ? g.positive : null;
+      const exp = g.available ? g.negative : null;
+      v.label = localize("node.grid", hass);
+      v.outage = false;
+      v.icon = config.icons.grid ?? DEFAULT_ICONS.grid;
+      v.color = tone(imp ?? 0, exp ?? 0, "grid_import", "grid_export");
+      v.figures = {
+        upper: fig("→", "grid_import", imp, "import", g.entityPositive),
+        lower: fig("←", "grid_export", exp, "export", g.entityNegative),
+      };
+      v.entity = g.entityNegative;
+      v.value = v.figures.lower.text;
+    }
+    if (v.key === "battery" && model.battery) {
+      const b = model.battery;
+      const out = b.available ? b.positive : null;
+      const into = b.available ? b.negative : null;
+      v.label = localize("node.battery", hass);
+      v.color = tone(out ?? 0, into ?? 0, "battery_discharge", "battery_charge");
+      v.figures = {
+        upper: fig("↑", "battery_discharge", out, "discharge", b.entityPositive),
+        lower: fig("↓", "battery_charge", into, "charge", b.entityNegative),
+      };
+      v.entity = b.entityNegative;
+      v.value = v.figures.lower.text;
+      v.socValue = undefined;
+      v.socPercent = undefined;
+      v.socEntity = undefined;
+      v.icon = config.icons.battery ?? "mdi:battery";
+    }
+  }
+}
+
+function renderFigure(f: Figure): TemplateResult {
+  return html`<div class="value figure ${markClass(f.mark)}" title=${f.mark?.note ?? ""}>
+    <span class="arrow" style="color:${f.color}">${f.arrow}</span>${f.text}
+  </div>`;
+}
+
+/** An inside field: in a period it keeps its room unseen (EM-6); grid and
+ *  battery figures take its place. */
+function insideAt(v: NodeView, config: Config, hass: HomeAssistant, where: "above" | "below") {
+  if (config.nodes[v.key].inside?.position !== where || v.figures) return "";
+  return insideField(v, config, hass);
 }
 
 /** Connections that only exist when a battery node is present (REQ K-10). */
@@ -463,7 +569,7 @@ export function renderCross(
           <div
             class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""} ${
               v.outage ? "outage" : ""
-            }"
+            } ${config.energy ? "in-period" : ""}"
             style="left:${pos.left};top:${pos.top};border-color:${
               // With segments to show, the ring is the contour (REQ K-14).
               v.key === "house" && segments.length > 0 ? "transparent" : v.color
@@ -481,7 +587,8 @@ export function renderCross(
                 : ""
             }
             ${v.socValue ? html`<div class="value">${v.socValue}</div>` : ""}
-            ${config.nodes[v.key].inside?.position === "above" ? insideField(v, config, hass) : ""}
+            ${v.figures ? renderFigure(v.figures.upper) : ""}
+            ${insideAt(v, config, hass, "above")}
             ${
               v.outage
                 ? // A big X over the symbol, not a slash through it: the slash
@@ -496,8 +603,15 @@ export function renderCross(
                   </div>`
                 : html`<ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>`
             }
-            <div class="value ${v.available ? "" : "unavailable"}">${v.value}</div>
-            ${config.nodes[v.key].inside?.position === "below" ? insideField(v, config, hass) : ""}
+            ${
+              v.figures
+                ? renderFigure(v.figures.lower)
+                : html`<div
+                    class="value ${v.available ? "" : "unavailable"} ${markClass(v.mark)}"
+                    title=${v.mark?.note ?? ""}
+                  >${v.value}</div>`
+            }
+            ${insideAt(v, config, hass, "below")}
             ${v.key === "solar" ? renderLabel(v, config, hass, tap) : ""}
             ${renderHits(v, config, hass, tap)}
             ${

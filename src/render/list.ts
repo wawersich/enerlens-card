@@ -100,6 +100,8 @@ function chargeTitle(charge: NonNullable<ListEntry["charge"]>, hass: HomeAssista
  * `flow.min_w` that decides whether dots run (REQ L-15, P-9).
  */
 export function showsCharge(entry: ListEntry, config: Config): boolean {
+  // A period shows energy; a state of charge is a now (EM-5).
+  if (config.energy) return false;
   return entry.charge?.soc !== undefined && (entry.powerUnknown || entry.w < config.flow.minW);
 }
 
@@ -130,6 +132,14 @@ export function renderList(
                   ? "—"
                   : formatPower(entry.w, hass, config.power);
             const title = charge ? chargeTitle(charge, hass) : "";
+            // In a period: gaps filled in, a late start, a remainder that holds
+            // them (EM-11, EM-12).
+            const mark = config.energy
+              ? entry.isRest
+                ? config.energy.rest
+                : config.energy.consumers[entry.entity ?? ""]
+              : undefined;
+            const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
             // Each part opens the history of what it shows (REQ L-15): the mark
             // and a charge in the value column the charge, the rest the power.
             const socHit = (part: string) =>
@@ -165,11 +175,14 @@ export function renderList(
                     : html`<span class="swatch dot" style="color:${entry.color}"></span>`
               }
               <span class="name">${rowLabel(entry, hass)}</span>
-              <span class="row-value ${percent ? "soc" : ""}">${value}${percent ? socHit("value") : nothing}</span>
+              <span class="row-value ${percent ? "soc" : ""} ${markClass}" title=${mark?.note ?? ""}
+                >${value}${percent ? socHit("value") : nothing}</span
+              >
               ${
                 entry.entity
                   ? html`<button
                     class="row-hit"
+                    title=${mark?.note ?? ""}
                     aria-label=${`${rowLabel(entry, hass)} ${
                       // The row opens the power, so it names the power.
                       entry.powerUnknown ? "—" : formatPower(entry.w, hass, config.power)

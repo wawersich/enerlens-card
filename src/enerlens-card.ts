@@ -17,7 +17,16 @@ import {
 } from "./const";
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
+import {
+  type EnergyView,
+  energyChipLabel,
+  energyConfig,
+  energyEntities,
+  fetchEnergy,
+  formatDay,
+} from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
+import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
 import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
@@ -25,7 +34,12 @@ import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import { NODE_R, VIEW_W, holesPath } from "./render/geometry";
 import { groundIsDark, seeThrough } from "./render/ground";
-import { renderExampleBanner, renderHeader, renderOutageBanner } from "./render/header";
+import {
+  type EnergyChip,
+  renderExampleBanner,
+  renderHeader,
+  renderOutageBanner,
+} from "./render/header";
 import { RowAnimator, renderList } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
@@ -34,6 +48,8 @@ import { styles } from "./styles";
 import {
   type Config,
   ConfigError,
+  type EnergyPeriod,
+  type Flows,
   type GridStatusSpec,
   type HomeAssistant,
   type Model,
@@ -47,6 +63,10 @@ import {
 /** Preferences kept per browser while view.remember is on (REQ V-11, L-12). */
 const MODE_KEY = "enerlens-view-mode";
 const SHOW_ALL_KEY = "enerlens-show-all";
+/** The energy chip's choice, "kw" for the power view (REQ EM-2). */
+const ENERGY_KEY = "enerlens-energy-period";
+/** A period is asked for again this often while it is shown (REQ EM-4). */
+const ENERGY_REFRESH_MS = 5 * 60_000;
 
 /** localStorage throws in private mode and can be disabled outright; a lost
  *  preference must never cost more than the preference itself. */
@@ -165,6 +185,110 @@ class EnerLensCard extends LitElement {
   private _outage: OutageState;
   /** The one history lookup that gives the latch its starting point (REQ NS-6). */
   private _outagePrefilled = false;
+  /** Energy chip: the period shown, null = the power view (REQ EM-2). */
+  private _energyPeriod: EnergyPeriod | null = null;
+  /** Set by a tap on the chip; the editor preview loads only then (EM-14). */
+  private _energyChosen = false;
+  /** Fetched periods, kept while the entities stay the same. */
+  private _energyViews = new Map<EnergyPeriod, EnergyView>();
+  /** What the views were fetched for; a change empties them. */
+  private _energyKey = "";
+  /** Last request per period, answered or not - one at a time, then every 5 min. */
+  private _energyAsked = new Map<EnergyPeriod, number>();
+
+  /**
+   * The period the card draws: none for the example (E-5), and none in the
+   * editor preview until the chip is tapped there (EM-14).
+   */
+  private get _period(): EnergyPeriod | null {
+    if (!this._energyPeriod || this._example) return null;
+    if ((this as unknown as { preview?: boolean }).preview && !this._energyChosen) return null;
+    return this._energyPeriod;
+  }
+
+  /** The configuration as drawn: in a period with kWh and W x 1 h (EM-7, EM-8). */
+  private _shownConfig(): Config {
+    const config = this._config as Config;
+    const period = this._period;
+    return period ? energyConfig(config, this._energyViews.get(period)) : config;
+  }
+
+  /** Energy per connection over the period, or the live split (REQ EM-8). */
+  private _flowsOf(model: Model): Flows {
+    const period = this._period;
+    if (!period) return computeFlows(model);
+    return this._energyViews.get(period)?.flowsW ?? {};
+  }
+
+  private _cycleEnergy(): void {
+    const periods = this._config?.view.energyPeriods ?? [];
+    const order: (EnergyPeriod | null)[] = [null, ...periods];
+    // From what is shown: the preview shows kW even with a period remembered.
+    this._energyPeriod = order[(order.indexOf(this._period) + 1) % order.length];
+    this._energyChosen = true;
+    if (this._config?.view.remember) store(ENERGY_KEY, this._energyPeriod ?? "kw");
+    // At once, not on the next tick (V-8); figures still loading show "—".
+    if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
+    this.requestUpdate();
+  }
+
+  /**
+   * Asks for the shown period when it has none yet or the last answer is five
+   * minutes old (EM-4). After a render, like the averaging history, so the
+   * editor preview - flagged only after the first hass - never asks by itself.
+   */
+  private _ensureEnergy(): void {
+    const period = this._period;
+    const hass = this._hass;
+    const config = this._config;
+    if (!period || !hass || !config) return;
+    const now = Date.now();
+    const asked = this._energyAsked.get(period);
+    if (asked !== undefined && now - asked < ENERGY_REFRESH_MS) return;
+    this._energyAsked.set(period, now);
+    const key = this._energyKey;
+    fetchEnergy(hass, config, period, now)
+      .then((view) => {
+        // A configuration with other entities came meanwhile: its own fetch follows.
+        if (key !== this._energyKey) return;
+        this._energyViews.set(period, view);
+        if (this._hass && this._config && this._period === period) {
+          this._tickModel = this._modelForMode(this._hass, this._config);
+        }
+        this.requestUpdate();
+      })
+      .catch((error) => {
+        // Kept as it was; the next try comes with the next five minutes.
+        console.warn(error);
+      });
+  }
+
+  /** The chip as the header draws it; undefined without periods (EM-2). */
+  private _energyChip(hass: HomeAssistant, config: Config): EnergyChip | undefined {
+    const periods = config.view.energyPeriods;
+    if (periods.length === 0 || this._example) return undefined;
+    const period = this._period;
+    const view = period ? this._energyViews.get(period) : undefined;
+    const order: (EnergyPeriod | null)[] = [null, ...periods];
+    const next = order[(order.indexOf(period) + 1) % order.length];
+    const active = energyChipLabel(period, view, hass);
+    const late = period !== null && view?.lateStart === true;
+    return {
+      labels: order.map((p) => energyChipLabel(p, undefined, hass)),
+      active,
+      ariaLabel: localize("energy.chip", hass, {
+        mode: active,
+        next: energyChipLabel(next, undefined, hass),
+      }),
+      inPeriod: period !== null,
+      late,
+      title:
+        late && view
+          ? localize("energy.late", hass, { date: formatDay(view.from, hass, true) })
+          : "",
+      onCycle: () => this._cycleEnergy(),
+    };
+  }
 
   /** Drawn node diameter in CSS px; mirrors --el-node-size in styles.ts. */
   private get _nodePx(): number {
@@ -395,6 +519,22 @@ class EnerLensCard extends LitElement {
       }
     }
     if (view.remember && !previous) this._showAll = load(SHOW_ALL_KEY) === "1";
+
+    // Fetched periods hold for the same entities only (EM-4).
+    const energyKey = JSON.stringify([this._config.sources, energyEntities(this._config)]);
+    if (energyKey !== this._energyKey) {
+      this._energyKey = energyKey;
+      this._energyViews.clear();
+      this._energyAsked.clear();
+    }
+    if (!previous && view.remember) {
+      const stored = load(ENERGY_KEY);
+      this._energyPeriod = view.energyPeriods.find((p) => p === stored) ?? null;
+    }
+    // A period no longer offered falls back to the power view, quietly (EM-2).
+    if (this._energyPeriod && !view.energyPeriods.includes(this._energyPeriod)) {
+      this._energyPeriod = null;
+    }
     // A new buffer or view wants its history, fetched after the next render.
     // Setting the model above already asks for that render where hass is
     // there; this only makes sure of it.
@@ -509,6 +649,13 @@ class EnerLensCard extends LitElement {
 
   /** Model for the active mode: raw readings, or window means (REQ V-4). */
   private _modelForMode(hass: HomeAssistant, config: Config): Model {
+    // A period hands the model its means over the period; the whole pipeline
+    // - balance, list, ring - then works as it does for the averages (EM-4).
+    const period = this._period;
+    if (period) {
+      const view = this._energyViews.get(period);
+      return buildModelFrom(hass, config, (id) => view?.meanW(id) ?? null, this._chargeOf);
+    }
     // The example has no history to average; it shows its invented now.
     if (this._mode === "current" || !this._buffer || this._example) {
       return buildModel(hass, config, this._chargeOf);
@@ -808,9 +955,9 @@ class EnerLensCard extends LitElement {
          * worth watching - and that is still flow.min_w. A coloured line
          * without dots therefore reads "yes, but little", which is true.
          */
-        const params = dotParams(entry.w, this._config as Config);
+        const params = dotParams(entry.w, this._shownConfig());
         // One test for line and ring segment alike, so the two cannot drift.
-        const quiet = !carries(entry, this._config as Config);
+        const quiet = !carries(entry, this._shownConfig());
         const mode = this._config?.flow.inactiveLines ?? "show";
         if (quiet && mode === "hide") return null;
         // Stacked, the line ends at the colour mark, not at the row's edge -
@@ -915,6 +1062,7 @@ class EnerLensCard extends LitElement {
   protected updated(): void {
     this._ensureHistory();
     this._ensureLookups();
+    this._ensureEnergy();
     this._rows.play(
       this.renderRoot.querySelector(".body"),
       this._animationsWanted && this._settled,
@@ -967,7 +1115,7 @@ class EnerLensCard extends LitElement {
       this._tickModel ?? this._model ?? buildModel(this._hass, this._config, this._chargeOf);
     // Still, a dot says nothing - its speed is the message, and the line's
     // colour already tells whether anything flows.
-    const plans = this._dotsMove ? planDots(computeFlows(ticked), this._config) : [];
+    const plans = this._dotsMove ? planDots(this._flowsOf(ticked), this._shownConfig()) : [];
     this._dots.update(plans, this._config, this._animationsWanted);
 
     // The dots need a quieter line to stand out against; the design says how
@@ -1033,15 +1181,16 @@ class EnerLensCard extends LitElement {
     if (!this._hass || !this._config) return nothing;
     const model = this._modelForMode(this._hass, this._config);
     const ticked = this._tickModel ?? model;
+    const shown = this._shownConfig();
     // Selection and order come from the tick, the figures from the live model
     // (REQ L-7): values may move every second, rows only on the beat.
     const breakdown = refreshBreakdownValues(
-      buildBreakdown(ticked, this._config, this._showAll),
+      buildBreakdown(ticked, shown, this._showAll),
       model,
-      this._config,
+      shown,
     );
     // Lines carry the colour of the flow on them, dimmed by CSS (REQ P-5).
-    const plans = planDots(computeFlows(ticked), this._config);
+    const plans = planDots(this._flowsOf(ticked), shown);
     const active = new Map(
       plans.map((p) => [p.connection, this._config?.colors[p.colorKey] ?? ""]),
     );
@@ -1062,6 +1211,7 @@ class EnerLensCard extends LitElement {
           (mode) => this._setMode(mode),
           this._showAll,
           () => this._toggleShowAll(),
+          this._energyChip(this._hass, this._config),
         )}
         ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
         ${this._example ? renderExampleBanner(this._hass) : nothing}
@@ -1074,7 +1224,7 @@ class EnerLensCard extends LitElement {
           <svg class="fan" aria-hidden="true"></svg>
           ${renderCross(
             model,
-            this._config,
+            shown,
             this._hass,
             active,
             this._config.ring.enabled ? breakdown.segments : [],
@@ -1084,7 +1234,7 @@ class EnerLensCard extends LitElement {
             this._holeR,
             this._seeThrough,
           )}
-          ${renderList(breakdown, this._config, this._hass, openEntry, this._stacked)}
+          ${renderList(breakdown, shown, this._hass, openEntry, this._stacked)}
         </div>
       </ha-card>
     `;

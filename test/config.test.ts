@@ -524,6 +524,7 @@ describe("defaults (section 3)", () => {
       avgLongMinutes: 15,
       showSelector: true,
       remember: true,
+      energyPeriods: [],
     });
     expect(config.flow).toEqual({
       minW: 10,
@@ -1085,5 +1086,46 @@ describe("collectEntityIds (T-3, V-6)", () => {
         sources: { ...config.sources, solar: { kind: "derived" }, grid: { kind: "absent" } },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("energy periods (REQ EM-1, EM-3)", () => {
+  const SPLIT = {
+    solar: "sensor.pv",
+    grid: { import: "sensor.import", export: "sensor.export" },
+    battery: { discharge: "sensor.out", charge: "sensor.in" },
+  };
+  const periods = (entities: Record<string, unknown>, list: unknown) =>
+    normalizeConfig({
+      type: "custom:enerlens-card",
+      entities,
+      view: { energy_periods: list },
+    } as RawConfig).view.energyPeriods;
+
+  it("is off unless set", () => {
+    expect(normalizeConfig(cfg()).view.energyPeriods).toEqual([]);
+    expect(periods(SPLIT, null)).toEqual([]);
+    expect(periods(SPLIT, [])).toEqual([]);
+  });
+
+  it("keeps day, week and month in that order, once each", () => {
+    expect(periods(SPLIT, ["month", "day", "month"])).toEqual(["day", "month"]);
+  });
+
+  it("rejects anything else", () => {
+    expectError(() => periods(SPLIT, "day"), "error.config.list", "view.energy_periods");
+    expectError(() => periods(SPLIT, ["year"]), "error.config.enum", "view.energy_periods");
+  });
+
+  it("needs two sensors for grid and battery, and warns instead of failing (EM-3, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(periods({ ...SPLIT, grid: "sensor.grid" }, ["day"])).toEqual([]);
+    expect(periods({ ...SPLIT, battery: "sensor.battery" }, ["day"])).toEqual([]);
+    expect(periods({ ...SPLIT, battery: "derived", house: "sensor.house" }, ["day"])).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(3);
+    expect(String(warn.mock.calls[0][0])).toContain("error.config.energy_needs_split");
+    // Without a battery the grid is enough; solar or house may be derived.
+    expect(periods({ solar: "sensor.pv", grid: SPLIT.grid }, ["day"])).toEqual(["day"]);
+    expect(periods({ ...SPLIT, solar: "derived", house: "sensor.h" }, ["week"])).toEqual(["week"]);
   });
 });

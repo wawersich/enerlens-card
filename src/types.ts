@@ -38,7 +38,10 @@ export interface HassLocale {
     | "quote_decimal"
     | "none";
   time_format?: string;
+  /** "local" = the browser's zone, "server" = Home Assistant's (config.time_zone). */
   time_zone?: string;
+  /** "language" or a weekday name; the energy week starts there (REQ EM-1). */
+  first_weekday?: string;
 }
 
 export interface HomeAssistant {
@@ -50,6 +53,8 @@ export interface HomeAssistant {
   /** Available since HA 2023.9; used for the state of charge (REQ K-4). */
   formatEntityState?: (stateObj: HassEntity, state?: string) => string;
   callWS: <T>(msg: Record<string, unknown>) => Promise<T>;
+  /** Home Assistant's own time zone (REQ EM-1). */
+  config?: { time_zone?: string };
   connected?: boolean;
   /** Only compared: a new object means the theme or dark mode changed (REQ T-3). */
   themes?: unknown;
@@ -65,6 +70,9 @@ export interface LovelaceCardConfig {
 // ---------------------------------------------------------------------------
 
 export type ViewMode = "current" | "avg_short" | "avg_long";
+
+/** Calendar periods of the energy mode (REQ EM-1). */
+export type EnergyPeriod = "day" | "week" | "month";
 export type AnimationMode = "auto" | "on" | "off";
 
 /**
@@ -213,6 +221,8 @@ export interface RawConfig extends LovelaceCardConfig {
     avg_long_minutes?: number;
     show_selector?: boolean;
     remember?: boolean;
+    /** Calendar periods the energy chip steps through (REQ EM-1). */
+    energy_periods?: EnergyPeriod[];
   };
   flow?: {
     min_w?: number;
@@ -346,6 +356,8 @@ export interface Config {
     avgLongMinutes: number;
     showSelector: boolean;
     remember: boolean;
+    /** Empty = energy mode off, also when its prerequisite is missing (EM-3). */
+    energyPeriods: EnergyPeriod[];
   };
   flow: {
     minW: number;
@@ -374,6 +386,8 @@ export interface Config {
   colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
   icons: Partial<Record<IconKey, string>>;
   power: PowerFormat;
+  /** Only while the energy mode shows a period (REQ EM-5, EM-11). */
+  energy?: EnergyMarks;
   /** Extra values and label switches, one entry per node (REQ Z-1 to Z-6). */
   nodes: Record<NodeKey, NodeOptions>;
   /** Text colour of each extra field (REQ Z-6). */
@@ -403,6 +417,25 @@ export interface PowerFormat {
    * number actually says.
    */
   digits: number;
+  /** Set in the energy mode: figures are mean watts over this many hours and
+   *  are written as kWh (REQ EM-5). */
+  energyHours?: number;
+}
+
+/** How sure an energy figure is (REQ EM-11): 0 normal, 1 muted, 2 amber. */
+export interface EnergyMark {
+  tier: 0 | 1 | 2;
+  /** Tooltip with the details; empty when there is nothing to say. */
+  note: string;
+}
+
+/** What the energy mode tells the drawing beyond the figures themselves. */
+export interface EnergyMarks {
+  /** Per balance role (solar, import, export, discharge, charge, house). */
+  roles: Record<string, EnergyMark>;
+  /** Per consumer entity. */
+  consumers: Record<string, EnergyMark>;
+  rest: EnergyMark;
 }
 
 /**
