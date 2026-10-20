@@ -24,6 +24,10 @@ default, both configurable; one chip in the header steps through *Now*,
 numbers. Clicking any element still opens Home Assistant's own dialog with the
 real history.
 
+**Energy without energy sensors.** A second chip switches to the energy of
+today, this week or this month, worked out from the statistics Home Assistant
+already keeps of the power sensors.
+
 **The consumer list sorts itself and glides.** Rows reorder by power on a fixed
 beat and slide to their new position. A small filter button at the top shows
 **every** consumer on request, regardless of power — for tapping the history of
@@ -363,6 +367,74 @@ nodes:
 
 In the editor: *Labels & extra values*, one section per node.
 
+### Energy per day, week or month (optional)
+
+Besides power, the card can show energy: what came from the sun today, what
+was bought this week, what the heat pump used this month. It needs no energy
+sensors for that - it adds up the long-term statistics Home Assistant keeps of
+the power sensors that are already configured.
+
+```yaml
+view:
+  energy_periods: [day, week, month]   # any of them, at least one
+```
+
+A chip next to the filter button then steps through *kW* (the power view),
+*Day*, *Week* and *Month*. A period runs from midnight - today, since the first
+day of the week as set in your Home Assistant profile, since the first of the
+month - up to the last statistics Home Assistant has written, a few minutes
+behind the clock.
+
+- **PV and house** show one figure each, in kWh.
+- **Grid** shows the import above the icon (→) and the export below it (←),
+  **battery** the discharge above (↑) and the charge below (↓) - over a day,
+  both happen. The state of charge is a now, not a period, so it is not shown.
+- **The list, the ring and the dots** work with the energy of the period.
+  Thresholds given in W count as W × 1 hour: `min_consumer_w: 10` hides
+  consumers below 10 Wh.
+- Extra values and the state words ("import", "charging") are hidden; their
+  room stays, so nothing moves when you switch.
+- Tapping a node still opens its history.
+
+**Grid and battery need two sensors each** - import and export, discharge and
+charge. An hourly mean of a signed sensor cannot tell how much went each way,
+and on most days the grid does both. The option is locked in the editor until
+they are there. With only a signed sensor, two *Template → Sensor* helpers
+split it (unit `W`, device class `power`, state class `measurement`):
+
+```jinja
+{# import #}
+{{ [states('sensor.grid_power')|float, 0]|max if has_value('sensor.grid_power') else none }}
+{# export #}
+{{ [-(states('sensor.grid_power')|float), 0]|max if has_value('sensor.grid_power') else none }}
+```
+
+`none` while the sensor is unavailable keeps an outage out of the statistics
+as a gap, rather than as a measured zero.
+
+Statistics only exist from the moment a sensor is created, so new helpers show
+"Month from 10/21" in the chip until a whole month has passed.
+
+**How sure a figure is.** Home Assistant's statistics can have holes - a
+restart, an integration that was down. The card fills an hour that is missing
+for one of the balance values (PV, import, export, discharge, charge, house)
+from the other five, otherwise from the same hour the day before (or after).
+An hour without PV after a dark hour counts as zero: small inverters switch
+off at night. A figure is then coloured by how much of the period was filled:
+
+| Filled | Shown |
+|---|---|
+| up to 2 % | normal |
+| 2 – 10 % | muted blue-grey |
+| more than 10 % | amber |
+
+Hovering over the figure says how much. If one of the main sensors only has
+statistics from a date inside the period, the whole period counts from then -
+the chip says "Month from 10/8" in amber - so that the balance still adds up.
+Nothing is ever extrapolated. A consumer that is newer than the period does not
+shorten it; its row and the remainder are amber, and a consumer without
+statistics (a sensor without a state class) is listed last with a dash.
+
 ### Grid outage (optional)
 
 Some installations report whether the grid is there at all — an inverter that
@@ -432,8 +504,9 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
 | `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
-| `view.show_selector` | `true` | Show the filter bar above the card - the view chip (*Now* / averages) and the list's filter button |
-| `view.remember` | `true` | Remember the view and the filter button per browser |
+| `view.show_selector` | `true` | Show the filter bar above the card - the view chip (*Now* / averages), the energy chip and the list's filter button |
+| `view.remember` | `true` | Remember the view, the energy period and the filter button per browser |
+| `view.energy_periods` | — | `day`, `week`, `month`: the periods of the energy chip. Needs two sensors each for grid and battery |
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
 | `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |

@@ -107,7 +107,7 @@ function kindOf(name: string): keyof typeof CLEARED {
   if (/^node_.*_show_(name|state)$/.test(name)) return "boolean";
   if (/^node_.*_(position|decimals|weight)$/.test(name)) return "select";
   if (/^node_.*_size$/.test(name)) return "number";
-  if (/^grid_status_(outage|ok)$/.test(name)) return "list";
+  if (/^grid_status_(outage|ok)$|^energy_periods$/.test(name)) return "list";
   if (/_source$|default_mode|inactive_lines|animation|power_unit|power_decimals/.test(name))
     return "select";
   if (/_invert$|_enabled$|show_selector/.test(name)) return "boolean";

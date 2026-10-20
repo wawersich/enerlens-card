@@ -17,13 +17,16 @@ import {
 } from "./const";
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
+import { periodStart } from "./energy";
 import {
   type EnergyView,
   energyChipLabel,
   energyConfig,
-  energyEntities,
+  energyKey,
   fetchEnergy,
+  firstWeekday,
   formatDay,
+  timeZoneOf,
 } from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { localize } from "./localize";
@@ -67,6 +70,8 @@ const SHOW_ALL_KEY = "enerlens-show-all";
 const ENERGY_KEY = "enerlens-energy-period";
 /** A period is asked for again this often while it is shown (REQ EM-4). */
 const ENERGY_REFRESH_MS = 5 * 60_000;
+/** After a failed request, the next one comes this much sooner. */
+const ENERGY_RETRY_MS = 30_000;
 
 /** localStorage throws in private mode and can be disabled outright; a lost
  *  preference must never cost more than the preference itself. */
@@ -226,7 +231,9 @@ class EnerLensCard extends LitElement {
     // From what is shown: the preview shows kW even with a period remembered.
     this._energyPeriod = order[(order.indexOf(this._period) + 1) % order.length];
     this._energyChosen = true;
-    if (this._config?.view.remember) store(ENERGY_KEY, this._energyPeriod ?? "kw");
+    // A tap in the editor preview is a look, not a choice for the dashboard.
+    const preview = (this as unknown as { preview?: boolean }).preview;
+    if (this._config?.view.remember && !preview) store(ENERGY_KEY, this._energyPeriod ?? "kw");
     // At once, not on the next tick (V-8); figures still loading show "—".
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
     this.requestUpdate();
@@ -243,6 +250,14 @@ class EnerLensCard extends LitElement {
     const config = this._config;
     if (!period || !hass || !config) return;
     const now = Date.now();
+    // Past midnight (or a new week, a new month) the figures are of the last
+    // period: dropped at once rather than shown for minutes under the new name.
+    const view = this._energyViews.get(period);
+    const start = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
+    if (view && view.start !== start) {
+      this._energyViews.delete(period);
+      this._energyAsked.delete(period);
+    }
     const asked = this._energyAsked.get(period);
     if (asked !== undefined && now - asked < ENERGY_REFRESH_MS) return;
     this._energyAsked.set(period, now);
@@ -258,8 +273,12 @@ class EnerLensCard extends LitElement {
         this.requestUpdate();
       })
       .catch((error) => {
-        // Kept as it was; the next try comes with the next five minutes.
+        // Kept as it was. A slow or restarting Home Assistant gets another try
+        // in half a minute rather than leaving "—" for five.
         console.warn(error);
+        if (this._energyAsked.get(period) === now) {
+          this._energyAsked.set(period, now - ENERGY_REFRESH_MS + ENERGY_RETRY_MS);
+        }
       });
   }
 
@@ -521,9 +540,9 @@ class EnerLensCard extends LitElement {
     if (view.remember && !previous) this._showAll = load(SHOW_ALL_KEY) === "1";
 
     // Fetched periods hold for the same entities only (EM-4).
-    const energyKey = JSON.stringify([this._config.sources, energyEntities(this._config)]);
-    if (energyKey !== this._energyKey) {
-      this._energyKey = energyKey;
+    const key = energyKey(this._config);
+    if (key !== this._energyKey) {
+      this._energyKey = key;
       this._energyViews.clear();
       this._energyAsked.clear();
     }

@@ -187,6 +187,7 @@ interface FlatConfig {
   avg_short_minutes?: number;
   avg_long_minutes?: number;
   show_selector?: boolean;
+  energy_periods?: string[];
   inactive_lines?: string;
   animation?: string;
   design?: string;
@@ -443,6 +444,10 @@ function toFlat(config: RawConfig): FlatConfig {
     avg_short_minutes: config.view?.avg_short_minutes,
     avg_long_minutes: config.view?.avg_long_minutes,
     show_selector: config.view?.show_selector,
+    // Only a list of names can be shown; anything else stays as written (#19).
+    energy_periods: Array.isArray(config.view?.energy_periods)
+      ? (config.view?.energy_periods as unknown[]).filter((p): p is string => typeof p === "string")
+      : undefined,
     inactive_lines: config.flow?.inactive_lines,
     animation: config.flow?.animation,
     design: config.flow?.design,
@@ -584,6 +589,21 @@ function prune<T extends Record<string, unknown>>(obj: T): T | undefined {
   return Object.keys(out).length ? (out as T) : undefined;
 }
 
+/** The ticked periods in calendar order; none ticked is no key at all (E-1). */
+function energyPeriods(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const periods = ENERGY_PERIODS.filter((p) => value.includes(p));
+  return periods.length > 0 ? periods : undefined;
+}
+
+/** Grid in two sensors, battery in two or none: what the energy mode needs (EM-3). */
+function energyReady(flat: FlatConfig): boolean {
+  return (
+    flat.grid_source === "split" &&
+    (flat.battery_source === "split" || flat.battery_source === "none")
+  );
+}
+
 // ---------------------------------------------------------------------------
 // What an edit touched (issue #19)
 // ---------------------------------------------------------------------------
@@ -605,7 +625,15 @@ const FLOW_FIELDS = [
   "slow_s",
   "fast_s",
 ];
-const VIEW_FIELDS = ["default_mode", "avg_short_minutes", "avg_long_minutes", "show_selector"];
+const VIEW_FIELDS = [
+  "default_mode",
+  "avg_short_minutes",
+  "avg_long_minutes",
+  "show_selector",
+  "energy_periods",
+];
+/** Calendar order, whatever order they were ticked in (REQ EM-1). */
+const ENERGY_PERIODS = ["day", "week", "month"];
 const OWN_GROUP = ["title", "max_consumers", "min_consumer_w", "update_interval_s", "appearance"];
 
 /**
@@ -810,11 +838,13 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "avg_short_minutes",
             "avg_long_minutes",
             "show_selector",
+            "energy_periods",
           ]),
           default_mode: flat.default_mode,
           avg_short_minutes: num(flat.avg_short_minutes),
           avg_long_minutes: num(flat.avg_long_minutes),
           show_selector: flat.show_selector,
+          energy_periods: energyPeriods(flat.energy_periods),
         }),
       raw.view,
     ),
@@ -1183,6 +1213,18 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         },
         { name: "avg_short_minutes", selector: { number: { min: 1, max: 120, mode: "box" } } },
         { name: "avg_long_minutes", selector: { number: { min: 2, max: 240, mode: "box" } } },
+        {
+          name: "energy_periods",
+          // Locked, not hidden: the help text says what it waits for (EM-15).
+          disabled: !energyReady(flat),
+          selector: {
+            select: {
+              multiple: true,
+              mode: "list",
+              options: ENERGY_PERIODS.map((p) => ({ value: p, label: t(`energy_${p}`) })),
+            },
+          },
+        },
         { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
       ],
     },
@@ -1380,6 +1422,9 @@ class EnerLensCardEditor extends LitElement {
     // The outage section says it once, above its fields; under the entity
     // picker it only repeated itself (Markus, 18.10.2026).
     if (item.name === "grid_status") return "";
+    if (item.name === "energy_periods" && !energyReady((this._flat ?? {}) as FlatConfig)) {
+      return localize("editor_help.energy_periods_locked", this.hass);
+    }
     let key = `editor_help.${item.name.replace(/^node_(?:solar|grid|house|battery)_/, "node_")}`;
     if (item.name.startsWith("color_")) key = "editor_help.color";
     if (item.name.endsWith("_source")) {

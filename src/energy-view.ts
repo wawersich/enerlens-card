@@ -43,6 +43,8 @@ export interface EnergyView {
   marks: EnergyMarks;
   /** When this view was fetched, for the five-minute refresh (EM-4). */
   fetchedAt: number;
+  /** The calendar start it was fetched for; a new day makes it stale. */
+  start: number;
 }
 
 interface Roles {
@@ -71,6 +73,17 @@ function rolesOf(config: Config): Roles {
     roles.charge = battery.negative;
   }
   return { roles, inverted };
+}
+
+/** What a fetched period depends on; a different key means a new fetch (EM-14). */
+export function energyKey(config: Config): string {
+  const { roles, inverted } = rolesOf(config);
+  return JSON.stringify([
+    roles,
+    [...inverted],
+    config.consumers.map((c) => c.entity),
+    config.flow.minW,
+  ]);
 }
 
 /** Every entity a period needs, in a stable order - a new list means a new fetch. */
@@ -104,7 +117,7 @@ function rowsOf(
 
 async function statistics(
   hass: HomeAssistant,
-  period: "hour" | "5minute",
+  period: "hour" | "5minute" | "day",
   start: number,
   ids: string[],
   timeoutMs: number,
@@ -160,10 +173,28 @@ export function timeZoneOf(hass: HomeAssistant): string {
   return hass.config?.time_zone ?? browser;
 }
 
+/** How far back a sensor's daily rows are looked at to tell a gap from a start. */
+const SINCE_DAYS = 32;
+
+/**
+ * Sensors with a daily row before the hourly window are older than it: hours
+ * they miss there are gaps, not a late start (EM-9, EM-10). Only the first row
+ * counts, and only when it lies before the window.
+ */
+function sinceOf(daily: Record<string, StatRow[]>, windowStart: number): Record<string, number> {
+  const since: Record<string, number> = {};
+  for (const [id, rows] of Object.entries(daily)) {
+    const first = Math.min(...rows.map((r) => r.start));
+    if (first < windowStart) since[id] = first;
+  }
+  return since;
+}
+
 /**
  * Fetches and integrates one period: hourly rows from a day before its start
- * (late start, the day before for gaps) and five-minute rows from a day
- * before the running hour.
+ * (late start, the day before for gaps), five-minute rows from a day before
+ * the running hour, and daily rows from a month before, to tell a sensor that
+ * had a day off from one that is new.
  */
 export async function fetchEnergy(
   hass: HomeAssistant,
@@ -176,9 +207,10 @@ export async function fetchEnergy(
   const ids = energyEntities(config);
   const from = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
   const hourStart = Math.floor(now / HOUR) * HOUR;
-  const [hourly, fiveMin] = await Promise.all([
+  const [hourly, fiveMin, daily] = await Promise.all([
     statistics(hass, "hour", from - DAY, ids, timeoutMs),
     statistics(hass, "5minute", hourStart - DAY, ids, timeoutMs),
+    statistics(hass, "day", from - SINCE_DAYS * DAY, ids, timeoutMs),
   ]);
   const result = integrateEnergy({
     from,
@@ -188,8 +220,9 @@ export async function fetchEnergy(
     hourly: rowsOf(hourly, ids, inverted),
     fiveMin: rowsOf(fiveMin, ids, inverted),
     pvZeroBelowW: config.flow.minW,
+    since: sinceOf(rowsOf(daily, ids, inverted), from - DAY),
   });
-  return toView(result, period, roles, inverted, hass, now);
+  return toView(result, period, roles, inverted, hass, now, from);
 }
 
 function percent(share: number, hass: HomeAssistant): string {
@@ -215,6 +248,7 @@ export function toView(
   inverted: Set<string>,
   hass: HomeAssistant,
   now: number,
+  start = result.from,
 ): EnergyView {
   // Right after midnight a period is minutes long; a floor keeps the means sane.
   const hours = Math.max((result.to - result.from) / HOUR, 1 / 12);
@@ -275,6 +309,7 @@ export function toView(
     flowsW,
     marks: { roles: roleMarks, consumers, rest },
     fetchedAt: now,
+    start,
   };
 }
 

@@ -46,16 +46,22 @@ function renderModeChip(
   mode: ViewMode,
   since: string | undefined,
   onMode: (mode: ViewMode) => void,
+  /** In an energy period: greyed out and inert rather than gone, so nobody
+   *  wonders where it went - and nothing beside it moves (EM-2). */
+  off = false,
 ): TemplateResult {
   const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
-  const label = localize("view.chip", hass, {
-    mode: modeLabel(mode, config, hass),
-    next: modeLabel(next, config, hass),
-  });
+  const label = off
+    ? localize("view.off_in_period", hass)
+    : localize("view.chip", hass, {
+        mode: modeLabel(mode, config, hass),
+        next: modeLabel(next, config, hass),
+      });
   return html`<button
-    class="mode-chip"
+    class="mode-chip view-chip"
+    ?disabled=${off}
     aria-label=${label}
-    title=${since ? localize("view.since", hass, { time: since }) : ""}
+    title=${off ? label : since ? localize("view.since", hass, { time: since }) : ""}
     @click=${() => onMode(next)}
   >
     ${MODES.map(
@@ -135,12 +141,15 @@ export function renderHeader(
       ${title ? html`<div class="title">${title}</div>` : html`<span></span>`}
       <div class="controls">
         ${
-          // A period's figures are energies; a mean of them is no view (EM-2).
-          showBar && !inPeriod
-            ? renderModeChip(config, hass, mode, since, onMode)
+          // A period's figures are energies; a mean of them is no view (EM-2):
+          // the chip stays, greyed out.
+          showBar
+            ? renderModeChip(config, hass, mode, since, onMode, inPeriod)
             : !showBar && inPeriod
               ? // Bar hidden: name the period anyway (REQ V-3).
-                html`<div class="mode-note">${energy?.active}</div>`
+                html`<div class="mode-note ${energy?.late ? "late" : ""}" title=${energy?.title ?? ""}>${
+                  energy?.active
+                }</div>`
               : !showBar && mode !== "current"
                 ? // Bar hidden: name the mode anyway, or a card stuck on a mean
                   // would silently read as the current value (REQ V-3).

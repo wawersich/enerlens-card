@@ -99,6 +99,9 @@ interface NodeView {
   figures?: { upper: Figure; lower: Figure };
   /** Energy mode: how sure the node's figure is (EM-11). */
   mark?: EnergyMark;
+  /** Energy mode during an outage: the symbol crossed out in red, the
+   *  period's figures kept - they are still right (EM-6). */
+  crossed?: boolean;
 }
 
 /** One energy figure with its direction arrow (REQ EM-5). */
@@ -445,6 +448,7 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
       const imp = g.available ? g.positive : null;
       const exp = g.available ? g.negative : null;
       v.label = localize("node.grid", hass);
+      v.crossed = v.outage;
       v.outage = false;
       v.icon = config.icons.grid ?? DEFAULT_ICONS.grid;
       v.color = tone(imp ?? 0, exp ?? 0, "grid_import", "grid_export");
@@ -475,9 +479,33 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
   }
 }
 
+/** The drawn arrow per direction: a long shaft and a short head (Markus,
+ *  20.10.2026: "etwas länger"). Horizontal ones lie in a wide box, vertical
+ *  ones in a tall one, so neither takes room it does not show. */
+const ARROWS: Record<string, { box: string; d: string; vertical: boolean }> = {
+  "→": { box: "0 0 18 12", d: "M1.5 6 H16 M12 2.2 L16 6 L12 9.8", vertical: false },
+  "←": { box: "0 0 18 12", d: "M16.5 6 H2 M6 2.2 L2 6 L6 9.8", vertical: false },
+  "↓": { box: "0 0 12 18", d: "M6 1.5 V16 M2.2 12 L6 16 L9.8 12", vertical: true },
+  "↑": { box: "0 0 12 18", d: "M6 16.5 V2 M2.2 6 L6 2 L9.8 6", vertical: true },
+};
+
+/**
+ * The arrow is drawn, not typed: the font's arrows are hairlines next to the
+ * figures, bold or not (Markus, 20.10.2026: "sehr dünn").
+ */
 function renderFigure(f: Figure): TemplateResult {
+  const arrow = ARROWS[f.arrow] ?? ARROWS["→"];
   return html`<div class="value figure ${markClass(f.mark)}" title=${f.mark?.note ?? ""}>
-    <span class="arrow" style="color:${f.color}">${f.arrow}</span>${f.text}
+    <svg
+      class="arrow ${arrow.vertical ? "vertical" : ""}"
+      data-arrow=${f.arrow}
+      viewBox=${arrow.box}
+      aria-hidden="true"
+      style="color:${f.color}"
+    >
+      ${svg`<path d=${arrow.d}></path>`}
+    </svg>
+    ${f.text}
   </div>`;
 }
 
@@ -590,12 +618,15 @@ export function renderCross(
             ${v.figures ? renderFigure(v.figures.upper) : ""}
             ${insideAt(v, config, hass, "above")}
             ${
-              v.outage
+              v.outage || v.crossed
                 ? // A big X over the symbol, not a slash through it: the slash
                   // disappeared into the glyph and read as part of it. Its arms
                   // stop above the text line, whatever the node size (REQ NS-4).
                   html`<div class="icon-cross">
-                    <ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>
+                    <ha-icon
+                      .icon=${v.icon}
+                      style="color:${v.crossed ? "var(--el-error)" : v.color}"
+                    ></ha-icon>
                     <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
                       <path d="M3,3 L21,21"></path>
                       <path d="M21,3 L3,21"></path>

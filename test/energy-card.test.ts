@@ -35,6 +35,11 @@ const STATES: Record<string, string> = {
   "sensor.soc": "72",
   "sensor.house": "0",
   "sensor.share": "80",
+  // Consumers: one with statistics, one without.
+  "sensor.heat": "700",
+  "sensor.nostat": "50",
+  // A grid status that reports an outage, for the one test that names it.
+  "sensor.grid_state": "off",
 };
 
 /** Hourly means of the day: 2 kW sun, 0.5 kW bought, 1 kW into the battery. */
@@ -45,6 +50,7 @@ const MEANS: Record<string, number> = {
   "sensor.out": 0,
   "sensor.in": 1000,
   "sensor.house": 1500,
+  "sensor.heat": 600,
 };
 
 type Card = HTMLElement & {
@@ -53,6 +59,9 @@ type Card = HTMLElement & {
   updateComplete: Promise<unknown>;
   preview?: boolean;
 };
+
+/** Requests to answer with an error, counted down per statistics call. */
+let failing = 0;
 
 function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
   const states: HomeAssistant["states"] = {};
@@ -72,6 +81,10 @@ function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
     config: { time_zone: "UTC" },
     callWS: async (msg: Record<string, unknown>) => {
       asked.push(msg);
+      if (msg.type === "recorder/statistics_during_period" && failing > 0) {
+        failing--;
+        throw new Error("recorder busy");
+      }
       if (msg.type !== "recorder/statistics_during_period" || msg.period !== "hour") {
         return {} as never;
       }
@@ -80,7 +93,7 @@ function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
       for (const id of msg.statistic_ids as string[]) {
         if (MEANS[id] === undefined) continue;
         out[id] = [];
-        for (let t = start; t + H <= Math.floor(NOW / H) * H; t += H) {
+        for (let t = start; t + H <= Math.floor(Date.now() / H) * H; t += H) {
           out[id].push({ start: t, mean: MEANS[id] });
         }
       }
@@ -147,7 +160,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
     // View chip, energy chip, filter - the energy chip right next to the filter.
     const controls = [...(el.shadowRoot?.querySelector(".controls")?.children ?? [])];
     expect(controls.map((c) => c.classList.contains("energy-chip") || c.className.trim())).toEqual([
-      "mode-chip",
+      "mode-chip view-chip",
       true,
       "filter-toggle",
     ]);
@@ -156,7 +169,10 @@ describe("energy mode on the card (REQ 2.15)", () => {
   it("hides the view chip in a period and remembers the choice (EM-2)", async () => {
     const { el } = await mount();
     await tap(el);
-    expect(el.shadowRoot?.querySelectorAll(".mode-chip")).toHaveLength(1);
+    // Still there, greyed out and inert: averages have no meaning here.
+    const view = el.shadowRoot?.querySelector<HTMLButtonElement>(".view-chip");
+    expect(view?.disabled).toBe(true);
+    expect(view?.title).toBe("Mittelwerte gibt es nur in der kW-Ansicht");
     expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
     const again = await mount();
     expect(label(again.el)).toBe("Tag");
@@ -165,15 +181,18 @@ describe("energy mode on the card (REQ 2.15)", () => {
   it("shows the day's energy at the nodes (EM-4, EM-5)", async () => {
     const { el, asked } = await mount();
     await tap(el);
-    expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(2);
+    expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(3);
     // Twelve hours since midnight: 24 kWh of sun, 18 kWh in the house.
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
     expect(text(node(el, "house")?.querySelector(".value"))).toBe("18,0 kWh");
-    const grid = [...(node(el, "grid")?.querySelectorAll(".value.figure") ?? [])].map(text);
-    expect(grid).toEqual(["→6,0 kWh", "←0,0 kWh"]);
-    const battery = [...(node(el, "battery")?.querySelectorAll(".value") ?? [])].map(text);
+    const figures = (key: string) =>
+      [...(node(el, key)?.querySelectorAll(".value.figure") ?? [])].map(
+        (f) => `${f.querySelector(".arrow")?.getAttribute("data-arrow")}${text(f)}`,
+      );
+    expect(figures("grid")).toEqual(["→6,0 kWh", "←0,0 kWh"]);
     // Discharge above, charge below - and no state of charge (EM-5).
-    expect(battery).toEqual(["↑0,0 kWh", "↓12,0 kWh"]);
+    expect(node(el, "battery")?.querySelectorAll(".value")).toHaveLength(2);
+    expect(figures("battery")).toEqual(["↑0,0 kWh", "↓12,0 kWh"]);
     expect(node(el, "battery")?.querySelector(".fill")).toBeNull();
   });
 
@@ -193,7 +212,75 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(0);
     await tap(el);
     expect(label(el)).toBe("Tag");
-    expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(2);
+    expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(3);
+    // A look in the preview is no choice for the dashboard.
+    expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
+    await tap(el);
+    expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
+  });
+
+  it("tries again half a minute after a failed request, not five (EM-4)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    failing = 3;
+    const { el, asked } = await mount();
+    await tap(el);
+    const stats = () => asked.filter((m) => m.type === "recorder/statistics_during_period").length;
+    expect(stats()).toBe(3);
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("—");
+    vi.setSystemTime(NOW + 31_000);
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(el);
+    expect(stats()).toBe(6);
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+    vi.setSystemTime(NOW);
+    warn.mockRestore();
+  });
+
+  it("drops yesterday's figures at midnight instead of showing them as today's (EM-1)", async () => {
+    const { el, asked } = await mount();
+    await tap(el);
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+    vi.setSystemTime(Date.parse("2026-10-20T01:10:00Z"));
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(el);
+    expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(6);
+    // One hour of the new day.
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("2,0 kWh");
+    vi.setSystemTime(NOW);
+  });
+
+  it("lists a consumer without statistics last with a dash, the rest in amber (EM-12)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.nostat", name: "Neu" },
+        { entity: "sensor.heat", name: "Heizung" },
+      ],
+    });
+    await tap(el);
+    const rows = [...(el.shadowRoot?.querySelectorAll(".row") ?? [])];
+    expect(rows.map(text)).toEqual(["Rest 10,8 kWh", "Heizung 7,2 kWh", "Neu —"]);
+    expect(rows[0].querySelector(".row-value")?.classList.contains("warn2")).toBe(true);
+    expect(rows[2].querySelector(".row-value")?.getAttribute("title")).toBe("Keine Statistik");
+  });
+
+  it("crosses the grid symbol out in red during an outage and keeps the figures (EM-6)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: {
+        ...CONFIG.entities,
+        grid_status: { entity: "sensor.grid_state", outage: ["off"], ok: ["on"] },
+      },
+    });
+    await tap(el);
+    expect(el.shadowRoot?.querySelector(".outage-banner")).not.toBeNull();
+    const grid = node(el, "grid");
+    expect(grid?.querySelector(".icon-cross")).not.toBeNull();
+    expect(grid?.querySelector<HTMLElement>(".icon-cross ha-icon")?.style.color).toBe(
+      "var(--el-error)",
+    );
+    const figures = [...(grid?.querySelectorAll(".value.figure") ?? [])].map(text);
+    expect(figures).toEqual(["6,0 kWh", "0,0 kWh"]);
   });
 
   it("has no chip without two sensors for the grid (EM-3)", async () => {

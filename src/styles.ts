@@ -279,14 +279,29 @@ export const styles = css`
      "↓ 228,8 kWh" touched the rim of a phone-sized node at full size. */
   .node .value.figure {
     display: flex;
-    align-items: baseline;
-    gap: 0.15em;
+    align-items: center;
+    gap: 0.2em;
     font-size: calc(var(--el-value-size) * 0.85);
     white-space: nowrap;
   }
 
   .node .value.figure .arrow {
-    font-weight: 700;
+    width: 1.2em;
+    height: 0.8em;
+    flex: none;
+    align-self: center;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .node .value.figure .arrow.vertical {
+    width: 0.8em;
+    height: 1.2em;
+    /* Taller than the line: let it hang over rather than push the line apart. */
+    margin-block: -0.2em;
   }
 
   .node .value.warn1,
@@ -302,9 +317,18 @@ export const styles = css`
   }
 
   /* Counted from a late start (REQ EM-9): amber, like a figure with gaps. */
-  .energy-chip.late {
+  .energy-chip.late,
+  .mode-note.late {
     border-color: var(--el-warn2);
     color: var(--el-warn2);
+  }
+
+  /* Averages have no meaning for a period's energy (EM-2). */
+  .mode-chip:disabled {
+    border-color: var(--divider-color, rgba(127, 127, 127, 0.3));
+    color: var(--disabled-text-color, var(--secondary-text-color));
+    opacity: 0.6;
+    cursor: default;
   }
 
   .mode-chip:focus-visible {

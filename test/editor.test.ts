@@ -1538,3 +1538,47 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     expect(entries(el)[0].querySelector(".badge")).toBeTruthy();
   });
 });
+
+describe("editor: energy periods (REQ EM-15)", () => {
+  beforeAll(async () => {
+    await import("../src/editor");
+  });
+
+  const SPLIT: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: {
+      solar: "sensor.solar",
+      grid: { import: "sensor.imp", export: "sensor.exp" },
+      battery: { discharge: "sensor.bat_out", charge: "sensor.bat_in" },
+      house: "sensor.house",
+    },
+  };
+
+  it("offers day, week and month and writes them under view", async () => {
+    const el = await mount(SPLIT);
+    const field = findField(el, "energy_periods") as Field & { disabled?: boolean };
+    const select = field.selector?.select as { multiple: boolean; options: { value: string }[] };
+    expect(select.multiple).toBe(true);
+    expect(select.options.map((o) => o.value)).toEqual(["day", "week", "month"]);
+    expect(field.disabled).toBeFalsy();
+    const saved = await change(el, { energy_periods: ["month", "day"] });
+    expect(saved.view).toEqual({ energy_periods: ["day", "month"] });
+    expect(normalizeConfig(saved).view.energyPeriods).toEqual(["day", "month"]);
+    const cleared = await change(el, { energy_periods: [] });
+    expect(cleared.view).toBeUndefined();
+  });
+
+  it("is locked without two sensors for grid and battery, and says why (EM-3)", async () => {
+    const el = await mount(SPLIT_BATTERY);
+    const field = findField(el, "energy_periods") as Field & { disabled?: boolean };
+    expect(field.disabled).toBe(true);
+    const helper = (el as unknown as { _helper: (f: { name: string }) => string })._helper;
+    expect(helper({ name: "energy_periods" })).toContain("zwei Sensoren");
+  });
+
+  it("keeps a set choice when the prerequisite goes (E-1)", async () => {
+    const el = await mount({ ...SPLIT_BATTERY, view: { energy_periods: ["day"] } });
+    const saved = await change(el, { title: "x" });
+    expect(saved.view).toEqual({ energy_periods: ["day"] });
+  });
+});

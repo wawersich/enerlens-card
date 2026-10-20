@@ -28,11 +28,28 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   // Rows that stay whatever they draw: a car plugged in, or `show: always`
   // (REQ L-15) - one wants to see its charge, above all when it stands full.
   const pinned: ListEntry[] = [];
+  // A period's consumer without statistics: listed last with a dash, so it is
+  // seen to be missing rather than silently left out (EM-12).
+  const unknown: ListEntry[] = [];
   for (const consumer of model.consumers) {
     const charge = consumer.charge;
     const pin =
       charge !== undefined &&
       (charge.show === "always" || (charge.show === "plugged" && charge.plugged));
+    if (!consumer.reading.available && config.energy?.consumers[consumer.entity] !== undefined) {
+      unknown.push({
+        key: consumer.key,
+        name: consumer.name,
+        w: 0,
+        color: consumer.color,
+        entity: consumer.entity,
+        icon: consumer.icon,
+        threshold: consumer.minW ?? config.minConsumerW,
+        isRest: false,
+        powerUnknown: true,
+      });
+      continue;
+    }
     if (!consumer.reading.available && !pin) continue;
     const w = consumer.reading.available ? consumer.reading.w : 0;
     const threshold = consumer.minW ?? config.minConsumerW;
@@ -80,7 +97,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
 
   // 4. The rest is sorted in like any other entry (REQ L-6). It was appended
   // last, so on a tie it lands behind consumers of equal power.
-  return sortDescending(entries);
+  return sortDescending(entries).concat(unknown);
 }
 
 /** What the row shows of a consumer's state of charge (REQ L-15). */

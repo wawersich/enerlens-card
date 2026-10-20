@@ -26,6 +26,10 @@ um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
 Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
 von Home Assistant mit der echten Historie.
 
+**Energie ohne Energie-Sensoren.** Ein zweiter Chip schaltet auf die Energie
+von heute, dieser Woche oder diesem Monat, berechnet aus der Statistik, die
+Home Assistant von den Leistungssensoren ohnehin führt.
+
 **Die Verbraucher-Liste sortiert sich und gleitet.** Zeilen ordnen sich im
 festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
 Filter-Knopf oben zeigt auf Wunsch **alle** Verbraucher unabhängig von ihrer
@@ -377,6 +381,78 @@ nodes:
 
 Im Editor: *Beschriftung & Zusatzwerte*, ein Abschnitt je Knoten.
 
+### Energie pro Tag, Woche oder Monat (optional)
+
+Neben der Leistung kann die Karte Energie zeigen: was heute von der Sonne kam,
+was diese Woche eingekauft wurde, was die Wärmepumpe diesen Monat gebraucht
+hat. Energie-Sensoren braucht sie dafür nicht - sie summiert die
+Langzeitstatistik, die Home Assistant von den schon eingetragenen
+Leistungssensoren führt.
+
+```yaml
+view:
+  energy_periods: [day, week, month]   # beliebig viele, mindestens einer
+```
+
+Ein Chip neben dem Filterknopf schaltet dann reihum *kW* (die Leistungsansicht),
+*Tag*, *Woche* und *Monat*. Ein Zeitraum läuft ab 0 Uhr - heute, seit dem
+ersten Wochentag laut deinem Home-Assistant-Profil, seit dem Monatsersten - bis
+zur letzten Statistik, die Home Assistant geschrieben hat, ein paar Minuten
+hinter der Uhr.
+
+- **PV und Haus** zeigen je einen Wert in kWh.
+- **Netz** zeigt den Bezug über dem Icon (→) und die Einspeisung darunter (←),
+  **Batterie** das Entladen oben (↑) und das Laden unten (↓) - über einen Tag
+  passiert beides. Der Ladezustand ist ein Jetzt, kein Zeitraum, und entfällt.
+- **Liste, Ring und Punkte** arbeiten mit der Energie des Zeitraums. Schwellen
+  in W gelten als W × 1 Stunde: `min_consumer_w: 10` blendet Verbraucher unter
+  10 Wh aus.
+- Zusatzwerte und Zustandswörter („Bezug", „lädt") sind ausgeblendet; ihr Platz
+  bleibt, beim Umschalten verschiebt sich nichts.
+- Antippen eines Knotens öffnet weiterhin seinen Verlauf.
+
+**Netz und Batterie brauchen je zwei Sensoren** - Bezug und Einspeisung,
+Entladen und Laden. Aus dem Stundenmittel eines Sensors mit Vorzeichen lässt
+sich nicht trennen, wie viel in welche Richtung ging, und an den meisten Tagen
+macht das Netz beides. Im Editor ist die Option gesperrt, bis sie da sind. Mit
+nur einem Sensor mit Vorzeichen teilen zwei *Template → Sensor*-Helfer ihn auf
+(Einheit `W`, Geräteklasse `power`, Zustandsklasse `measurement`):
+
+```jinja
+{# Bezug #}
+{{ [states('sensor.netz_leistung')|float, 0]|max if has_value('sensor.netz_leistung') else none }}
+{# Einspeisung #}
+{{ [-(states('sensor.netz_leistung')|float), 0]|max if has_value('sensor.netz_leistung') else none }}
+```
+
+`none`, solange der Sensor nicht verfügbar ist, hält einen Ausfall als Lücke
+aus der Statistik heraus, statt ihn als gemessene Null einzutragen.
+
+Statistik gibt es erst ab dem Anlegen eines Sensors; neue Helfer zeigen darum
+„Monat ab 21.10." im Chip, bis ein ganzer Monat vorbei ist.
+
+**Wie sicher ein Wert ist.** Die Statistik von Home Assistant kann Löcher haben
+- ein Neustart, eine Integration, die ausgefallen war. Fehlt in einer Stunde
+einer der Bilanzwerte (PV, Bezug, Einspeisung, Entladen, Laden, Haus), ergänzt
+die Karte ihn aus den anderen fünf, sonst aus derselben Stunde des Vortags (oder
+Folgetags). Eine Stunde ohne PV nach einer dunklen Stunde zählt als null:
+kleine Wechselrichter schalten nachts ab. Ein Wert wird dann danach gefärbt, wie
+viel vom Zeitraum ergänzt ist:
+
+| Ergänzt | Anzeige |
+|---|---|
+| bis 2 % | normal |
+| 2 – 10 % | gedämpftes Blaugrau |
+| mehr als 10 % | Bernstein |
+
+Mit der Maus über dem Wert steht, wie viel. Hat einer der Hauptsensoren erst
+ab einem Datum im Zeitraum Statistik, zählt der ganze Zeitraum ab dann - der
+Chip zeigt „Monat ab 8.10." in Bernstein -, damit die Bilanz aufgeht.
+Hochgerechnet wird nie. Ein Verbraucher, der neuer ist als der Zeitraum, kürzt
+ihn nicht; seine Zeile und der Rest sind bernsteinfarben, und ein Verbraucher
+ohne Statistik (ein Sensor ohne Zustandsklasse) steht mit Strich am Ende der
+Liste.
+
 ### Netzausfall (optional)
 
 Manche Anlagen melden, ob überhaupt Netz anliegt — ein Wechselrichter, der
@@ -452,8 +528,9 @@ zusätzliche Abfrage.
 | `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
 | `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
-| `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — den Ansichts-Chip (*Jetzt* / Mittelwerte) und den Filterknopf der Liste |
-| `view.remember` | `true` | Ansicht und Filter-Knopf je Browser merken |
+| `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — den Ansichts-Chip (*Jetzt* / Mittelwerte), den Energie-Chip und den Filterknopf der Liste |
+| `view.remember` | `true` | Ansicht, Energie-Zeitraum und Filter-Knopf je Browser merken |
+| `view.energy_periods` | — | `day`, `week`, `month`: die Zeiträume des Energie-Chips. Braucht für Netz und Batterie je zwei Sensoren |
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
 | `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |

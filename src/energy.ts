@@ -34,6 +34,12 @@ export interface EnergyQuery {
   fiveMin: Record<string, StatRow[]>;
   /** A PV gap after an hour below this counts as dark: zero, not filled (EM-10). */
   pvZeroBelowW: number;
+  /**
+   * When each entity's statistics begin, as far as known - the first monthly
+   * row. A sensor that had a day off before the period is no late start: its
+   * missing hours are gaps (EM-9, EM-10). Without it, the window decides.
+   */
+  since?: Record<string, number>;
 }
 
 export interface SeriesEnergy {
@@ -181,10 +187,14 @@ class Series {
   readonly fiveMin: RowIndex;
   readonly first: number;
 
-  constructor(hourly: StatRow[] | undefined, fiveMin: StatRow[] | undefined) {
+  constructor(hourly: StatRow[] | undefined, fiveMin: StatRow[] | undefined, since?: number) {
     this.hourly = index(hourly);
     this.fiveMin = index(fiveMin);
-    this.first = Math.min(...this.hourly.keys(), ...this.fiveMin.keys());
+    this.first = Math.min(
+      ...this.hourly.keys(),
+      ...this.fiveMin.keys(),
+      since ?? Number.POSITIVE_INFINITY,
+    );
   }
 
   get exists(): boolean {
@@ -221,7 +231,7 @@ class Series {
   }
 }
 
-/** The role missing from the balance sources = sinks (A-1), never below 0. */
+/** The role missing from the balance: sources = sinks (A-1). Unclamped - see the caller. */
 function fromBalance(role: EnergyRole, values: Record<EnergyRole, number>): number {
   let sources = 0;
   let sinks = 0;
@@ -230,7 +240,7 @@ function fromBalance(role: EnergyRole, values: Record<EnergyRole, number>): numb
     if (SOURCES.has(r)) sources += values[r];
     else sinks += values[r];
   }
-  return Math.max(0, SOURCES.has(role) ? sinks - sources : sources - sinks);
+  return SOURCES.has(role) ? sinks - sources : sources - sinks;
 }
 
 export function integrateEnergy(q: EnergyQuery): EnergyResult {
@@ -238,7 +248,7 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const get = (id: string): Series => {
     let s = series.get(id);
     if (!s) {
-      s = new Series(q.hourly[id], q.fiveMin[id]);
+      s = new Series(q.hourly[id], q.fiveMin[id], q.since?.[id]);
       series.set(id, s);
     }
     return s;
@@ -283,8 +293,12 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
       if (hit) {
         values[role] = hit.w;
         if (hit.filled) filled.add(role);
-      } else if (role === "solar" && (lastSolar ?? s.before(slot) ?? 0) < q.pvZeroBelowW) {
+      } else if (
+        role === "solar" &&
+        (lastSolar ?? s.before(slot) ?? q.pvZeroBelowW) < q.pvZeroBelowW
+      ) {
         // Inverters that switch off at night leave no rows: dark, not missing.
+        // Only after a dark hour that is known - an unknown one is a gap.
         values.solar = 0;
       } else {
         missing.push(role);
@@ -292,7 +306,7 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     }
 
     if (missing.length === 1 && !derived && complete) {
-      values[missing[0]] = fromBalance(missing[0], values);
+      values[missing[0]] = Math.max(0, fromBalance(missing[0], values));
       filled.add(missing[0]);
     } else {
       for (const role of missing) {
@@ -301,14 +315,19 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
       }
     }
 
+    // The derived quantity adds up unclamped, as the card derives it from the
+    // period's totals and clamps once (A-2, ENT-4) - node and ring then agree.
+    // The flows take the hour as it was, never below zero.
+    let derivedRaw = 0;
     if (derived) {
-      values[derived] = fromBalance(derived, values);
+      derivedRaw = fromBalance(derived, values);
+      values[derived] = Math.max(0, derivedRaw);
       if (filled.size > 0) filled.add(derived);
     }
     lastSolar = values.solar;
 
     for (const role of ROLES) {
-      wh[role] += values[role] * hours;
+      wh[role] += (role === derived ? derivedRaw : values[role]) * hours;
       if (filled.has(role)) filledMs[role] += slot.end - slot.start;
     }
 

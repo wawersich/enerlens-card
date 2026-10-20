@@ -126,6 +126,14 @@ describe("integration (EM-4)", () => {
     expect(r.main.house?.wh).toBe(1000 + 1500 + 500);
   });
 
+  it("adds a derived quantity up unclamped, like the card derives it from the totals", () => {
+    const q = query({ roles: { ...query().roles, house: undefined } });
+    // One hour exports more than it has: a balance of -200 W, then +500 W.
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(0), 700, 0, 0]);
+    const r = integrateEnergy(q);
+    expect(r.main.house?.wh).toBe(-200 + 500 + 500);
+  });
+
   it("shows no value for a sensor without statistics", () => {
     const q = query();
     const { house: _, ...rest } = q.hourly;
@@ -144,6 +152,32 @@ describe("late start (EM-9)", () => {
     expect(r.from).toBe(T0 + H);
     expect(r.main.import?.wh).toBe(1000);
     expect(r.main.house?.wh).toBe(1000);
+  });
+});
+
+describe("gap or new sensor (EM-9, EM-10)", () => {
+  it("takes a sensor that was off the day before the period for a gap, not a start", () => {
+    const q = query();
+    q.hourly.imp = hours(T0 + H, [500, 500]);
+    q.since = { imp: T0 - 20 * 24 * H };
+    const r = integrateEnergy(q);
+    expect(r.lateStart).toBe(false);
+    expect(r.from).toBe(T0);
+    // The first hour comes from the balance of the others: 500 W of house.
+    expect(r.main.import?.wh).toBe(1500);
+    expect(r.main.import?.filledShare).toBeCloseTo(1 / 3);
+  });
+
+  it("does not take PV with no hour known before a gap for dark", () => {
+    const q = query();
+    q.hourly.pv = [];
+    q.hourly.exp = hours(T0 - 24 * H, Array(27).fill(1000));
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.since = { pv: T0 - 20 * 24 * H };
+    const r = integrateEnergy(q);
+    // PV alone is missing: the balance gives 1000 W of export + 500 W of house.
+    expect(r.main.solar?.wh).toBe(4500);
+    expect(r.main.solar?.filledShare).toBe(1);
   });
 });
 
