@@ -26,6 +26,7 @@ import {
   fetchEnergy,
   firstWeekday,
   formatDay,
+  periodKey,
   timeZoneOf,
 } from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
@@ -277,7 +278,8 @@ class EnerLensCard extends LitElement {
     const view = this._energyViews.get(period);
     return (
       view !== undefined &&
-      view.start === periodStart(period, now, timeZoneOf(hass), firstWeekday(hass))
+      view.start ===
+        periodKey(period, periodStart(period, now, timeZoneOf(hass), firstWeekday(hass)))
     );
   }
 
@@ -294,7 +296,7 @@ class EnerLensCard extends LitElement {
     const config = this._config;
     if (!period || !hass || !config) return;
     const now = Date.now();
-    const start = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
+    const start = periodKey(period, periodStart(period, now, timeZoneOf(hass), firstWeekday(hass)));
     const asked = this._energyAsked.get(period);
     // A tap asks again after a failed try at once - only not twice at a time.
     if (asked?.open) return;

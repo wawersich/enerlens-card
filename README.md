@@ -367,7 +367,7 @@ nodes:
 
 In the editor: *Labels & extra values*, one section per node.
 
-### Energy per day, week or month (optional)
+### Energy over a period (optional)
 
 Besides power, the card can show energy: what came from the sun today, what
 was bought this week, what the heat pump used this month. It needs no energy
@@ -376,15 +376,25 @@ the power sensors that are already configured.
 
 ```yaml
 view:
-  energy_periods: [day, week, month]   # any of them, at least one
+  energy_periods: [today, 24h, week, 7d, month, 30d]   # any of them, at least one
 ```
 
 A chip next to the filter button then steps through *kW* (the power view;
-*Watt* with `power.unit: W`),
-*Day*, *Week* and *Month*. A period runs from midnight - today, since the first
-day of the week as set in your Home Assistant profile, since the first of the
-month - up to the last statistics Home Assistant has written, a few minutes
-behind the clock.
+*Watt* with `power.unit: W`) and the periods switched on:
+
+| Key | Chip | Period |
+|---|---|---|
+| `today` | Today | since midnight |
+| `24h` | 24 h | the last 24 hours |
+| `week` | Week | since the first day of the week as set in your Home Assistant profile |
+| `7d` | 7 days | the last 7 × 24 hours |
+| `month` | Month | since the first of the month |
+| `30d` | 30 days | the last 30 × 24 hours |
+
+Every period ends at the last statistics Home Assistant has written, a few
+minutes behind the clock. The rolling ones are exact to five minutes; *30
+days* starts on the full hour, because Home Assistant keeps its five-minute
+statistics only about ten days - up to an hour shorter, never made up.
 
 - **PV and house** show one figure each, in kWh.
 - **Grid** with two sensors shows the import above the icon (→) and the
@@ -404,8 +414,8 @@ behind the clock.
 **One sensor or two for grid and battery.** An hourly mean of a signed sensor
 cannot tell how much went each way - on most days the grid does both - only
 the balance is exact. So with a single signed sensor the **grid** shows one
-figure, its balance (→ net import, ← net export), and the **battery** shows
-no figure. PV, house and consumers are exact either way. A *derived* grid or battery
+figure, its balance (→ net import, ← net export), which is also what its dots
+show, and the **battery** shows no figure and no flow. PV, house and consumers are exact either way. A *derived* grid or battery
 (see above) does not work with the energy mode: the option is locked in the
 editor and the chip does not appear. To see both
 directions, give the card two sensors each - two *Template → Sensor* helpers
@@ -516,7 +526,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.avg_long_minutes` | `15` | Long averaging window |
 | `view.show_selector` | `true` | Show the filter bar above the card - the view chip (*Now* / averages), the energy chip and the list's filter button |
 | `view.remember` | `true` | Remember the view, the energy period and the filter button per browser |
-| `view.energy_periods` | — | `day`, `week`, `month`: the periods of the energy chip. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing |
+| `view.energy_periods` | — | `today`, `24h`, `week`, `7d`, `month`, `30d`: the periods of the energy chip. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing |
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
 | `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |

@@ -381,7 +381,7 @@ nodes:
 
 Im Editor: *Beschriftung & Zusatzwerte*, ein Abschnitt je Knoten.
 
-### Energie pro Tag, Woche oder Monat (optional)
+### Energie für einen Zeitraum (optional)
 
 Neben der Leistung kann die Karte Energie zeigen: was heute von der Sonne kam,
 was diese Woche eingekauft wurde, was die Wärmepumpe diesen Monat gebraucht
@@ -391,15 +391,26 @@ Leistungssensoren führt.
 
 ```yaml
 view:
-  energy_periods: [day, week, month]   # beliebig viele, mindestens einer
+  energy_periods: [today, 24h, week, 7d, month, 30d]   # beliebig viele, mindestens einer
 ```
 
 Ein Chip neben dem Filterknopf schaltet dann reihum *kW* (die Leistungsansicht;
-*Watt* bei `power.unit: W`),
-*Tag*, *Woche* und *Monat*. Ein Zeitraum läuft ab 0 Uhr - heute, seit dem
-ersten Wochentag laut deinem Home-Assistant-Profil, seit dem Monatsersten - bis
-zur letzten Statistik, die Home Assistant geschrieben hat, ein paar Minuten
-hinter der Uhr.
+*Watt* bei `power.unit: W`) und die eingeschalteten Zeiträume:
+
+| Schlüssel | Chip | Zeitraum |
+|---|---|---|
+| `today` | Heute | seit 0 Uhr |
+| `24h` | 24 h | die letzten 24 Stunden |
+| `week` | Woche | seit dem ersten Wochentag laut deinem Home-Assistant-Profil |
+| `7d` | 7 Tage | die letzten 7 × 24 Stunden |
+| `month` | Monat | seit dem Monatsersten |
+| `30d` | 30 Tage | die letzten 30 × 24 Stunden |
+
+Jeder Zeitraum endet bei der letzten Statistik, die Home Assistant geschrieben
+hat, ein paar Minuten hinter der Uhr. Die rollenden sind auf fünf Minuten
+genau; *30 Tage* beginnen zur vollen Stunde, weil Home Assistant die
+Fünf-Minuten-Statistik nur rund zehn Tage aufhebt - bis zu einer Stunde
+kürzer, nie hochgerechnet.
 
 - **PV und Haus** zeigen je einen Wert in kWh.
 - **Netz** mit zwei Sensoren zeigt den Bezug über dem Icon (→) und die
@@ -421,7 +432,8 @@ hinter der Uhr.
 Sensors mit Vorzeichen lässt sich nicht trennen, wie viel in welche Richtung
 ging - an den meisten Tagen macht das Netz beides -, exakt ist nur der Saldo.
 Mit einem Sensor mit Vorzeichen zeigt das **Netz** deshalb einen Wert, seinen
-Saldo (→ netto bezogen, ← netto eingespeist), die **Batterie** keine Zahl.
+Saldo (→ netto bezogen, ← netto eingespeist), nach dem sich auch die Punkte
+richten, die **Batterie** keine Zahl und keinen Fluss.
 PV, Haus und Verbraucher sind in jedem Fall exakt. Mit *abgeleitetem* Netz
 oder abgeleiteter Batterie (siehe oben) geht der Energie-Modus nicht: Die
 Option ist im Editor gesperrt, und der Chip erscheint nicht. Für beide Richtungen
@@ -541,7 +553,7 @@ zusätzliche Abfrage.
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
 | `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — den Ansichts-Chip (*Jetzt* / Mittelwerte), den Energie-Chip und den Filterknopf der Liste |
 | `view.remember` | `true` | Ansicht, Energie-Zeitraum und Filter-Knopf je Browser merken |
-| `view.energy_periods` | — | `day`, `week`, `month`: die Zeiträume des Energie-Chips. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts |
+| `view.energy_periods` | — | `today`, `24h`, `week`, `7d`, `month`, `30d`: die Zeiträume des Energie-Chips. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts |
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
 | `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |

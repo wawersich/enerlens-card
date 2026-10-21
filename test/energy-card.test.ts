@@ -4,6 +4,7 @@
  * the nodes, what disappears and what is never fetched. Invented figures (N-9).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { PATHS } from "../src/render/geometry";
 import type { HomeAssistant } from "../src/types";
 import { fakeMotion } from "./motion";
 
@@ -22,7 +23,7 @@ const CONFIG = {
     house: "sensor.house",
   },
   nodes: { house: { label: { entity: "sensor.share" } } },
-  view: { energy_periods: ["day", "month"] },
+  view: { energy_periods: ["today", "month"] },
 };
 
 /** Live readings, quite different from the day's means below. */
@@ -44,10 +45,12 @@ const STATES: Record<string, string> = {
   "sensor.batnet": "-200",
   "sensor.gridinv": "0",
   "sensor.gridout": "0",
+  "sensor.gridswing": "0",
 };
 
-/** Hourly means of the day: 2 kW sun, 0.5 kW bought, 1 kW into the battery. */
-const MEANS: Record<string, number> = {
+/** Hourly means of the day: 2 kW sun, 0.5 kW bought, 1 kW into the battery.
+ *  A function gives a mean per hour (its start in ms). */
+const MEANS: Record<string, number | ((t: number) => number)> = {
   "sensor.solar": 2000,
   "sensor.import": 500,
   "sensor.export": 0,
@@ -61,6 +64,8 @@ const MEANS: Record<string, number> = {
   // Reported the other way round (invert: true), and a net exporter.
   "sensor.gridinv": -500,
   "sensor.gridout": -300,
+  // Buys and sells a kilowatt in turns: a balance of nothing.
+  "sensor.gridswing": (t: number) => ((t / H) % 2 === 0 ? 1000 : -1000),
 };
 
 type Card = HTMLElement & {
@@ -107,7 +112,8 @@ function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
         if (MEANS[id] === undefined) continue;
         out[id] = [];
         for (let t = start; t + H <= Math.floor(Date.now() / H) * H; t += H) {
-          out[id].push({ start: t, mean: MEANS[id] });
+          const mean = MEANS[id];
+          out[id].push({ start: t, mean: typeof mean === "function" ? mean(t) : mean });
         }
       }
       return out as never;
@@ -161,7 +167,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
     document.body.innerHTML = "";
   });
 
-  it("offers one chip left of the filter that steps kW → Tag → Monat → kW (EM-2)", async () => {
+  it("offers one chip left of the filter that steps kW → Heute → Monat → kW (EM-2)", async () => {
     const { el } = await mount({
       ...CONFIG,
       consumers: [{ entity: "sensor.house" }],
@@ -172,7 +178,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
       await tap(el);
       seen.push(label(el));
     }
-    expect(seen).toEqual(["Tag", "Monat", "kW"]);
+    expect(seen).toEqual(["Heute", "Monat", "kW"]);
     // View chip, energy chip, filter - the energy chip right next to the filter.
     const controls = [...(el.shadowRoot?.querySelector(".controls")?.children ?? [])];
     expect(controls.map((c) => c.classList.contains("energy-chip") || c.className.trim())).toEqual([
@@ -200,9 +206,9 @@ describe("energy mode on the card (REQ 2.15)", () => {
     const view = el.shadowRoot?.querySelector<HTMLButtonElement>(".view-chip");
     expect(view?.disabled).toBe(true);
     expect(view?.title).toBe("Mittelwerte gibt es nur in der kW-Ansicht");
-    expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
+    expect(localStorage.getItem("enerlens-energy-period")).toBe("today");
     const again = await mount();
-    expect(label(again.el)).toBe("Tag");
+    expect(label(again.el)).toBe("Heute");
   });
 
   it("shows the day's energy at the nodes (EM-4, EM-5)", async () => {
@@ -233,17 +239,17 @@ describe("energy mode on the card (REQ 2.15)", () => {
   });
 
   it("asks nothing in the editor preview until the chip is tapped there (EM-14)", async () => {
-    localStorage.setItem("enerlens-energy-period", "day");
+    localStorage.setItem("enerlens-energy-period", "today");
     const { el, asked } = await mount(CONFIG, true);
     expect(label(el)).toBe("kW");
     expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(0);
     await tap(el);
-    expect(label(el)).toBe("Tag");
+    expect(label(el)).toBe("Heute");
     expect(asked.filter((m) => m.type === "recorder/statistics_during_period")).toHaveLength(3);
     // A look in the preview is no choice for the dashboard.
-    expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
+    expect(localStorage.getItem("enerlens-energy-period")).toBe("today");
     await tap(el);
-    expect(localStorage.getItem("enerlens-energy-period")).toBe("day");
+    expect(localStorage.getItem("enerlens-energy-period")).toBe("today");
   });
 
   it("keeps the list while a period is still loading (fan glitch, 20.10.2026)", async () => {
@@ -263,7 +269,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
     const before = text(node(el, "solar")?.querySelector(".value"));
     await tap(el);
     // The chip answers the tap at once; figures and list wait for the period.
-    expect(label(el)).toBe("Tag");
+    expect(label(el)).toBe("Heute");
     expect(rows()).toBeGreaterThan(0);
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe(before);
     release();
@@ -283,7 +289,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(label(el)).toBe("kW");
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe("0,30 kW");
     await tap(el);
-    expect(label(el)).toBe("Tag");
+    expect(label(el)).toBe("Heute");
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
     warn.mockRestore();
   });
@@ -291,7 +297,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
   it("shows no remembered period empty in the preview while the tapped one loads (EM-14)", async () => {
     localStorage.setItem("enerlens-energy-period", "week");
     const { el, asked } = await mount(
-      { ...CONFIG, view: { energy_periods: ["day", "week"] } },
+      { ...CONFIG, view: { energy_periods: ["today", "week"] } },
       true,
     );
     const solar = () => text(node(el, "solar")?.querySelector(".value"));
@@ -301,7 +307,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
       release = r;
     });
     await tap(el);
-    expect(label(el)).toBe("Tag");
+    expect(label(el)).toBe("Heute");
     expect(solar()).toBe("0,30 kW");
     release();
     hold = undefined;
@@ -415,8 +421,17 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(
       grid.map((f) => `${f.querySelector(".arrow")?.getAttribute("data-arrow")}${text(f)}`),
     ).toEqual(["→6,0 kWh"]);
-    // No battery figure at all, only its symbol.
+    // No battery figure at all, only its symbol - and nothing flows to or from it.
     expect(node(el, "battery")?.querySelectorAll(".value")).toHaveLength(0);
+    const active = [...(el.shadowRoot?.querySelectorAll("path.link.active") ?? [])];
+    expect(active.length).toBeGreaterThan(0);
+    expect(
+      active.filter((p) =>
+        ["solar_battery", "grid_battery", "battery_house", "battery_grid"].some(
+          (id) => p.getAttribute("d") === PATHS[id as keyof typeof PATHS],
+        ),
+      ),
+    ).toHaveLength(0);
     expect(node(el, "battery")?.querySelector("ha-icon")).not.toBeNull();
     // PV and house as with two sensors.
     expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
@@ -437,6 +452,49 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(await balance({ entity: "sensor.gridinv", invert: true })).toEqual(["→6,0 kWh"]);
     // -300 W as reported: 300 W of export.
     expect(await balance("sensor.gridout")).toEqual(["←3,6 kWh"]);
+  });
+
+  it("lets a signed grid flow as its balance, not as its hourly halves (EM-8)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, grid: "sensor.gridswing" },
+    });
+    await tap(el);
+    const grid = [...(node(el, "grid")?.querySelectorAll(".value.figure") ?? [])].map(text);
+    expect(grid).toEqual(["0,0 kWh"]);
+    // Nothing on the grid's lines, though hour by hour it bought and sold.
+    const active = [...(el.shadowRoot?.querySelectorAll("path.link.active") ?? [])].map((p) =>
+      p.getAttribute("d"),
+    );
+    const gridLines = ["solar_grid", "battery_grid", "grid_battery", "grid_house"].map(
+      (id) => PATHS[id as keyof typeof PATHS],
+    );
+    expect(active.filter((d) => gridLines.includes(d as string))).toEqual([]);
+  });
+
+  it("draws no flow for a signed grid while a balance value has no statistics", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, grid: "sensor.gridnet", solar: "sensor.nostat" },
+    });
+    await tap(el);
+    expect(el.shadowRoot?.querySelectorAll("path.link.active")).toHaveLength(0);
+  });
+
+  it("keeps a signed battery quiet next to a grid with two sensors (EM-3)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: "sensor.batnet" },
+    });
+    await tap(el);
+    const active = [...(el.shadowRoot?.querySelectorAll("path.link.active") ?? [])].map((p) =>
+      p.getAttribute("d"),
+    );
+    expect(active.length).toBeGreaterThan(0);
+    const batteryLines = ["solar_battery", "grid_battery", "battery_house", "battery_grid"].map(
+      (id) => PATHS[id as keyof typeof PATHS],
+    );
+    expect(active.filter((d) => batteryLines.includes(d as string))).toEqual([]);
   });
 
   it("gives a signed battery one target that names no figure (EM-3)", async () => {

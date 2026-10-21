@@ -55,7 +55,7 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 };
 
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
-const ENERGY_PERIODS: readonly EnergyPeriod[] = ["day", "week", "month"];
+const ENERGY_PERIODS: readonly EnergyPeriod[] = ["today", "24h", "week", "7d", "month", "30d"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
 const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
@@ -283,7 +283,7 @@ function readEnergyPeriods(
   if (isUnset(value)) return [];
   const field = "view.energy_periods";
   if (!Array.isArray(value)) throw fail("error.config.list", field, hass);
-  for (const entry of value) readEnum(entry, ENERGY_PERIODS, field, "day", hass);
+  for (const entry of value) readEnum(entry, ENERGY_PERIODS, field, "today", hass);
   const periods = ENERGY_PERIODS.filter((p) => value.includes(p));
   if (periods.length === 0) return [];
   if (grid.kind === "derived" || battery.kind === "derived") {

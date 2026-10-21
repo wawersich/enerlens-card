@@ -72,7 +72,7 @@ export interface LovelaceCardConfig {
 export type ViewMode = "current" | "avg_short" | "avg_long";
 
 /** Calendar periods of the energy mode (REQ EM-1). */
-export type EnergyPeriod = "day" | "week" | "month";
+export type EnergyPeriod = "today" | "24h" | "week" | "7d" | "month" | "30d";
 export type AnimationMode = "auto" | "on" | "off";
 
 /**

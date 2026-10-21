@@ -112,9 +112,20 @@ function localMidnight(year: number, month: number, day: number, tz: string): nu
   return guess - zoneOffset(first, tz);
 }
 
+/** Rolling periods: their length in hours. */
+const ROLLING: Partial<Record<EnergyPeriod, number>> = { "24h": 24, "7d": 7 * 24, "30d": 30 * 24 };
+
+/** Whether a period rolls with the clock rather than starting on the calendar. */
+export function isRolling(period: EnergyPeriod): boolean {
+  return ROLLING[period] !== undefined;
+}
+
 /**
- * Start of the period that contains `now`, at local midnight in Home
- * Assistant's time zone. `firstWeekday`: 0 = Sunday … 6 = Saturday.
+ * Start of the period that ends now. Calendar periods start at local midnight
+ * in Home Assistant's time zone (`firstWeekday`: 0 = Sunday … 6 = Saturday);
+ * rolling ones go back their length, up to the next five minutes - exact to
+ * what the five-minute statistics hold. Those are kept about ten days, so 30
+ * days start on the next full hour: up to an hour short, never made up (EM-1).
  */
 export function periodStart(
   period: EnergyPeriod,
@@ -122,6 +133,11 @@ export function periodStart(
   tz: string,
   firstWeekday: number,
 ): number {
+  const hours = ROLLING[period];
+  if (hours !== undefined) {
+    const step = period === "30d" ? HOUR : FIVE_MIN;
+    return Math.ceil((now - hours * HOUR) / step) * step;
+  }
   const local = new Date(now + zoneOffset(now, tz));
   const year = local.getUTCFullYear();
   const month = local.getUTCMonth();
@@ -216,17 +232,25 @@ class Series {
 
   /** The mean just before a slot, for the first slot of a period. */
   before(slot: Slot): number | undefined {
+    // The hour before - for a five-minute slot off the hour, the hour before
+    // the one it lies in (a rolling start, EM-1).
+    const hourBefore = Math.floor(slot.start / HOUR) * HOUR - HOUR;
     return slot.hourly
       ? this.hourly.get(slot.start - HOUR)
-      : (this.fiveMin.get(slot.start - FIVE_MIN) ?? this.hourly.get(slot.start - HOUR));
+      : (this.fiveMin.get(slot.start - FIVE_MIN) ?? this.hourly.get(hourBefore));
   }
 
   /** Same slot a day earlier, else a day later, else zero (EM-10 (2)). */
   neighbour(slot: Slot, to: number): number {
     const map = slot.hourly ? this.hourly : this.fiveMin;
-    const before = map.get(slot.start - DAY);
+    // A five-minute slot whose neighbours were not fetched (the head of 7
+    // days) takes the mean of the neighbouring days' hour.
+    const hourOf = (t: number) => this.hourly.get(Math.floor(t / HOUR) * HOUR);
+    const before =
+      map.get(slot.start - DAY) ?? (slot.hourly ? undefined : hourOf(slot.start - DAY));
     if (before !== undefined) return before;
-    const after = slot.start + DAY < to ? map.get(slot.start + DAY) : undefined;
+    if (slot.start + DAY >= to) return 0;
+    const after = map.get(slot.start + DAY) ?? (slot.hourly ? undefined : hourOf(slot.start + DAY));
     return after ?? 0;
   }
 }

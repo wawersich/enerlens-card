@@ -629,8 +629,8 @@ const VIEW_FIELDS = [
   "show_selector",
   "energy_periods",
 ];
-/** Calendar order, whatever order they were ticked in (REQ EM-1). */
-const ENERGY_PERIODS = ["day", "week", "month"];
+/** Shortest first within each pair, whatever order they were ticked in (REQ EM-1, EM-2). */
+const ENERGY_PERIODS = ["today", "24h", "week", "7d", "month", "30d"];
 const OWN_GROUP = ["title", "max_consumers", "min_consumer_w", "update_interval_s", "appearance"];
 
 /**

@@ -1554,16 +1554,23 @@ describe("editor: energy periods (REQ EM-15)", () => {
     },
   };
 
-  it("offers day, week and month and writes them under view", async () => {
+  it("offers the six periods and writes them under view, in calendar order", async () => {
     const el = await mount(SPLIT);
     const field = findField(el, "energy_periods") as Field & { disabled?: boolean };
     const select = field.selector?.select as { multiple: boolean; options: { value: string }[] };
     expect(select.multiple).toBe(true);
-    expect(select.options.map((o) => o.value)).toEqual(["day", "week", "month"]);
+    expect(select.options.map((o) => o.value)).toEqual([
+      "today",
+      "24h",
+      "week",
+      "7d",
+      "month",
+      "30d",
+    ]);
     expect(field.disabled).toBeFalsy();
-    const saved = await change(el, { energy_periods: ["month", "day"] });
-    expect(saved.view).toEqual({ energy_periods: ["day", "month"] });
-    expect(normalizeConfig(saved).view.energyPeriods).toEqual(["day", "month"]);
+    const saved = await change(el, { energy_periods: ["month", "today"] });
+    expect(saved.view).toEqual({ energy_periods: ["today", "month"] });
+    expect(normalizeConfig(saved).view.energyPeriods).toEqual(["today", "month"]);
     const cleared = await change(el, { energy_periods: [] });
     expect(cleared.view).toBeUndefined();
   });
@@ -1588,8 +1595,8 @@ describe("editor: energy periods (REQ EM-15)", () => {
   });
 
   it("keeps a set choice when the prerequisite goes (E-1)", async () => {
-    const el = await mount({ ...SPLIT_BATTERY, view: { energy_periods: ["day"] } });
+    const el = await mount({ ...SPLIT_BATTERY, view: { energy_periods: ["today"] } });
     const saved = await change(el, { title: "x" });
-    expect(saved.view).toEqual({ energy_periods: ["day"] });
+    expect(saved.view).toEqual({ energy_periods: ["today"] });
   });
 });

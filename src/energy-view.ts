@@ -10,9 +10,11 @@ import {
   type EnergyRole,
   type StatRow,
   integrateEnergy,
+  isRolling,
   periodStart,
   warnTier,
 } from "./energy";
+import { splitFlows } from "./flow";
 import { localize } from "./localize";
 import type {
   Config,
@@ -166,6 +168,7 @@ async function statistics(
   start: number,
   ids: string[],
   timeoutMs: number,
+  end?: number,
 ): Promise<unknown> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
@@ -180,6 +183,7 @@ async function statistics(
       hass.callWS<unknown>({
         type: "recorder/statistics_during_period",
         start_time: new Date(start).toISOString(),
+        ...(end !== undefined ? { end_time: new Date(end).toISOString() } : {}),
         statistic_ids: ids,
         period,
         types: ["mean"],
@@ -190,6 +194,15 @@ async function statistics(
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+/**
+ * What makes a fetched period stale besides its age: a calendar period ends
+ * at midnight (or with the week, the month), a rolling one only moves on and
+ * is refreshed by age alone (EM-1, EM-4).
+ */
+export function periodKey(period: EnergyPeriod, start: number): number {
+  return isRolling(period) ? 0 : start;
 }
 
 /** HA's first weekday as 0 = Sunday … 6 = Saturday; "language" asks the locale. */
@@ -253,22 +266,31 @@ export async function fetchEnergy(
   const ids = entityIds(all, config);
   const from = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
   const hourStart = Math.floor(now / HOUR) * HOUR;
-  const [hourly, fiveMin, daily] = await Promise.all([
+  // A rolling start off the full hour reads its first part-hour from the
+  // five-minute rows; seven days back they need a request of their own (EM-1).
+  const headEnd = Math.ceil(from / HOUR) * HOUR;
+  const head = from < headEnd && from < hourStart - DAY;
+  const [hourly, fiveMin, daily, early] = await Promise.all([
     statistics(hass, "hour", from - DAY, ids, timeoutMs),
     statistics(hass, "5minute", hourStart - DAY, ids, timeoutMs),
     statistics(hass, "day", from - SINCE_DAYS * DAY, ids, timeoutMs),
+    head ? statistics(hass, "5minute", from, ids, timeoutMs, headEnd) : Promise.resolve({}),
   ]);
+  const fiveMinRows = rowsOf(fiveMin, ids, inverted);
+  for (const [id, rows] of Object.entries(rowsOf(early, ids, inverted))) {
+    fiveMinRows[id] = [...rows, ...(fiveMinRows[id] ?? [])];
+  }
   const result = integrateEnergy({
     from,
     to: now,
     roles,
     consumers: config.consumers.map((c) => c.entity),
     hourly: splitSigned(rowsOf(hourly, ids, inverted), signed),
-    fiveMin: splitSigned(rowsOf(fiveMin, ids, inverted), signed),
+    fiveMin: splitSigned(fiveMinRows, signed),
     pvZeroBelowW: config.flow.minW,
     since: sinceOf(splitSigned(rowsOf(daily, ids, inverted), signed), from - DAY),
   });
-  return toView(result, period, roles, inverted, hass, now, from, signed);
+  return toView(result, period, roles, inverted, hass, now, periodKey(period, from), signed);
 }
 
 function percent(share: number, hass: HomeAssistant): string {
@@ -349,9 +371,36 @@ export function toView(
     note: restTier > 0 ? localize("energy.rest", hass) : "",
   };
 
+  // A battery that shows no figure shows no flow either (EM-3, Markus
+  // 21.10.2026: "Warum soll dann was fließen?"). A signed battery is the one
+  // whose roles are split series.
+  const quietBattery = roles.discharge?.endsWith(POSITIVE) === true;
   const flowsW: Flows = {};
-  for (const [id, value] of Object.entries(result.flows) as [keyof Flows, number][]) {
-    flowsW[id] = value / hours;
+  // Without every balance value there is no flow to draw (as integrateEnergy
+  // gives none then); a missing sensor must not leave the others flowing.
+  const complete = (Object.keys(roles) as EnergyRole[]).every((r) => result.main[r] !== null);
+  if (roles.import?.endsWith(POSITIVE) && complete) {
+    // A signed grid flows as the balance it shows, not as the hourly halves
+    // that only exist behind it (EM-8, Markus 21.10.2026): the period is
+    // split once, from its means.
+    const mean = (role: EnergyRole) => Math.max(0, (result.main[role]?.wh ?? 0) / hours);
+    const net = mean("import") - mean("export");
+    Object.assign(
+      flowsW,
+      splitFlows(
+        mean("solar"),
+        Math.max(net, 0),
+        Math.max(-net, 0),
+        quietBattery ? 0 : mean("discharge"),
+        quietBattery ? 0 : mean("charge"),
+        mean("house"),
+      ),
+    );
+  } else if (!roles.import?.endsWith(POSITIVE)) {
+    for (const [id, value] of Object.entries(result.flows) as [keyof Flows, number][]) {
+      if (quietBattery && id.includes("battery")) continue;
+      flowsW[id] = value / hours;
+    }
   }
   return {
     period,
@@ -406,6 +455,6 @@ export function energyChipLabel(
   if (!view?.lateStart || view.period !== period) return name;
   return localize("energy.from", hass, {
     period: name,
-    date: formatDay(view.from, hass, period === "day"),
+    date: formatDay(view.from, hass, period === "today" || period === "24h"),
   });
 }

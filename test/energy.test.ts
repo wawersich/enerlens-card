@@ -19,7 +19,7 @@ describe("period start (EM-1)", () => {
   const now = iso("2026-10-19T19:00:00Z"); // a Monday, CEST
 
   it("starts the day at local midnight", () => {
-    expect(periodStart("day", now, "Europe/Berlin", 1)).toBe(iso("2026-10-18T22:00:00Z"));
+    expect(periodStart("today", now, "Europe/Berlin", 1)).toBe(iso("2026-10-18T22:00:00Z"));
   });
 
   it("starts the week on Home Assistant's first weekday", () => {
@@ -38,17 +38,28 @@ describe("period start (EM-1)", () => {
 
   it("starts the day in summer time on the day the clocks go back", () => {
     // 25 October 2026: 03:00 CEST becomes 02:00 CET; the day has 25 hours.
-    expect(periodStart("day", iso("2026-10-25T12:00:00Z"), "Europe/Berlin", 1)).toBe(
+    expect(periodStart("today", iso("2026-10-25T12:00:00Z"), "Europe/Berlin", 1)).toBe(
       iso("2026-10-24T22:00:00Z"),
     );
-    expect(periodStart("day", iso("2026-10-25T23:30:00Z"), "Europe/Berlin", 1)).toBe(
+    expect(periodStart("today", iso("2026-10-25T23:30:00Z"), "Europe/Berlin", 1)).toBe(
       iso("2026-10-25T23:00:00Z"),
     );
   });
 
+  it("lets the rolling periods end now, from the next five minutes", () => {
+    const at = iso("2026-10-19T19:03:20Z");
+    expect(periodStart("24h", at, "Europe/Berlin", 1)).toBe(iso("2026-10-18T19:05:00Z"));
+    expect(periodStart("7d", at, "Europe/Berlin", 1)).toBe(iso("2026-10-12T19:05:00Z"));
+    // Five-minute statistics are kept about ten days: 30 days start on the hour.
+    expect(periodStart("30d", at, "Europe/Berlin", 1)).toBe(iso("2026-09-19T20:00:00Z"));
+    expect(periodStart("24h", iso("2026-10-19T19:05:00Z"), "UTC", 1)).toBe(
+      iso("2026-10-18T19:05:00Z"),
+    );
+  });
+
   it("follows time zones off the full hour and west of Greenwich", () => {
-    expect(periodStart("day", now, "Asia/Kolkata", 1)).toBe(iso("2026-10-19T18:30:00Z"));
-    expect(periodStart("day", now, "America/New_York", 0)).toBe(iso("2026-10-19T04:00:00Z"));
+    expect(periodStart("today", now, "Asia/Kolkata", 1)).toBe(iso("2026-10-19T18:30:00Z"));
+    expect(periodStart("today", now, "America/New_York", 0)).toBe(iso("2026-10-19T04:00:00Z"));
   });
 });
 
@@ -140,6 +151,28 @@ describe("integration (EM-4)", () => {
     q.hourly = rest;
     const r = integrateEnergy(q);
     expect(r.main.house).toBeNull();
+  });
+});
+
+describe("rolling start (EM-1)", () => {
+  it("counts the part-hour at the start from the five-minute statistics", () => {
+    // From 00:40: twenty minutes of 00:00 from five-minute rows, then hours.
+    const q = query({ from: T0 + 40 * 60_000 });
+    q.fiveMin = Object.fromEntries(
+      ["pv", "imp", "exp", "dis", "chg", "house"].map((id) => [
+        id,
+        [8, 9, 10, 11].map((i) => ({
+          start: T0 + i * M5,
+          mean: id === "imp" || id === "house" ? 1200 : 0,
+        })),
+      ]),
+    );
+    const r = integrateEnergy(q);
+    expect(r.from).toBe(T0 + 40 * 60_000);
+    expect(r.lateStart).toBe(false);
+    // 20 minutes at 1200 W, then two hours at 500 W.
+    expect(r.main.import?.wh).toBe(400 + 1000);
+    expect(r.main.import?.filledShare).toBe(0);
   });
 });
 

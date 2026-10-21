@@ -1108,30 +1108,33 @@ describe("energy periods (REQ EM-1, EM-3)", () => {
     expect(periods(SPLIT, [])).toEqual([]);
   });
 
-  it("keeps day, week and month in that order, once each", () => {
-    expect(periods(SPLIT, ["month", "day", "month"])).toEqual(["day", "month"]);
+  it("keeps the six periods in their order, once each", () => {
+    expect(periods(SPLIT, ["month", "today", "month"])).toEqual(["today", "month"]);
+    expect(periods(SPLIT, ["30d", "7d", "24h", "week"])).toEqual(["24h", "week", "7d", "30d"]);
   });
 
   it("rejects anything else", () => {
-    expectError(() => periods(SPLIT, "day"), "error.config.list", "view.energy_periods");
+    expectError(() => periods(SPLIT, "today"), "error.config.list", "view.energy_periods");
+    // "day" was the first name of "today"; never published, so no alias.
+    expectError(() => periods(SPLIT, ["day"]), "error.config.enum", "view.energy_periods");
     expectError(() => periods(SPLIT, ["year"]), "error.config.enum", "view.energy_periods");
   });
 
   it("takes signed sensors too, but no derived grid or battery (EM-3, E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(periods({ ...SPLIT, grid: "sensor.grid" }, ["day"])).toEqual(["day"]);
-    expect(periods({ ...SPLIT, battery: "sensor.battery" }, ["day"])).toEqual(["day"]);
+    expect(periods({ ...SPLIT, grid: "sensor.grid" }, ["today"])).toEqual(["today"]);
+    expect(periods({ ...SPLIT, battery: "sensor.battery" }, ["today"])).toEqual(["today"]);
     expect(warn).not.toHaveBeenCalled();
-    expect(periods({ ...SPLIT, battery: "derived", house: "sensor.house" }, ["day"])).toEqual([]);
+    expect(periods({ ...SPLIT, battery: "derived", house: "sensor.house" }, ["today"])).toEqual([]);
     expect(
       periods({ solar: "sensor.pv", grid: "derived", battery: SPLIT.battery, house: "sensor.h" }, [
-        "day",
+        "today",
       ]),
     ).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(2);
     expect(String(warn.mock.calls[0][0])).toContain("error.config.energy_derived");
     // Without a battery the grid is enough; solar or house may be derived.
-    expect(periods({ solar: "sensor.pv", grid: SPLIT.grid }, ["day"])).toEqual(["day"]);
+    expect(periods({ solar: "sensor.pv", grid: SPLIT.grid }, ["today"])).toEqual(["today"]);
     expect(periods({ ...SPLIT, solar: "derived", house: "sensor.h" }, ["week"])).toEqual(["week"]);
   });
 });
