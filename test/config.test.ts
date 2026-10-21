@@ -1117,13 +1117,19 @@ describe("energy periods (REQ EM-1, EM-3)", () => {
     expectError(() => periods(SPLIT, ["year"]), "error.config.enum", "view.energy_periods");
   });
 
-  it("needs two sensors for grid and battery, and warns instead of failing (EM-3, E-1)", () => {
+  it("takes signed sensors too, but no derived grid or battery (EM-3, E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(periods({ ...SPLIT, grid: "sensor.grid" }, ["day"])).toEqual([]);
-    expect(periods({ ...SPLIT, battery: "sensor.battery" }, ["day"])).toEqual([]);
+    expect(periods({ ...SPLIT, grid: "sensor.grid" }, ["day"])).toEqual(["day"]);
+    expect(periods({ ...SPLIT, battery: "sensor.battery" }, ["day"])).toEqual(["day"]);
+    expect(warn).not.toHaveBeenCalled();
     expect(periods({ ...SPLIT, battery: "derived", house: "sensor.house" }, ["day"])).toEqual([]);
-    expect(warn).toHaveBeenCalledTimes(3);
-    expect(String(warn.mock.calls[0][0])).toContain("error.config.energy_needs_split");
+    expect(
+      periods({ solar: "sensor.pv", grid: "derived", battery: SPLIT.battery, house: "sensor.h" }, [
+        "day",
+      ]),
+    ).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(String(warn.mock.calls[0][0])).toContain("error.config.energy_derived");
     // Without a battery the grid is enough; solar or house may be derived.
     expect(periods({ solar: "sensor.pv", grid: SPLIT.grid }, ["day"])).toEqual(["day"]);
     expect(periods({ ...SPLIT, solar: "derived", house: "sensor.h" }, ["week"])).toEqual(["week"]);

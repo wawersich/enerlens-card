@@ -394,29 +394,40 @@ view:
   energy_periods: [day, week, month]   # beliebig viele, mindestens einer
 ```
 
-Ein Chip neben dem Filterknopf schaltet dann reihum *kW* (die Leistungsansicht),
+Ein Chip neben dem Filterknopf schaltet dann reihum *kW* (die Leistungsansicht;
+*Watt* bei `power.unit: W`),
 *Tag*, *Woche* und *Monat*. Ein Zeitraum läuft ab 0 Uhr - heute, seit dem
 ersten Wochentag laut deinem Home-Assistant-Profil, seit dem Monatsersten - bis
 zur letzten Statistik, die Home Assistant geschrieben hat, ein paar Minuten
 hinter der Uhr.
 
 - **PV und Haus** zeigen je einen Wert in kWh.
-- **Netz** zeigt den Bezug über dem Icon (→) und die Einspeisung darunter (←),
-  **Batterie** das Entladen oben (↑) und das Laden unten (↓) - über einen Tag
-  passiert beides. Der Ladezustand ist ein Jetzt, kein Zeitraum, und entfällt.
-- **Liste, Ring und Punkte** arbeiten mit der Energie des Zeitraums. Schwellen
-  in W gelten als W × 1 Stunde: `min_consumer_w: 10` blendet Verbraucher unter
+- **Netz** mit zwei Sensoren zeigt den Bezug über dem Icon (→) und die
+  Einspeisung darunter (←), **Batterie** mit zwei Sensoren das Entladen oben
+  (↑) und das Laden unten (↓) - über einen Tag passiert beides. Mit einem
+  Sensor mit Vorzeichen siehe unten. Der Ladezustand ist ein Jetzt, kein
+  Zeitraum, und entfällt.
+- **Liste und Ring** arbeiten mit der Energie des Zeitraums. Schwellen in W
+  gelten als W × 1 Stunde: `min_consumer_w: 10` blendet Verbraucher unter
   10 Wh aus.
+- **Die Punkte** laufen nach der mittleren Leistung im Zeitraum - Energie
+  geteilt durch die Zeit - mit den üblichen Schwellen; ein Monat bewegt sich
+  wie sein Durchschnittstag, nicht mit Höchstgeschwindigkeit.
 - Zusatzwerte und Zustandswörter („Bezug", „lädt") sind ausgeblendet; ihr Platz
   bleibt, beim Umschalten verschiebt sich nichts.
 - Antippen eines Knotens öffnet weiterhin seinen Verlauf.
 
-**Netz und Batterie brauchen je zwei Sensoren** - Bezug und Einspeisung,
-Entladen und Laden. Aus dem Stundenmittel eines Sensors mit Vorzeichen lässt
-sich nicht trennen, wie viel in welche Richtung ging, und an den meisten Tagen
-macht das Netz beides. Im Editor ist die Option gesperrt, bis sie da sind. Mit
-nur einem Sensor mit Vorzeichen teilen zwei *Template → Sensor*-Helfer ihn auf
-(Einheit `W`, Geräteklasse `power`, Zustandsklasse `measurement`):
+**Ein oder zwei Sensoren für Netz und Batterie.** Aus dem Stundenmittel eines
+Sensors mit Vorzeichen lässt sich nicht trennen, wie viel in welche Richtung
+ging - an den meisten Tagen macht das Netz beides -, exakt ist nur der Saldo.
+Mit einem Sensor mit Vorzeichen zeigt das **Netz** deshalb einen Wert, seinen
+Saldo (→ netto bezogen, ← netto eingespeist), die **Batterie** keine Zahl.
+PV, Haus und Verbraucher sind in jedem Fall exakt. Mit *abgeleitetem* Netz
+oder abgeleiteter Batterie (siehe oben) geht der Energie-Modus nicht: Die
+Option ist im Editor gesperrt, und der Chip erscheint nicht. Für beide Richtungen
+braucht die Karte je zwei Sensoren - zwei *Template → Sensor*-Helfer teilen
+einen Sensor mit Vorzeichen auf (Einheit `W`, Geräteklasse `power`,
+Zustandsklasse `measurement`):
 
 ```jinja
 {# Bezug #}
@@ -530,7 +541,7 @@ zusätzliche Abfrage.
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
 | `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — den Ansichts-Chip (*Jetzt* / Mittelwerte), den Energie-Chip und den Filterknopf der Liste |
 | `view.remember` | `true` | Ansicht, Energie-Zeitraum und Filter-Knopf je Browser merken |
-| `view.energy_periods` | — | `day`, `week`, `month`: die Zeiträume des Energie-Chips. Braucht für Netz und Batterie je zwei Sensoren |
+| `view.energy_periods` | — | `day`, `week`, `month`: die Zeiträume des Energie-Chips. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts |
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
 | `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |

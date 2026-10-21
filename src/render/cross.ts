@@ -96,7 +96,10 @@ interface NodeView {
   outage?: boolean;
   socEntity?: string;
   /** Energy mode, grid and battery: one figure above the icon, one below (EM-5). */
-  figures?: { upper: Figure; lower: Figure };
+  /** Upper absent: a signed grid sensor shows only its balance (EM-3). */
+  figures?: { upper?: Figure; lower: Figure };
+  /** Energy mode, signed battery sensor: no figure at all, only the symbol (EM-3). */
+  noFigure?: boolean;
   /** Energy mode: how sure the node's figure is (EM-11). */
   mark?: EnergyMark;
   /** Energy mode during an outage: the symbol crossed out in red, the
@@ -223,7 +226,7 @@ function renderHits(
   const bottom = v.key === "solar" ? "-22px" : near;
   // In a period the extra fields are hidden, and with them their targets (EM-6).
   const above = options.inside?.position === "above" && !config.energy ? options.inside : undefined;
-  const upper = v.figures?.upper.entity
+  const upper = v.figures?.upper?.entity
     ? { entity: v.figures.upper.entity, text: v.figures.upper.text }
     : v.socEntity
       ? { entity: v.socEntity, text: v.socValue ?? "" }
@@ -253,7 +256,7 @@ function renderHits(
       <button
         class="hit lower"
         style=${v.key !== "solar" && options.label ? `top:auto;bottom:${bottom};${half}` : `bottom:${bottom}`}
-        aria-label=${`${v.label} ${v.value}`}
+        aria-label=${v.value ? `${v.label} ${v.value}` : v.label}
         @click=${tap(v.entity)}
         ?disabled=${!v.entity}
       ></button>
@@ -263,7 +266,7 @@ function renderHits(
   return html`<button
     class="hit"
     style="top:${top};bottom:${bottom}"
-    aria-label=${`${v.label} ${v.value}`}
+    aria-label=${v.value ? `${v.label} ${v.value}` : v.label}
     @click=${tap(v.entity)}
   ></button>`;
 }
@@ -452,6 +455,24 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
       v.outage = false;
       v.icon = config.icons.grid ?? DEFAULT_ICONS.grid;
       v.color = tone(imp ?? 0, exp ?? 0, "grid_import", "grid_export");
+      if (config.sources.grid.kind === "single") {
+        // One signed sensor: only its balance is exact - one figure, its
+        // arrow the net direction (EM-3). The halves only drive the dots.
+        const net = g.available ? g.net : null;
+        const out = (net ?? 0) < 0;
+        const balance = fig(
+          out ? "←" : "→",
+          out ? "grid_export" : "grid_import",
+          net === null ? null : Math.abs(net),
+          out ? "export" : "import",
+          g.entityPositive ?? g.entityNegative,
+        );
+        balance.mark = worse(marks.import, marks.export);
+        v.figures = { lower: balance };
+        v.entity = balance.entity;
+        v.value = balance.text;
+        continue;
+      }
       v.figures = {
         upper: fig("→", "grid_import", imp, "import", g.entityPositive),
         lower: fig("←", "grid_export", exp, "export", g.entityNegative),
@@ -465,16 +486,25 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
       const into = b.available ? b.negative : null;
       v.label = localize("node.battery", hass);
       v.color = tone(out ?? 0, into ?? 0, "battery_discharge", "battery_charge");
+      v.socValue = undefined;
+      v.socPercent = undefined;
+      v.socEntity = undefined;
+      v.icon = config.icons.battery ?? "mdi:battery";
+      if (config.sources.battery.kind === "single") {
+        // One signed sensor: neither direction is exact, and a balance of a
+        // store says little - the node shows no figure (EM-3, Markus).
+        v.noFigure = true;
+        // Not even for the screen reader: the figure is not shown (EM-3).
+        v.value = "";
+        v.entity = b.entityPositive ?? b.entityNegative;
+        continue;
+      }
       v.figures = {
         upper: fig("↑", "battery_discharge", out, "discharge", b.entityPositive),
         lower: fig("↓", "battery_charge", into, "charge", b.entityNegative),
       };
       v.entity = b.entityNegative;
       v.value = v.figures.lower.text;
-      v.socValue = undefined;
-      v.socPercent = undefined;
-      v.socEntity = undefined;
-      v.icon = config.icons.battery ?? "mdi:battery";
     }
   }
 }
@@ -493,6 +523,13 @@ const ARROWS: Record<string, { box: string; d: string; vertical: boolean }> = {
  * The arrow is drawn, not typed: the font's arrows are hairlines next to the
  * figures, bold or not (Markus, 20.10.2026: "sehr dünn").
  */
+/** The higher warning of two marks (EM-11). */
+function worse(a?: EnergyMark, b?: EnergyMark): EnergyMark | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return b.tier > a.tier ? b : a;
+}
+
 function renderFigure(f: Figure): TemplateResult {
   const arrow = ARROWS[f.arrow] ?? ARROWS["→"];
   return html`<div class="value figure ${markClass(f.mark)}" title=${f.mark?.note ?? ""}>
@@ -615,7 +652,7 @@ export function renderCross(
                 : ""
             }
             ${v.socValue ? html`<div class="value">${v.socValue}</div>` : ""}
-            ${v.figures ? renderFigure(v.figures.upper) : ""}
+            ${v.figures?.upper ? renderFigure(v.figures.upper) : ""}
             ${insideAt(v, config, hass, "above")}
             ${
               v.outage || v.crossed
@@ -635,9 +672,11 @@ export function renderCross(
                 : html`<ha-icon .icon=${v.icon} style="color:${v.color}"></ha-icon>`
             }
             ${
-              v.figures
-                ? renderFigure(v.figures.lower)
-                : html`<div
+              v.noFigure
+                ? ""
+                : v.figures
+                  ? renderFigure(v.figures.lower)
+                  : html`<div
                     class="value ${v.available ? "" : "unavailable"} ${markClass(v.mark)}"
                     title=${v.mark?.note ?? ""}
                   >${v.value}</div>`

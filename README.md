@@ -379,28 +379,38 @@ view:
   energy_periods: [day, week, month]   # any of them, at least one
 ```
 
-A chip next to the filter button then steps through *kW* (the power view),
+A chip next to the filter button then steps through *kW* (the power view;
+*Watt* with `power.unit: W`),
 *Day*, *Week* and *Month*. A period runs from midnight - today, since the first
 day of the week as set in your Home Assistant profile, since the first of the
 month - up to the last statistics Home Assistant has written, a few minutes
 behind the clock.
 
 - **PV and house** show one figure each, in kWh.
-- **Grid** shows the import above the icon (→) and the export below it (←),
-  **battery** the discharge above (↑) and the charge below (↓) - over a day,
-  both happen. The state of charge is a now, not a period, so it is not shown.
-- **The list, the ring and the dots** work with the energy of the period.
-  Thresholds given in W count as W × 1 hour: `min_consumer_w: 10` hides
-  consumers below 10 Wh.
+- **Grid** with two sensors shows the import above the icon (→) and the
+  export below it (←), **battery** with two sensors the discharge above (↑)
+  and the charge below (↓) - over a day, both happen. With one signed sensor
+  see below. The state of charge is a now, not a period, so it is not shown.
+- **The list and the ring** work with the energy of the period. Thresholds
+  given in W count as W × 1 hour: `min_consumer_w: 10` hides consumers below
+  10 Wh.
+- **The dots** run on the mean power over the period - its energy divided by
+  the time it took - with the usual thresholds, so a month moves like its
+  average day, not at top speed.
 - Extra values and the state words ("import", "charging") are hidden; their
   room stays, so nothing moves when you switch.
 - Tapping a node still opens its history.
 
-**Grid and battery need two sensors each** - import and export, discharge and
-charge. An hourly mean of a signed sensor cannot tell how much went each way,
-and on most days the grid does both. The option is locked in the editor until
-they are there. With only a signed sensor, two *Template → Sensor* helpers
-split it (unit `W`, device class `power`, state class `measurement`):
+**One sensor or two for grid and battery.** An hourly mean of a signed sensor
+cannot tell how much went each way - on most days the grid does both - only
+the balance is exact. So with a single signed sensor the **grid** shows one
+figure, its balance (→ net import, ← net export), and the **battery** shows
+no figure. PV, house and consumers are exact either way. A *derived* grid or battery
+(see above) does not work with the energy mode: the option is locked in the
+editor and the chip does not appear. To see both
+directions, give the card two sensors each - two *Template → Sensor* helpers
+split a signed one (unit `W`, device class `power`, state class
+`measurement`):
 
 ```jinja
 {# import #}
@@ -506,7 +516,7 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.avg_long_minutes` | `15` | Long averaging window |
 | `view.show_selector` | `true` | Show the filter bar above the card - the view chip (*Now* / averages), the energy chip and the list's filter button |
 | `view.remember` | `true` | Remember the view, the energy period and the filter button per browser |
-| `view.energy_periods` | — | `day`, `week`, `month`: the periods of the energy chip. Needs two sensors each for grid and battery |
+| `view.energy_periods` | — | `day`, `week`, `month`: the periods of the energy chip. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing |
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
 | `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |

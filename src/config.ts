@@ -269,10 +269,10 @@ function readEnum<T extends string>(
 }
 
 /**
- * The energy chip's periods, in calendar order (REQ EM-1). Grid and battery
- * need their two-sensor form: a signed hourly mean cannot tell how much went
- * each way (EM-3). Without it the mode is off with a warning, never an error
- * card - a sensor changed in the editor must not break the card (E-1).
+ * The energy chip's periods, in calendar order (REQ EM-1). Any sensor form
+ * will do - a signed one shows its balance (EM-3) - but a derived grid or
+ * battery would need a balance of balances; the mode is then off with a
+ * warning, never an error card (E-1).
  */
 function readEnergyPeriods(
   value: unknown,
@@ -286,8 +286,8 @@ function readEnergyPeriods(
   for (const entry of value) readEnum(entry, ENERGY_PERIODS, field, "day", hass);
   const periods = ENERGY_PERIODS.filter((p) => value.includes(p));
   if (periods.length === 0) return [];
-  if (grid.kind !== "split" || (battery.kind !== "absent" && battery.kind !== "split")) {
-    console.warn(localize("error.config.energy_needs_split", hass, { field }));
+  if (grid.kind === "derived" || battery.kind === "derived") {
+    console.warn(localize("error.config.energy_derived", hass, { field }));
     return [];
   }
   return periods;

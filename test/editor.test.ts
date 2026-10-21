@@ -1568,12 +1568,23 @@ describe("editor: energy periods (REQ EM-15)", () => {
     expect(cleared.view).toBeUndefined();
   });
 
-  it("is locked without two sensors for grid and battery, and says why (EM-3)", async () => {
+  it("is open with a signed grid sensor and says what it shows (EM-3, EM-15)", async () => {
     const el = await mount(SPLIT_BATTERY);
+    const field = findField(el, "energy_periods") as Field & { disabled?: boolean };
+    expect(field.disabled).toBeFalsy();
+    const helper = (el as unknown as { _helper: (f: { name: string }) => string })._helper;
+    expect(helper({ name: "energy_periods" })).toContain("Saldo");
+  });
+
+  it("is locked with a derived grid or battery, and says why (EM-3)", async () => {
+    const el = await mount({
+      ...SPLIT_BATTERY,
+      entities: { ...SPLIT_BATTERY.entities, grid: "derived" },
+    });
     const field = findField(el, "energy_periods") as Field & { disabled?: boolean };
     expect(field.disabled).toBe(true);
     const helper = (el as unknown as { _helper: (f: { name: string }) => string })._helper;
-    expect(helper({ name: "energy_periods" })).toContain("zwei Sensoren");
+    expect(helper({ name: "energy_periods" })).toContain("abgeleitet");
   });
 
   it("keeps a set choice when the prerequisite goes (E-1)", async () => {

@@ -40,6 +40,10 @@ const STATES: Record<string, string> = {
   "sensor.nostat": "50",
   // A grid status that reports an outage, for the one test that names it.
   "sensor.grid_state": "off",
+  "sensor.gridnet": "0",
+  "sensor.batnet": "-200",
+  "sensor.gridinv": "0",
+  "sensor.gridout": "0",
 };
 
 /** Hourly means of the day: 2 kW sun, 0.5 kW bought, 1 kW into the battery. */
@@ -51,6 +55,12 @@ const MEANS: Record<string, number> = {
   "sensor.in": 1000,
   "sensor.house": 1500,
   "sensor.heat": 600,
+  // Signed sensors: the grid net import, the battery net charging.
+  "sensor.gridnet": 500,
+  "sensor.batnet": -1000,
+  // Reported the other way round (invert: true), and a net exporter.
+  "sensor.gridinv": -500,
+  "sensor.gridout": -300,
 };
 
 type Card = HTMLElement & {
@@ -394,11 +404,57 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(figures).toEqual(["6,0 kWh", "0,0 kWh"]);
   });
 
-  it("has no chip without two sensors for the grid (EM-3)", async () => {
+  it("shows the grid's balance and no battery figure for signed sensors (EM-3)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, grid: "sensor.gridnet", battery: "sensor.batnet" },
+    });
+    await tap(el);
+    // One figure at the grid: 500 W net import for twelve hours.
+    const grid = [...(node(el, "grid")?.querySelectorAll(".value.figure") ?? [])];
+    expect(
+      grid.map((f) => `${f.querySelector(".arrow")?.getAttribute("data-arrow")}${text(f)}`),
+    ).toEqual(["→6,0 kWh"]);
+    // No battery figure at all, only its symbol.
+    expect(node(el, "battery")?.querySelectorAll(".value")).toHaveLength(0);
+    expect(node(el, "battery")?.querySelector("ha-icon")).not.toBeNull();
+    // PV and house as with two sensors.
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+    expect(text(node(el, "house")?.querySelector(".value"))).toBe("18,0 kWh");
+  });
+
+  it("gets the balance's direction right for inverted sensors and net export (EM-3)", async () => {
+    const balance = async (grid: unknown) => {
+      localStorage.clear();
+      const { el } = await mount({ ...CONFIG, entities: { ...CONFIG.entities, grid } });
+      await tap(el);
+      const figures = [...(node(el, "grid")?.querySelectorAll(".value.figure") ?? [])];
+      return figures.map(
+        (f) => `${f.querySelector(".arrow")?.getAttribute("data-arrow")}${text(f)}`,
+      );
+    };
+    // -500 W reported, turned: 500 W of import.
+    expect(await balance({ entity: "sensor.gridinv", invert: true })).toEqual(["→6,0 kWh"]);
+    // -300 W as reported: 300 W of export.
+    expect(await balance("sensor.gridout")).toEqual(["←3,6 kWh"]);
+  });
+
+  it("gives a signed battery one target that names no figure (EM-3)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: "sensor.batnet" },
+    });
+    await tap(el);
+    const hits = [...(node(el, "battery")?.querySelectorAll<HTMLElement>(".hit") ?? [])];
+    expect(hits).toHaveLength(1);
+    expect(hits[0].getAttribute("aria-label")).toBe("Batterie");
+  });
+
+  it("has no chip with a derived grid (EM-3)", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { el } = await mount({
       ...CONFIG,
-      entities: { ...CONFIG.entities, grid: "sensor.import" },
+      entities: { ...CONFIG.entities, grid: "derived" },
     });
     expect(chip(el)).toBeNull();
     warn.mockRestore();

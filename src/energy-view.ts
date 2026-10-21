@@ -52,11 +52,22 @@ interface Roles {
   roles: Partial<Record<EnergyRole, string>>;
   /** Single sensors with `invert`: their rows are turned before integrating. */
   inverted: Set<string>;
+  /**
+   * Signed grid or battery sensors. Each is split hour by hour into the two
+   * series named here - only for the flows; at the node only their balance
+   * is exact and shown (EM-3).
+   */
+  signed: Map<string, { positive: string; negative: string }>;
 }
+
+/** The series a signed sensor is split into; never an entity id. */
+const POSITIVE = "#positive";
+const NEGATIVE = "#negative";
 
 function rolesOf(config: Config): Roles {
   const roles: Partial<Record<EnergyRole, string>> = {};
   const inverted = new Set<string>();
+  const signed = new Map<string, { positive: string; negative: string }>();
   const single = (role: EnergyRole, spec: SourceSpec) => {
     if (spec.kind !== "single") return;
     roles[role] = spec.entity;
@@ -65,15 +76,50 @@ function rolesOf(config: Config): Roles {
   const { solar, grid, battery, house } = config.sources;
   single("solar", solar);
   single("house", house);
-  if (grid.kind === "split") {
-    roles.import = grid.positive;
-    roles.export = grid.negative;
+  const twoWay = (positive: EnergyRole, negative: EnergyRole, spec: SourceSpec) => {
+    if (spec.kind === "split") {
+      roles[positive] = spec.positive;
+      roles[negative] = spec.negative;
+    } else if (spec.kind === "single") {
+      const pair = { positive: spec.entity + POSITIVE, negative: spec.entity + NEGATIVE };
+      signed.set(spec.entity, pair);
+      roles[positive] = pair.positive;
+      roles[negative] = pair.negative;
+      if (spec.invert) inverted.add(spec.entity);
+    }
+  };
+  twoWay("import", "export", grid);
+  twoWay("discharge", "charge", battery);
+  return { roles, inverted, signed };
+}
+
+/** Every entity to ask the recorder for: a signed sensor once, by its own id. */
+function entityIds(roles: Roles, config: Config): string[] {
+  const ids = Object.values(roles.roles).map((id) =>
+    id.endsWith(POSITIVE) || id.endsWith(NEGATIVE) ? id.slice(0, id.lastIndexOf("#")) : id,
+  );
+  return [...new Set([...ids, ...config.consumers.map((c) => c.entity)])];
+}
+
+/** A signed sensor's rows as two series: what went each way, hour by hour. */
+function splitSigned(
+  rows: Record<string, StatRow[]>,
+  signed: Roles["signed"],
+): Record<string, StatRow[]> {
+  const out = { ...rows };
+  for (const [id, pair] of signed) {
+    const own = rows[id];
+    if (!own) continue;
+    out[pair.positive] = own.map((r) => ({
+      start: r.start,
+      mean: r.mean === null ? null : Math.max(r.mean, 0),
+    }));
+    out[pair.negative] = own.map((r) => ({
+      start: r.start,
+      mean: r.mean === null ? null : Math.max(-r.mean, 0),
+    }));
   }
-  if (battery.kind === "split") {
-    roles.discharge = battery.positive;
-    roles.charge = battery.negative;
-  }
-  return { roles, inverted };
+  return out;
 }
 
 /** What a fetched period depends on; a different key means a new fetch (EM-14). */
@@ -89,9 +135,7 @@ export function energyKey(config: Config): string {
 
 /** Every entity a period needs, in a stable order - a new list means a new fetch. */
 export function energyEntities(config: Config): string[] {
-  const { roles } = rolesOf(config);
-  const ids = [...Object.values(roles), ...config.consumers.map((c) => c.entity)];
-  return [...new Set(ids)];
+  return entityIds(rolesOf(config), config);
 }
 
 function rowsOf(
@@ -204,8 +248,9 @@ export async function fetchEnergy(
   now = Date.now(),
   timeoutMs = 10_000,
 ): Promise<EnergyView> {
-  const { roles, inverted } = rolesOf(config);
-  const ids = energyEntities(config);
+  const all = rolesOf(config);
+  const { roles, inverted, signed } = all;
+  const ids = entityIds(all, config);
   const from = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
   const hourStart = Math.floor(now / HOUR) * HOUR;
   const [hourly, fiveMin, daily] = await Promise.all([
@@ -218,12 +263,12 @@ export async function fetchEnergy(
     to: now,
     roles,
     consumers: config.consumers.map((c) => c.entity),
-    hourly: rowsOf(hourly, ids, inverted),
-    fiveMin: rowsOf(fiveMin, ids, inverted),
+    hourly: splitSigned(rowsOf(hourly, ids, inverted), signed),
+    fiveMin: splitSigned(rowsOf(fiveMin, ids, inverted), signed),
     pvZeroBelowW: config.flow.minW,
-    since: sinceOf(rowsOf(daily, ids, inverted), from - DAY),
+    since: sinceOf(splitSigned(rowsOf(daily, ids, inverted), signed), from - DAY),
   });
-  return toView(result, period, roles, inverted, hass, now, from);
+  return toView(result, period, roles, inverted, hass, now, from, signed);
 }
 
 function percent(share: number, hass: HomeAssistant): string {
@@ -250,6 +295,7 @@ export function toView(
   hass: HomeAssistant,
   now: number,
   start = result.from,
+  signed: Roles["signed"] = new Map(),
 ): EnergyView {
   // Right after midnight a period is minutes long; a floor keeps the means sane.
   const hours = Math.max((result.to - result.from) / HOUR, 1 / 12);
@@ -260,6 +306,16 @@ export function toView(
     wh.set(id, value === undefined ? null : inverted.has(id) ? -value : value);
   }
   for (const [id, value] of Object.entries(result.consumers)) wh.set(id, value?.wh ?? null);
+  // A signed sensor reads its balance - exact, unlike the two halves (EM-3).
+  for (const [id, pair] of signed) {
+    const positive = wh.get(pair.positive);
+    const negative = wh.get(pair.negative);
+    const balance =
+      positive === undefined || positive === null || negative === undefined || negative === null
+        ? null
+        : positive - negative;
+    wh.set(id, balance === null ? null : inverted.has(id) ? -balance : balance);
+  }
 
   const filled = (share: number): EnergyMark => {
     const tier = warnTier(share);

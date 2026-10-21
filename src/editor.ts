@@ -596,12 +596,9 @@ function energyPeriods(value: unknown): string[] | undefined {
   return periods.length > 0 ? periods : undefined;
 }
 
-/** Grid in two sensors, battery in two or none: what the energy mode needs (EM-3). */
+/** Any grid and battery but a derived one: what the energy mode needs (EM-3). */
 function energyReady(flat: FlatConfig): boolean {
-  return (
-    flat.grid_source === "split" &&
-    (flat.battery_source === "split" || flat.battery_source === "none")
-  );
+  return flat.grid_source !== "derived" && flat.battery_source !== "derived";
 }
 
 // ---------------------------------------------------------------------------
