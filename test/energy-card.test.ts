@@ -23,7 +23,7 @@ const CONFIG = {
     house: "sensor.house",
   },
   nodes: { house: { label: { entity: "sensor.share" } } },
-  view: { energy_periods: ["today", "month"] },
+  view: { energy_periods: ["power", "today", "month"] },
 };
 
 /** Live readings, quite different from the day's means below. */
@@ -79,6 +79,12 @@ type Card = HTMLElement & {
 let failing = 0;
 /** While set, statistics answers wait for it - a slow recorder. */
 let hold: Promise<void> | undefined;
+/** While set, the statistics metadata waits for it (QB-8). */
+let holdMeta: Promise<void> | undefined;
+/** Metadata requests to answer with an error. */
+let failingMeta = 0;
+/** Sensors HA keeps no statistics for, beyond those without means. */
+let statless = new Set<string>();
 
 function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
   const states: HomeAssistant["states"] = {};
@@ -98,6 +104,23 @@ function fakeHass(asked: Record<string, unknown>[]): HomeAssistant {
     config: { time_zone: "UTC" },
     callWS: async (msg: Record<string, unknown>) => {
       asked.push(msg);
+      if (msg.type === "recorder/get_statistics_metadata") {
+        if (holdMeta) await holdMeta;
+        if (failingMeta > 0) {
+          failingMeta--;
+          throw new Error("recorder not ready");
+        }
+        return (msg.statistic_ids as string[])
+          .filter((id) => MEANS[id] !== undefined && !statless.has(id))
+          .map((id) => ({
+            statistic_id: id,
+            mean_type: 1,
+            has_mean: true,
+            has_sum: false,
+            unit_class: "power",
+            statistics_unit_of_measurement: "W",
+          })) as never;
+      }
       if (msg.type === "recorder/statistics_during_period" && hold) await hold;
       if (msg.type === "recorder/statistics_during_period" && failing > 0) {
         failing--;
@@ -162,6 +185,9 @@ describe("energy mode on the card (REQ 2.15)", () => {
   afterEach(() => {
     // A failed test must not leave a slow or broken recorder to the next.
     hold = undefined;
+    holdMeta = undefined;
+    failingMeta = 0;
+    statless = new Set();
     failing = 0;
     localStorage.clear();
     document.body.innerHTML = "";
@@ -204,8 +230,12 @@ describe("energy mode on the card (REQ 2.15)", () => {
     await tap(el);
     // Still there, greyed out and inert: averages have no meaning here.
     const view = el.shadowRoot?.querySelector<HTMLButtonElement>(".view-chip");
-    expect(view?.disabled).toBe(true);
+    // aria-disabled, not disabled: it stays focusable and says why (QB-3).
+    expect(view?.getAttribute("aria-disabled")).toBe("true");
     expect(view?.title).toBe("Mittelwerte gibt es nur in der kW-Ansicht");
+    view?.click();
+    await settle(el);
+    expect(view?.querySelector(".mode-label.active")?.textContent?.trim()).toBe("Jetzt");
     expect(localStorage.getItem("enerlens-energy-period")).toBe("today");
     const again = await mount();
     expect(label(again.el)).toBe("Heute");
@@ -297,7 +327,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
   it("shows no remembered period empty in the preview while the tapped one loads (EM-14)", async () => {
     localStorage.setItem("enerlens-energy-period", "week");
     const { el, asked } = await mount(
-      { ...CONFIG, view: { energy_periods: ["today", "week"] } },
+      { ...CONFIG, view: { energy_periods: ["power", "today", "week"] } },
       true,
     );
     const solar = () => text(node(el, "solar")?.querySelector(".value"));
@@ -327,7 +357,7 @@ describe("energy mode on the card (REQ 2.15)", () => {
       release = r;
     });
     await tap(el);
-    el.setConfig({ ...CONFIG, view: { energy_periods: ["month"] } });
+    el.setConfig({ ...CONFIG, view: { energy_periods: ["power", "month"] } });
     release();
     hold = undefined;
     await settle(el);
@@ -516,5 +546,176 @@ describe("energy mode on the card (REQ 2.15)", () => {
     });
     expect(chip(el)).toBeNull();
     warn.mockRestore();
+  });
+});
+
+describe("the quick button power/energy (REQ QB-2, QB-3, QB-8)", () => {
+  beforeAll(async () => {
+    (globalThis as unknown as Record<string, unknown>).ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    };
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    await import("../src/enerlens-card");
+  });
+  afterAll(() => vi.useRealTimers());
+  afterEach(() => {
+    hold = undefined;
+    holdMeta = undefined;
+    failingMeta = 0;
+    statless = new Set();
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  // A card nobody has told about energy: the default applies (QB-8). Each
+  // test has entities of its own, so no answer is shared between them.
+  const plain = (house: string) => ({
+    ...CONFIG,
+    entities: { ...CONFIG.entities, house },
+    view: undefined,
+  });
+  const metaAsks = (asked: Record<string, unknown>[]) =>
+    asked.filter((m) => m.type === "recorder/get_statistics_metadata");
+
+  it("offers today, 24 h and week by default once the statistics are there (QB-8)", async () => {
+    MEANS["sensor.house_a"] = 1500;
+    const { el, asked } = await mount(plain("sensor.house_a"));
+    expect(label(el)).toBe("kW");
+    const seen = [];
+    for (let i = 0; i < 4; i++) {
+      await tap(el);
+      seen.push(label(el));
+    }
+    expect(seen).toEqual(["Heute", "24 h", "Woche", "kW"]);
+    const [ask] = metaAsks(asked);
+    expect(ask.statistic_ids).toEqual(
+      expect.arrayContaining([
+        "sensor.solar",
+        "sensor.import",
+        "sensor.export",
+        "sensor.out",
+        "sensor.in",
+        "sensor.house_a",
+      ]),
+    );
+  });
+
+  it("offers no energy by default when a main sensor has no statistics (QB-8)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    MEANS["sensor.house_b"] = 1500;
+    statless = new Set(["sensor.house_b"]);
+    const { el } = await mount(plain("sensor.house_b"));
+    expect(chip(el)).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("does not let a consumer without statistics stop the default (QB-8, EM-12)", async () => {
+    MEANS["sensor.house_c"] = 1500;
+    const { el } = await mount({
+      ...plain("sensor.house_c"),
+      consumers: [{ entity: "sensor.heat" }, { entity: "sensor.nostat" }],
+    });
+    expect(chip(el)).not.toBeNull();
+  });
+
+  it("holds the button's room while it checks and keeps a remembered period (QB-8)", async () => {
+    MEANS["sensor.house_d"] = 1500;
+    localStorage.setItem("enerlens-energy-period", "week");
+    let release = () => {};
+    holdMeta = new Promise<void>((r) => {
+      release = r;
+    });
+    const { el } = await mount(plain("sensor.house_d"));
+    expect(chip(el)?.classList.contains("waiting")).toBe(true);
+    expect(chip(el)?.getAttribute("aria-hidden")).toBe("true");
+    // As wide as the button will be: every label it may show is in it.
+    const labels = [...(chip(el)?.querySelectorAll(".mode-label") ?? [])].map((l) => text(l));
+    expect(labels).toEqual(["kW", "Heute", "24 h", "Woche"]);
+    expect(localStorage.getItem("enerlens-energy-period")).toBe("week");
+    release();
+    holdMeta = undefined;
+    await settle(el);
+    expect(chip(el)?.classList.contains("waiting")).toBe(false);
+    expect(label(el)).toBe("Woche");
+  });
+
+  it("asks again half a minute after a failed check (QB-8)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    MEANS["sensor.house_f"] = 1500;
+    failingMeta = 1;
+    const { el, asked } = await mount(plain("sensor.house_f"));
+    expect(chip(el)).toBeNull();
+    vi.setSystemTime(NOW + 31_000);
+    el.hass = fakeHass(asked);
+    await settle(el);
+    vi.setSystemTime(NOW);
+    expect(metaAsks(asked)).toHaveLength(2);
+    expect(chip(el)).not.toBeNull();
+  });
+
+  it("checks one set of sensors once for all cards, and not on every keystroke (QB-8)", async () => {
+    MEANS["sensor.house_e"] = 1500;
+    const { el, asked } = await mount(plain("sensor.house_e"));
+    const second = await mount(plain("sensor.house_e"));
+    el.setConfig({ ...plain("sensor.house_e"), title: "Typed" });
+    await settle(el);
+    expect(metaAsks(asked).length + metaAsks(second.asked).length).toBe(1);
+  });
+
+  it("asks nothing when the periods are set, and shows what is missing (QB-8)", async () => {
+    const { el, asked } = await mount();
+    expect(metaAsks(asked)).toHaveLength(0);
+    expect(chip(el)).not.toBeNull();
+  });
+
+  it("shows a fixed period with no button and names it in the header (QB-3, QB-5)", async () => {
+    const { el, asked } = await mount({
+      ...CONFIG,
+      consumers: [{ entity: "sensor.heat" }],
+      view: { energy_periods: ["today"] },
+    });
+    expect(chip(el)).toBeNull();
+    // Without power there is nothing to average: no smoothing button either.
+    expect(el.shadowRoot?.querySelector(".view-chip")).toBeNull();
+    // Named as energy: "Heute" alone said little (Markus 21.10.2026).
+    expect(text(el.shadowRoot?.querySelector(".mode-note"))).toBe("Energie: Heute");
+    expect(
+      asked.filter((m) => m.type === "recorder/statistics_during_period").length,
+    ).toBeGreaterThan(0);
+    expect(text(node(el, "solar")?.querySelector(".value"))).toBe("24,0 kWh");
+  });
+
+  it("starts in the configured period and never shows power without it (QB-4, QB-2)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      view: { energy_periods: ["today", "month"], default_energy: "month" },
+    });
+    expect(label(el)).toBe("Monat");
+    await tap(el);
+    expect(label(el)).toBe("Heute");
+    await tap(el);
+    expect(label(el)).toBe("Monat");
+  });
+
+  it("shows a changed start period at once, whatever was remembered (QB-4)", async () => {
+    localStorage.setItem("enerlens-energy-period", "kw");
+    const { el } = await mount();
+    expect(label(el)).toBe("kW");
+    el.setConfig({ ...CONFIG, view: { ...CONFIG.view, default_energy: "month" } });
+    await settle(el);
+    expect(label(el)).toBe("Monat");
+  });
+
+  it("names only the period in the header when the mean is fixed (QB-5)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      view: { energy_periods: ["power", "today"], modes: ["avg_long"] },
+    });
+    expect(text(el.shadowRoot?.querySelector(".mode-note"))).toBe("Ø 15 min");
+    await tap(el);
+    expect(el.shadowRoot?.querySelector(".mode-note")).toBeNull();
   });
 });

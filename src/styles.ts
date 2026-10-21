@@ -325,7 +325,11 @@ export const styles = css`
   }
 
   /* Averages have no meaning for a period's energy (EM-2). */
-  .mode-chip:disabled {
+  /* Room for the quick button while the statistics are checked (QB-8). */
+  .energy-chip.waiting {
+    visibility: hidden;
+  }
+  .mode-chip[aria-disabled="true"] {
     border-color: var(--divider-color, rgba(127, 127, 127, 0.3));
     color: var(--disabled-text-color, var(--secondary-text-color));
     opacity: 0.6;

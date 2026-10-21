@@ -381,6 +381,48 @@ nodes:
 
 Im Editor: *Beschriftung & Zusatzwerte*, ein Abschnitt je Knoten.
 
+### Quick-Buttons (optional)
+
+Im Kopf der Karte gibt es bis zu drei Quick-Buttons; jeder Tipp schaltet zum
+nächsten Wert:
+
+| Quick-Button | Werte | Schlüssel | Standard |
+|---|---|---|---|
+| **Glättung** | Jetzt, kurzer Mittelwert, langer Mittelwert | `view.modes`: `current`, `avg_short`, `avg_long` | alle drei |
+| **Leistung/Energie** | Leistung, Energie über einen Zeitraum | `view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` | `power`, `today`, `24h`, `week` - siehe unten |
+| **Listenumfang** | gefilterte Liste, alle Verbraucher | `list.scope`: `filtered`, `full` | beide |
+
+Eingetragen wird, was ein Quick-Button anbieten soll. **Ein Wert heißt fest**:
+Der Knopf entfällt, und die Karte zeigt immer diesen Wert - auf jedem Gerät, für
+jeden Nutzer. Eine als Energie-Karte eingerichtete Karte bleibt also eine. Feste
+Werte außer der Augenblicksansicht nennt der Kopf („Ø 15 min“, „Energie: Monat“), damit
+niemand sie für einen Live-Wert hält.
+
+```yaml
+view:
+  energy_periods: [month]          # eine Energie-Karte: immer dieser Monat
+  modes: [current, avg_long]       # ohne kurzen Mittelwert
+list:
+  scope: [full]                    # immer alle Verbraucher
+```
+
+Ein Quick-Button mit mehreren Werten startet mit seinem Startwert -
+`view.default_mode`, `view.default_energy`, `list.default_scope` -, außer der
+Browser hat sich den letzten gemerkt (`view.remember`). Mittelwerte gibt es nur
+für die Leistung: Ohne `power` in `energy_periods` mittelt die Karte nie. In
+einem Zeitraum ist die Glättung ausgegraut.
+
+**Der Energie-Standard.** Ist `energy_periods` nicht gesetzt, bietet die Karte
+Leistung, Heute, 24 h und Woche an - aber nur, wenn PV, Netz, Batterie und Haus
+eine Langzeitstatistik haben. Das prüft sie einmal beim Laden (nur Metadaten,
+keine Messwerte); sonst bleibt sie bei der Leistung und sagt in der
+Browser-Konsole, warum. `energy_periods: [power]` schaltet den Energie-Modus ab.
+
+Der Editor hat je Quick-Button eine Gruppe; das letzte Häkchen lässt sich nicht
+abwählen. Das ältere `view.show_selector: false` gilt weiter und heißt: jeder
+Quick-Button fest auf seinem Startwert. Der Editor macht beim Öffnen die Listen
+oben daraus.
+
 ### Energie für einen Zeitraum (optional)
 
 Neben der Leistung kann die Karte Energie zeigen: was heute von der Sonne kam,
@@ -391,11 +433,13 @@ Leistungssensoren führt.
 
 ```yaml
 view:
-  energy_periods: [today, 24h, week, 7d, month, 30d]   # beliebig viele, mindestens einer
+  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # beliebig viele
 ```
 
-Ein Chip neben dem Filterknopf schaltet dann reihum *kW* (die Leistungsansicht;
-*Watt* bei `power.unit: W`) und die eingeschalteten Zeiträume:
+Der Quick-Button Leistung/Energie neben dem Filterknopf schaltet dann reihum
+*kW* (die Leistungsansicht, `power`; *Watt* bei `power.unit: W`) und die
+eingeschalteten Zeiträume. Ohne Einstellung bietet er Leistung, Heute, 24 h und
+Woche an (siehe *Quick-Buttons*):
 
 | Schlüssel | Chip | Zeitraum |
 |---|---|---|
@@ -436,7 +480,7 @@ Saldo (→ netto bezogen, ← netto eingespeist), nach dem sich auch die Punkte
 richten, die **Batterie** keine Zahl und keinen Fluss.
 PV, Haus und Verbraucher sind in jedem Fall exakt. Mit *abgeleitetem* Netz
 oder abgeleiteter Batterie (siehe oben) geht der Energie-Modus nicht: Die
-Option ist im Editor gesperrt, und der Chip erscheint nicht. Für beide Richtungen
+Option ist im Editor gesperrt, und der Quick-Button erscheint nicht. Für beide Richtungen
 braucht die Karte je zwei Sensoren - zwei *Template → Sensor*-Helfer teilen
 einen Sensor mit Vorzeichen auf (Einheit `W`, Geräteklasse `power`,
 Zustandsklasse `measurement`):
@@ -548,12 +592,16 @@ zusätzliche Abfrage.
 | `list.always_below` | `false` | Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre |
 | `ring.enabled` | an mit Verbrauchern | Ring anzeigen |
 | `ring.animation` | `overtake` | Wie der Ring einer umsortierten Liste folgt. `overtake`: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. `fade`: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. `jump`: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter |
-| `view.default_mode` | `current` | `current`, `avg_short` oder `avg_long` |
+| `view.modes` | alle drei | Quick-Button Glättung: `current`, `avg_short`, `avg_long`; einer = fest |
+| `view.default_mode` | `current` | Startwert der Glättung |
 | `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
-| `view.show_selector` | `true` | Filterleiste über der Karte anzeigen — den Ansichts-Chip (*Jetzt* / Mittelwerte), den Energie-Chip und den Filterknopf der Liste |
-| `view.remember` | `true` | Ansicht, Energie-Zeitraum und Filter-Knopf je Browser merken |
-| `view.energy_periods` | — | `today`, `24h`, `week`, `7d`, `month`, `30d`: die Zeiträume des Energie-Chips. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts |
+| `view.remember` | `true` | Den letzten Wert jedes Quick-Buttons je Browser merken |
+| `view.energy_periods` | `power`, `today`, `24h`, `week`, wenn die Statistik da ist | Quick-Button Leistung/Energie: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; einer = fest, `[power]` = keine Energie. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts |
+| `view.default_energy` | `power` | Startwert von Leistung/Energie |
+| `list.scope` | beide | Quick-Button Listenumfang: `filtered`, `full`; einer = fest |
+| `list.default_scope` | `filtered` | Startwert des Listenumfangs |
+| `view.show_selector` | — | Veraltet: `false` stellt jeden Quick-Button fest auf seinen Startwert |
 | `appearance` | `auto` | `auto`, `light` oder `dark` — zeigt **diese eine Karte** hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest |
 | `flow.design` | `none` | `none` oder die Kennung eines Designs aus `flow-designs.json` |
 | `flow.dot_color` | leer | Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre |

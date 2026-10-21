@@ -14,8 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   sensors it already has - no extra entities. Grid and battery show both directions with two sensors
   each; with a single signed sensor the grid shows its balance and the
   battery no figure.
+- **Quick buttons.** The buttons in the header - smoothing, power/energy and
+  list scope - each offer the values listed in `view.modes`,
+  `view.energy_periods` and `list.scope`. One value makes it fixed: no button,
+  the same view on every device and for every user, so a card set up for
+  energy stays one. Start values: `view.default_mode`, `view.default_energy`,
+  `list.default_scope`.
 
 ### Changed
+- **Energy without configuration.** A card without `view.energy_periods`
+  offers power, today, 24 h and week, if solar, grid, battery and house have
+  long-term statistics; `energy_periods: [power]` keeps it to power.
+- **`view.show_selector` is deprecated.** `false` still works and fixes every
+  quick button on its start value; the editor turns it into the new lists.
+  Remembered values no longer apply to such a card.
 - **One chip for the view** (#20). The three chips *Now*, *Ø 2 min* and
   *Ø 15 min* are now a single chip that steps through them on each tap and
   keeps its width while doing so.

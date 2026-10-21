@@ -243,6 +243,9 @@ describe("every form field reaches the YAML (issue #19)", () => {
   /** A value of the field's own kind that differs from the one it has. */
   function another(name: string, value: unknown): unknown {
     if (name === "energy_periods") return ["week"];
+    // Quick buttons show their defaults ticked; a real value differs from those.
+    if (name === "modes") return ["current"];
+    if (name === "scope") return ["full"];
     if (typeof value === "boolean") return !value;
     if (typeof value === "number") return value === 100 ? 120 : value + 1;
     if (Array.isArray(value))

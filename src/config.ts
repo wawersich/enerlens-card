@@ -12,6 +12,7 @@ import {
   type ColorKey,
   type Config,
   ConfigError,
+  type EnergyChoice,
   type EnergyPeriod,
   type ExtraColorKey,
   type ExtraDecimals,
@@ -24,6 +25,7 @@ import {
   type InactiveLines,
   type InsideField,
   type LabelField,
+  type ListScope,
   type NodeKey,
   type NodeOptions,
   type NormalizedCharge,
@@ -56,6 +58,10 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
 const ENERGY_PERIODS: readonly EnergyPeriod[] = ["today", "24h", "week", "7d", "month", "30d"];
+const ENERGY_CHOICES: readonly EnergyChoice[] = ["power", ...ENERGY_PERIODS];
+/** Offered without any configuration, once the statistics are there (QB-8). */
+const ENERGY_DEFAULT: readonly EnergyChoice[] = ["power", "today", "24h", "week"];
+const LIST_SCOPES: readonly ListScope[] = ["filtered", "full"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
 const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
@@ -269,28 +275,95 @@ function readEnum<T extends string>(
 }
 
 /**
- * The energy chip's periods, in calendar order (REQ EM-1). Any sensor form
- * will do - a signed one shows its balance (EM-3) - but a derived grid or
- * battery would need a balance of balances; the mode is then off with a
- * warning, never an error card (E-1).
+ * The values a quick button offers, in their fixed order, each once (QB-2).
+ * Undefined = not set; an empty list counts as not set too, with a warning
+ * rather than an error card (QB-6, E-1).
  */
-function readEnergyPeriods(
+function readChoices<T extends string>(
   value: unknown,
+  allowed: readonly T[],
+  field: string,
+  hass?: HomeAssistant,
+): T[] | undefined {
+  if (isUnset(value)) return undefined;
+  if (!Array.isArray(value)) throw fail("error.config.list", field, hass);
+  for (const entry of value) readEnum(entry, allowed, field, allowed[0], hass);
+  const picked = allowed.filter((v) => value.includes(v));
+  if (picked.length === 0) {
+    console.warn(localize("error.config.empty_choice", hass, { field }));
+    return undefined;
+  }
+  return picked;
+}
+
+/**
+ * The three quick buttons (REQ 2.16): what each offers and where it starts.
+ * One value offered = fixed. The deprecated `show_selector: false` fixes
+ * every button not configured anew on its start value (QB-7).
+ */
+function readQuickButtons(
+  rawView: Record<string, unknown>,
+  rawList: Record<string, unknown>,
   grid: SourceSpec,
   battery: SourceSpec,
   hass?: HomeAssistant,
-): EnergyPeriod[] {
-  if (isUnset(value)) return [];
+) {
+  const fixed = !readBoolean(rawView.show_selector, "view.show_selector", true, hass);
+  const startMode = readEnum(
+    rawView.default_mode,
+    VIEW_MODES,
+    "view.default_mode",
+    "current",
+    hass,
+  );
+  const startEnergy = readEnum(
+    rawView.default_energy,
+    ENERGY_CHOICES,
+    "view.default_energy",
+    "power",
+    hass,
+  );
+  const startScope = readEnum(
+    rawList.default_scope,
+    LIST_SCOPES,
+    "list.default_scope",
+    "filtered",
+    hass,
+  );
+
+  let modes =
+    readChoices(rawView.modes, VIEW_MODES, "view.modes", hass) ??
+    (fixed ? [startMode] : [...VIEW_MODES]);
   const field = "view.energy_periods";
-  if (!Array.isArray(value)) throw fail("error.config.list", field, hass);
-  for (const entry of value) readEnum(entry, ENERGY_PERIODS, field, "today", hass);
-  const periods = ENERGY_PERIODS.filter((p) => value.includes(p));
-  if (periods.length === 0) return [];
-  if (grid.kind === "derived" || battery.kind === "derived") {
+  let energy = readChoices(rawView.energy_periods, ENERGY_CHOICES, field, hass);
+  // Not set: the bar switched off on purpose keeps to power; otherwise the
+  // default, which the card still checks against the statistics (QB-8).
+  const energyDefault = energy === undefined && !fixed;
+  energy ??= fixed ? [startEnergy] : [...ENERGY_DEFAULT];
+  if (
+    energy.some((e) => e !== "power") &&
+    (grid.kind === "derived" || battery.kind === "derived")
+  ) {
     console.warn(localize("error.config.energy_derived", hass, { field }));
-    return [];
+    energy = ["power"];
   }
-  return periods;
+  const power = energy.includes("power");
+  // Means exist only for power: without it nothing is averaged (QB-5).
+  if (!power) modes = ["current"];
+  const scope =
+    readChoices(rawList.scope, LIST_SCOPES, "list.scope", hass) ??
+    (fixed ? [startScope] : [...LIST_SCOPES]);
+
+  return {
+    modes,
+    defaultMode: modes.includes(startMode) ? startMode : modes[0],
+    power,
+    energyPeriods: energy.filter((e): e is EnergyPeriod => e !== "power"),
+    energyDefault: energyDefault && energy.length > 1,
+    defaultEnergy: energy.includes(startEnergy) ? startEnergy : energy[0],
+    scope,
+    defaultScope: scope.includes(startScope) ? startScope : scope[0],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -953,6 +1026,8 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
         hass,
       );
 
+  const buttons = readQuickButtons(rawView, rawList, grid, battery, hass);
+
   return {
     title: readString(rawRecord.title, "title", hass),
     sources: { solar, grid, battery, house, batterySoc },
@@ -966,18 +1041,23 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       restLabel: readString(rawList.rest_label, "list.rest_label", hass),
       title: readString(rawList.title, "list.title", hass),
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
+      scope: buttons.scope,
+      defaultScope: buttons.defaultScope,
     },
     ring: {
       enabled: readBoolean(rawRing.enabled, "ring.enabled", hasConsumers, hass),
       animation: readEnum(rawRing.animation, RING_ANIMATIONS, "ring.animation", "overtake", hass),
     },
     view: {
-      defaultMode: readEnum(rawView.default_mode, VIEW_MODES, "view.default_mode", "current", hass),
+      modes: buttons.modes,
+      defaultMode: buttons.defaultMode,
       avgShortMinutes,
       avgLongMinutes: avgLongFixed,
-      showSelector: readBoolean(rawView.show_selector, "view.show_selector", true, hass),
       remember: readBoolean(rawView.remember, "view.remember", true, hass),
-      energyPeriods: readEnergyPeriods(rawView.energy_periods, grid, battery, hass),
+      power: buttons.power,
+      energyPeriods: buttons.energyPeriods,
+      energyDefault: buttons.energyDefault,
+      defaultEnergy: buttons.defaultEnergy,
     },
     flow: {
       minW,

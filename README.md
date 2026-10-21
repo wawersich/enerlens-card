@@ -367,6 +367,47 @@ nodes:
 
 In the editor: *Labels & extra values*, one section per node.
 
+### Quick buttons (optional)
+
+The header has up to three quick buttons; each tap steps to the next value:
+
+| Quick button | Values | Key | Default |
+|---|---|---|---|
+| **Smoothing** | Now, short average, long average | `view.modes`: `current`, `avg_short`, `avg_long` | all three |
+| **Power/energy** | power, energy over a period | `view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` | `power`, `today`, `24h`, `week` - see below |
+| **List scope** | filtered list, every consumer | `list.scope`: `filtered`, `full` | both |
+
+List the values a button should offer. **One value means fixed**: the button
+is gone and the card always shows that value, on every device and for every
+user - a card set up for energy stays one. Fixed values other than the live
+view are named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for
+a live reading.
+
+```yaml
+view:
+  energy_periods: [month]          # an energy card: always this month
+  modes: [current, avg_long]       # no short average
+list:
+  scope: [full]                    # always every consumer
+```
+
+A button with several values starts with its start value - `view.default_mode`,
+`view.default_energy`, `list.default_scope` - unless the browser remembers the
+last one (`view.remember`). Averages exist for power only: without `power` in
+`energy_periods` the card never averages. In a period the smoothing button is
+greyed out.
+
+**The energy default.** With no `energy_periods` set, the card offers power,
+today, 24 h and week - but only when solar, grid, battery and house all have
+long-term statistics. It checks that once when it loads (metadata only, no
+readings); otherwise it stays with power and says why in the browser console.
+`energy_periods: [power]` switches the energy mode off.
+
+The editor has a group per quick button; the last ticked value cannot be
+unticked. The older `view.show_selector: false` still works and means every
+quick button fixed on its start value; the editor turns it into the lists
+above when it opens.
+
 ### Energy over a period (optional)
 
 Besides power, the card can show energy: what came from the sun today, what
@@ -376,11 +417,13 @@ the power sensors that are already configured.
 
 ```yaml
 view:
-  energy_periods: [today, 24h, week, 7d, month, 30d]   # any of them, at least one
+  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # any of them
 ```
 
-A chip next to the filter button then steps through *kW* (the power view;
-*Watt* with `power.unit: W`) and the periods switched on:
+The quick button power/energy next to the filter button then steps through
+*kW* (the power view, `power`; *Watt* with `power.unit: W`) and the periods
+switched on. Without any setting it offers power, today, 24 h and week (see
+*Quick buttons*):
 
 | Key | Chip | Period |
 |---|---|---|
@@ -417,7 +460,7 @@ the balance is exact. So with a single signed sensor the **grid** shows one
 figure, its balance (→ net import, ← net export), which is also what its dots
 show, and the **battery** shows no figure and no flow. PV, house and consumers are exact either way. A *derived* grid or battery
 (see above) does not work with the energy mode: the option is locked in the
-editor and the chip does not appear. To see both
+editor and the quick button does not appear. To see both
 directions, give the card two sensors each - two *Template → Sensor* helpers
 split a signed one (unit `W`, device class `power`, state class
 `measurement`):
@@ -521,12 +564,16 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `list.always_below` | `false` | Keep the list under the cross even when there is room beside it |
 | `ring.enabled` | on with consumers | Show the ring |
 | `ring.animation` | `overtake` | How the ring follows a reordered list. `overtake`: every segment travels to its new place, one moving forward passes on an inner lane. `fade`: the places stay, their colours blend into the new order. `jump`: the ring does not move, new values show at once - dots and list keep moving |
-| `view.default_mode` | `current` | `current`, `avg_short` or `avg_long` |
+| `view.modes` | all three | Quick button smoothing: `current`, `avg_short`, `avg_long`; one = fixed |
+| `view.default_mode` | `current` | Start value of the smoothing |
 | `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
-| `view.show_selector` | `true` | Show the filter bar above the card - the view chip (*Now* / averages), the energy chip and the list's filter button |
-| `view.remember` | `true` | Remember the view, the energy period and the filter button per browser |
-| `view.energy_periods` | — | `today`, `24h`, `week`, `7d`, `month`, `30d`: the periods of the energy chip. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing |
+| `view.remember` | `true` | Remember the last value of each quick button per browser |
+| `view.energy_periods` | `power`, `today`, `24h`, `week` if the statistics are there | Quick button power/energy: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; one = fixed, `[power]` = no energy. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing |
+| `view.default_energy` | `power` | Start value of power/energy |
+| `list.scope` | both | Quick button list scope: `filtered`, `full`; one = fixed |
+| `list.default_scope` | `filtered` | Start value of the list scope |
+| `view.show_selector` | — | Deprecated: `false` fixes every quick button on its start value |
 | `appearance` | `auto` | `auto`, `light` or `dark` - shows **this one card** light or dark whatever the theme says, and settles the flow design's value set with it |
 | `flow.design` | `none` | `none`, or the id of a design from `flow-designs.json` |
 | `flow.dot_color` | empty | Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs |

@@ -41,7 +41,9 @@
     "since": "Statistics only from {date}",
     "none": "No statistics",
     "rest": "Includes filled-in, later or missing consumer values",
-    "late": "Statistics only from {date}; the period counts from then"
+    "late": "Statistics only from {date}; the period counts from then",
+    "no_statistics": "Energy mode: not every main sensor (solar, grid, battery, house) has long-term statistics; the card stays with power.",
+    "fixed": "Energy: {period}"
   },
   "state": {
     "unavailable": "—"
@@ -71,6 +73,7 @@
       "order_fixed": "{first} must be less than {second} - {second} was raised to {value}.",
       "clamped": "{field} must be between {min} and {max} - {value} is used.",
       "grid_status_no_outage": "{field} needs an entity and at least one outage state - without them the grid status is ignored.",
+      "empty_choice": "{field}: an empty list counts as not set; the default applies.",
       "energy_derived": "{field}: the energy mode does not work with a derived grid or battery; it stays off.",
       "charge_no_soc": "{field} has no soc entity and is ignored.",
       "charge_no_plugged": "{field}: show plugged needs a plugged entity - shown while charging instead.",
@@ -103,14 +106,13 @@
     "ring_fade": "Cross-fade colours",
     "ring_jump": "Jump",
     "view": "View",
-    "default_mode": "Start view",
+    "default_mode": "Start value",
     "mode_current": "Current",
     "mode_short": "Short average",
     "mode_long": "Long average",
     "avg_short_minutes": "Short window (minutes)",
     "avg_long_minutes": "Long window (minutes)",
-    "show_selector": "Show filter bar",
-    "energy_periods": "Energy periods",
+    "energy_periods": "Available values",
     "energy_today": "Today",
     "energy_24h": "24 h",
     "energy_week": "Week",
@@ -235,7 +237,17 @@
     "colors_extras": "Extra values",
     "color_extra_inside": "{node} · in the circle",
     "color_extra_label": "{node} · with the label",
-    "colors_hint": "Colours are set further down, in the group “Colours”."
+    "colors_hint": "Colours are set further down, in the group “Colours”.",
+    "group_smoothing": "Quick button smoothing",
+    "group_energy": "Quick button power/energy",
+    "group_scope": "Quick button list scope",
+    "modes": "Available values",
+    "scope": "Available values",
+    "default_energy": "Start value",
+    "default_scope": "Start value",
+    "energy_power": "Power",
+    "scope_filtered": "Filtered",
+    "scope_full": "Complete"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder.",
@@ -247,8 +259,7 @@
     "line_width": "100 % is 3 px for the connections and 2 px for the lines to the list on a card with large nodes. Smaller cards take somewhat thinner lines on their own.",
     "avg_short_minutes": "Window for the short average.",
     "avg_long_minutes": "Window for the long average.",
-    "show_selector": "The bar above the card with the view chip (“Now”, “Ø 2 min”, “Ø 15 min”), the energy chip and the filter button for the consumer list. Turned off, the card moves up. A fixed averaging mode is still named, or it could not be told apart from the current value.",
-    "energy_periods": "A chip in the header switches between power and the chosen periods. The card then shows the energy since midnight, since the start of the week or of the month, worked out from the statistics of the power sensors. Grid and battery with two sensors show both directions; with one signed sensor the grid shows its balance and the battery no figure.",
+    "energy_periods": "What the quick button offers: power, and energy over a period worked out from the statistics of the power sensors. Several ticked: each tap steps on. One ticked: fixed, no button. Default: power, today, 24 h, week – but only when solar, grid, battery and house have statistics, otherwise power alone. Grid and battery with two sensors show both directions; with one signed sensor the grid shows its balance and the battery no figure.",
     "energy_periods_locked": "Not available with a derived grid or battery.",
     "inactive_lines": "Connections with nothing flowing on them. \"Hide\" calms the picture at night.",
     "animation": "\"Follow system setting\" respects the device's reduce-motion preference - that lives in the operating system, not in Home Assistant.",
@@ -298,7 +309,13 @@
     "node_label_decimals": "\"As in Home Assistant\" uses the display precision from the entity's settings. Significant digits apply whatever the unit: 1.23 · 12.3 · 123. Text, money, durations and points in time are not affected - they always look as in Home Assistant.",
     "node_inside_size": "In percent of the node value.",
     "node_label_size": "In percent of the label (12 px).",
-    "node_inside_position": "Above the icon the value sits where the battery shows its charge, and tapping it opens its own history. Below the value, tapping opens the node's entity."
+    "node_inside_position": "Above the icon the value sits where the battery shows its charge, and tapping it opens its own history. Below the value, tapping opens the node's entity.",
+    "modes": "What the quick button offers: now, the short and the long average. Several ticked: each tap steps on. One ticked: fixed, no button. Default: all three.",
+    "modes_locked": "Averages exist for power only. Tick “Power” under “Quick button power/energy” to set the smoothing. Until then the card always shows the current reading.",
+    "scope": "What the quick button offers: the filtered consumer list or every consumer. Several ticked: each tap switches. One ticked: fixed, no button. Default: both.",
+    "default_mode": "What the card starts with, unless the browser remembers something else. Default: now.",
+    "default_energy": "What the card starts with, unless the browser remembers something else. Default: power.",
+    "default_scope": "What the card starts with, unless the browser remembers something else. Default: filtered."
   },
   "outage": {
     "banner": "Island mode — no grid",

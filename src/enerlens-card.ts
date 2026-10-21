@@ -26,6 +26,8 @@ import {
   fetchEnergy,
   firstWeekday,
   formatDay,
+  hasStatistics,
+  mainEntities,
   periodKey,
   timeZoneOf,
 } from "./energy-view";
@@ -210,6 +212,12 @@ class EnerLensCard extends LitElement {
   /** A period tapped to but not fetched yet; the card shows it once it is (EM-16).
    *  null = back to kW, undefined = nothing pending. */
   private _energyPending: EnergyPeriod | null | undefined;
+  /** The main sensors the statistics check ran for, and its answer (QB-8);
+   *  undefined = still waiting. */
+  private _statsKey = "";
+  private _statsOk: boolean | undefined;
+  /** After a failed check: when to ask again (QB-8). */
+  private _statsRetryAt = 0;
 
   /**
    * The period the card draws: none for the example (E-5), and none in the
@@ -217,8 +225,69 @@ class EnerLensCard extends LitElement {
    */
   private get _period(): EnergyPeriod | null {
     if (!this._energyPeriod || this._example) return null;
-    if ((this as unknown as { preview?: boolean }).preview && !this._energyChosen) return null;
+    // Without power on offer there is nothing else to show, preview or not (QB-2).
+    const power = this._config?.view.power !== false;
+    if ((this as unknown as { preview?: boolean }).preview && !this._energyChosen && power) {
+      return null;
+    }
     return this._energyPeriod;
+  }
+
+  /**
+   * What the quick button power/energy offers right now, null = power
+   * (QB-2): the default periods only once the statistics are there (QB-8).
+   */
+  private _energyOffer(config: Config): (EnergyPeriod | null)[] {
+    const view = config.view;
+    const periods = view.energyDefault && this._statsOk !== true ? [] : view.energyPeriods;
+    return [...(view.power ? [null] : []), ...periods];
+  }
+
+  /** The default periods still wait for the statistics check (QB-8). */
+  private _statsWaiting(config: Config): boolean {
+    return config.view.energyDefault && this._statsOk === undefined && !this._example;
+  }
+
+  /**
+   * The start value, or - on opening - a remembered one while it is offered
+   * and the button is one to switch (QB-4). A start value changed in the
+   * editor shows at once (Markus 21.10.2026). Never writes: a value is only
+   * stored on a tap.
+   */
+  private _startEnergy(config: Config, remembered: boolean): void {
+    const offer = this._energyOffer(config);
+    const start = config.view.defaultEnergy === "power" ? null : config.view.defaultEnergy;
+    let pick = offer.includes(start) ? start : (offer[0] ?? null);
+    if (remembered && config.view.remember && offer.length > 1) {
+      const stored = load(ENERGY_KEY);
+      const remembered = offer.find((p) => (p ?? "kw") === stored);
+      if (remembered !== undefined) pick = remembered;
+    }
+    this._energyPeriod = pick;
+  }
+
+  /** Asks once per set of main sensors whether the default periods can work (QB-8). */
+  private _checkStatistics(): void {
+    const config = this._config;
+    const hass = this._realHass;
+    if (!config?.view.energyDefault || !hass || this._example) return;
+    const key = mainEntities(config).join(",");
+    const retry = this._statsRetryAt > 0 && Date.now() >= this._statsRetryAt;
+    if (key === this._statsKey && !retry) return;
+    this._statsKey = key;
+    this._statsRetryAt = 0;
+    // A retry keeps power on show rather than an empty room.
+    if (!retry) this._statsOk = undefined;
+    hasStatistics(hass, config).then((ok) => {
+      if (this._statsKey !== key) return;
+      // Home Assistant restarting is no answer: power for now, another try
+      // in half a minute, like a failed period (EM-4).
+      if (ok === undefined) this._statsRetryAt = Date.now() + ENERGY_RETRY_MS;
+      this._statsOk = ok ?? false;
+      if (ok === false) console.warn(localize("energy.no_statistics", hass));
+      if (ok && this._config) this._startEnergy(this._config, true);
+      this.requestUpdate();
+    });
   }
 
   /** The configuration as drawn: in a period with kWh and W x 1 h (EM-7, EM-8). */
@@ -244,8 +313,8 @@ class EnerLensCard extends LitElement {
    */
   private _cycleEnergy(): void {
     const hass = this._hass;
-    const periods = this._config?.view.energyPeriods ?? [];
-    const order: (EnergyPeriod | null)[] = [null, ...periods];
+    if (!this._config) return;
+    const order = this._energyOffer(this._config);
     // From what is shown: the preview shows kW even with a period remembered.
     const from = this._energyPending !== undefined ? this._energyPending : this._period;
     const next = order[(order.indexOf(from) + 1) % order.length];
@@ -338,12 +407,16 @@ class EnerLensCard extends LitElement {
 
   /** The chip as the header draws it; undefined without periods (EM-2). */
   private _energyChip(hass: HomeAssistant, config: Config): EnergyChip | undefined {
-    const periods = config.view.energyPeriods;
-    if (periods.length === 0 || this._example) return undefined;
+    if (this._example) return undefined;
+    const waiting = this._statsWaiting(config);
+    // While waiting the room is that of the button to come (QB-8).
+    const order = waiting
+      ? [...(config.view.power ? [null] : []), ...config.view.energyPeriods]
+      : this._energyOffer(config);
     // The tap shows at once, even while the period's figures are on their way.
     const period = this._energyPending !== undefined ? this._energyPending : this._period;
+    if (order.length < 2 && period === null && !waiting) return undefined;
     const view = period ? this._energyViews.get(period) : undefined;
-    const order: (EnergyPeriod | null)[] = [null, ...periods];
     const next = order[(order.indexOf(period) + 1) % order.length];
     const unit = config.power.unit;
     const active = energyChipLabel(period, view, hass, unit);
@@ -357,6 +430,7 @@ class EnerLensCard extends LitElement {
       }),
       inPeriod: period !== null,
       late,
+      waiting,
       title:
         late && view
           ? localize("energy.late", hass, { date: formatDay(view.from, hass, true) })
@@ -436,6 +510,7 @@ class EnerLensCard extends LitElement {
     const previous = this._hass;
     this._hass = hass;
     if (!this._config) return;
+    this._checkStatistics();
     // Only rebuild and draw when something the card shows changed (REQ T-3).
     if (previous && wasExample === this._example && !this._shownChanged(previous, hass)) return;
     if (this._config.gridStatus) {
@@ -583,17 +658,35 @@ class EnerLensCard extends LitElement {
     }
 
     // The view the user is on is theirs until the configured start view itself
-    // changes - not something an unrelated edit takes away from them.
-    if (!previous || previous.view.defaultMode !== view.defaultMode) {
+    // changes or the view is no longer offered - not something an unrelated
+    // edit takes away from them. On opening a remembered view wins while
+    // offered; a start value changed in the editor shows at once (QB-4).
+    if (
+      !previous ||
+      previous.view.defaultMode !== view.defaultMode ||
+      !view.modes.includes(this._mode)
+    ) {
       this._mode = view.defaultMode;
-      if (view.remember) {
-        const stored = load(MODE_KEY);
-        if (stored === "current" || stored === "avg_short" || stored === "avg_long") {
-          this._mode = stored;
-        }
+      if (!previous && view.remember && view.modes.length > 1) {
+        const stored = view.modes.find((m) => m === load(MODE_KEY));
+        if (stored) this._mode = stored;
       }
     }
-    if (view.remember && !previous) this._showAll = load(SHOW_ALL_KEY) === "1";
+    const list = this._config.list;
+    const scope = this._showAll ? "full" : "filtered";
+    if (
+      !previous ||
+      previous.list.defaultScope !== list.defaultScope ||
+      !list.scope.includes(scope)
+    ) {
+      let start = list.defaultScope;
+      if (!previous && view.remember && list.scope.length > 1) {
+        const stored = load(SHOW_ALL_KEY);
+        if (stored === "1") start = "full";
+        if (stored === "0") start = "filtered";
+      }
+      this._showAll = start === "full";
+    }
 
     // Fetched periods hold for the same entities only (EM-4).
     const key = energyKey(this._config);
@@ -603,18 +696,25 @@ class EnerLensCard extends LitElement {
       this._energyAsked.clear();
       this._energyPending = undefined;
     }
-    if (!previous && view.remember) {
-      const stored = load(ENERGY_KEY);
-      this._energyPeriod = view.energyPeriods.find((p) => p === stored) ?? null;
+    if (mainEntities(this._config).join(",") !== this._statsKey || !view.energyDefault) {
+      this._statsKey = "";
+      this._statsOk = undefined;
+      this._statsRetryAt = 0;
     }
-    // A period no longer offered falls back to the power view, quietly (EM-2),
-    // and one still loading is not shown when it arrives.
-    if (this._energyPeriod && !view.energyPeriods.includes(this._energyPeriod)) {
-      this._energyPeriod = null;
+    // A value no longer offered goes to the start value (QB-4), and one
+    // still loading is not shown when it arrives.
+    const offer = this._energyOffer(this._config);
+    if (
+      !previous ||
+      previous.view.defaultEnergy !== view.defaultEnergy ||
+      !offer.includes(this._energyPeriod)
+    ) {
+      this._startEnergy(this._config, !previous);
     }
-    if (this._energyPending && !view.energyPeriods.includes(this._energyPending)) {
+    if (this._energyPending !== undefined && !offer.includes(this._energyPending)) {
       this._energyPending = undefined;
     }
+    this._checkStatistics();
     // A new buffer or view wants its history, fetched after the next render.
     // Setting the model above already asks for that render where hass is
     // there; this only makes sure of it.

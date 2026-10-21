@@ -684,6 +684,55 @@ describe("view modes (REQ V-1 to V-9)", () => {
     expect(el.shadowRoot?.textContent).toContain("72");
   });
 
+  it("has no smoothing button with one value, and names a fixed mean (QB-3, V-3)", async () => {
+    localStorage.setItem("enerlens-view-mode", "current");
+    const el = await mountWithModes({ modes: ["avg_long"] });
+    expect(el.shadowRoot?.querySelector(".view-chip")).toBeNull();
+    // A fixed value holds on every device: nothing remembered overrides it.
+    expect(el.shadowRoot?.querySelector(".mode-note")?.textContent?.trim()).toBe("Ø 15 min");
+  });
+
+  it("steps only through the offered means (QB-3)", async () => {
+    const el = await mountWithModes({ modes: ["current", "avg_long"] });
+    expect(shown(el)).toBe("Jetzt");
+    chip(el)?.click();
+    await el.updateComplete;
+    expect(shown(el)).toBe("Ø 15 min");
+    chip(el)?.click();
+    await el.updateComplete;
+    expect(shown(el)).toBe("Jetzt");
+  });
+
+  it("prefers a remembered mean to the start value while it is offered (QB-4)", async () => {
+    localStorage.setItem("enerlens-view-mode", "avg_short");
+    const el = await mountWithModes({ modes: ["current", "avg_short"], default_mode: "current" });
+    expect(shown(el)).toBe("Ø 2 min");
+    localStorage.setItem("enerlens-view-mode", "avg_long");
+    const other = await mountWithModes({
+      modes: ["current", "avg_short"],
+      default_mode: "avg_short",
+    });
+    expect(shown(other)).toBe("Ø 2 min");
+  });
+
+  it("goes to the start value when the shown mean is no longer offered (QB-4)", async () => {
+    const el = await mountWithModes({ modes: ["current", "avg_long"], default_mode: "avg_long" });
+    expect(shown(el)).toBe("Ø 15 min");
+    el.setConfig({
+      ...CONFIG,
+      view: { modes: ["current", "avg_short"], default_mode: "avg_long" },
+    });
+    await el.updateComplete;
+    expect(shown(el)).toBe("Jetzt");
+  });
+
+  it("ignores remembered values with the old show_selector: false (QB-7)", async () => {
+    localStorage.setItem("enerlens-view-mode", "avg_short");
+    const el = await mountWithModes({ show_selector: false });
+    expect(el.shadowRoot?.querySelector(".mode-chip")).toBeNull();
+    expect(el.shadowRoot?.querySelector(".mode-note")).toBeNull();
+  });
+
   it("names the active mode even with the selector hidden (REQ V-3)", async () => {
     const el = await mountWithModes({ show_selector: false, default_mode: "avg_long" });
     expect(el.shadowRoot?.querySelector(".mode-chip")).toBeFalsy();
@@ -761,6 +810,58 @@ describe("show-all toggle (REQ L-12)", () => {
 
     const second = await mountWithConsumers({ view: { remember: false } });
     expect(names(second)).not.toContain("Idle");
+  });
+
+  it("shows a changed start value at once, whatever was remembered (QB-4)", async () => {
+    localStorage.setItem("enerlens-show-all", "0");
+    localStorage.setItem("enerlens-view-mode", "current");
+    const el = await mountWithConsumers();
+    expect(names(el)).not.toContain("Idle");
+    el.setConfig({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pump" },
+        { entity: "sensor.idle", name: "Idle" },
+      ],
+      min_consumer_w: 10,
+      list: { default_scope: "full" },
+      view: { default_mode: "avg_long" },
+    });
+    await el.updateComplete;
+    expect(names(el)).toContain("Idle");
+    expect(el.shadowRoot?.querySelector(".view-chip .mode-label.active")?.textContent?.trim()).toBe(
+      "Ø 15 min",
+    );
+  });
+
+  it("shows the full list with no button when only that is offered (QB-2, QB-3)", async () => {
+    const el = await mountWithConsumers({ list: { scope: ["full"] } });
+    expect(el.shadowRoot?.querySelector(".filter-toggle")).toBeNull();
+    expect(names(el)).toContain("Idle");
+  });
+
+  it("keeps the filter with no button when only that is offered, whatever was remembered", async () => {
+    localStorage.setItem("enerlens-show-all", "1");
+    const el = await mountWithConsumers({ list: { scope: ["filtered"] } });
+    expect(el.shadowRoot?.querySelector(".filter-toggle")).toBeNull();
+    expect(names(el)).not.toContain("Idle");
+  });
+
+  it("starts with the configured list scope (QB-4)", async () => {
+    const el = await mountWithConsumers({ list: { default_scope: "full" } });
+    expect(names(el)).toContain("Idle");
+    expect(el.shadowRoot?.querySelector(".filter-toggle")?.getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
+  it("drops the header when no quick button and no title is left (QB-3)", async () => {
+    const el = await mountWithConsumers({
+      title: undefined,
+      view: { modes: ["current"], energy_periods: ["power"] },
+      list: { scope: ["filtered"] },
+    });
+    expect(el.shadowRoot?.querySelector(".header")).toBeNull();
   });
 
   it("offers no toggle without consumers", async () => {

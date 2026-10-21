@@ -15,6 +15,7 @@
  * set of pickers means.
  */
 import { type CSSResultGroup, LitElement, type TemplateResult, css, html, nothing } from "lit";
+import { keyed } from "lit/directives/keyed.js";
 import { repeat } from "lit/directives/repeat.js";
 import {
   DEFAULT_COLORS,
@@ -27,11 +28,14 @@ import {
   hsvToHsl,
   swatchHex,
 } from "./colors";
+import { normalizeConfig } from "./config";
 import { EDITOR_NAME } from "./const";
 import { NO_DESIGN, designName, flowDesigns } from "./designs";
 import { localize } from "./localize";
 import type {
   ColorKey,
+  Config,
+  EnergyChoice,
   EntityRef,
   HomeAssistant,
   RawConfig,
@@ -183,11 +187,14 @@ interface FlatConfig {
   power_unit?: string;
   power_decimals?: number;
   power_digits?: number;
+  modes?: string[];
   default_mode?: string;
   avg_short_minutes?: number;
   avg_long_minutes?: number;
-  show_selector?: boolean;
   energy_periods?: string[];
+  default_energy?: string;
+  scope?: string[];
+  default_scope?: string;
   inactive_lines?: string;
   animation?: string;
   design?: string;
@@ -440,14 +447,15 @@ function toFlat(config: RawConfig): FlatConfig {
     power_unit: config.power?.unit,
     power_decimals: config.power?.decimals,
     power_digits: config.power?.digits,
+    // Only a list of names can be shown; anything else stays as written (#19).
+    modes: names(config.view?.modes),
     default_mode: config.view?.default_mode,
     avg_short_minutes: config.view?.avg_short_minutes,
     avg_long_minutes: config.view?.avg_long_minutes,
-    show_selector: config.view?.show_selector,
-    // Only a list of names can be shown; anything else stays as written (#19).
-    energy_periods: Array.isArray(config.view?.energy_periods)
-      ? (config.view?.energy_periods as unknown[]).filter((p): p is string => typeof p === "string")
-      : undefined,
+    energy_periods: names(config.view?.energy_periods),
+    default_energy: config.view?.default_energy,
+    scope: names(config.list?.scope),
+    default_scope: config.list?.default_scope,
     inactive_lines: config.flow?.inactive_lines,
     animation: config.flow?.animation,
     design: config.flow?.design,
@@ -589,11 +597,26 @@ function prune<T extends Record<string, unknown>>(obj: T): T | undefined {
   return Object.keys(out).length ? (out as T) : undefined;
 }
 
-/** The ticked periods in calendar order; none ticked is no key at all (E-1). */
-function energyPeriods(value: unknown): string[] | undefined {
+/** The names in a YAML list; anything else is no list the form can show. */
+function names(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? value.filter((p): p is string => typeof p === "string") : undefined;
+}
+
+/** A quick button's ticked values in their fixed order; none = not set (QB-6). */
+function choices(value: unknown, allowed: readonly string[]): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const periods = ENERGY_PERIODS.filter((p) => value.includes(p));
-  return periods.length > 0 ? periods : undefined;
+  const picked = allowed.filter((p) => value.includes(p));
+  return picked.length > 0 ? picked : undefined;
+}
+
+/**
+ * A start value only while it is ticked: unticking it takes it out - a click,
+ * not a keystroke (QB-6). With nothing ticked in the YAML it stays as written.
+ */
+function offered(value: unknown, ticked: unknown, allowed: readonly string[]): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const list = choices(ticked, allowed);
+  return list === undefined || list.includes(value) ? value : undefined;
 }
 
 /** Any grid and battery but a derived one: what the energy mode needs (EM-3). */
@@ -623,14 +646,20 @@ const FLOW_FIELDS = [
   "fast_s",
 ];
 const VIEW_FIELDS = [
+  "modes",
   "default_mode",
   "avg_short_minutes",
   "avg_long_minutes",
-  "show_selector",
   "energy_periods",
+  "default_energy",
 ];
-/** Shortest first within each pair, whatever order they were ticked in (REQ EM-1, EM-2). */
-const ENERGY_PERIODS = ["today", "24h", "week", "7d", "month", "30d"];
+/** What each quick button offers, in its fixed order (REQ QB-2, EM-2). */
+const VIEW_MODES = ["current", "avg_short", "avg_long"];
+const ENERGY_CHOICES = ["power", "today", "24h", "week", "7d", "month", "30d"];
+const LIST_SCOPES = ["filtered", "full"];
+const ALLOWED = { modes: VIEW_MODES, energy_periods: ENERGY_CHOICES, scope: LIST_SCOPES };
+/** Shown ticked while nothing is set, and then never written (QB-2, QB-6, QB-8). */
+const ENERGY_DEFAULT = ["power", "today", "24h", "week"];
 const OWN_GROUP = ["title", "max_consumers", "min_consumer_w", "update_interval_s", "appearance"];
 
 /**
@@ -652,7 +681,13 @@ export function fieldOwner(name: string): string | undefined {
     )
       return `entities.${quantity}`;
   }
-  if (name === "rest_label" || name.startsWith("list_")) return "list";
+  if (
+    name === "rest_label" ||
+    name.startsWith("list_") ||
+    name === "scope" ||
+    name === "default_scope"
+  )
+    return "list";
   if (name.startsWith("ring_")) return "ring";
   if (name.startsWith("power_")) return "power";
   if (VIEW_FIELDS.includes(name)) return "view";
@@ -798,10 +833,18 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       "list",
       () =>
         prune({
-          ...unknownKeys(raw.list, ["enabled", "rest_label", "always_below"]),
+          ...unknownKeys(raw.list, [
+            "enabled",
+            "rest_label",
+            "always_below",
+            "scope",
+            "default_scope",
+          ]),
           enabled: flat.list_enabled,
           rest_label: flat.rest_label,
           always_below: flat.list_always_below,
+          scope: choices(flat.scope, LIST_SCOPES),
+          default_scope: offered(flat.default_scope, flat.scope, LIST_SCOPES),
         }),
       raw.list,
     ),
@@ -830,18 +873,22 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       "view",
       () =>
         prune({
+          // show_selector is known and not written: it lives on in the lists (QB-7).
           ...unknownKeys(raw.view, [
+            "modes",
             "default_mode",
             "avg_short_minutes",
             "avg_long_minutes",
             "show_selector",
             "energy_periods",
+            "default_energy",
           ]),
-          default_mode: flat.default_mode,
+          modes: choices(flat.modes, VIEW_MODES),
+          default_mode: offered(flat.default_mode, flat.modes, VIEW_MODES),
           avg_short_minutes: num(flat.avg_short_minutes),
           avg_long_minutes: num(flat.avg_long_minutes),
-          show_selector: flat.show_selector,
-          energy_periods: energyPeriods(flat.energy_periods),
+          energy_periods: choices(flat.energy_periods, ENERGY_CHOICES),
+          default_energy: offered(flat.default_energy, flat.energy_periods, ENERGY_CHOICES),
         }),
       raw.view,
     ),
@@ -1023,8 +1070,120 @@ function nodeSchema(
  */
 const COLORS_HINT = { name: "colors_hint", type: "constant" };
 
+/**
+ * The deprecated `view.show_selector: false` as quick buttons with one value
+ * each, its start value (QB-7). Keys set anew win and stay as written; the
+ * list scope only with consumers. Undefined when there is nothing to do, or
+ * when the card would reject the configuration anyway.
+ */
+function translateSelector(config: RawConfig): RawConfig | undefined {
+  const view = config.view as Record<string, unknown> | undefined;
+  if (!isRecord(view) || view.show_selector !== false) return undefined;
+  let card: Config;
+  try {
+    card = normalizeConfig(config);
+  } catch {
+    return undefined;
+  }
+  const { show_selector: _, ...rest } = view;
+  const out: RawConfig = {
+    ...config,
+    view: {
+      ...rest,
+      // As the card reads them: an empty list counts as not set (QB-6).
+      modes: card.view.modes,
+      energy_periods:
+        (choices(rest.energy_periods, ENERGY_CHOICES) as EnergyChoice[] | undefined) ??
+        (card.view.power ? ["power"] : card.view.energyPeriods),
+    },
+  };
+  if (card.consumers.length > 0) {
+    out.list = { ...(config.list ?? {}), scope: card.list.scope };
+  }
+  return out;
+}
+
+const MODE_LABELS: Record<string, string> = {
+  current: "mode_current",
+  avg_short: "mode_short",
+  avg_long: "mode_long",
+};
+
+/**
+ * What the quick buttons show while their lists are not set: the defaults,
+ * ticked (QB-2). Without a derived grid or battery the energy default holds;
+ * with one, power is all the card offers (EM-3).
+ */
+function shownLists(flat: FlatRecord): {
+  modes: string[];
+  energy_periods: string[];
+  scope: string[];
+} {
+  // A derived grid or battery leaves power alone, as on the card (EM-3).
+  const energy = energyReady(flat as FlatConfig)
+    ? (choices(flat.energy_periods, ENERGY_CHOICES) ?? ENERGY_DEFAULT)
+    : ["power"];
+  return {
+    modes: choices(flat.modes, VIEW_MODES) ?? VIEW_MODES,
+    energy_periods: energy,
+    scope: choices(flat.scope, LIST_SCOPES) ?? LIST_SCOPES,
+  };
+}
+
+/** Which fields and options of a group are locked; a change rebuilds its form. */
+function lockKey(fields: unknown): string {
+  const locked: string[] = [];
+  const walk = (list: unknown) => {
+    if (!Array.isArray(list)) return;
+    for (const f of list as Record<string, unknown>[]) {
+      if (f.disabled) locked.push(String(f.name));
+      const select = (
+        f.selector as { select?: { options?: { value: unknown; disabled?: boolean }[] } }
+      )?.select;
+      for (const o of select?.options ?? []) if (o.disabled) locked.push(`${f.name}=${o.value}`);
+      walk(f.schema);
+    }
+  };
+  walk(fields);
+  return locked.join(",");
+}
+
+/** The options of a quick button's list; the last ticked one is locked (QB-6). */
+function tickable(ticked: readonly string[], all: readonly string[], label: (v: string) => string) {
+  return all.map((value) => ({
+    value,
+    label: label(value),
+    ...(ticked.length === 1 && ticked[0] === value ? { disabled: true } : {}),
+  }));
+}
+
+/** The start value, among the ticked values only, and only with more than one (QB-6). */
+function startField(
+  name: string,
+  ticked: readonly string[],
+  label: (v: string) => string,
+  disabled: boolean,
+): Record<string, unknown>[] {
+  if (ticked.length < 2) return [];
+  return [
+    {
+      name,
+      disabled,
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: ticked.map((value) => ({ value, label: label(value) })),
+        },
+      },
+    },
+  ];
+}
+
 function schema(hass: HomeAssistant, flat: FlatRecord) {
   const t = (key: string) => localize(`editor.${key}`, hass);
+  const shown = shownLists(flat);
+  const powerOn = shown.energy_periods.includes("power");
+  const hasConsumers = Array.isArray(flat.consumers) && flat.consumers.length > 0;
   const derivedBy = QUANTITIES.filter((q) => flat[`${q}_source`] === "derived");
   // One closed section per node, as in "Beschriftung & Zusatzwerte" (E-3):
   // without them the four quantities ran into each other, and what each was
@@ -1194,22 +1353,50 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 },
               },
             ]),
-        { name: "show_selector", selector: { boolean: {} } },
+        { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
+      ],
+    },
+    // One group per quick button (QB-1, QB-6): what it offers, and where it
+    // starts when it offers more than one value.
+    {
+      name: "smoothing",
+      type: "expandable",
+      flatten: true,
+      title: t("group_smoothing"),
+      // In red right above the locked boxes, saying why (Markus 21.10.2026).
+      notice: powerOn ? undefined : localize("editor_help.modes_locked", hass),
+      schema: [
         {
-          name: "default_mode",
+          name: "modes",
+          // Means exist only for power: without it there is nothing to choose (QB-5).
+          disabled: !powerOn,
           selector: {
             select: {
-              mode: "dropdown",
-              options: [
-                { value: "current", label: t("mode_current") },
-                { value: "avg_short", label: t("mode_short") },
-                { value: "avg_long", label: t("mode_long") },
-              ],
+              multiple: true,
+              mode: "list",
+              options: tickable(shown.modes, VIEW_MODES, (m) => t(MODE_LABELS[m])),
             },
           },
         },
-        { name: "avg_short_minutes", selector: { number: { min: 1, max: 120, mode: "box" } } },
-        { name: "avg_long_minutes", selector: { number: { min: 2, max: 240, mode: "box" } } },
+        ...startField("default_mode", shown.modes, (m) => t(MODE_LABELS[m]), !powerOn),
+        {
+          name: "avg_short_minutes",
+          disabled: !powerOn,
+          selector: { number: { min: 1, max: 120, mode: "box" } },
+        },
+        {
+          name: "avg_long_minutes",
+          disabled: !powerOn,
+          selector: { number: { min: 2, max: 240, mode: "box" } },
+        },
+      ],
+    },
+    {
+      name: "energy",
+      type: "expandable",
+      flatten: true,
+      title: t("group_energy"),
+      schema: [
         {
           name: "energy_periods",
           // Locked, not hidden: the help text says what it waits for (EM-15).
@@ -1218,13 +1405,42 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             select: {
               multiple: true,
               mode: "list",
-              options: ENERGY_PERIODS.map((p) => ({ value: p, label: t(`energy_${p}`) })),
+              options: tickable(shown.energy_periods, ENERGY_CHOICES, (p) => t(`energy_${p}`)),
             },
           },
         },
-        { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
+        ...startField(
+          "default_energy",
+          shown.energy_periods,
+          (p) => t(`energy_${p}`),
+          !energyReady(flat),
+        ),
       ],
     },
+    ...(hasConsumers
+      ? [
+          {
+            // Not "scope": a group's help would be the field's of that name.
+            name: "list_scope",
+            type: "expandable",
+            flatten: true,
+            title: t("group_scope"),
+            schema: [
+              {
+                name: "scope",
+                selector: {
+                  select: {
+                    multiple: true,
+                    mode: "list",
+                    options: tickable(shown.scope, LIST_SCOPES, (v) => t(`scope_${v}`)),
+                  },
+                },
+              },
+              ...startField("default_scope", shown.scope, (v) => t(`scope_${v}`), false),
+            ],
+          },
+        ]
+      : []),
     {
       name: "flow",
       type: "expandable",
@@ -1397,6 +1613,25 @@ class EnerLensCardEditor extends LitElement {
       this._consumerKeys = [];
       this._openConsumers = new Set();
     }
+    // The old show_selector: false becomes fixed quick buttons as soon as
+    // the editor opens (QB-7, Markus 21.10.2026). Once, after this call: HA
+    // listens by then, and the echo carries no show_selector any more.
+    const translated = translateSelector(config);
+    if (translated) {
+      queueMicrotask(() => {
+        if (this._config !== config) return;
+        this._flat = toFlat(translated);
+        this._emitted = JSON.stringify(translated);
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: translated },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        this.requestUpdate();
+      });
+    }
   }
 
   private _label = (item: { name: string }): string => {
@@ -1419,7 +1654,8 @@ class EnerLensCardEditor extends LitElement {
     // The outage section says it once, above its fields; under the entity
     // picker it only repeated itself (Markus, 18.10.2026).
     if (item.name === "grid_status") return "";
-    if (item.name === "energy_periods" && !energyReady((this._flat ?? {}) as FlatConfig)) {
+    const flat = (this._flat ?? {}) as FlatRecord;
+    if (item.name === "energy_periods" && !energyReady(flat as FlatConfig)) {
       return localize("editor_help.energy_periods_locked", this.hass);
     }
     let key = `editor_help.${item.name.replace(/^node_(?:solar|grid|house|battery)_/, "node_")}`;
@@ -1433,10 +1669,29 @@ class EnerLensCardEditor extends LitElement {
     return text === key ? "" : text;
   };
 
+  /** The form's data: the quick buttons' defaults shown ticked (QB-2). One
+   *  object per flat config, so every piece of the form carries the same. */
+  private _shownFlat(): FlatConfig {
+    const flat = (this._flat ?? {}) as FlatRecord;
+    if (this._shown?.from !== flat)
+      this._shown = { from: flat, data: { ...flat, ...shownLists(flat) } };
+    return this._shown.data as FlatConfig;
+  }
+  private _shown?: { from: FlatRecord; data: FlatRecord };
+
   private _valueChanged(ev: CustomEvent<{ value: FlatConfig }>): void {
     // The form keeps exactly what was typed - never a value the editor made up
     // mid-keystroke (see fromFlat).
-    this._emit(ev.detail.value);
+    const value = { ...(ev.detail.value as FlatRecord) };
+    // A default shown ticked and left alone stays unwritten: written out, the
+    // energy default would no longer wait for the statistics check (QB-6, QB-8).
+    const before = (this._flat ?? {}) as FlatRecord;
+    const shown = shownLists(before);
+    for (const key of ["modes", "energy_periods", "scope"] as const) {
+      const set = choices(before[key], ALLOWED[key]) !== undefined;
+      if (!set && same(value[key], shown[key])) value[key] = undefined;
+    }
+    this._emit(value as FlatConfig);
   }
 
   private _emit(flat: FlatConfig): void {
@@ -2228,7 +2483,7 @@ class EnerLensCardEditor extends LitElement {
     return html`
       <ha-form
         .hass=${this.hass}
-        .data=${this._flat}
+        .data=${this._shownFlat()}
         .schema=${items}
         .computeLabel=${this._label}
         .computeHelper=${this._helper}
@@ -2278,8 +2533,16 @@ class EnerLensCardEditor extends LitElement {
       >
         <div slot="header" role="heading" aria-level="3">${item.title}</div>
         <div class="section-content">
+          ${item.notice ? html`<p class="section-notice" role="note">${item.notice}</p>` : nothing}
           ${description ? html`<p class="section-description">${description}</p>` : nothing}
-          ${built ? this._form(item.schema as Record<string, unknown>[]) : nothing}
+          ${
+            // HA's checkboxes keep their look when only `disabled` changes,
+            // until the pointer passes over them; a new form draws them as
+            // they are (Markus 21.10.2026, smoothing locked without power).
+            built
+              ? keyed(lockKey(item.schema), this._form(item.schema as Record<string, unknown>[]))
+              : nothing
+          }
         </div>
       </ha-expansion-panel>
     `;
@@ -2537,6 +2800,11 @@ class EnerLensCardEditor extends LitElement {
 
     .section-description {
       margin: 0 0 24px;
+    }
+
+    .section-notice {
+      margin: 0 0 16px;
+      color: var(--error-color, #db4437);
     }
 
     /* The consumers (REQ E-4): one unfoldable entry each, its form inside. */

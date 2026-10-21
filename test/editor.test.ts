@@ -1554,12 +1554,13 @@ describe("editor: energy periods (REQ EM-15)", () => {
     },
   };
 
-  it("offers the six periods and writes them under view, in calendar order", async () => {
+  it("offers power and the six periods and writes them under view, in order (QB-2)", async () => {
     const el = await mount(SPLIT);
     const field = findField(el, "energy_periods") as Field & { disabled?: boolean };
     const select = field.selector?.select as { multiple: boolean; options: { value: string }[] };
     expect(select.multiple).toBe(true);
     expect(select.options.map((o) => o.value)).toEqual([
+      "power",
       "today",
       "24h",
       "week",
@@ -1571,6 +1572,8 @@ describe("editor: energy periods (REQ EM-15)", () => {
     const saved = await change(el, { energy_periods: ["month", "today"] });
     expect(saved.view).toEqual({ energy_periods: ["today", "month"] });
     expect(normalizeConfig(saved).view.energyPeriods).toEqual(["today", "month"]);
+    expect(normalizeConfig(saved).view.power).toBe(false);
+    // Emptied (YAML or clear): the default again, nothing written (QB-6).
     const cleared = await change(el, { energy_periods: [] });
     expect(cleared.view).toBeUndefined();
   });
@@ -1598,5 +1601,187 @@ describe("editor: energy periods (REQ EM-15)", () => {
     const el = await mount({ ...SPLIT_BATTERY, view: { energy_periods: ["today"] } });
     const saved = await change(el, { title: "x" });
     expect(saved.view).toEqual({ energy_periods: ["today"] });
+  });
+});
+
+describe("editor: quick buttons (REQ QB-1, QB-6, QB-7)", () => {
+  beforeAll(async () => {
+    await import("../src/editor");
+  });
+
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: {
+      solar: "sensor.solar",
+      grid: { import: "sensor.imp", export: "sensor.exp" },
+      house: "sensor.house",
+    },
+    consumers: [{ entity: "sensor.heat" }],
+  };
+  type Option = { value: string; disabled?: boolean };
+  const options = (el: Editor, name: string) =>
+    ((findField(el, name)?.selector?.select as { options: Option[] }) ?? { options: [] }).options;
+  const helper = (el: Editor, name: string) =>
+    (el as unknown as { _helper: (f: { name: string }) => string })._helper({ name });
+
+  it("has one group per quick button and no show_selector any more (QB-1, QB-7)", async () => {
+    const el = await mount(BASE);
+    const groups = topSchema(el).map((g) => g.name);
+    expect(groups).toEqual(expect.arrayContaining(["smoothing", "energy", "list_scope"]));
+    expect(options(el, "modes").map((o) => o.value)).toEqual(["current", "avg_short", "avg_long"]);
+    expect(options(el, "scope").map((o) => o.value)).toEqual(["filtered", "full"]);
+    expect(findField(el, "show_selector")).toBeUndefined();
+  });
+
+  it("shows the defaults ticked without writing them (QB-2, QB-6)", async () => {
+    const el = await mount(BASE);
+    expect(form(el).data.modes).toEqual(["current", "avg_short", "avg_long"]);
+    expect(form(el).data.energy_periods).toEqual(["power", "today", "24h", "week"]);
+    expect(form(el).data.scope).toEqual(["filtered", "full"]);
+    const saved = await change(el, { title: "Energie" });
+    expect(saved.view).toBeUndefined();
+    expect(saved.list).toBeUndefined();
+    // The default stays a default: the card still checks the statistics (QB-8).
+    expect(normalizeConfig(saved).view.energyDefault).toBe(true);
+  });
+
+  it("treats an empty list in the YAML as the default, unwritten (QB-6)", async () => {
+    const el = await mount({
+      ...BASE,
+      view: { energy_periods: [], modes: [] },
+      list: { scope: [] },
+    });
+    expect(form(el).data.energy_periods).toEqual(["power", "today", "24h", "week"]);
+    const saved = await change(el, { title: "Energie" });
+    expect(saved.view?.energy_periods ?? []).toEqual([]);
+    expect(saved.view?.modes ?? []).toEqual([]);
+    expect(normalizeConfig(saved).view.energyDefault).toBe(true);
+  });
+
+  it("shows power alone with a derived grid, and the smoothing open (EM-3, QB-5)", async () => {
+    const el = await mount({
+      ...BASE,
+      entities: { ...BASE.entities, grid: "derived", battery: "sensor.bat" },
+      view: { energy_periods: ["today"] },
+    });
+    expect(form(el).data.energy_periods).toEqual(["power"]);
+    expect((findField(el, "modes") as Field & { disabled?: boolean }).disabled).toBeFalsy();
+  });
+
+  it("keeps the energy default unwritten when another view field changes (QB-6)", async () => {
+    const el = await mount(BASE);
+    const saved = await change(el, { modes: ["current", "avg_long"] });
+    expect(saved.view).toEqual({ modes: ["current", "avg_long"] });
+  });
+
+  it("locks the last ticked value instead of letting it go (QB-6)", async () => {
+    const el = await mount({ ...BASE, view: { modes: ["avg_long"] } });
+    expect(options(el, "modes").find((o) => o.value === "avg_long")?.disabled).toBe(true);
+    expect(options(el, "modes").find((o) => o.value === "current")?.disabled).toBeFalsy();
+    const two = await mount({ ...BASE, view: { modes: ["current", "avg_long"] } });
+    expect(options(two, "modes").some((o) => o.disabled)).toBe(false);
+  });
+
+  it("offers a start value only among several ticked ones (QB-6)", async () => {
+    const el = await mount({ ...BASE, view: { modes: ["current", "avg_long"] } });
+    expect(options(el, "default_mode").map((o) => o.value)).toEqual(["current", "avg_long"]);
+    const one = await mount({ ...BASE, view: { modes: ["avg_long"] }, list: { scope: ["full"] } });
+    expect(findField(one, "default_mode")).toBeUndefined();
+    expect(findField(one, "default_scope")).toBeUndefined();
+    expect(options(el, "default_energy").map((o) => o.value)).toEqual([
+      "power",
+      "today",
+      "24h",
+      "week",
+    ]);
+  });
+
+  it("drops a start value that is unticked (QB-6)", async () => {
+    const el = await mount({ ...BASE, view: { default_mode: "avg_long" } });
+    const saved = await change(el, { modes: ["current", "avg_short"] });
+    expect(saved.view).toEqual({ modes: ["current", "avg_short"] });
+  });
+
+  it("greys the smoothing out without power, and says why (QB-5)", async () => {
+    const el = await mount({ ...BASE, view: { energy_periods: ["week"] } });
+    for (const name of ["modes", "avg_short_minutes", "avg_long_minutes"]) {
+      expect((findField(el, name) as Field & { disabled?: boolean }).disabled, name).toBe(true);
+    }
+    // In red right above the boxes, saying why (Markus 21.10.2026).
+    const group = el.shadowRoot?.querySelector<HTMLElement>('.section[data-section="smoothing"]');
+    expect(group?.querySelector(".section-notice")?.textContent).toContain("Leistung");
+    expect(group?.querySelector('[slot="header"]')?.textContent?.trim()).toBe(
+      "Quick-Button Glättung",
+    );
+    const open = await mount(BASE);
+    const normal = open.shadowRoot?.querySelector('.section[data-section="smoothing"]');
+    expect(normal?.querySelector(".section-notice")).toBeNull();
+  });
+
+  it("names the default in every quick button's help text (QB-6)", async () => {
+    const el = await mount(BASE);
+    for (const name of ["modes", "energy_periods", "scope"])
+      expect(helper(el, name), name).toContain("Standard");
+    // The energy default has a condition, and the help says so (QB-8).
+    expect(helper(el, "energy_periods")).toContain("Statistik");
+  });
+
+  it("turns show_selector: false into fixed quick buttons on opening (QB-7)", async () => {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) =>
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config),
+    );
+    el.hass = hass;
+    el.setConfig({
+      ...BASE,
+      view: { show_selector: false, default_mode: "avg_short", remember: true },
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toHaveLength(1);
+    expect(seen[0].view).toEqual({
+      default_mode: "avg_short",
+      modes: ["avg_short"],
+      energy_periods: ["power"],
+      remember: true,
+    });
+    expect(seen[0].list).toEqual({ scope: ["filtered"] });
+    // HA echoes it back: nothing more to translate.
+    el.setConfig(seen[0]);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toHaveLength(1);
+  });
+
+  it("translates empty lists as not set, so the card looks the same (QB-7)", async () => {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) =>
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config),
+    );
+    el.hass = hass;
+    el.setConfig({ ...BASE, view: { show_selector: false, modes: [], default_mode: "avg_long" } });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen[0].view?.modes).toEqual(["avg_long"]);
+    expect(normalizeConfig(seen[0]).view.modes).toEqual(["avg_long"]);
+  });
+
+  it("writes no list scope in the translation without consumers (QB-7)", async () => {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) =>
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config),
+    );
+    el.hass = hass;
+    el.setConfig({ ...BASE, consumers: undefined, view: { show_selector: false } });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen[0].list).toBeUndefined();
+    expect(seen[0].view).toEqual({ modes: ["current"], energy_periods: ["power"] });
   });
 });

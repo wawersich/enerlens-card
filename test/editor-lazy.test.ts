@@ -96,6 +96,9 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
       "nodes",
       "grid_status",
       "display",
+      "smoothing",
+      "energy",
+      "list_scope",
       "flow",
       "icons",
     ]);

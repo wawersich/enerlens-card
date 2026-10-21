@@ -103,6 +103,49 @@ function entityIds(roles: Roles, config: Config): string[] {
   return [...new Set([...ids, ...config.consumers.map((c) => c.entity)])];
 }
 
+/** The main sensors (PV, grid, battery, house), each once, sorted (QB-8). */
+export function mainEntities(config: Config): string[] {
+  const ids = entityIds(rolesOf(config), { ...config, consumers: [] });
+  return [...ids].sort();
+}
+
+/** One answer per set of main sensors, for every card on the page (QB-8). */
+const statisticsChecks = new Map<string, Promise<boolean | undefined>>();
+
+/**
+ * Whether every main sensor has long-term statistics with a mean in a power
+ * unit - what the default energy periods need (QB-8). Asks for metadata only,
+ * never for readings. Undefined = the request failed; that is not kept, so
+ * the next try asks again.
+ */
+export function hasStatistics(hass: HomeAssistant, config: Config): Promise<boolean | undefined> {
+  const ids = mainEntities(config);
+  const key = ids.join(",");
+  const known = statisticsChecks.get(key);
+  if (known) return known;
+  const check = (async () => {
+    if (ids.length === 0 || typeof hass.callWS !== "function") return false;
+    const rows = await hass.callWS<unknown>({
+      type: "recorder/get_statistics_metadata",
+      statistic_ids: ids,
+    });
+    if (!Array.isArray(rows)) return false;
+    const usable = new Set(
+      rows
+        .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
+        .filter((r) => (r.mean_type === 1 || r.has_mean === true) && r.unit_class === "power")
+        .map((r) => r.statistic_id),
+    );
+    return ids.every((id) => usable.has(id));
+  })().catch((error) => {
+    statisticsChecks.delete(key);
+    console.warn(error);
+    return undefined;
+  });
+  statisticsChecks.set(key, check);
+  return check;
+}
+
 /** A signed sensor's rows as two series: what went each way, hour by hour. */
 function splitSigned(
   rows: Record<string, StatRow[]>,

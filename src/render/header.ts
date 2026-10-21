@@ -33,10 +33,8 @@ export function renderExampleBanner(hass: HomeAssistant): TemplateResult {
   </div>`;
 }
 
-const MODES: ViewMode[] = ["current", "avg_short", "avg_long"];
-
 /**
- * One chip steps through the modes (REQ V-2, issue #20). Every label is laid
+ * One chip steps through the offered modes (REQ V-2, QB-3, issue #20). Every label is laid
  * into the same grid cell and only the active one is visible, so the chip is
  * as wide as its longest label and keeps its size while stepping through.
  */
@@ -50,7 +48,8 @@ function renderModeChip(
    *  wonders where it went - and nothing beside it moves (EM-2). */
   off = false,
 ): TemplateResult {
-  const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  const modes = config.view.modes;
+  const next = modes[(modes.indexOf(mode) + 1) % modes.length];
   const label = off
     ? localize("view.off_in_period", hass)
     : localize("view.chip", hass, {
@@ -59,12 +58,15 @@ function renderModeChip(
       });
   return html`<button
     class="mode-chip view-chip"
-    ?disabled=${off}
+    aria-disabled=${off ? "true" : "false"}
     aria-label=${label}
     title=${off ? label : since ? localize("view.since", hass, { time: since }) : ""}
-    @click=${() => onMode(next)}
+    @click=${() => {
+      // Not `disabled`: it stays focusable and its label says why (QB-3).
+      if (!off) onMode(next);
+    }}
   >
-    ${MODES.map(
+    ${modes.map(
       (m) => html`<span class="mode-label ${m === mode ? "active" : ""}" aria-hidden="true"
         >${modeLabel(m, config, hass)}</span
       >`,
@@ -82,12 +84,19 @@ export interface EnergyChip {
   inPeriod: boolean;
   /** Counted from a late start: amber, with the date in the label (EM-9). */
   late: boolean;
+  /** The default still waits for the statistics check: room kept, nothing shown (QB-8). */
+  waiting: boolean;
   title: string;
   onCycle: () => void;
 }
 
 function renderEnergyChip(chip: EnergyChip): TemplateResult {
   const labels = chip.labels.includes(chip.active) ? chip.labels : [...chip.labels, chip.active];
+  if (chip.waiting) {
+    return html`<button class="mode-chip energy-chip waiting" aria-hidden="true" tabindex="-1">
+      ${labels.map((l) => html`<span class="mode-label ${l === chip.active ? "active" : ""}">${l}</span>`)}
+    </button>`;
+  }
   return html`<button
     class="mode-chip energy-chip ${chip.late ? "late" : ""}"
     aria-label=${chip.ariaLabel}
@@ -114,14 +123,25 @@ export function renderHeader(
   onToggleAll?: () => void,
   energy?: EnergyChip,
 ): TemplateResult | typeof nothing {
-  // One switch for the whole bar: the averages and the consumer filter
-  // are the bar, and half a bar is not a thing anyone asked for. Turned off,
-  // the card starts with the flow and nothing above it.
-  const showBar = config.view.showSelector;
-  const hasToggle = showBar && onToggleAll !== undefined && config.consumers.length > 0;
-
+  // A quick button offering one value is no button: that value is fixed
+  // (QB-3). What is fixed and not the plain live view is named instead, so
+  // nobody mistakes a mean or a period for a live reading (REQ V-3).
+  const smoothing = config.view.modes.length > 1;
+  const hasToggle =
+    onToggleAll !== undefined && config.consumers.length > 0 && config.list.scope.length > 1;
+  const energyButton = energy !== undefined && (energy.waiting || energy.labels.length > 1);
   const inPeriod = energy?.inPeriod === true;
-  if (!title && !showBar && mode === "current" && !inPeriod) return nothing;
+  // In a period only the period counts: nothing is averaged there (QB-5).
+  const note = inPeriod
+    ? energyButton
+      ? nothing
+      : html`<div class="mode-note ${energy?.late ? "late" : ""}" title=${energy?.title ?? ""}>
+          ${localize("energy.fixed", hass, { period: energy?.active ?? "" })}
+        </div>`
+    : !smoothing && mode !== "current"
+      ? html`<div class="mode-note">${modeLabel(mode, config, hass)}</div>`
+      : nothing;
+  if (!title && !smoothing && !energyButton && !hasToggle && note === nothing) return nothing;
 
   const toggleLabel = localize(showAll ? "list.filter_on" : "list.show_all", hass);
   const toggle = hasToggle
@@ -143,20 +163,10 @@ export function renderHeader(
         ${
           // A period's figures are energies; a mean of them is no view (EM-2):
           // the chip stays, greyed out.
-          showBar
-            ? renderModeChip(config, hass, mode, since, onMode, inPeriod)
-            : !showBar && inPeriod
-              ? // Bar hidden: name the period anyway (REQ V-3).
-                html`<div class="mode-note ${energy?.late ? "late" : ""}" title=${energy?.title ?? ""}>${
-                  energy?.active
-                }</div>`
-              : !showBar && mode !== "current"
-                ? // Bar hidden: name the mode anyway, or a card stuck on a mean
-                  // would silently read as the current value (REQ V-3).
-                  html`<div class="mode-note">${modeLabel(mode, config, hass)}</div>`
-                : nothing
+          smoothing ? renderModeChip(config, hass, mode, since, onMode, inPeriod) : nothing
         }
-        ${showBar && energy ? renderEnergyChip(energy) : nothing}
+        ${note}
+        ${energyButton && energy ? renderEnergyChip(energy) : nothing}
         ${toggle}
       </div>
     </div>

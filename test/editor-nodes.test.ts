@@ -103,6 +103,8 @@ describe("editor - nodes (REQ Z-10)", () => {
       "consumers",
       "grid_status",
       "display",
+      "smoothing",
+      "energy",
       "flow",
       "ha-expansion-panel",
       "icons",

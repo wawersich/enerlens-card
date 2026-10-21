@@ -73,6 +73,10 @@ export type ViewMode = "current" | "avg_short" | "avg_long";
 
 /** Calendar periods of the energy mode (REQ EM-1). */
 export type EnergyPeriod = "today" | "24h" | "week" | "7d" | "month" | "30d";
+/** What the quick button power/energy offers: the power view or a period (REQ QB-2). */
+export type EnergyChoice = "power" | EnergyPeriod;
+/** What the quick button list scope offers (REQ QB-2, L-12). */
+export type ListScope = "filtered" | "full";
 export type AnimationMode = "auto" | "on" | "off";
 
 /**
@@ -209,20 +213,32 @@ export interface RawConfig extends LovelaceCardConfig {
   min_consumer_w?: number;
   max_consumers?: number;
   update_interval_s?: number;
-  list?: { enabled?: boolean; rest_label?: string; title?: string; always_below?: boolean };
+  list?: {
+    enabled?: boolean;
+    rest_label?: string;
+    title?: string;
+    always_below?: boolean;
+    /** The list scopes the quick button offers; one = fixed (REQ QB-2). */
+    scope?: ListScope[];
+    default_scope?: ListScope;
+  };
   ring?: { enabled?: boolean; animation?: RingAnimation };
   /** Which half of a flow design applies (REQ P-10). */
   appearance?: Appearance;
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
   power?: { unit?: PowerUnit; decimals?: number; digits?: number };
   view?: {
+    /** The means the quick button smoothing offers; one = fixed (REQ QB-2). */
+    modes?: ViewMode[];
     default_mode?: ViewMode;
     avg_short_minutes?: number;
     avg_long_minutes?: number;
+    /** Deprecated: false fixes every quick button on its start value (REQ QB-7). */
     show_selector?: boolean;
     remember?: boolean;
-    /** Calendar periods the energy chip steps through (REQ EM-1). */
-    energy_periods?: EnergyPeriod[];
+    /** Power and the periods the quick button power/energy offers (REQ QB-2, EM-1). */
+    energy_periods?: EnergyChoice[];
+    default_energy?: EnergyChoice;
   };
   flow?: {
     min_w?: number;
@@ -348,16 +364,35 @@ export interface Config {
   minConsumerW: number;
   maxConsumers: number;
   updateIntervalS: number;
-  list: { enabled: boolean; restLabel?: string; title?: string; alwaysBelow: boolean };
+  list: {
+    enabled: boolean;
+    restLabel?: string;
+    title?: string;
+    alwaysBelow: boolean;
+    /** Offered scopes in their fixed order, never empty (REQ QB-2). */
+    scope: ListScope[];
+    /** One of `scope` (REQ QB-4). */
+    defaultScope: ListScope;
+  };
   ring: { enabled: boolean; animation: RingAnimation };
   view: {
+    /** Offered means in their fixed order, never empty; only "current"
+     *  without power, as nothing is averaged then (REQ QB-2, QB-5). */
+    modes: ViewMode[];
+    /** One of `modes` (REQ QB-4). */
     defaultMode: ViewMode;
     avgShortMinutes: number;
     avgLongMinutes: number;
-    showSelector: boolean;
     remember: boolean;
-    /** Empty = energy mode off, also when its prerequisite is missing (EM-3). */
+    /** The power view is offered (REQ QB-2). Without a period it always is. */
+    power: boolean;
+    /** Offered periods; empty = energy mode off, also when its prerequisite
+     *  is missing (EM-3). */
     energyPeriods: EnergyPeriod[];
+    /** The periods are the default and wait for the statistics check (QB-8). */
+    energyDefault: boolean;
+    /** "power" or one of `energyPeriods` (REQ QB-4). */
+    defaultEnergy: EnergyChoice;
   };
   flow: {
     minW: number;

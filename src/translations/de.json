@@ -41,7 +41,9 @@
     "since": "Statistik erst ab {date}",
     "none": "Keine Statistik",
     "rest": "Enthält ergänzte, spätere oder fehlende Verbraucherwerte",
-    "late": "Statistik erst ab {date}, der Zeitraum zählt ab dann"
+    "late": "Statistik erst ab {date}, der Zeitraum zählt ab dann",
+    "no_statistics": "Energie-Modus: Nicht alle Hauptsensoren (PV, Netz, Batterie, Haus) haben eine Langzeitstatistik; die Karte bleibt bei der Leistung.",
+    "fixed": "Energie: {period}"
   },
   "state": {
     "unavailable": "—"
@@ -71,6 +73,7 @@
       "order_fixed": "{first} muss kleiner als {second} sein — {second} wurde auf {value} angehoben.",
       "clamped": "{field} muss zwischen {min} und {max} liegen — es wird {value} verwendet.",
       "grid_status_no_outage": "{field} braucht eine Entität und mindestens einen Ausfall-Zustand — ohne beides wird der Netzstatus ignoriert.",
+      "empty_choice": "{field}: Eine leere Liste gilt als nicht gesetzt; es gilt der Standard.",
       "energy_derived": "{field}: Der Energie-Modus geht nicht mit abgeleitetem Netz oder abgeleiteter Batterie; er bleibt aus.",
       "charge_no_soc": "{field} hat keine soc-Entität und wird ignoriert.",
       "charge_no_plugged": "{field}: show plugged braucht eine plugged-Entität - stattdessen wie beim Laden.",
@@ -103,14 +106,13 @@
     "ring_fade": "Farben überblenden",
     "ring_jump": "Springen",
     "view": "Ansicht",
-    "default_mode": "Startansicht",
+    "default_mode": "Startwert",
     "mode_current": "Aktuell",
     "mode_short": "Kurzer Mittelwert",
     "mode_long": "Langer Mittelwert",
     "avg_short_minutes": "Kurzes Fenster (Minuten)",
     "avg_long_minutes": "Langes Fenster (Minuten)",
-    "show_selector": "Filterleiste anzeigen",
-    "energy_periods": "Energie-Zeiträume",
+    "energy_periods": "Verfügbare Werte",
     "energy_today": "Heute",
     "energy_24h": "24 h",
     "energy_week": "Woche",
@@ -235,7 +237,17 @@
     "colors_extras": "Zusatzwerte",
     "color_extra_inside": "{node} · im Kreis",
     "color_extra_label": "{node} · beim Text",
-    "colors_hint": "Die Farben stellst du weiter unten in der Gruppe „Farben“ ein."
+    "colors_hint": "Die Farben stellst du weiter unten in der Gruppe „Farben“ ein.",
+    "group_smoothing": "Quick-Button Glättung",
+    "group_energy": "Quick-Button Leistung/Energie",
+    "group_scope": "Quick-Button Listenumfang",
+    "modes": "Verfügbare Werte",
+    "scope": "Verfügbare Werte",
+    "default_energy": "Startwert",
+    "default_scope": "Startwert",
+    "energy_power": "Leistung",
+    "scope_filtered": "Gefiltert",
+    "scope_full": "Vollständig"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest.",
@@ -247,8 +259,7 @@
     "line_width": "100 % sind 3 px für die Verbindungen und 2 px für die Linien zur Liste, auf einer Karte mit großen Knoten. Kleinere Karten nehmen von sich aus etwas dünnere Linien.",
     "avg_short_minutes": "Zeitraum für den kurzen Mittelwert.",
     "avg_long_minutes": "Zeitraum für den langen Mittelwert.",
-    "show_selector": "Die Leiste über der Karte mit dem Ansichts-Chip („Jetzt“, „Ø 2 min“, „Ø 15 min“), dem Energie-Chip und dem Filterknopf für die Verbraucherliste. Ausgeschaltet rückt die Karte nach oben. Ein fest eingestellter Mittelwert wird weiterhin benannt, sonst wäre er nicht zu erkennen.",
-    "energy_periods": "Ein Chip im Kopf schaltet zwischen der Leistung und den gewählten Zeiträumen um. Die Karte zeigt dann die Energie seit 0 Uhr, seit Wochenbeginn oder seit Monatsbeginn, berechnet aus der Statistik der Leistungssensoren. Netz und Batterie mit zwei Sensoren zeigen beide Richtungen; mit einem Sensor mit Vorzeichen zeigt das Netz den Saldo, die Batterie keine Zahl.",
+    "energy_periods": "Was der Quick-Button anbietet: die Leistung und Energie über einen Zeitraum, berechnet aus der Statistik der Leistungssensoren. Mehrere angehakt: Jeder Tipp schaltet weiter. Einer angehakt: fest, ohne Knopf. Standard: Leistung, Heute, 24 h, Woche – aber nur, wenn PV, Netz, Batterie und Haus eine Statistik haben, sonst nur Leistung. Netz und Batterie mit zwei Sensoren zeigen beide Richtungen; mit einem Sensor mit Vorzeichen zeigt das Netz den Saldo, die Batterie keine Zahl.",
     "energy_periods_locked": "Geht nicht mit abgeleitetem Netz oder abgeleiteter Batterie.",
     "inactive_lines": "Verbindungen, auf denen gerade nichts fließt. „Ausblenden“ beruhigt das Bild nachts.",
     "animation": "„Systemeinstellung folgen“ richtet sich nach „Bewegung reduzieren“ des Geräts — das steht im Betriebssystem, nicht in Home Assistant.",
@@ -298,7 +309,13 @@
     "node_label_decimals": "„Wie in Home Assistant“ übernimmt die Angezeigte Genauigkeit aus den Einstellungen der Entität. Signifikante Stellen gelten unabhängig von der Einheit: 1,23 · 12,3 · 123. Auf Text, Geldbeträge, Dauer und Zeitpunkte wirkt die Auswahl nicht – sie stehen immer so da wie in Home Assistant.",
     "node_inside_size": "In Prozent des Knotenwerts.",
     "node_label_size": "In Prozent der Beschriftung (12 px).",
-    "node_inside_position": "Über dem Icon steht der Wert dort, wo die Batterie ihren Ladezustand zeigt, und Antippen öffnet seine eigene Historie. Unter dem Wert öffnet Antippen die Entität des Knotens."
+    "node_inside_position": "Über dem Icon steht der Wert dort, wo die Batterie ihren Ladezustand zeigt, und Antippen öffnet seine eigene Historie. Unter dem Wert öffnet Antippen die Entität des Knotens.",
+    "modes": "Was der Quick-Button anbietet: Jetzt, kurzer und langer Mittelwert. Mehrere angehakt: Jeder Tipp schaltet weiter. Einer angehakt: fest, ohne Knopf. Standard: alle drei.",
+    "modes_locked": "Mittelwerte gibt es nur für die Leistung. Hake unter „Quick-Button Leistung/Energie“ „Leistung“ an, dann lässt sich die Glättung einstellen. Bis dahin zeigt die Karte immer den Augenblickswert.",
+    "scope": "Was der Quick-Button anbietet: die gefilterte Verbraucherliste oder alle Verbraucher. Mehrere angehakt: Jeder Tipp schaltet um. Einer angehakt: fest, ohne Knopf. Standard: beide.",
+    "default_mode": "Womit die Karte startet, solange sich der Browser nichts anderes gemerkt hat. Standard: Jetzt.",
+    "default_energy": "Womit die Karte startet, solange sich der Browser nichts anderes gemerkt hat. Standard: Leistung.",
+    "default_scope": "Womit die Karte startet, solange sich der Browser nichts anderes gemerkt hat. Standard: Gefiltert."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

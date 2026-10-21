@@ -519,12 +519,15 @@ describe("defaults (section 3)", () => {
     expect(config.maxConsumers).toBe(Number.POSITIVE_INFINITY);
     expect(config.updateIntervalS).toBe(5);
     expect(config.view).toEqual({
+      modes: ["current", "avg_short", "avg_long"],
       defaultMode: "current",
       avgShortMinutes: 2,
       avgLongMinutes: 15,
-      showSelector: true,
       remember: true,
-      energyPeriods: [],
+      power: true,
+      energyPeriods: ["today", "24h", "week"],
+      energyDefault: true,
+      defaultEnergy: "power",
     });
     expect(config.flow).toEqual({
       minW: 10,
@@ -1102,14 +1105,27 @@ describe("energy periods (REQ EM-1, EM-3)", () => {
       view: { energy_periods: list },
     } as RawConfig).view.energyPeriods;
 
-  it("is off unless set", () => {
-    expect(normalizeConfig(cfg()).view.energyPeriods).toEqual([]);
-    expect(periods(SPLIT, null)).toEqual([]);
-    expect(periods(SPLIT, [])).toEqual([]);
+  it("is on by default, waiting for the statistics check (QB-8)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    for (const list of [undefined, null]) {
+      const view = normalizeConfig({
+        type: "custom:enerlens-card",
+        entities: SPLIT,
+        ...(list === undefined ? {} : { view: { energy_periods: list } }),
+      } as RawConfig).view;
+      expect(view.power).toBe(true);
+      expect(view.energyPeriods).toEqual(["today", "24h", "week"]);
+      expect(view.energyDefault).toBe(true);
+    }
+    expect(warn).not.toHaveBeenCalled();
+    // An empty list counts as not set, with a warning, never an error card (QB-6).
+    expect(periods(SPLIT, [])).toEqual(["today", "24h", "week"]);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the six periods in their order, once each", () => {
     expect(periods(SPLIT, ["month", "today", "month"])).toEqual(["today", "month"]);
+    expect(periods(SPLIT, ["month", "power", "today"])).toEqual(["today", "month"]);
     expect(periods(SPLIT, ["30d", "7d", "24h", "week"])).toEqual(["24h", "week", "7d", "30d"]);
   });
 
@@ -1136,5 +1152,142 @@ describe("energy periods (REQ EM-1, EM-3)", () => {
     // Without a battery the grid is enough; solar or house may be derived.
     expect(periods({ solar: "sensor.pv", grid: SPLIT.grid }, ["today"])).toEqual(["today"]);
     expect(periods({ ...SPLIT, solar: "derived", house: "sensor.h" }, ["week"])).toEqual(["week"]);
+  });
+});
+
+describe("quick buttons (REQ 2.16, QB-2 … QB-8)", () => {
+  const SPLIT = {
+    solar: "sensor.pv",
+    grid: { import: "sensor.import", export: "sensor.export" },
+    battery: { discharge: "sensor.out", charge: "sensor.in" },
+    house: "sensor.house",
+  };
+  const read = (over: Record<string, unknown> = {}, entities: Record<string, unknown> = SPLIT) =>
+    normalizeConfig({
+      type: "custom:enerlens-card",
+      entities,
+      consumers: [{ entity: "sensor.heat" }],
+      ...over,
+    } as RawConfig);
+
+  it("offers everything it offered before when nothing is set (QB-2)", () => {
+    const config = read();
+    expect(config.view.modes).toEqual(["current", "avg_short", "avg_long"]);
+    expect(config.view.defaultMode).toBe("current");
+    expect(config.view.power).toBe(true);
+    expect(config.view.defaultEnergy).toBe("power");
+    expect(config.list.scope).toEqual(["filtered", "full"]);
+    expect(config.list.defaultScope).toBe("filtered");
+  });
+
+  it("keeps the fixed order and each value once (QB-2, QB-3)", () => {
+    const config = read({
+      view: { modes: ["avg_long", "current", "avg_long"] },
+      list: { scope: ["full", "filtered"] },
+    });
+    expect(config.view.modes).toEqual(["current", "avg_long"]);
+    expect(config.list.scope).toEqual(["filtered", "full"]);
+  });
+
+  it("takes an empty list as not set, with a warning (QB-6, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const config = read({ view: { modes: [] }, list: { scope: [] } });
+    expect(config.view.modes).toEqual(["current", "avg_short", "avg_long"]);
+    expect(config.list.scope).toEqual(["filtered", "full"]);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects unknown values like any other enum", () => {
+    expectError(() => read({ view: { modes: ["avg"] } }), "error.config.enum", "view.modes");
+    expectError(() => read({ view: { modes: "current" } }), "error.config.list", "view.modes");
+    expectError(() => read({ list: { scope: ["all"] } }), "error.config.enum", "list.scope");
+    expectError(
+      () => read({ view: { default_energy: "year" } }),
+      "error.config.enum",
+      "view.default_energy",
+    );
+    expectError(
+      () => read({ list: { default_scope: "all" } }),
+      "error.config.enum",
+      "list.default_scope",
+    );
+  });
+
+  it("starts with the configured start value only while it is offered (QB-4)", () => {
+    expect(
+      read({ view: { modes: ["current", "avg_long"], default_mode: "avg_long" } }).view.defaultMode,
+    ).toBe("avg_long");
+    expect(
+      read({ view: { modes: ["avg_short", "avg_long"], default_mode: "current" } }).view
+        .defaultMode,
+    ).toBe("avg_short");
+    const energy = read({
+      view: { energy_periods: ["today", "week"], default_energy: "power" },
+    }).view;
+    expect(energy.defaultEnergy).toBe("today");
+    expect(read({ list: { scope: ["full"], default_scope: "filtered" } }).list.defaultScope).toBe(
+      "full",
+    );
+  });
+
+  it("takes power as a value of its own; without it nothing is averaged (QB-2, QB-5)", () => {
+    const view = read({ view: { energy_periods: ["week"], modes: ["current", "avg_long"] } }).view;
+    expect(view.power).toBe(false);
+    expect(view.energyPeriods).toEqual(["week"]);
+    expect(view.energyDefault).toBe(false);
+    expect(view.defaultEnergy).toBe("week");
+    expect(view.modes).toEqual(["current"]);
+    expect(view.defaultMode).toBe("current");
+  });
+
+  it("switches the energy mode off with power alone (EM-1, QB-8)", () => {
+    const view = read({ view: { energy_periods: ["power"] } }).view;
+    expect(view.power).toBe(true);
+    expect(view.energyPeriods).toEqual([]);
+    expect(view.energyDefault).toBe(false);
+  });
+
+  it("keeps a derived grid or battery out of the energy mode, set or not (EM-3, QB-8)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const derived = { ...SPLIT, grid: "derived" };
+    for (const view of [
+      undefined,
+      { energy_periods: ["power", "week"] },
+      { energy_periods: ["week"] },
+    ]) {
+      const config = read(view ? { view } : {}, derived).view;
+      expect(config.energyPeriods).toEqual([]);
+      expect(config.energyDefault).toBe(false);
+      // Without a period, power is all that is left to show.
+      expect(config.power).toBe(true);
+    }
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("reads show_selector: false as every quick button fixed on its start value (QB-7)", () => {
+    const config = read({
+      view: { show_selector: false, default_mode: "avg_long" },
+      list: { default_scope: "full" },
+    });
+    expect(config.view.modes).toEqual(["avg_long"]);
+    // No energy default and no statistics check: the bar was switched off on purpose.
+    expect(config.view.power).toBe(true);
+    expect(config.view.energyPeriods).toEqual([]);
+    expect(config.view.energyDefault).toBe(false);
+    expect(config.list.scope).toEqual(["full"]);
+    const week = read({ view: { show_selector: false, default_energy: "week" } }).view;
+    expect(week.power).toBe(false);
+    expect(week.energyPeriods).toEqual(["week"]);
+  });
+
+  it("lets new keys win over show_selector: false (QB-7)", () => {
+    const config = read({
+      view: { show_selector: false, default_mode: "avg_short", modes: ["current", "avg_short"] },
+    });
+    expect(config.view.modes).toEqual(["current", "avg_short"]);
+    expect(config.view.defaultMode).toBe("avg_short");
+    // Everything not given anew stays fixed.
+    expect(config.list.scope).toEqual(["filtered"]);
+    expect(config.view.energyPeriods).toEqual([]);
   });
 });
