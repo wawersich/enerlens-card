@@ -170,6 +170,9 @@ card.setConfig({
     inactive_lines: "dim",
   },
   update_interval_s: 2,
+  // The quick button power/energy as a card with statistics shows it. Set
+  // explicitly: this page has no statistics to check the default against.
+  view: { energy_periods: ["power", "today", "24h", "week"] },
   ...(BELOW ? { list: { always_below: true } } : {}),
   ...(FADE ? { ring: { animation: "fade" } } : {}),
   // PV and house without their names: with no state word beside them the icon

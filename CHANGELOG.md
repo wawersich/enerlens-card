@@ -4,23 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.11.0] - 2026-10-22
 
 ### Added
-- **Energy mode** (work in progress). With `view.energy_periods`, a chip next
-  to the filter steps through *kW* (or *Watt*) and the chosen periods - *Today*,
-  *24 h*, *Week*, *7 days*, *Month*, *30 days*. The card then shows the energy
-  of that period, worked out from Home Assistant's statistics of the power
-  sensors it already has - no extra entities. Grid and battery show both directions with two sensors
-  each; with a single signed sensor the grid shows its balance and the
-  battery no figure.
+- **Energy mode.** Besides power, the card shows energy over a period -
+  *Today*, *24 h*, *Week*, *7 days*, *Month*, *30 days* - worked out from
+  Home Assistant's statistics of the power sensors it already has, no extra
+  entities. Grid and battery show both directions with two sensors each;
+  with a single signed sensor the grid shows its balance and the battery no
+  figure. Gaps in the statistics are filled and marked by colour.
 - **Quick buttons.** The buttons in the header - smoothing, power/energy and
   list scope - each offer the values listed in `view.modes`,
-  `view.energy_periods` and `list.scope`. One value makes it fixed: no button,
-  the same view on every device and for every user, so a card set up for
-  energy stays one. Start values: `view.default_mode`, `view.default_energy`,
-  `list.default_scope`.
-
+  `view.energy_periods` and `list.scope`. One value makes it fixed: no
+  button, the same view on every device and for every user, so a card set up
+  for energy stays one. Start values: `view.default_mode`,
+  `view.default_energy`, `list.default_scope`.
 - **Each card remembers for itself.** The editor gives every card a
   `memory_id`; what its quick buttons were set to is kept per card and view,
   so the same card twice side by side can show power and energy. Cards
@@ -33,15 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`view.show_selector` is deprecated.** `false` still works and fixes every
   quick button on its start value; the editor turns it into the new lists.
   Remembered values no longer apply to such a card.
+- **One chip for the view** (#20). *Now*, *Ø 2 min* and *Ø 15 min* are one
+  chip that steps through them and keeps its width.
+- **Every editor setting names its default** in its help text.
+
+### Fixed
 - **Numbers never break the card.** A value outside its range - typed in the
   editor on the way to another, or set in YAML - is drawn to the nearest
-  limit, a fraction in a whole-number field rounded, instead of the error
-  card. Two values set the wrong way round, such as the short and the long
-  average window, are swapped; a default gives way to a value you set. The
-  editor says in red under the field which value the card uses.
-- **One chip for the view** (#20). The three chips *Now*, *Ø 2 min* and
-  *Ø 15 min* are now a single chip that steps through them on each tap and
-  keeps its width while doing so.
+  limit, a fraction in a whole-number field rounded, instead of showing the
+  error card. Two values set the wrong way round, such as the short and the
+  long averaging window, are swapped. The editor says in red under the field
+  what must hold.
+- An empty `flow.design` counts as not set.
 
 ## [0.10.0] - 2026-10-18
 
