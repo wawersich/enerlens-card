@@ -709,6 +709,20 @@ describe("the quick button power/energy (REQ QB-2, QB-3, QB-8)", () => {
     expect(label(el)).toBe("Monat");
   });
 
+  it("takes no remembered period back when the sensors change later (QB-4)", async () => {
+    MEANS["sensor.house_g"] = 1500;
+    MEANS["sensor.house_h"] = 1500;
+    localStorage.setItem("enerlens-energy-period", "week");
+    const { el } = await mount(plain("sensor.house_g"));
+    expect(label(el)).toBe("Woche");
+    await tap(el);
+    expect(label(el)).toBe("kW");
+    localStorage.setItem("enerlens-energy-period", "week");
+    el.setConfig(plain("sensor.house_h"));
+    await settle(el);
+    expect(label(el)).toBe("kW");
+  });
+
   it("names only the period in the header when the mean is fixed (QB-5)", async () => {
     const { el } = await mount({
       ...CONFIG,

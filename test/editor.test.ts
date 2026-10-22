@@ -503,9 +503,11 @@ describe("editor - flow: peak power and fine tuning", () => {
     expect(saved.flow).toEqual({ peak_w: 3000, more_dots_above_w: 200, min_w: 500 });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const flow = normalizeConfig(saved).flow;
-    expect(flow.minW).toBe(500);
-    expect(flow.slowBelowW).toBe(500);
-    expect(flow.moreDotsAboveW).toBe(501);
+    // The two set are sorted among themselves; the default between them
+    // stays where it fits (E-1, 22.10.2026).
+    expect(flow.minW).toBe(200);
+    expect(flow.slowBelowW).toBe(250);
+    expect(flow.moreDotsAboveW).toBe(500);
     warn.mockRestore();
   });
 });
@@ -1627,7 +1629,8 @@ describe("editor: quick buttons (REQ QB-1, QB-6, QB-7)", () => {
   it("has one group per quick button and no show_selector any more (QB-1, QB-7)", async () => {
     const el = await mount(BASE);
     const groups = topSchema(el).map((g) => g.name);
-    expect(groups).toEqual(expect.arrayContaining(["smoothing", "energy", "list_scope"]));
+    expect(groups).toContain("quick_buttons");
+    expect(groups).not.toContain("smoothing");
     expect(options(el, "modes").map((o) => o.value)).toEqual(["current", "avg_short", "avg_long"]);
     expect(options(el, "scope").map((o) => o.value)).toEqual(["filtered", "full"]);
     expect(findField(el, "show_selector")).toBeUndefined();
@@ -1708,13 +1711,16 @@ describe("editor: quick buttons (REQ QB-1, QB-6, QB-7)", () => {
       expect((findField(el, name) as Field & { disabled?: boolean }).disabled, name).toBe(true);
     }
     // In red right above the boxes, saying why (Markus 21.10.2026).
-    const group = el.shadowRoot?.querySelector<HTMLElement>('.section[data-section="smoothing"]');
-    expect(group?.querySelector(".section-notice")?.textContent).toContain("Leistung");
-    expect(group?.querySelector('[slot="header"]')?.textContent?.trim()).toBe(
-      "Quick-Button Glättung",
+    const group = el.shadowRoot?.querySelector<HTMLElement>(
+      '.section[data-section="quick_buttons"]',
     );
+    const notice = group?.querySelector(".section-notice");
+    expect(notice?.textContent).toContain("Leistung");
+    // Right above the smoothing's boxes: after its heading, before its form.
+    expect(notice?.previousElementSibling?.textContent?.trim()).toBe("Glättung");
+    expect(notice?.nextElementSibling?.localName).toBe("ha-form");
     const open = await mount(BASE);
-    const normal = open.shadowRoot?.querySelector('.section[data-section="smoothing"]');
+    const normal = open.shadowRoot?.querySelector('.section[data-section="quick_buttons"]');
     expect(normal?.querySelector(".section-notice")).toBeNull();
   });
 
@@ -1783,5 +1789,150 @@ describe("editor: quick buttons (REQ QB-1, QB-6, QB-7)", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(seen[0].list).toBeUndefined();
     expect(seen[0].view).toEqual({ modes: ["current"], energy_periods: ["power"] });
+  });
+});
+
+describe("editor: every setting with a default names it (HANDOVER 7.15)", () => {
+  beforeAll(async () => {
+    await import("../src/editor");
+  });
+
+  it("says the default in the help text", async () => {
+    const el = await mount({ ...SPLIT_BATTERY, consumers: [{ entity: "sensor.heat" }] });
+    const helper = (name: string) =>
+      (el as unknown as { _helper: (f: { name: string }) => string })._helper({ name });
+    const withDefault = [
+      "update_interval_s",
+      "avg_short_minutes",
+      "avg_long_minutes",
+      "min_consumer_w",
+      "max_consumers",
+      "power_unit",
+      "power_digits",
+      "power_decimals",
+      "animation",
+      "design",
+      "dot_size",
+      "line_width",
+      "ring_animation",
+      "inactive_lines",
+      "min_w",
+      "appearance",
+      "rest_label",
+      "list_enabled",
+      "ring_enabled",
+      "list_always_below",
+      "modes",
+      "energy_periods",
+      "scope",
+    ];
+    for (const name of withDefault) expect(helper(name), name).toContain("Standard");
+  });
+});
+
+describe("editor: a memory id per card (REQ V-12)", () => {
+  beforeAll(async () => {
+    await import("../src/editor");
+    await import("../src/enerlens-card");
+  });
+
+  const BASE: RawConfig = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.solar", grid: "sensor.grid", house: "sensor.house" },
+  };
+
+  /** Opens the editor and collects what it reports by itself. */
+  async function open(config: RawConfig): Promise<{ el: Editor; seen: RawConfig[] }> {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) =>
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config),
+    );
+    el.hass = hass;
+    el.setConfig(config);
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    return { el, seen };
+  }
+
+  it("gives a new card an id of its own (E-5)", () => {
+    const card = customElements.get("enerlens-card") as unknown as {
+      getStubConfig: () => Record<string, unknown>;
+    };
+    const one = card.getStubConfig().memory_id;
+    const two = card.getStubConfig().memory_id;
+    expect(one).toMatch(/^[a-z0-9]{8}$/);
+    expect(two).not.toBe(one);
+  });
+
+  it("writes an id into a card without one when it opens, once", async () => {
+    const { el, seen } = await open(BASE);
+    expect(seen).toHaveLength(1);
+    expect(String(seen[0].memory_id)).toMatch(/^[a-z0-9]{8}$/);
+    // HA echoes it back: nothing more to do.
+    el.setConfig(seen[0]);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toHaveLength(1);
+  });
+
+  it("does it in the same step as the show_selector translation (QB-7)", async () => {
+    const { seen } = await open({ ...BASE, view: { show_selector: false } });
+    expect(seen).toHaveLength(1);
+    expect(seen[0].memory_id).toBeTruthy();
+    expect(seen[0].view).toEqual({ modes: ["current"], energy_periods: ["power"] });
+  });
+
+  it("keeps an id as it is, a name of one's own too, and shows no field for it", async () => {
+    const { el, seen } = await open({ ...BASE, memory_id: "Wohnzimmer" });
+    expect(seen).toHaveLength(0);
+    expect(findField(el, "memory_id")).toBeUndefined();
+    const saved = await change(el, { title: "Energie" });
+    expect(saved.memory_id).toBe("Wohnzimmer");
+  });
+});
+
+describe("editor: a new memory id for a copy (REQ V-12)", () => {
+  beforeAll(async () => {
+    await import("../src/editor");
+  });
+
+  /** The editor inside HA's element editor, which holds the dashboard. */
+  async function openIn(dashboardCards: RawConfig[], config: RawConfig) {
+    const holder = document.createElement("hui-card-element-editor") as HTMLElement & {
+      lovelace: unknown;
+    };
+    holder.lovelace = { config: { views: [{ cards: dashboardCards }] } };
+    document.body.appendChild(holder);
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    const seen: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) =>
+      seen.push((ev as CustomEvent<{ config: RawConfig }>).detail.config),
+    );
+    el.hass = hass;
+    el.setConfig(config);
+    holder.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    return seen;
+  }
+
+  const card = (memory_id: string): RawConfig => ({
+    type: "custom:enerlens-card",
+    memory_id,
+    entities: { solar: "sensor.solar", grid: "sensor.grid" },
+  });
+
+  it("gives the opened card a new id when its id is there twice", async () => {
+    const seen = await openIn([card("twin0000"), card("twin0000")], card("twin0000"));
+    expect(seen).toHaveLength(1);
+    expect(seen[0].memory_id).toMatch(/^[a-z0-9]{8}$/);
+    expect(seen[0].memory_id).not.toBe("twin0000");
+  });
+
+  it("leaves an id alone that is there once - the original, or a copy not saved yet", async () => {
+    const seen = await openIn([card("solo0000"), card("else0000")], card("solo0000"));
+    expect(seen).toHaveLength(0);
   });
 });

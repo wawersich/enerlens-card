@@ -4,7 +4,15 @@
 import { LitElement, type TemplateResult, html, nothing } from "lit";
 import { AveragingBuffer, fetchHistory } from "./averaging";
 import { ChargeTracker } from "./charge";
-import { collectChargeIds, collectEntityIds, collectExtraIds, normalizeConfig } from "./config";
+import {
+  collectChargeIds,
+  collectEntityIds,
+  collectExtraIds,
+  dashboardCards,
+  memoryIdOf,
+  newMemoryId,
+  normalizeConfig,
+} from "./config";
 import {
   BUILD_ID,
   CARD_LABEL,
@@ -66,11 +74,12 @@ import {
   type ViewMode,
 } from "./types";
 
-/** Preferences kept per browser while view.remember is on (REQ V-11, L-12). */
-const MODE_KEY = "enerlens-view-mode";
-const SHOW_ALL_KEY = "enerlens-show-all";
+/** Preferences kept while view.remember is on (REQ V-11, L-12): the name of
+ *  each; the key comes from _memKey - per card with a memory_id (V-12). */
+const MODE_KEY = "view-mode";
+const SHOW_ALL_KEY = "show-all";
 /** The energy chip's choice, "kw" for the power view (REQ EM-2). */
-const ENERGY_KEY = "enerlens-energy-period";
+const ENERGY_KEY = "energy-period";
 /** A period is asked for again this often while it is shown (REQ EM-4). */
 const ENERGY_REFRESH_MS = 5 * 60_000;
 /** After a failed request, the next one comes this much sooner. */
@@ -122,6 +131,39 @@ const EXAMPLE_STATES: HomeAssistant["states"] = Object.fromEntries(
     },
   ]),
 );
+
+/** Cards on the page, to find twins with the same memory_id (V-12). */
+const LIVE = new Set<EnerLensCard>();
+
+const isObject = (value: unknown): value is { views?: unknown } =>
+  typeof value === "object" && value !== null;
+
+const isPreview = (card: HTMLElement) =>
+  (card as unknown as { preview?: boolean }).preview === true;
+
+/** A node's ancestors from the document down, through shadow roots. */
+function composedChain(node: Node): Node[] {
+  const chain: Node[] = [];
+  let at: Node | null = node;
+  while (at) {
+    chain.unshift(at);
+    at = at.parentNode ?? (at instanceof ShadowRoot ? at.host : null);
+  }
+  return chain;
+}
+
+/** Page order across shadow roots - where a dashboard puts each card. */
+function composedOrder(a: Node, b: Node): number {
+  const pa = composedChain(a);
+  const pb = composedChain(b);
+  let i = 0;
+  while (i < pa.length && i < pb.length && pa[i] === pb[i]) i++;
+  if (i >= pa.length || i >= pb.length) return pa.length - pb.length;
+  // A shadow root comes before the light children of its host.
+  if (pa[i] instanceof ShadowRoot) return -1;
+  if (pb[i] instanceof ShadowRoot) return 1;
+  return pa[i].compareDocumentPosition(pb[i]) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+}
 
 class EnerLensCard extends LitElement {
   static styles = styles;
@@ -216,6 +258,8 @@ class EnerLensCard extends LitElement {
    *  undefined = still waiting. */
   private _statsKey = "";
   private _statsOk: boolean | undefined;
+  /** The first positive answer has brought back a remembered period (QB-4). */
+  private _statsRemembered = false;
   /** After a failed check: when to ask again (QB-8). */
   private _statsRetryAt = 0;
 
@@ -259,11 +303,80 @@ class EnerLensCard extends LitElement {
     const start = config.view.defaultEnergy === "power" ? null : config.view.defaultEnergy;
     let pick = offer.includes(start) ? start : (offer[0] ?? null);
     if (remembered && config.view.remember && offer.length > 1) {
-      const stored = load(ENERGY_KEY);
+      const stored = load(this._memKey(ENERGY_KEY));
       const remembered = offer.find((p) => (p ?? "kw") === stored);
       if (remembered !== undefined) pick = remembered;
     }
     this._energyPeriod = pick;
+  }
+
+  /** Set until the first render has read what was remembered (V-12). */
+  private _rememberPending = false;
+
+  /** The remembered value of each button that switches, on opening (QB-4). */
+  private _applyRemembered(): void {
+    const config = this._config;
+    if (!config?.view.remember) return;
+    if (config.view.modes.length > 1) {
+      const stored = config.view.modes.find((m) => m === load(this._memKey(MODE_KEY)));
+      if (stored) this._mode = stored;
+    }
+    if (config.list.scope.length > 1) {
+      const stored = load(this._memKey(SHOW_ALL_KEY));
+      if (stored === "1") this._showAll = config.list.scope.includes("full");
+      if (stored === "0") this._showAll = !config.list.scope.includes("filtered");
+    }
+    this._startEnergy(config, true);
+    if (this._hass) this._tickModel = this._modelForMode(this._hass, config);
+  }
+
+  /**
+   * Where a remembered value lives (REQ V-12). Without a memory_id: shared
+   * by the browser, as before. With one: the view, the id and - for the
+   * later of two cards with the same id in this view, never the first - a
+   * suffix. The editor preview reads the card it previews and is no twin.
+   */
+  private _memKey(name: string): string {
+    const id = this._config?.memoryId;
+    if (!id) return `enerlens-${name}`;
+    const view = location.pathname.replace(/^\/+|\/+$/g, "");
+    let rank = 0;
+    if (!isPreview(this)) {
+      rank = this._rankInDashboard(id) ?? this._rankOnPage(id);
+    }
+    return `enerlens:${view}:${id}${rank > 0 ? `#${rank + 1}` : ""}:${name}`;
+  }
+
+  /**
+   * Cards before this one with the same id in its view, counted in the
+   * dashboard's configuration - the same on every device and whatever loads
+   * first; on screen a masonry column can put a copy before its original.
+   * Undefined where the configuration is not to be found (V-12).
+   */
+  private _rankInDashboard(id: string): number | undefined {
+    let own: unknown;
+    let dashboard: { views?: unknown } | undefined;
+    for (const node of composedChain(this).reverse()) {
+      const el = node as { localName?: string; config?: unknown; lovelace?: { config?: unknown } };
+      if (own === undefined && el.localName === "hui-card" && el.config) own = el.config;
+      if (!dashboard && isObject(el.lovelace?.config)) dashboard = el.lovelace.config;
+    }
+    if (own === undefined || !dashboard || !Array.isArray(dashboard.views)) return undefined;
+    for (const view of dashboard.views) {
+      const cards = dashboardCards(view);
+      const at = cards.indexOf(own as Record<string, unknown>);
+      if (at === -1) continue;
+      return cards.slice(0, at).filter((c) => memoryIdOf(c.memory_id) === id).length;
+    }
+    return undefined;
+  }
+
+  /** The fallback: twins on the page in the order of the document. */
+  private _rankOnPage(id: string): number {
+    const twins = [...LIVE]
+      .filter((c) => c.isConnected && !isPreview(c) && c._config?.memoryId === id)
+      .sort(composedOrder);
+    return Math.max(0, twins.indexOf(this));
   }
 
   /** Asks once per set of main sensors whether the default periods can work (QB-8). */
@@ -285,7 +398,12 @@ class EnerLensCard extends LitElement {
       if (ok === undefined) this._statsRetryAt = Date.now() + ENERGY_RETRY_MS;
       this._statsOk = ok ?? false;
       if (ok === false) console.warn(localize("energy.no_statistics", hass));
-      if (ok && this._config) this._startEnergy(this._config, true);
+      // A remembered period counts on opening only - the first answer, not
+      // one after the sensors were changed in the editor (QB-4).
+      if (ok && this._config) {
+        this._startEnergy(this._config, !this._statsRemembered);
+        this._statsRemembered = true;
+      }
       this.requestUpdate();
     });
   }
@@ -337,7 +455,7 @@ class EnerLensCard extends LitElement {
     this._energyChosen = true;
     // A tap in the editor preview is a look, not a choice for the dashboard.
     const preview = (this as unknown as { preview?: boolean }).preview;
-    if (this._config?.view.remember && !preview) store(ENERGY_KEY, period ?? "kw");
+    if (this._config?.view.remember && !preview) store(this._memKey(ENERGY_KEY), period ?? "kw");
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
     this.requestUpdate();
   }
@@ -446,7 +564,9 @@ class EnerLensCard extends LitElement {
 
   private _toggleShowAll(): void {
     this._showAll = !this._showAll;
-    if (this._config?.view.remember) store(SHOW_ALL_KEY, this._showAll ? "1" : "0");
+    if (this._config?.view.remember && !isPreview(this)) {
+      store(this._memKey(SHOW_ALL_KEY), this._showAll ? "1" : "0");
+    }
     // Re-select at once rather than on the next tick; the FLIP in updated()
     // glides the rows that move.
     if (this._hass && this._config) this._tickModel = this._modelForMode(this._hass, this._config);
@@ -657,6 +777,9 @@ class EnerLensCard extends LitElement {
       this._buffer = new AveragingBuffer(view.avgLongMinutes * 60_000);
     }
 
+    // What was remembered is read on the first render, once the card stands
+    // on the page: only then does it know whether a twin stands before it (V-12).
+    if (!previous) this._rememberPending = true;
     // The view the user is on is theirs until the configured start view itself
     // changes or the view is no longer offered - not something an unrelated
     // edit takes away from them. On opening a remembered view wins while
@@ -667,10 +790,6 @@ class EnerLensCard extends LitElement {
       !view.modes.includes(this._mode)
     ) {
       this._mode = view.defaultMode;
-      if (!previous && view.remember && view.modes.length > 1) {
-        const stored = view.modes.find((m) => m === load(MODE_KEY));
-        if (stored) this._mode = stored;
-      }
     }
     const list = this._config.list;
     const scope = this._showAll ? "full" : "filtered";
@@ -679,13 +798,7 @@ class EnerLensCard extends LitElement {
       previous.list.defaultScope !== list.defaultScope ||
       !list.scope.includes(scope)
     ) {
-      let start = list.defaultScope;
-      if (!previous && view.remember && list.scope.length > 1) {
-        const stored = load(SHOW_ALL_KEY);
-        if (stored === "1") start = "full";
-        if (stored === "0") start = "filtered";
-      }
-      this._showAll = start === "full";
+      this._showAll = list.defaultScope === "full";
     }
 
     // Fetched periods hold for the same entities only (EM-4).
@@ -709,7 +822,7 @@ class EnerLensCard extends LitElement {
       previous.view.defaultEnergy !== view.defaultEnergy ||
       !offer.includes(this._energyPeriod)
     ) {
-      this._startEnergy(this._config, !previous);
+      this._startEnergy(this._config, false);
     }
     if (this._energyPending !== undefined && !offer.includes(this._energyPending)) {
       this._energyPending = undefined;
@@ -739,6 +852,7 @@ class EnerLensCard extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    LIVE.add(this);
     // Text keeps a minimum size in CSS pixels while the drawing scales, so the
     // card stays legible on a phone (REQ K-12).
     this._resizeObserver = new ResizeObserver(() => {
@@ -962,7 +1076,8 @@ class EnerLensCard extends LitElement {
   private _setMode(mode: ViewMode): void {
     if (mode === this._mode) return;
     this._mode = mode;
-    if (this._config?.view.remember) store(MODE_KEY, mode);
+    // A tap in the editor preview is a look, not a choice (as in _showEnergy).
+    if (this._config?.view.remember && !isPreview(this)) store(this._memKey(MODE_KEY), mode);
     this._ensureHistory(true);
     this._updateSince();
     // A switch takes effect at once rather than waiting for the next tick (V-8).
@@ -1235,6 +1350,10 @@ class EnerLensCard extends LitElement {
    * which is what REQ P-6 forbids.
    */
   protected willUpdate(): void {
+    if (this._rememberPending && this.isConnected) {
+      this._rememberPending = false;
+      this._applyRemembered();
+    }
     // Measured against .body, not .rows: beside the cross the list is centred
     // vertically, so a changed row count shifts the whole block - a movement
     // the rows must glide through too.
@@ -1315,6 +1434,7 @@ class EnerLensCard extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    LIVE.delete(this);
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
     this._intersectionObserver?.disconnect();
@@ -1351,6 +1471,8 @@ class EnerLensCard extends LitElement {
 
   static getStubConfig(): Record<string, unknown> {
     return {
+      // Each new card remembers for itself (REQ V-12).
+      memory_id: newMemoryId(),
       entities: { ...STUB_ENTITIES },
       // Among the consumers' icons a lone dot looks out of place. Set here
       // rather than as the card's default, so existing cards keep their dot

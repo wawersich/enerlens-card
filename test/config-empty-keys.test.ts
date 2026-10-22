@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { KNOWN_KEYS, normalizeConfig } from "../src/config";
 import type { RawConfig } from "../src/types";
@@ -26,12 +27,32 @@ type Path = readonly string[];
 const REQUIRED = new Set(["type", "entities"]);
 
 /*
- * Every optional top-level key comes from the card's own list, so a new one is
- * covered without touching this file. The keys inside the blocks are listed by
- * hand - there is no such list in the code.
+ * The checklist: every option the README's table "All options" documents.
+ * A new option is covered as soon as it is documented - and one that is not
+ * documented is a gap of its own (22.10.2026, memory_id and the quick
+ * buttons' keys had slipped through a list kept by hand).
+ */
+const DOCUMENTED: readonly string[] = (() => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const table = readme.slice(readme.indexOf("### All options"));
+  const end = table.indexOf("\n### ", 4);
+  return [...(end === -1 ? table : table.slice(0, end)).matchAll(/^\| `([a-z_.]+)` \|/gm)].map(
+    (m) => m[1],
+  );
+})();
+
+/** Documented, but not a key of its own to leave empty here. */
+const NOT_EMPTIABLE = new Set(["entities.solar", "entities.grid"]);
+
+/*
+ * Every optional top-level key comes from the card's own list, every key
+ * inside a block from the README's table, and a few more by hand.
  */
 const OPTIONAL: readonly Path[] = [
   ...[...KNOWN_KEYS].filter((key) => !REQUIRED.has(key)).map((key) => [key]),
+  ...DOCUMENTED.filter((key) => key.includes(".") && !NOT_EMPTIABLE.has(key)).map((key) =>
+    key.split("."),
+  ),
   ["icons", "rest"],
   ["icons", "solar"],
   ["colors", "solar"],
@@ -67,6 +88,18 @@ function withKey(path: Path, value: unknown): RawConfig {
   else node[last] = value;
   return config as RawConfig;
 }
+
+describe("every documented option is one the card knows", () => {
+  it("finds the table", () => {
+    expect(DOCUMENTED.length).toBeGreaterThan(40);
+  });
+
+  for (const key of DOCUMENTED) {
+    it(`${key} raises no unknown-key warning`, () => {
+      expect(KNOWN_KEYS.has(key.split(".")[0])).toBe(true);
+    });
+  }
+});
 
 describe("an empty key is a missing key (E-1, issue #15)", () => {
   for (const path of OPTIONAL) {

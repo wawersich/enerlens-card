@@ -28,7 +28,14 @@ import {
   hsvToHsl,
   swatchHex,
 } from "./colors";
-import { normalizeConfig } from "./config";
+import {
+  type ConfigNote,
+  NUMBER_LIMITS,
+  dashboardCards,
+  memoryIdOf,
+  newMemoryId,
+  normalizeConfig,
+} from "./config";
 import { EDITOR_NAME } from "./const";
 import { NO_DESIGN, designName, flowDesigns } from "./designs";
 import { localize } from "./localize";
@@ -121,7 +128,7 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
     // No colour here: it has a row with a swatch under "Colours", and two
     // places to set one thing is one place too many.
     { name: "icon", selector: { icon: {} } },
-    { name: "min_w", selector: { number: { min: 0, max: 10000, mode: "box" } } },
+    { name: "min_w", selector: { number: { ...limitsOf("consumers.min_w"), mode: "box" } } },
     { name: "charge", type: "expandable", title: t("charge"), schema: chargeFields },
   ];
 }
@@ -1103,6 +1110,33 @@ function translateSelector(config: RawConfig): RawConfig | undefined {
   return out;
 }
 
+/** A number field's limits, the card's own (E-1): one table for both. */
+function limitsOf(key: string): { min: number; max?: number } {
+  const { min, max } = NUMBER_LIMITS[key];
+  return max === undefined ? { min } : { min, max };
+}
+
+/** The form fields the card may use another value for (E-1). */
+const NOTABLE = new Set(
+  Object.keys(NUMBER_LIMITS)
+    .map((key) => noteField(key))
+    .filter((name): name is string => name !== undefined),
+);
+
+/** The form field a note of the card belongs to; none for the consumers'. */
+function noteField(field: string): string | undefined {
+  if (field.startsWith("view.") || field.startsWith("flow.")) return field.slice(5);
+  if (field.startsWith("power.")) return field.replace(".", "_");
+  return field.includes(".") || field.includes("[") ? undefined : field;
+}
+
+/** The names of the fields an item of the schema holds. */
+function fieldNames(item: Record<string, unknown>): string[] {
+  const inner = item.schema as Record<string, unknown>[] | undefined;
+  if (inner) return inner.flatMap(fieldNames);
+  return typeof item.name === "string" ? [item.name] : [];
+}
+
 const MODE_LABELS: Record<string, string> = {
   current: "mode_current",
   avg_short: "mode_short",
@@ -1300,8 +1334,14 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
           },
         },
-        { name: "max_consumers", selector: { number: { min: 1, max: 50, mode: "box" } } },
-        { name: "min_consumer_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
+        {
+          name: "max_consumers",
+          selector: { number: { ...limitsOf("max_consumers"), mode: "box" } },
+        },
+        {
+          name: "min_consumer_w",
+          selector: { number: { ...limitsOf("min_consumer_w"), mode: "box" } },
+        },
         { name: "rest_label", selector: { text: {} } },
         {
           name: "power_unit",
@@ -1353,19 +1393,17 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 },
               },
             ]),
-        { name: "update_interval_s", selector: { number: { min: 1, max: 60, mode: "box" } } },
+        {
+          name: "update_interval_s",
+          selector: { number: { ...limitsOf("update_interval_s"), mode: "box" } },
+        },
       ],
     },
-    // One group per quick button (QB-1, QB-6): what it offers, and where it
-    // starts when it offers more than one value.
-    {
-      name: "smoothing",
-      type: "expandable",
-      flatten: true,
-      title: t("group_smoothing"),
-      // In red right above the locked boxes, saying why (Markus 21.10.2026).
-      notice: powerOn ? undefined : localize("editor_help.modes_locked", hass),
-      schema: [
+    // One group for the quick buttons (QB-1, QB-6), a part per button: what it
+    // offers, and where it starts when it offers more than one value. One
+    // group, not three - Markus 22.10.2026: "ist das nicht etwas viel?"
+    (() => {
+      const smoothing = [
         {
           name: "modes",
           // Means exist only for power: without it there is nothing to choose (QB-5).
@@ -1382,21 +1420,15 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         {
           name: "avg_short_minutes",
           disabled: !powerOn,
-          selector: { number: { min: 1, max: 120, mode: "box" } },
+          selector: { number: { ...limitsOf("view.avg_short_minutes"), mode: "box" } },
         },
         {
           name: "avg_long_minutes",
           disabled: !powerOn,
-          selector: { number: { min: 2, max: 240, mode: "box" } },
+          selector: { number: { ...limitsOf("view.avg_long_minutes"), mode: "box" } },
         },
-      ],
-    },
-    {
-      name: "energy",
-      type: "expandable",
-      flatten: true,
-      title: t("group_energy"),
-      schema: [
+      ];
+      const energy = [
         {
           name: "energy_periods",
           // Locked, not hidden: the help text says what it waits for (EM-15).
@@ -1415,40 +1447,48 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           (p) => t(`energy_${p}`),
           !energyReady(flat),
         ),
-      ],
-    },
-    ...(hasConsumers
-      ? [
-          {
-            // Not "scope": a group's help would be the field's of that name.
-            name: "list_scope",
-            type: "expandable",
-            flatten: true,
-            title: t("group_scope"),
-            schema: [
-              {
-                name: "scope",
-                selector: {
-                  select: {
-                    multiple: true,
-                    mode: "list",
-                    options: tickable(shown.scope, LIST_SCOPES, (v) => t(`scope_${v}`)),
-                  },
+      ];
+      const scope = hasConsumers
+        ? [
+            {
+              name: "scope",
+              selector: {
+                select: {
+                  multiple: true,
+                  mode: "list",
+                  options: tickable(shown.scope, LIST_SCOPES, (v) => t(`scope_${v}`)),
                 },
               },
-              ...startField("default_scope", shown.scope, (v) => t(`scope_${v}`), false),
-            ],
+            },
+            ...startField("default_scope", shown.scope, (v) => t(`scope_${v}`), false),
+          ]
+        : [];
+      return {
+        name: "quick_buttons",
+        type: "expandable",
+        flatten: true,
+        title: t("quick_buttons"),
+        schema: [...smoothing, ...energy, ...scope],
+        parts: [
+          {
+            title: t("group_smoothing"),
+            // In red right above the locked boxes, saying why (Markus 21.10.2026).
+            notice: powerOn ? undefined : localize("editor_help.modes_locked", hass),
+            schema: smoothing,
           },
-        ]
-      : []),
+          { title: t("group_energy"), schema: energy },
+          ...(hasConsumers ? [{ title: t("group_scope"), schema: scope }] : []),
+        ],
+      };
+    })(),
     {
       name: "flow",
       type: "expandable",
       flatten: true,
       title: t("flow"),
       schema: [
-        { name: "min_w", selector: { number: { min: 0, max: 1000, mode: "box" } } },
-        { name: "peak_w", selector: { number: { min: 100, max: 100000, mode: "box" } } },
+        { name: "min_w", selector: { number: { ...limitsOf("flow.min_w"), mode: "box" } } },
+        { name: "peak_w", selector: { number: { ...limitsOf("flow.peak_w"), mode: "box" } } },
         {
           name: "inactive_lines",
           selector: {
@@ -1497,13 +1537,23 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         {
           name: "dot_size",
           selector: {
-            number: { min: 40, max: 150, step: 1, mode: "slider", unit_of_measurement: "%" },
+            number: {
+              ...limitsOf("flow.dot_size"),
+              step: 1,
+              mode: "slider",
+              unit_of_measurement: "%",
+            },
           },
         },
         {
           name: "line_width",
           selector: {
-            number: { min: 30, max: 150, step: 1, mode: "slider", unit_of_measurement: "%" },
+            number: {
+              ...limitsOf("flow.line_width"),
+              step: 1,
+              mode: "slider",
+              unit_of_measurement: "%",
+            },
           },
         },
         {
@@ -1512,16 +1562,34 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           flatten: true,
           title: t("flow_fine"),
           schema: [
-            { name: "slow_below_w", selector: { number: { min: 1, max: 100000, mode: "box" } } },
-            { name: "full_speed_w", selector: { number: { min: 2, max: 100000, mode: "box" } } },
+            {
+              name: "slow_below_w",
+              selector: { number: { ...limitsOf("flow.slow_below_w"), mode: "box" } },
+            },
+            {
+              name: "full_speed_w",
+              selector: { number: { ...limitsOf("flow.full_speed_w"), mode: "box" } },
+            },
             {
               name: "more_dots_above_w",
-              selector: { number: { min: 2, max: 100000, mode: "box" } },
+              selector: { number: { ...limitsOf("flow.more_dots_above_w"), mode: "box" } },
             },
-            { name: "max_dots_at_w", selector: { number: { min: 3, max: 100000, mode: "box" } } },
-            { name: "max_dots", selector: { number: { min: 2, max: 10, mode: "box" } } },
-            { name: "slow_s", selector: { number: { min: 0.5, max: 60, step: 0.1, mode: "box" } } },
-            { name: "fast_s", selector: { number: { min: 0.2, max: 30, step: 0.1, mode: "box" } } },
+            {
+              name: "max_dots_at_w",
+              selector: { number: { ...limitsOf("flow.max_dots_at_w"), mode: "box" } },
+            },
+            {
+              name: "max_dots",
+              selector: { number: { ...limitsOf("flow.max_dots"), mode: "box" } },
+            },
+            {
+              name: "slow_s",
+              selector: { number: { ...limitsOf("flow.slow_s"), step: 0.1, mode: "box" } },
+            },
+            {
+              name: "fast_s",
+              selector: { number: { ...limitsOf("flow.fast_s"), step: 0.1, mode: "box" } },
+            },
           ],
         },
       ],
@@ -1613,25 +1681,64 @@ class EnerLensCardEditor extends LitElement {
       this._consumerKeys = [];
       this._openConsumers = new Set();
     }
-    // The old show_selector: false becomes fixed quick buttons as soon as
-    // the editor opens (QB-7, Markus 21.10.2026). Once, after this call: HA
-    // listens by then, and the echo carries no show_selector any more.
-    const translated = translateSelector(config);
-    if (translated) {
-      queueMicrotask(() => {
-        if (this._config !== config) return;
-        this._flat = toFlat(translated);
-        this._emitted = JSON.stringify(translated);
-        this.dispatchEvent(
-          new CustomEvent("config-changed", {
-            detail: { config: translated },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-        this.requestUpdate();
-      });
+    queueMicrotask(() => this._fixOnOpen(config));
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    // HA may set the configuration before the editor stands in its dialog;
+    // only there does it see the dashboard (V-12).
+    const config = this._config;
+    if (config) queueMicrotask(() => this._fixOnOpen(config));
+  }
+
+  /** The configuration the opening fixes were made for - once per config. */
+  private _fixedFor?: RawConfig;
+
+  /**
+   * What the editor puts right as it opens, in one report: the old
+   * show_selector: false becomes fixed quick buttons (QB-7, Markus
+   * 21.10.2026); a card without a memory_id gets one, and so does a card
+   * whose id the dashboard holds twice - a copy, or its original, which HA
+   * does not tell apart (V-12). HA echoes the result; that needs nothing more.
+   */
+  private _fixOnOpen(config: RawConfig): void {
+    if (this._config !== config || this._fixedFor === config || !this.isConnected) return;
+    this._fixedFor = config;
+    let next = translateSelector(config);
+    const id = memoryIdOf(config.memory_id);
+    if (id === undefined || this._twiceInDashboard(id)) {
+      next = { ...(next ?? config), memory_id: newMemoryId() };
     }
+    if (!next) return;
+    const translated = next;
+    // As if HA had echoed it already: later edits build on it.
+    this._config = translated;
+    this._fixedFor = translated;
+    this._flat = toFlat(translated);
+    this._emitted = JSON.stringify(translated);
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config: translated },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    this.requestUpdate();
+  }
+
+  /** The id is on two cards of the dashboard HA's element editor holds (V-12). */
+  private _twiceInDashboard(id: string): boolean {
+    let at: Node | null = this;
+    while (at) {
+      const dashboard = (at as { lovelace?: { config?: { views?: unknown } } }).lovelace?.config;
+      if (dashboard) {
+        const cards = dashboardCards(dashboard.views);
+        return cards.filter((c) => memoryIdOf(c.memory_id) === id).length > 1;
+      }
+      at = at.parentNode ?? (at instanceof ShadowRoot ? at.host : null);
+    }
+    return false;
   }
 
   private _label = (item: { name: string }): string => {
@@ -2464,6 +2571,12 @@ class EnerLensCardEditor extends LitElement {
 
   render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config || !this._flat) return nothing;
+    // What the card would use instead of what is typed, said at the field -
+    // worked out once per configuration, not on every state update.
+    if (this._notesFor !== this._config) {
+      this._notesFor = this._config;
+      this._notes = this._notesOf(this._config);
+    }
     const all = schema(this.hass, this._flat as FlatRecord);
     // The consumers have their own panel where the object selector used to be,
     // and the colours keep the place they always had, between the flow
@@ -2479,7 +2592,62 @@ class EnerLensCardEditor extends LitElement {
     )}${this._renderColors()}${this._renderPieces(fields.slice(split))}`;
   }
 
+  /** What the card uses instead of what was typed, per form field (E-1). */
+  private _notes = new Map<string, string>();
+  private _notesFor?: RawConfig;
+
+  private _notesOf(config: RawConfig): Map<string, string> {
+    const found: ConfigNote[] = [];
+    try {
+      normalizeConfig(config, this.hass, found);
+    } catch {
+      // A configuration the card refuses shows HA's error card; nothing to add.
+    }
+    // A limit says more than an order: the first note of a field stands.
+    const firsts = found.filter(
+      (note, i) => found.findIndex((other) => other.field === note.field) === i,
+    );
+    return new Map(
+      firsts.flatMap((note): [string, string][] => {
+        const name = noteField(note.field);
+        if (!name) return [];
+        // Say what must hold, not what the card does about it (Markus 22.10.2026).
+        const { min, max } = NUMBER_LIMITS[note.field.replace(/\[\d+\]/, "")] ?? { min: 0 };
+        const key =
+          note.reason === "order" ? `editor.note_order_${name}` : `editor.note_${note.reason}`;
+        const text = localize(key, this.hass, { min, max: max ?? "" });
+        return [[name, text === key ? localize("editor.note_order", this.hass) : text]];
+      }),
+    );
+  }
+
+  /**
+   * One ha-form for a run of fields - cut after each field the card uses
+   * another value for, with the note in red right under it (E-1,
+   * 22.10.2026). The field keeps what was typed (rule 7).
+   */
   private _form(items: readonly Record<string, unknown>[]): TemplateResult {
+    const out: TemplateResult[] = [];
+    let run: Record<string, unknown>[] = [];
+    for (const item of items) {
+      run.push(item);
+      // Cut after every field that may get a note, noted now or not: the
+      // forms stay the same while typing, and the field typed keeps its
+      // element and its focus when a note appears (rule 7).
+      const names = fieldNames(item);
+      if (!names.some((name) => NOTABLE.has(name))) continue;
+      const noted = names.filter((name) => this._notes.has(name));
+      out.push(this._haForm(run));
+      for (const name of noted) {
+        out.push(html`<p class="field-note" role="note">${this._notes.get(name)}</p>`);
+      }
+      run = [];
+    }
+    if (run.length > 0 || out.length === 0) out.push(this._haForm(run));
+    return html`${out}`;
+  }
+
+  private _haForm(items: readonly Record<string, unknown>[]): TemplateResult {
     return html`
       <ha-form
         .hass=${this.hass}
@@ -2514,6 +2682,29 @@ class EnerLensCardEditor extends LitElement {
     return out;
   }
 
+  /**
+   * A group's fields: one form, or one per part under a heading of its own
+   * (the quick buttons). HA's checkboxes keep their look when only
+   * `disabled` changes, until the pointer passes over them; a new form draws
+   * them as they are (Markus 21.10.2026, smoothing locked without power).
+   */
+  private _renderParts(item: Record<string, unknown>): TemplateResult[] {
+    const parts = (item.parts as Record<string, unknown>[] | undefined) ?? [item];
+    const body = (part: Record<string, unknown>) => html`
+      ${part.notice ? html`<p class="section-notice" role="note">${part.notice}</p>` : nothing}
+      ${keyed(lockKey(part.schema), this._form(part.schema as Record<string, unknown>[]))}
+    `;
+    if (parts[0] === item) return [body(item)];
+    // Each part framed, its name on the frame: plain headings between the
+    // fields did not read as three groups (Markus 22.10.2026).
+    return parts.map(
+      (part) => html`<fieldset class="part">
+        <legend class="part-title">${part.title}</legend>
+        ${body(part)}
+      </fieldset>`,
+    );
+  }
+
   private _renderSection(item: Record<string, unknown>): TemplateResult {
     const name = String(item.name);
     const built = this._builtSections.has(name);
@@ -2533,16 +2724,8 @@ class EnerLensCardEditor extends LitElement {
       >
         <div slot="header" role="heading" aria-level="3">${item.title}</div>
         <div class="section-content">
-          ${item.notice ? html`<p class="section-notice" role="note">${item.notice}</p>` : nothing}
           ${description ? html`<p class="section-description">${description}</p>` : nothing}
-          ${
-            // HA's checkboxes keep their look when only `disabled` changes,
-            // until the pointer passes over them; a new form draws them as
-            // they are (Markus 21.10.2026, smoothing locked without power).
-            built
-              ? keyed(lockKey(item.schema), this._form(item.schema as Record<string, unknown>[]))
-              : nothing
-          }
+          ${built ? this._renderParts(item) : nothing}
         </div>
       </ha-expansion-panel>
     `;
@@ -2800,6 +2983,32 @@ class EnerLensCardEditor extends LitElement {
 
     .section-description {
       margin: 0 0 24px;
+    }
+
+    .part {
+      margin: 0 0 16px;
+      padding: 4px 12px 12px;
+      border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+      border-radius: 12px;
+      min-width: 0;
+    }
+
+    .part:last-child {
+      margin-bottom: 0;
+    }
+
+    .part-title {
+      padding: 0 6px;
+      font-size: 1.05em;
+      font-weight: 500;
+      color: var(--primary-color);
+    }
+
+    .field-note {
+      margin: -8px 0 16px;
+      padding: 0 16px;
+      font-size: 0.9em;
+      color: var(--error-color, #db4437);
     }
 
     .section-notice {

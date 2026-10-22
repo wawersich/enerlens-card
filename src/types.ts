@@ -199,6 +199,8 @@ export interface SocStop {
 }
 
 export interface RawConfig extends LovelaceCardConfig {
+  /** What the card remembers is kept under this id (REQ V-12). */
+  memory_id?: string;
   title?: string;
   entities?: {
     solar?: EntityRef;
@@ -350,6 +352,8 @@ export interface ChargeState {
 }
 
 export interface Config {
+  /** Remembered values are this card's own (REQ V-12); unset = shared per browser. */
+  memoryId?: string;
   title?: string;
   sources: {
     solar: SourceSpec;

@@ -1,0 +1,1289 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_CONSUMER_PALETTE } from "../src/colors";
+import { collectEntityIds, normalizeConfig } from "../src/config";
+import { ConfigError, type RawConfig } from "../src/types";
+
+// localize belongs to another module; the tests assert on keys and placeholders,
+// not on translated prose.
+vi.mock("../src/localize", () => ({
+  localize: (key: string, _hass?: unknown, params?: Record<string, string | number>) =>
+    params ? `${key} ${JSON.stringify(params)}` : key,
+}));
+
+const ENTITIES = { solar: "sensor.pv", grid: "sensor.grid", house: "sensor.house" };
+
+/** A structurally valid config, optionally patched. */
+function cfg(over: Record<string, unknown> = {}): RawConfig {
+  return { type: "custom:enerlens-card", entities: { ...ENTITIES }, ...over } as RawConfig;
+}
+
+function withEntities(entities: Record<string, unknown>): RawConfig {
+  return { type: "custom:enerlens-card", entities } as RawConfig;
+}
+
+function expectError(run: () => unknown, key: string, field?: string): ConfigError {
+  let caught: unknown;
+  try {
+    run();
+  } catch (error) {
+    caught = error;
+  }
+  expect(caught).toBeInstanceOf(ConfigError);
+  const error = caught as ConfigError;
+  expect(error.message).toContain(key);
+  if (field !== undefined) expect(error.field).toBe(field);
+  return error;
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("entities section (E-1)", () => {
+  it("rejects a config without entities (E-1)", () => {
+    const error = expectError(
+      () => normalizeConfig({ type: "custom:enerlens-card" }),
+      "error.config.missing_entities",
+      "entities",
+    );
+    expect(error.name).toBe("ConfigError");
+  });
+
+  it("rejects entities that is not an object (E-1)", () => {
+    expectError(
+      () => normalizeConfig({ type: "custom:enerlens-card", entities: "sensor.x" } as RawConfig),
+      "error.config.object",
+      "entities",
+    );
+  });
+
+  it("requires solar (G-2, A-1)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ grid: "sensor.grid", house: "sensor.house" })),
+      "error.config.missing_entities",
+      "entities.solar",
+    );
+  });
+
+  it("requires grid (G-2, A-1)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ solar: "sensor.pv", house: "sensor.house" })),
+      "error.config.missing_entities",
+      "entities.grid",
+    );
+  });
+});
+
+describe("entity reference forms (E-2)", () => {
+  it("accepts a plain entity string (E-2)", () => {
+    const config = normalizeConfig(cfg());
+    expect(config.sources.solar).toEqual({ kind: "single", entity: "sensor.pv", invert: false });
+  });
+
+  it("accepts the {entity, invert} form (E-2)", () => {
+    const config = normalizeConfig(
+      withEntities({ ...ENTITIES, grid: { entity: "sensor.grid", invert: true } }),
+    );
+    expect(config.sources.grid).toEqual({ kind: "single", entity: "sensor.grid", invert: true });
+  });
+
+  it("defaults invert to false when the object omits it (E-2)", () => {
+    const config = normalizeConfig(withEntities({ ...ENTITIES, grid: { entity: "sensor.grid" } }));
+    expect(config.sources.grid).toEqual({ kind: "single", entity: "sensor.grid", invert: false });
+  });
+
+  it("maps grid import/export so that positive is the import entity (E-2)", () => {
+    const config = normalizeConfig(
+      withEntities({ ...ENTITIES, grid: { import: "sensor.buy", export: "sensor.sell" } }),
+    );
+    expect(config.sources.grid).toEqual({
+      kind: "split",
+      positive: "sensor.buy",
+      negative: "sensor.sell",
+    });
+  });
+
+  it("maps battery discharge/charge so that positive is the discharge entity (E-2)", () => {
+    const config = normalizeConfig(
+      cfg({
+        entities: { ...ENTITIES, battery: { discharge: "sensor.out", charge: "sensor.in" } },
+      }),
+    );
+    expect(config.sources.battery).toEqual({
+      kind: "split",
+      positive: "sensor.out",
+      negative: "sensor.in",
+    });
+  });
+
+  it("accepts the keyword derived (A-1)", () => {
+    const config = normalizeConfig(withEntities({ ...ENTITIES, solar: "derived" }));
+    expect(config.sources.solar).toEqual({ kind: "derived" });
+  });
+
+  it("treats a missing battery as absent, not derived (A-5)", () => {
+    const config = normalizeConfig(cfg());
+    expect(config.sources.battery).toEqual({ kind: "absent" });
+  });
+
+  it("rejects a mixture of the single and split form (E-1, schema rules)", () => {
+    expectError(
+      () =>
+        normalizeConfig(
+          withEntities({ ...ENTITIES, grid: { entity: "sensor.grid", import: "sensor.buy" } }),
+        ),
+      "error.config.mixed_form",
+      "entities.grid",
+    );
+  });
+
+  it("rejects a half split form (E-1)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ ...ENTITIES, grid: { import: "sensor.buy" } })),
+      "error.config.mixed_form",
+      "entities.grid",
+    );
+  });
+
+  it("rejects unknown keys inside an entity reference (E-1)", () => {
+    expectError(
+      () =>
+        normalizeConfig(
+          withEntities({ ...ENTITIES, grid: { entity: "sensor.grid", inverted: true } }),
+        ),
+      "error.config.mixed_form",
+      "entities.grid",
+    );
+  });
+
+  it("rejects a non-boolean invert (E-1)", () => {
+    expectError(
+      () =>
+        normalizeConfig(withEntities({ ...ENTITIES, grid: { entity: "sensor.grid", invert: 1 } })),
+      "error.config.boolean",
+      "entities.grid.invert",
+    );
+  });
+
+  it("rejects the split form for solar, which has no defined key pair (E-2)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ ...ENTITIES, solar: { import: "a", export: "b" } })),
+      "error.config.mixed_form",
+      "entities.solar",
+    );
+  });
+
+  it("rejects an empty entity string as missing (E-1, issue #15)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ ...ENTITIES, solar: "" })),
+      "error.config.missing_entities",
+      "entities.solar",
+    );
+  });
+
+  it("rejects a value that is neither string nor object (E-1)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ ...ENTITIES, solar: 42 })),
+      "error.config.mixed_form",
+      "entities.solar",
+    );
+  });
+});
+
+describe("exactly one derived quantity (A-1)", () => {
+  it("derives a missing house silently (A-1)", () => {
+    const config = normalizeConfig(withEntities({ solar: "sensor.pv", grid: "sensor.grid" }));
+    expect(config.sources.house).toEqual({ kind: "derived" });
+  });
+
+  it("allows a derived solar next to a measured house (A-1)", () => {
+    const config = normalizeConfig(withEntities({ ...ENTITIES, solar: "derived" }));
+    expect(config.sources.solar).toEqual({ kind: "derived" });
+    expect(config.sources.house).toEqual({ kind: "single", entity: "sensor.house", invert: false });
+  });
+
+  it("rejects two derived quantities (A-1)", () => {
+    const error = expectError(
+      () => normalizeConfig(withEntities({ solar: "derived", grid: "sensor.grid" })),
+      "error.config.two_derived",
+      "entities.house",
+    );
+    expect(error.message).toContain("entities.house");
+  });
+
+  it("rejects derived grid together with derived battery (A-1)", () => {
+    expectError(
+      () =>
+        normalizeConfig(
+          withEntities({
+            solar: "sensor.pv",
+            grid: "derived",
+            battery: "derived",
+            house: "sensor.house",
+          }),
+        ),
+      "error.config.two_derived",
+      "entities.battery",
+    );
+  });
+
+  it("does not count an absent battery as derived (A-5)", () => {
+    const config = normalizeConfig(
+      withEntities({ solar: "derived", ...{ grid: "sensor.grid" }, house: "sensor.house" }),
+    );
+    expect(config.sources.battery).toEqual({ kind: "absent" });
+    expect(config.sources.solar).toEqual({ kind: "derived" });
+  });
+
+  it("accepts all four quantities measured, with nothing derived (A-1)", () => {
+    const config = normalizeConfig(withEntities({ ...ENTITIES, battery: "sensor.bat" }));
+    expect(config.sources.battery).toEqual({ kind: "single", entity: "sensor.bat", invert: false });
+    expect(config.sources.house).toEqual({ kind: "single", entity: "sensor.house", invert: false });
+  });
+});
+
+describe("battery_soc (schema rules, A-5)", () => {
+  it("accepts battery_soc together with a battery", () => {
+    const config = normalizeConfig(
+      withEntities({ ...ENTITIES, battery: "sensor.bat", battery_soc: "sensor.soc" }),
+    );
+    expect(config.sources.batterySoc).toBe("sensor.soc");
+  });
+
+  it("accepts battery_soc with a derived battery (A-1)", () => {
+    const config = normalizeConfig(
+      withEntities({
+        solar: "sensor.pv",
+        grid: "sensor.grid",
+        house: "sensor.house",
+        battery: "derived",
+        battery_soc: "sensor.soc",
+      }),
+    );
+    expect(config.sources.batterySoc).toBe("sensor.soc");
+  });
+
+  it("ignores battery_soc without a battery, with a warning (REQ A-5, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = normalizeConfig(withEntities({ ...ENTITIES, battery_soc: "sensor.soc" }));
+    expect(config.sources.batterySoc).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("rejects a non-string battery_soc (E-1)", () => {
+    expectError(
+      () => normalizeConfig(withEntities({ ...ENTITIES, battery: "sensor.bat", battery_soc: 5 })),
+      "error.config.string",
+      "entities.battery_soc",
+    );
+  });
+
+  it("leaves batterySoc undefined when not configured (A-5)", () => {
+    expect(normalizeConfig(cfg()).sources.batterySoc).toBeUndefined();
+  });
+});
+
+describe("power format (K-7)", () => {
+  it("defaults to kW with two decimals and reads the alternatives", () => {
+    expect(normalizeConfig(cfg()).power).toEqual({ unit: "kW", decimals: 2, digits: 3 });
+    expect(normalizeConfig(cfg({ power: { unit: "W" } })).power).toEqual({
+      unit: "W",
+      decimals: 2,
+      digits: 3,
+    });
+    expect(normalizeConfig(cfg({ power: { decimals: 3 } })).power.decimals).toBe(3);
+    expect(() => normalizeConfig(cfg({ power: { decimals: 4 } }))).toThrow();
+    expect(() => normalizeConfig(cfg({ power: { unit: "MW" } }))).toThrow();
+  });
+
+  it("takes the significant digits for the automatic unit, two to four", () => {
+    expect(normalizeConfig(cfg({ power: { unit: "auto" } })).power.digits).toBe(3);
+    expect(normalizeConfig(cfg({ power: { unit: "auto", digits: 2 } })).power.digits).toBe(2);
+    expect(normalizeConfig(cfg({ power: { digits: 4 } })).power.digits).toBe(4);
+    expect(() => normalizeConfig(cfg({ power: { digits: 1 } }))).toThrow();
+    expect(() => normalizeConfig(cfg({ power: { digits: 5 } }))).toThrow();
+  });
+});
+
+describe("flow design (P-10)", () => {
+  it("defaults to none and takes an id as written", () => {
+    expect(normalizeConfig(cfg()).flow.design).toBe("none");
+    expect(normalizeConfig(cfg({ flow: { design: "ember" } })).flow.design).toBe("ember");
+  });
+
+  it("keeps an unknown id instead of refusing the config", () => {
+    // A design may be renamed or dropped between versions. The card falls back
+    // to the plain dots when it cannot find one, rather than failing to load.
+    expect(normalizeConfig(cfg({ flow: { design: "was-here-once" } })).flow.design).toBe(
+      "was-here-once",
+    );
+    expect(() => normalizeConfig(cfg({ flow: { design: 42 } }))).not.toThrow();
+    expect(normalizeConfig(cfg({ flow: { design: 42 } })).flow.design).toBe("none");
+  });
+});
+
+describe("consumers (C-4, L-4)", () => {
+  it("treats a cleared optional text as absent, not as an error (REQ E-1)", () => {
+    // What the editor's object selector leaves behind after clearing a field.
+    const config = normalizeConfig(
+      cfg({
+        consumers: [{ entity: "sensor.a", icon: "", name: null as unknown as string, color: "" }],
+      }),
+    );
+    expect(config.consumers[0].icon).toBeUndefined();
+    expect(config.consumers[0].name).toBeUndefined();
+    expect(config.consumers[0].color).toBe(DEFAULT_CONSUMER_PALETTE[0]);
+  });
+
+  it("reads an own threshold and rejects a negative one (REQ L-3)", () => {
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a", min_w: 50 }, { entity: "sensor.b" }] }),
+    );
+    expect(config.consumers[0].minW).toBe(50);
+    expect(config.consumers[1].minW).toBeUndefined();
+    const withIcon = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a", icon: "mdi:heat-pump" }] }),
+    );
+    expect(withIcon.consumers[0].icon).toBe("mdi:heat-pump");
+    expect(() =>
+      normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", min_w: -1 }] })),
+    ).toThrow();
+  });
+
+  it("defaults to an empty list", () => {
+    expect(normalizeConfig(cfg()).consumers).toEqual([]);
+  });
+
+  it("assigns palette colours by configuration order (C-4)", () => {
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a" }, { entity: "sensor.b" }] }),
+    );
+    expect(config.consumers[0].color).toBe(DEFAULT_CONSUMER_PALETTE[0]);
+    expect(config.consumers[1].color).toBe(DEFAULT_CONSUMER_PALETTE[1]);
+  });
+
+  it("lets an explicit colour win over the palette (C-4)", () => {
+    const config = normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", color: "#123456" }] }));
+    expect(config.consumers[0].color).toBe("#123456");
+  });
+
+  it("uses a configured consumer_palette instead of the built-in one (C-4)", () => {
+    const config = normalizeConfig(
+      cfg({
+        consumers: [{ entity: "sensor.a" }, { entity: "sensor.b" }],
+        colors: { consumer_palette: ["#111111", "#222222"] },
+      }),
+    );
+    expect(config.consumers.map((c) => c.color)).toEqual(["#111111", "#222222"]);
+  });
+
+  it("wraps the palette for more consumers than colours (C-4, L-11)", () => {
+    const consumers = Array.from({ length: 12 }, (_, i) => ({ entity: `sensor.c${i}` }));
+    const config = normalizeConfig(cfg({ consumers }));
+    expect(config.consumers[10].color).toBe(DEFAULT_CONSUMER_PALETTE[0]);
+    expect(config.consumers[11].color).toBe(DEFAULT_CONSUMER_PALETTE[1]);
+  });
+
+  it("uses the entity id as the stable key (L-8, R-4)", () => {
+    const config = normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", name: "Dryer" }] }));
+    expect(config.consumers[0]).toMatchObject({
+      key: "sensor.a",
+      entity: "sensor.a",
+      name: "Dryer",
+    });
+  });
+
+  it("leaves name undefined so friendly_name can win at render time (L-2)", () => {
+    const config = normalizeConfig(cfg({ consumers: [{ entity: "sensor.a" }] }));
+    expect(config.consumers[0].name).toBeUndefined();
+  });
+
+  it("skips a duplicate consumer entity, keeping the first (REQ E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a", name: "first" }, { entity: "sensor.a" }] }),
+    );
+    expect(config.consumers.map((c) => c.name)).toEqual(["first"]);
+    expect(warn.mock.calls[0]?.[0]).toContain("sensor.a");
+    warn.mockRestore();
+  });
+
+  it("skips a consumer without an entity (REQ E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = normalizeConfig(
+      cfg({ consumers: [{ name: "no entity" }, { entity: "sensor.b" }] }),
+    );
+    expect(config.consumers.map((c) => c.entity)).toEqual(["sensor.b"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("rejects consumers that are not a list (E-1)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ consumers: "sensor.a" })),
+      "error.config.list",
+      "consumers",
+    );
+  });
+
+  it("rejects a non-string consumer name (E-1)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", name: 7 }] })),
+      "error.config.string",
+      "consumers[0].name",
+    );
+  });
+});
+
+describe("list and ring defaults (L-1, R-1)", () => {
+  it("keeps list and ring off without consumers (L-1, R-1)", () => {
+    const config = normalizeConfig(cfg());
+    expect(config.list.enabled).toBe(false);
+    expect(config.ring.enabled).toBe(false);
+  });
+
+  it("turns list and ring on as soon as consumers exist (L-1, R-1)", () => {
+    const config = normalizeConfig(cfg({ consumers: [{ entity: "sensor.a" }] }));
+    expect(config.list.enabled).toBe(true);
+    expect(config.ring.enabled).toBe(true);
+  });
+
+  it("keeps an empty consumers list equivalent to none (L-1)", () => {
+    const config = normalizeConfig(cfg({ consumers: [] }));
+    expect(config.list.enabled).toBe(false);
+    expect(config.ring.enabled).toBe(false);
+  });
+
+  it("keeps the list beside the cross unless asked otherwise", () => {
+    const config = normalizeConfig(cfg({ consumers: [{ entity: "sensor.a" }] }));
+    expect(config.list.alwaysBelow).toBe(false);
+  });
+
+  it("reads the switch that forces the list below the cross", () => {
+    const config = normalizeConfig(
+      cfg({ consumers: [{ entity: "sensor.a" }], list: { always_below: true } }),
+    );
+    expect(config.list.alwaysBelow).toBe(true);
+  });
+
+  it("lets an explicit false win over the consumer default (R-6)", () => {
+    const config = normalizeConfig(
+      cfg({
+        consumers: [{ entity: "sensor.a" }],
+        list: { enabled: false },
+        ring: { enabled: true },
+      }),
+    );
+    expect(config.list.enabled).toBe(false);
+    expect(config.ring.enabled).toBe(true);
+  });
+
+  it("lets an explicit true win without consumers (R-6)", () => {
+    const config = normalizeConfig(cfg({ list: { enabled: true } }));
+    expect(config.list.enabled).toBe(true);
+  });
+
+  it("leaves rest_label and title undefined so they can be localized (L-5, L-10)", () => {
+    const config = normalizeConfig(cfg());
+    expect(config.list.restLabel).toBeUndefined();
+    expect(config.list.title).toBeUndefined();
+  });
+
+  it("keeps a configured rest_label and title unchanged (L-5, N-7)", () => {
+    const config = normalizeConfig(
+      cfg({ list: { rest_label: "Sonstiges", title: "Verbraucher" } }),
+    );
+    expect(config.list.restLabel).toBe("Sonstiges");
+    expect(config.list.title).toBe("Verbraucher");
+  });
+
+  it("rejects a non-boolean list.enabled (E-1)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ list: { enabled: "yes" } })),
+      "error.config.boolean",
+      "list.enabled",
+    );
+  });
+
+  it("rejects a list that is not an object (E-1)", () => {
+    expectError(() => normalizeConfig(cfg({ list: true })), "error.config.object", "list");
+  });
+});
+
+describe("defaults (section 3)", () => {
+  it("fills in every documented default", () => {
+    const config = normalizeConfig(cfg());
+    expect(config.title).toBeUndefined();
+    expect(config.minConsumerW).toBe(10);
+    expect(config.maxConsumers).toBe(Number.POSITIVE_INFINITY);
+    expect(config.updateIntervalS).toBe(5);
+    expect(config.view).toEqual({
+      modes: ["current", "avg_short", "avg_long"],
+      defaultMode: "current",
+      avgShortMinutes: 2,
+      avgLongMinutes: 15,
+      remember: true,
+      power: true,
+      energyPeriods: ["today", "24h", "week"],
+      energyDefault: true,
+      defaultEnergy: "power",
+    });
+    expect(config.flow).toEqual({
+      minW: 10,
+      slowBelowW: 500,
+      fullSpeedW: 2000,
+      moreDotsAboveW: 2000,
+      maxDotsAtW: 6000,
+      maxDots: 5,
+      slowS: 5,
+      fastS: 1.8,
+      animation: "auto",
+      inactiveLines: "show",
+      design: "none",
+      dotSize: 100,
+      lineWidth: 100,
+    });
+  });
+
+  it("uses the HA energy theme variables as default colours (C-2)", () => {
+    const { colors } = normalizeConfig(cfg());
+    expect(colors.solar).toBe("var(--energy-solar-color, #ff9800)");
+    expect(colors.house).toBe("var(--primary-color)");
+    expect(colors.grid_import).toBe("var(--energy-grid-consumption-color, #488fc2)");
+    expect(colors.grid_export).toBe("var(--energy-grid-return-color, #8353d1)");
+    expect(colors.battery_charge).toBe("var(--energy-battery-in-color, #f06292)");
+    expect(colors.battery_discharge).toBe("var(--energy-battery-out-color, #4db6ac)");
+    expect(colors.rest).toBe("#7d7d7d");
+    expect(colors.consumerPalette).toEqual([...DEFAULT_CONSUMER_PALETTE]);
+  });
+
+  it("uses the documented default state-of-charge stops (C-3)", () => {
+    expect(normalizeConfig(cfg()).colors.socStops).toEqual([
+      { at: 0, color: "#e53935" },
+      { at: 50, color: "#fdd835" },
+      { at: 100, color: "#43a047" },
+    ]);
+  });
+
+  it("uses the documented default icons and leaves battery to the SOC (K-4, section 3)", () => {
+    const { icons } = normalizeConfig(cfg());
+    expect(icons).toEqual({
+      solar: "mdi:white-balance-sunny",
+      grid: "mdi:transmission-tower",
+      house: "mdi:home",
+    });
+    expect(icons.battery).toBeUndefined();
+  });
+
+  it("keeps the title and overridden colours and icons", () => {
+    const config = normalizeConfig(
+      cfg({
+        title: "Energie",
+        colors: { solar: "#abcdef" },
+        icons: { battery: "mdi:car-battery" },
+      }),
+    );
+    expect(config.title).toBe("Energie");
+    expect(config.colors.solar).toBe("#abcdef");
+    expect(config.colors.house).toBe("var(--primary-color)");
+    expect(config.icons.battery).toBe("mdi:car-battery");
+  });
+
+  it("rejects a non-string title (E-1)", () => {
+    expectError(() => normalizeConfig(cfg({ title: 5 })), "error.config.string", "title");
+  });
+
+  it("rejects a non-string colour (C-1)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ colors: { rest: 16 } })),
+      "error.config.string",
+      "colors.rest",
+    );
+  });
+});
+
+describe("numeric ranges (schema rules)", () => {
+
+  it("accepts min_consumer_w 0", () => {
+    expect(normalizeConfig(cfg({ min_consumer_w: 0 })).minConsumerW).toBe(0);
+  });
+
+
+
+
+  it("rejects a non-numeric number field", () => {
+    expectError(
+      () => normalizeConfig(cfg({ update_interval_s: "5" })),
+      "error.config.number",
+      "update_interval_s",
+    );
+  });
+
+  it("rejects NaN", () => {
+    expectError(
+      () => normalizeConfig(cfg({ min_consumer_w: Number.NaN })),
+      "error.config.number",
+      "min_consumer_w",
+    );
+  });
+
+
+
+
+  it("derives the three thresholds from peak_w, explicit values winning (P-3)", () => {
+    let flow = normalizeConfig(cfg({ flow: { peak_w: 3000 } })).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([250, 1000, 3000]);
+    flow = normalizeConfig(cfg({ flow: { peak_w: 3000, more_dots_above_w: 800 } })).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([250, 800, 3000]);
+    // Without peak_w the defaults are what they always were.
+    flow = normalizeConfig(cfg()).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([500, 2000, 6000]);
+  });
+
+  it("raises slow_below_w to a min_w above it, with a warning (P-3, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const flow = normalizeConfig(cfg({ flow: { min_w: 600 } })).flow;
+    expect(flow.minW).toBe(600);
+    expect(flow.slowBelowW).toBe(600);
+    expect(warn.mock.calls[0]?.[0]).toContain("flow.slow_below_w");
+    warn.mockRestore();
+  });
+
+  it("accepts flow.min_w exactly equal to slow_below_w (P-3)", () => {
+    expect(normalizeConfig(cfg({ flow: { min_w: 500 } })).flow.minW).toBe(500);
+  });
+
+  it("pushes a broken threshold chain upwards instead of refusing it (P-3, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // slow_below_w 2000 collides with more_dots_above_w 2000, which then
+    // collides with nothing - max_dots_at_w 6000 still holds.
+    let flow = normalizeConfig(cfg({ flow: { slow_below_w: 2000 } })).flow;
+    expect([flow.slowBelowW, flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([2000, 2001, 6000]);
+    flow = normalizeConfig(cfg({ flow: { more_dots_above_w: 6000 } })).flow;
+    expect([flow.moreDotsAboveW, flow.maxDotsAtW]).toEqual([6000, 6001]);
+    flow = normalizeConfig(cfg({ flow: { fast_s: 5 } })).flow;
+    expect([flow.fastS, flow.slowS]).toEqual([5, 6]);
+    expect(warn).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+  });
+
+
+  it("accepts a consistent set of flow thresholds (P-3)", () => {
+    const config = normalizeConfig(
+      cfg({
+        flow: {
+          min_w: 5,
+          slow_below_w: 300,
+          more_dots_above_w: 1500,
+          max_dots_at_w: 5000,
+          max_dots: 7,
+          slow_s: 4,
+          fast_s: 1,
+          animation: "off",
+        },
+      }),
+    );
+    expect(config.flow).toEqual({
+      minW: 5,
+      slowBelowW: 300,
+      fullSpeedW: 1500,
+      moreDotsAboveW: 1500,
+      maxDotsAtW: 5000,
+      maxDots: 7,
+      slowS: 4,
+      fastS: 1,
+      animation: "off",
+      inactiveLines: "show",
+      design: "none",
+      dotSize: 100,
+      lineWidth: 100,
+    });
+  });
+
+  it("reads ring.animation, overtake by default, and rejects anything else (R-4)", () => {
+    expect(normalizeConfig(cfg({})).ring.animation).toBe("overtake");
+    for (const mode of ["overtake", "fade", "jump"] as const) {
+      expect(normalizeConfig(cfg({ ring: { animation: mode } })).ring.animation).toBe(mode);
+    }
+    expectError(() => normalizeConfig(cfg({ ring: { animation: "off" } })), "error.config.enum");
+  });
+
+  it("accepts the inactive_lines modes and rejects anything else (P-9)", () => {
+    for (const mode of ["show", "dim", "hide"] as const) {
+      expect(normalizeConfig(cfg({ flow: { inactive_lines: mode } })).flow.inactiveLines).toBe(
+        mode,
+      );
+    }
+    expectError(
+      () => normalizeConfig(cfg({ flow: { inactive_lines: "invisible" } })),
+      "error.config.enum",
+    );
+  });
+
+  it("raises avg_long_minutes above a longer short window, with a warning (V-1, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const view = normalizeConfig(cfg({ view: { avg_short_minutes: 20 } })).view;
+    expect(view.avgShortMinutes).toBe(20);
+    expect(view.avgLongMinutes).toBe(21);
+    expect(warn.mock.calls[0]?.[0]).toContain("view.avg_long_minutes");
+    warn.mockRestore();
+  });
+
+
+
+  it("accepts custom averaging windows (V-1)", () => {
+    const config = normalizeConfig(cfg({ view: { avg_short_minutes: 3, avg_long_minutes: 60 } }));
+    expect(config.view.avgShortMinutes).toBe(3);
+    expect(config.view.avgLongMinutes).toBe(60);
+  });
+});
+
+describe("enumerations (V-2, P-7)", () => {
+  it("accepts every view mode (V-2)", () => {
+    for (const mode of ["current", "avg_short", "avg_long"] as const) {
+      expect(normalizeConfig(cfg({ view: { default_mode: mode } })).view.defaultMode).toBe(mode);
+    }
+  });
+
+  it("rejects an unknown view mode (V-2)", () => {
+    const error = expectError(
+      () => normalizeConfig(cfg({ view: { default_mode: "average" } })),
+      "error.config.enum",
+      "view.default_mode",
+    );
+    expect(error.message).toContain("current, avg_short, avg_long");
+  });
+
+  it("rejects an unknown animation mode (P-7)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ flow: { animation: "sometimes" } })),
+      "error.config.enum",
+      "flow.animation",
+    );
+  });
+});
+
+describe("colors.soc_stops (C-3)", () => {
+  it("accepts a custom gradient (C-3)", () => {
+    const stops = [
+      { at: 0, color: "#000000" },
+      { at: 20, color: "#888888" },
+      { at: 100, color: "#ffffff" },
+    ];
+    expect(normalizeConfig(cfg({ colors: { soc_stops: stops } })).colors.socStops).toEqual(stops);
+  });
+
+  it("accepts two stops with the same at as a hard edge (C-3)", () => {
+    const stops = [
+      { at: 0, color: "#000000" },
+      { at: 50, color: "#111111" },
+      { at: 50, color: "#222222" },
+      { at: 100, color: "#ffffff" },
+    ];
+    expect(normalizeConfig(cfg({ colors: { soc_stops: stops } })).colors.socStops).toEqual(stops);
+  });
+
+  it("rejects fewer than two stops (C-3)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ colors: { soc_stops: [{ at: 0, color: "#000000" }] } })),
+      "error.config.soc_stops",
+      "colors.soc_stops",
+    );
+  });
+
+  it("rejects stops that are not ascending (C-3)", () => {
+    expectError(
+      () =>
+        normalizeConfig(
+          cfg({
+            colors: {
+              soc_stops: [
+                { at: 0, color: "#000000" },
+                { at: 80, color: "#888888" },
+                { at: 50, color: "#aaaaaa" },
+                { at: 100, color: "#ffffff" },
+              ],
+            },
+          }),
+        ),
+      "error.config.soc_stops",
+      "colors.soc_stops",
+    );
+  });
+
+  it("rejects a first stop other than 0 (C-3)", () => {
+    expectError(
+      () =>
+        normalizeConfig(
+          cfg({
+            colors: {
+              soc_stops: [
+                { at: 10, color: "#000000" },
+                { at: 100, color: "#ffffff" },
+              ],
+            },
+          }),
+        ),
+      "error.config.soc_stops",
+      "colors.soc_stops",
+    );
+  });
+
+  it("rejects a last stop other than 100 (C-3)", () => {
+    expectError(
+      () =>
+        normalizeConfig(
+          cfg({
+            colors: {
+              soc_stops: [
+                { at: 0, color: "#000000" },
+                { at: 90, color: "#ffffff" },
+              ],
+            },
+          }),
+        ),
+      "error.config.soc_stops",
+      "colors.soc_stops",
+    );
+  });
+
+  it("rejects a malformed stop entry (C-3)", () => {
+    expectError(
+      () =>
+        normalizeConfig(cfg({ colors: { soc_stops: [{ at: 0 }, { at: 100, color: "#ffffff" }] } })),
+      "error.config.soc_stop_entry",
+      "colors.soc_stops[0]",
+    );
+  });
+
+  it("rejects soc_stops that are not a list (C-3)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ colors: { soc_stops: "red" } })),
+      "error.config.list",
+      "colors.soc_stops",
+    );
+  });
+
+  it("rejects an empty consumer_palette (C-4)", () => {
+    expectError(
+      () => normalizeConfig(cfg({ colors: { consumer_palette: [] } })),
+      "error.config.non_empty",
+      "colors.consumer_palette",
+    );
+  });
+});
+
+describe("unknown keys (E-1)", () => {
+  it("warns about an unknown top-level key without throwing (E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(() => normalizeConfig(cfg({ colours: "nope" }))).not.toThrow();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("error.config.unknown_key");
+    expect(String(warn.mock.calls[0][0])).toContain("colours");
+  });
+
+  it("stays quiet about keys Lovelace adds itself (E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    normalizeConfig(cfg({ view_layout: { position: "sidebar" }, grid_options: { columns: 12 } }));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reads dot_size and line_width as given, 100 when absent (K-12)", () => {
+    const config = normalizeConfig(cfg({ flow: { dot_size: 70, line_width: 130 } }));
+    expect(config.flow.dotSize).toBe(70);
+    expect(config.flow.lineWidth).toBe(130);
+  });
+
+  it("draws dot_size and line_width to their limits with a warning, never refuses (K-12, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const low = normalizeConfig(cfg({ flow: { dot_size: 1, line_width: 10 } }));
+    expect(low.flow.dotSize).toBe(40);
+    expect(low.flow.lineWidth).toBe(30);
+    const high = normalizeConfig(cfg({ flow: { dot_size: 1000, line_width: 151 } }));
+    expect(high.flow.dotSize).toBe(150);
+    expect(high.flow.lineWidth).toBe(150);
+    expect(warn).toHaveBeenCalledTimes(4);
+    expect(String(warn.mock.calls[0][0])).toContain("error.config.clamped");
+    expect(String(warn.mock.calls[0][0])).toContain("flow.dot_size");
+  });
+
+  it("takes the limits themselves without a word (K-12)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    normalizeConfig(cfg({ flow: { dot_size: 40, line_width: 30 } }));
+    normalizeConfig(cfg({ flow: { dot_size: 150, line_width: 150 } }));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("refuses a dot_size that is not a number (K-12)", () => {
+    expect(() => normalizeConfig(cfg({ flow: { dot_size: "big" } }))).toThrow(ConfigError);
+  });
+
+  it("stays quiet about appearance, an option of its own (P-12)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(normalizeConfig(cfg({ appearance: "dark" })).appearance).toBe("dark");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet about card_mod and hands it on untouched (issue #8)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const cardMod = { style: "ha-card { background: none; }" };
+    const config = normalizeConfig(cfg({ card_mod: cardMod }));
+    expect(warn).not.toHaveBeenCalled();
+    // card-mod reads the block from the normalized config - see normalizeConfig.
+    expect(config.card_mod).toBe(cardMod);
+  });
+
+  it("adds no card_mod key when there is none (issue #8)", () => {
+    expect("card_mod" in normalizeConfig(cfg({}))).toBe(false);
+  });
+
+  it("stays quiet about a valid config (E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    normalizeConfig(cfg({ title: "Energie", consumers: [{ entity: "sensor.a" }] }));
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("runtime problems never throw (E-1, K-9)", () => {
+  it("accepts entity ids that do not exist, hass or not (E-1)", () => {
+    expect(() => normalizeConfig(cfg({ consumers: [{ entity: "sensor.ghost" }] }))).not.toThrow();
+    const hass = { states: {}, language: "de" } as never;
+    expect(() => normalizeConfig(cfg(), hass)).not.toThrow();
+  });
+});
+
+describe("collectEntityIds (T-3, V-6)", () => {
+  it("collects every configured entity, both sides of a split (T-3)", () => {
+    const config = normalizeConfig(
+      withEntities({
+        solar: "sensor.pv",
+        grid: { import: "sensor.buy", export: "sensor.sell" },
+        battery: { discharge: "sensor.out", charge: "sensor.in" },
+        battery_soc: "sensor.soc",
+        house: { entity: "sensor.house", invert: true },
+      }),
+    );
+    const withConsumers = {
+      ...config,
+      consumers: [{ key: "sensor.a", entity: "sensor.a", color: "#000" }],
+    };
+    expect(collectEntityIds(withConsumers)).toEqual([
+      "sensor.pv",
+      "sensor.buy",
+      "sensor.sell",
+      "sensor.out",
+      "sensor.in",
+      "sensor.house",
+      "sensor.soc",
+      "sensor.a",
+    ]);
+  });
+
+  it("skips derived and absent quantities (A-1, A-5)", () => {
+    const config = normalizeConfig(withEntities({ solar: "sensor.pv", grid: "sensor.grid" }));
+    expect(collectEntityIds(config)).toEqual(["sensor.pv", "sensor.grid"]);
+  });
+
+  it("returns no duplicates (T-3)", () => {
+    const config = normalizeConfig(
+      cfg({
+        entities: { ...ENTITIES, battery: "sensor.pv" },
+        consumers: [{ entity: "sensor.house" }, { entity: "sensor.a" }],
+      }),
+    );
+    expect(collectEntityIds(config)).toEqual([
+      "sensor.pv",
+      "sensor.grid",
+      "sensor.house",
+      "sensor.a",
+    ]);
+  });
+
+  it("returns an empty list only when nothing is measured", () => {
+    const config = normalizeConfig(withEntities({ solar: "sensor.pv", grid: "sensor.grid" }));
+    expect(
+      collectEntityIds({
+        ...config,
+        sources: { ...config.sources, solar: { kind: "derived" }, grid: { kind: "absent" } },
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("energy periods (REQ EM-1, EM-3)", () => {
+  const SPLIT = {
+    solar: "sensor.pv",
+    grid: { import: "sensor.import", export: "sensor.export" },
+    battery: { discharge: "sensor.out", charge: "sensor.in" },
+  };
+  const periods = (entities: Record<string, unknown>, list: unknown) =>
+    normalizeConfig({
+      type: "custom:enerlens-card",
+      entities,
+      view: { energy_periods: list },
+    } as RawConfig).view.energyPeriods;
+
+  it("is on by default, waiting for the statistics check (QB-8)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    for (const list of [undefined, null]) {
+      const view = normalizeConfig({
+        type: "custom:enerlens-card",
+        entities: SPLIT,
+        ...(list === undefined ? {} : { view: { energy_periods: list } }),
+      } as RawConfig).view;
+      expect(view.power).toBe(true);
+      expect(view.energyPeriods).toEqual(["today", "24h", "week"]);
+      expect(view.energyDefault).toBe(true);
+    }
+    expect(warn).not.toHaveBeenCalled();
+    // An empty list counts as not set, with a warning, never an error card (QB-6).
+    expect(periods(SPLIT, [])).toEqual(["today", "24h", "week"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the six periods in their order, once each", () => {
+    expect(periods(SPLIT, ["month", "today", "month"])).toEqual(["today", "month"]);
+    expect(periods(SPLIT, ["month", "power", "today"])).toEqual(["today", "month"]);
+    expect(periods(SPLIT, ["30d", "7d", "24h", "week"])).toEqual(["24h", "week", "7d", "30d"]);
+  });
+
+  it("rejects anything else", () => {
+    expectError(() => periods(SPLIT, "today"), "error.config.list", "view.energy_periods");
+    // "day" was the first name of "today"; never published, so no alias.
+    expectError(() => periods(SPLIT, ["day"]), "error.config.enum", "view.energy_periods");
+    expectError(() => periods(SPLIT, ["year"]), "error.config.enum", "view.energy_periods");
+  });
+
+  it("takes signed sensors too, but no derived grid or battery (EM-3, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(periods({ ...SPLIT, grid: "sensor.grid" }, ["today"])).toEqual(["today"]);
+    expect(periods({ ...SPLIT, battery: "sensor.battery" }, ["today"])).toEqual(["today"]);
+    expect(warn).not.toHaveBeenCalled();
+    expect(periods({ ...SPLIT, battery: "derived", house: "sensor.house" }, ["today"])).toEqual([]);
+    expect(
+      periods({ solar: "sensor.pv", grid: "derived", battery: SPLIT.battery, house: "sensor.h" }, [
+        "today",
+      ]),
+    ).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(String(warn.mock.calls[0][0])).toContain("error.config.energy_derived");
+    // Without a battery the grid is enough; solar or house may be derived.
+    expect(periods({ solar: "sensor.pv", grid: SPLIT.grid }, ["today"])).toEqual(["today"]);
+    expect(periods({ ...SPLIT, solar: "derived", house: "sensor.h" }, ["week"])).toEqual(["week"]);
+  });
+});
+
+describe("quick buttons (REQ 2.16, QB-2 … QB-8)", () => {
+  const SPLIT = {
+    solar: "sensor.pv",
+    grid: { import: "sensor.import", export: "sensor.export" },
+    battery: { discharge: "sensor.out", charge: "sensor.in" },
+    house: "sensor.house",
+  };
+  const read = (over: Record<string, unknown> = {}, entities: Record<string, unknown> = SPLIT) =>
+    normalizeConfig({
+      type: "custom:enerlens-card",
+      entities,
+      consumers: [{ entity: "sensor.heat" }],
+      ...over,
+    } as RawConfig);
+
+  it("offers everything it offered before when nothing is set (QB-2)", () => {
+    const config = read();
+    expect(config.view.modes).toEqual(["current", "avg_short", "avg_long"]);
+    expect(config.view.defaultMode).toBe("current");
+    expect(config.view.power).toBe(true);
+    expect(config.view.defaultEnergy).toBe("power");
+    expect(config.list.scope).toEqual(["filtered", "full"]);
+    expect(config.list.defaultScope).toBe("filtered");
+  });
+
+  it("keeps the fixed order and each value once (QB-2, QB-3)", () => {
+    const config = read({
+      view: { modes: ["avg_long", "current", "avg_long"] },
+      list: { scope: ["full", "filtered"] },
+    });
+    expect(config.view.modes).toEqual(["current", "avg_long"]);
+    expect(config.list.scope).toEqual(["filtered", "full"]);
+  });
+
+  it("takes an empty list as not set, with a warning (QB-6, E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const config = read({ view: { modes: [] }, list: { scope: [] } });
+    expect(config.view.modes).toEqual(["current", "avg_short", "avg_long"]);
+    expect(config.list.scope).toEqual(["filtered", "full"]);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects unknown values like any other enum", () => {
+    expectError(() => read({ view: { modes: ["avg"] } }), "error.config.enum", "view.modes");
+    expectError(() => read({ view: { modes: "current" } }), "error.config.list", "view.modes");
+    expectError(() => read({ list: { scope: ["all"] } }), "error.config.enum", "list.scope");
+    expectError(
+      () => read({ view: { default_energy: "year" } }),
+      "error.config.enum",
+      "view.default_energy",
+    );
+    expectError(
+      () => read({ list: { default_scope: "all" } }),
+      "error.config.enum",
+      "list.default_scope",
+    );
+  });
+
+  it("starts with the configured start value only while it is offered (QB-4)", () => {
+    expect(
+      read({ view: { modes: ["current", "avg_long"], default_mode: "avg_long" } }).view.defaultMode,
+    ).toBe("avg_long");
+    expect(
+      read({ view: { modes: ["avg_short", "avg_long"], default_mode: "current" } }).view
+        .defaultMode,
+    ).toBe("avg_short");
+    const energy = read({
+      view: { energy_periods: ["today", "week"], default_energy: "power" },
+    }).view;
+    expect(energy.defaultEnergy).toBe("today");
+    expect(read({ list: { scope: ["full"], default_scope: "filtered" } }).list.defaultScope).toBe(
+      "full",
+    );
+  });
+
+  it("takes power as a value of its own; without it nothing is averaged (QB-2, QB-5)", () => {
+    const view = read({ view: { energy_periods: ["week"], modes: ["current", "avg_long"] } }).view;
+    expect(view.power).toBe(false);
+    expect(view.energyPeriods).toEqual(["week"]);
+    expect(view.energyDefault).toBe(false);
+    expect(view.defaultEnergy).toBe("week");
+    expect(view.modes).toEqual(["current"]);
+    expect(view.defaultMode).toBe("current");
+  });
+
+  it("switches the energy mode off with power alone (EM-1, QB-8)", () => {
+    const view = read({ view: { energy_periods: ["power"] } }).view;
+    expect(view.power).toBe(true);
+    expect(view.energyPeriods).toEqual([]);
+    expect(view.energyDefault).toBe(false);
+  });
+
+  it("keeps a derived grid or battery out of the energy mode, set or not (EM-3, QB-8)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const derived = { ...SPLIT, grid: "derived" };
+    for (const view of [
+      undefined,
+      { energy_periods: ["power", "week"] },
+      { energy_periods: ["week"] },
+    ]) {
+      const config = read(view ? { view } : {}, derived).view;
+      expect(config.energyPeriods).toEqual([]);
+      expect(config.energyDefault).toBe(false);
+      // Without a period, power is all that is left to show.
+      expect(config.power).toBe(true);
+    }
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("reads show_selector: false as every quick button fixed on its start value (QB-7)", () => {
+    const config = read({
+      view: { show_selector: false, default_mode: "avg_long" },
+      list: { default_scope: "full" },
+    });
+    expect(config.view.modes).toEqual(["avg_long"]);
+    // No energy default and no statistics check: the bar was switched off on purpose.
+    expect(config.view.power).toBe(true);
+    expect(config.view.energyPeriods).toEqual([]);
+    expect(config.view.energyDefault).toBe(false);
+    expect(config.list.scope).toEqual(["full"]);
+    const week = read({ view: { show_selector: false, default_energy: "week" } }).view;
+    expect(week.power).toBe(false);
+    expect(week.energyPeriods).toEqual(["week"]);
+  });
+
+  it("lets new keys win over show_selector: false (QB-7)", () => {
+    const config = read({
+      view: { show_selector: false, default_mode: "avg_short", modes: ["current", "avg_short"] },
+    });
+    expect(config.view.modes).toEqual(["current", "avg_short"]);
+    expect(config.view.defaultMode).toBe("avg_short");
+    // Everything not given anew stays fixed.
+    expect(config.list.scope).toEqual(["filtered"]);
+    expect(config.view.energyPeriods).toEqual([]);
+  });
+});
+
+describe("numbers out of range or order: used, never refused (E-1, 22.10.2026)", () => {
+  type Note = { field: string; used: number; reason: string };
+  const read = (over: Record<string, unknown>) => {
+    const notes: Note[] = [];
+    const config = normalizeConfig(cfg(over), undefined, notes);
+    return { config, notes };
+  };
+  const note = (notes: Note[], field: string) => notes.find((n) => n.field === field);
+
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  it("draws a value below or above its range to the limit", () => {
+    let r = read({ view: { avg_long_minutes: 1 } });
+    expect(r.config.view.avgLongMinutes).toBe(2);
+    expect(note(r.notes, "view.avg_long_minutes")).toEqual({ field: "view.avg_long_minutes", used: 2, reason: "min" });
+    r = read({ view: { avg_short_minutes: 500, avg_long_minutes: 600 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([120, 240]);
+    expect(note(r.notes, "view.avg_long_minutes")?.reason).toBe("max");
+    for (const [over, get, used] of [
+      [{ min_consumer_w: -1 }, (c: ReturnType<typeof normalizeConfig>) => c.minConsumerW, 0],
+      [{ max_consumers: 0 }, (c: ReturnType<typeof normalizeConfig>) => c.maxConsumers, 1],
+      [{ update_interval_s: 0.5 }, (c: ReturnType<typeof normalizeConfig>) => c.updateIntervalS, 1],
+      [{ flow: { max_dots: 1 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.maxDots, 2],
+      [{ flow: { max_dots: 11 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.maxDots, 10],
+      [{ flow: { min_w: -1 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.minW, 0],
+      [{ flow: { fast_s: 0 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.fastS, 0.1],
+      [{ flow: { peak_w: 0 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.maxDotsAtW, 1],
+    ] as const) {
+      expect(get(read(over as Record<string, unknown>).config), JSON.stringify(over)).toBe(used);
+    }
+  });
+
+  it("rounds a fraction in a whole-number field", () => {
+    const r = read({ max_consumers: 1.5, flow: { max_dots: 5.4 } });
+    expect(r.config.maxConsumers).toBe(2);
+    expect(r.config.flow.maxDots).toBe(5);
+    expect(note(r.notes, "max_consumers")).toEqual({ field: "max_consumers", used: 2, reason: "integer" });
+  });
+
+  it("swaps two windows both set the wrong way round (Markus: einfach tauschen)", () => {
+    const r = read({ view: { avg_short_minutes: 5, avg_long_minutes: 2 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([2, 5]);
+    expect(note(r.notes, "view.avg_short_minutes")).toEqual({ field: "view.avg_short_minutes", used: 2, reason: "order" });
+    expect(note(r.notes, "view.avg_long_minutes")).toEqual({ field: "view.avg_long_minutes", used: 5, reason: "order" });
+  });
+
+  it("raises the default, not a value someone set", () => {
+    const r = read({ view: { avg_short_minutes: 20 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([20, 21]);
+    expect(note(r.notes, "view.avg_short_minutes")).toBeUndefined();
+    expect(note(r.notes, "view.avg_long_minutes")).toEqual({ field: "view.avg_long_minutes", used: 21, reason: "order" });
+  });
+
+  it("parts two equal windows by a minute", () => {
+    const r = read({ view: { avg_short_minutes: 5, avg_long_minutes: 5 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([5, 6]);
+  });
+
+  it("sorts the thresholds someone set, the defaults giving way", () => {
+    const r = read({ flow: { slow_below_w: 3000, more_dots_above_w: 1000, max_dots_at_w: 2000 } });
+    const f = r.config.flow;
+    expect([f.slowBelowW, f.moreDotsAboveW, f.maxDotsAtW]).toEqual([1000, 2000, 3000]);
+    const durations = read({ flow: { fast_s: 6, slow_s: 2 } }).config.flow;
+    expect([durations.fastS, durations.slowS]).toEqual([2, 6]);
+  });
+
+  it("notes nothing for a configuration that is fine", () => {
+    expect(read({ view: { avg_short_minutes: 3, avg_long_minutes: 10 } }).notes).toEqual([]);
+  });
+
+  it("still refuses text where a number belongs - only YAML can do that", () => {
+    expectError(() => normalizeConfig(cfg({ update_interval_s: "5" })), "error.config.number", "update_interval_s");
+  });
+});

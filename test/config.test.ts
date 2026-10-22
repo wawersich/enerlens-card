@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONSUMER_PALETTE } from "../src/colors";
-import { collectEntityIds, normalizeConfig } from "../src/config";
+import { type ConfigNote, collectEntityIds, normalizeConfig } from "../src/config";
 import { ConfigError, type RawConfig } from "../src/types";
 
 // localize belongs to another module; the tests assert on keys and placeholders,
@@ -336,7 +336,7 @@ describe("consumers (C-4, L-4)", () => {
     expect(config.consumers[0].color).toBe(DEFAULT_CONSUMER_PALETTE[0]);
   });
 
-  it("reads an own threshold and rejects a negative one (REQ L-3)", () => {
+  it("reads an own threshold and takes a negative one as zero (REQ L-3)", () => {
     const config = normalizeConfig(
       cfg({ consumers: [{ entity: "sensor.a", min_w: 50 }, { entity: "sensor.b" }] }),
     );
@@ -346,9 +346,11 @@ describe("consumers (C-4, L-4)", () => {
       cfg({ consumers: [{ entity: "sensor.a", icon: "mdi:heat-pump" }] }),
     );
     expect(withIcon.consumers[0].icon).toBe("mdi:heat-pump");
-    expect(() =>
-      normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", min_w: -1 }] })),
-    ).toThrow();
+    // Typed below zero: zero, never an error card (E-1, 22.10.2026).
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(
+      normalizeConfig(cfg({ consumers: [{ entity: "sensor.a", min_w: -1 }] })).consumers[0].minW,
+    ).toBe(0);
   });
 
   it("defaults to an empty list", () => {
@@ -604,43 +606,8 @@ describe("defaults (section 3)", () => {
 });
 
 describe("numeric ranges (schema rules)", () => {
-  it("rejects a negative min_consumer_w", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ min_consumer_w: -1 })),
-      "error.config.min",
-      "min_consumer_w",
-    );
-    expect(error.message).toContain('"min":0');
-  });
-
   it("accepts min_consumer_w 0", () => {
     expect(normalizeConfig(cfg({ min_consumer_w: 0 })).minConsumerW).toBe(0);
-  });
-
-  it("rejects max_consumers below 1", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ max_consumers: 0 })),
-      "error.config.min",
-      "max_consumers",
-    );
-    expect(error.message).toContain('"min":1');
-  });
-
-  it("rejects a fractional max_consumers", () => {
-    expectError(
-      () => normalizeConfig(cfg({ max_consumers: 1.5 })),
-      "error.config.integer",
-      "max_consumers",
-    );
-  });
-
-  it("rejects update_interval_s below 1 (T-2)", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ update_interval_s: 0.5 })),
-      "error.config.min",
-      "update_interval_s",
-    );
-    expect(error.message).toContain('"min":1');
   });
 
   it("rejects a non-numeric number field", () => {
@@ -656,37 +623,6 @@ describe("numeric ranges (schema rules)", () => {
       () => normalizeConfig(cfg({ min_consumer_w: Number.NaN })),
       "error.config.number",
       "min_consumer_w",
-    );
-  });
-
-  it("rejects flow.max_dots outside 2..10 (P-3)", () => {
-    const low = expectError(
-      () => normalizeConfig(cfg({ flow: { max_dots: 1 } })),
-      "error.config.range",
-      "flow.max_dots",
-    );
-    expect(low.message).toContain('"min":2');
-    expect(low.message).toContain('"max":10');
-    expectError(
-      () => normalizeConfig(cfg({ flow: { max_dots: 11 } })),
-      "error.config.range",
-      "flow.max_dots",
-    );
-  });
-
-  it("rejects a fractional flow.max_dots (P-3)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ flow: { max_dots: 5.5 } })),
-      "error.config.integer",
-      "flow.max_dots",
-    );
-  });
-
-  it("rejects a negative flow.min_w (P-1)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ flow: { min_w: -1 } })),
-      "error.config.min",
-      "flow.min_w",
     );
   });
 
@@ -725,14 +661,6 @@ describe("numeric ranges (schema rules)", () => {
     expect([flow.fastS, flow.slowS]).toEqual([5, 6]);
     expect(warn).toHaveBeenCalledTimes(3);
     warn.mockRestore();
-  });
-
-  it("rejects a non-positive duration (P-3)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ flow: { fast_s: 0 } })),
-      "error.config.positive",
-      "flow.fast_s",
-    );
   });
 
   it("accepts a consistent set of flow thresholds (P-3)", () => {
@@ -794,23 +722,6 @@ describe("numeric ranges (schema rules)", () => {
     expect(view.avgLongMinutes).toBe(21);
     expect(warn.mock.calls[0]?.[0]).toContain("view.avg_long_minutes");
     warn.mockRestore();
-  });
-
-  it("rejects avg_short_minutes outside 1..120 (V-1)", () => {
-    const error = expectError(
-      () => normalizeConfig(cfg({ view: { avg_short_minutes: 0 } })),
-      "error.config.range",
-      "view.avg_short_minutes",
-    );
-    expect(error.message).toContain('"max":120');
-  });
-
-  it("rejects avg_long_minutes outside 2..240 (V-1)", () => {
-    expectError(
-      () => normalizeConfig(cfg({ view: { avg_long_minutes: 300 } })),
-      "error.config.range",
-      "view.avg_long_minutes",
-    );
   });
 
   it("accepts custom averaging windows (V-1)", () => {
@@ -1289,5 +1200,130 @@ describe("quick buttons (REQ 2.16, QB-2 … QB-8)", () => {
     // Everything not given anew stays fixed.
     expect(config.list.scope).toEqual(["filtered"]);
     expect(config.view.energyPeriods).toEqual([]);
+  });
+});
+
+describe("numbers out of range or order: used, never refused (E-1, 22.10.2026)", () => {
+  type Note = ConfigNote;
+  const read = (over: Record<string, unknown>) => {
+    const notes: Note[] = [];
+    const config = normalizeConfig(cfg(over), undefined, notes);
+    return { config, notes };
+  };
+  const note = (notes: Note[], field: string) => notes.find((n) => n.field === field);
+
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  it("draws a value below or above its range to the limit", () => {
+    let r = read({ view: { avg_long_minutes: 1 } });
+    expect(r.config.view.avgLongMinutes).toBe(2);
+    expect(note(r.notes, "view.avg_long_minutes")).toEqual({
+      field: "view.avg_long_minutes",
+      used: 2,
+      reason: "min",
+    });
+    r = read({ view: { avg_short_minutes: 500, avg_long_minutes: 600 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([120, 240]);
+    expect(note(r.notes, "view.avg_long_minutes")?.reason).toBe("max");
+    for (const [over, get, used] of [
+      [{ min_consumer_w: -1 }, (c: ReturnType<typeof normalizeConfig>) => c.minConsumerW, 0],
+      [{ max_consumers: 0 }, (c: ReturnType<typeof normalizeConfig>) => c.maxConsumers, 1],
+      [{ update_interval_s: 0.5 }, (c: ReturnType<typeof normalizeConfig>) => c.updateIntervalS, 1],
+      [{ flow: { max_dots: 1 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.maxDots, 2],
+      [{ flow: { max_dots: 11 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.maxDots, 10],
+      [{ flow: { min_w: -1 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.minW, 0],
+      [{ flow: { fast_s: 0 } }, (c: ReturnType<typeof normalizeConfig>) => c.flow.fastS, 0.1],
+    ] as const) {
+      expect(get(read(over as Record<string, unknown>).config), JSON.stringify(over)).toBe(used);
+    }
+  });
+
+  it("takes a peak of at least 1 W", () => {
+    expect(note(read({ flow: { peak_w: 0 } }).notes, "flow.peak_w")).toEqual({
+      field: "flow.peak_w",
+      used: 1,
+      reason: "min",
+    });
+  });
+
+  it("rounds a fraction in a whole-number field", () => {
+    const r = read({ max_consumers: 1.5, flow: { max_dots: 5.4 } });
+    expect(r.config.maxConsumers).toBe(2);
+    expect(r.config.flow.maxDots).toBe(5);
+    expect(note(r.notes, "max_consumers")).toEqual({
+      field: "max_consumers",
+      used: 2,
+      reason: "integer",
+    });
+  });
+
+  it("swaps two windows both set the wrong way round (Markus: einfach tauschen)", () => {
+    const r = read({ view: { avg_short_minutes: 5, avg_long_minutes: 2 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([2, 5]);
+    expect(note(r.notes, "view.avg_short_minutes")).toEqual({
+      field: "view.avg_short_minutes",
+      used: 2,
+      reason: "order",
+    });
+    expect(note(r.notes, "view.avg_long_minutes")).toEqual({
+      field: "view.avg_long_minutes",
+      used: 5,
+      reason: "order",
+    });
+  });
+
+  it("raises the default, not a value someone set", () => {
+    const r = read({ view: { avg_short_minutes: 20 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([20, 21]);
+    // An order concerns both: a note at the value set and at the default
+    // moved (Markus 22.10.2026: "dann bei beiden Werten").
+    expect(note(r.notes, "view.avg_short_minutes")?.reason).toBe("order");
+    expect(note(r.notes, "view.avg_long_minutes")?.used).toBe(21);
+  });
+
+  it("parts two equal windows by a minute", () => {
+    const r = read({ view: { avg_short_minutes: 5, avg_long_minutes: 5 } });
+    expect([r.config.view.avgShortMinutes, r.config.view.avgLongMinutes]).toEqual([5, 6]);
+  });
+
+  it("sorts the thresholds someone set, the defaults giving way", () => {
+    const r = read({ flow: { slow_below_w: 3000, more_dots_above_w: 1000, max_dots_at_w: 2000 } });
+    const f = r.config.flow;
+    expect([f.slowBelowW, f.moreDotsAboveW, f.maxDotsAtW]).toEqual([1000, 2000, 3000]);
+    const durations = read({ flow: { fast_s: 6, slow_s: 2 } }).config.flow;
+    expect([durations.fastS, durations.slowS]).toEqual([2, 6]);
+  });
+
+  it("raises full speed above the slow threshold, never the other way round", () => {
+    const r = read({ flow: { slow_below_w: 500, full_speed_w: 100 } });
+    expect([r.config.flow.slowBelowW, r.config.flow.fullSpeedW]).toEqual([500, 501]);
+    expect(note(r.notes, "flow.slow_below_w")).toBeUndefined();
+    expect(note(r.notes, "flow.full_speed_w")).toEqual({
+      field: "flow.full_speed_w",
+      used: 501,
+      reason: "order",
+    });
+  });
+
+  it("moves a default only where that is enough, else leaves it", () => {
+    const durations = read({ flow: { slow_s: 0.5 } });
+    expect(durations.config.flow.fastS).toBe(1.8);
+    expect(note(durations.notes, "flow.fast_s")).toBeUndefined();
+    const peak = read({ flow: { peak_w: 1 } });
+    expect(peak.config.flow.minW).toBe(10);
+  });
+
+  it("notes nothing for a configuration that is fine", () => {
+    expect(read({ view: { avg_short_minutes: 3, avg_long_minutes: 10 } }).notes).toEqual([]);
+  });
+
+  it("still refuses text where a number belongs - only YAML can do that", () => {
+    expectError(
+      () => normalizeConfig(cfg({ update_interval_s: "5" })),
+      "error.config.number",
+      "update_interval_s",
+    );
   });
 });

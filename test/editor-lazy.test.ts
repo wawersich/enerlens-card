@@ -96,9 +96,7 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
       "nodes",
       "grid_status",
       "display",
-      "smoothing",
-      "energy",
-      "list_scope",
+      "quick_buttons",
       "flow",
       "icons",
     ]);
@@ -137,6 +135,8 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
     const el = await mount();
     await toggle(el, section(el, "flow"), true);
     const before = forms(section(el, "flow"))[0];
+    // Cut after each number field that may get a note (E-1) - always the same cuts.
+    const count = forms(section(el, "flow")).length;
     let saved: RawConfig | undefined;
     el.addEventListener("config-changed", (ev) => {
       saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
@@ -151,7 +151,7 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
     // A YAML edit resets the form's data, not what has been unfolded.
     el.setConfig({ ...CONFIG, title: "Outside" });
     await el.updateComplete;
-    expect(forms(section(el, "flow"))).toHaveLength(1);
+    expect(forms(section(el, "flow"))).toHaveLength(count);
   });
 
   it("keeps the group's own help above its fields, as ha-form-expandable did", async () => {

@@ -84,6 +84,7 @@ export const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "power",
   "appearance",
   "nodes",
+  "memory_id",
 ]);
 
 /**
@@ -195,9 +196,122 @@ function readInteger(
   return n;
 }
 
-function atLeast(value: number, min: number, field: string, hass?: HomeAssistant): number {
-  if (value < min) throw fail("error.config.min", field, hass, { min });
-  return value;
+/** A number the card uses instead of the one configured - for the editor to
+ *  say so under the field (E-1, 22.10.2026). */
+export interface ConfigNote {
+  field: string;
+  used: number;
+  reason: "min" | "max" | "integer" | "order";
+}
+
+/** Collects the notes of the normalizeConfig call running, if asked for. */
+let notes: ConfigNote[] | undefined;
+
+/**
+ * The limits of every number the editor offers, in one place for card and
+ * editor (E-1). Outside them a value is drawn to the limit, never refused.
+ */
+export const NUMBER_LIMITS: Readonly<
+  Record<string, { min: number; max?: number; integer?: boolean }>
+> = {
+  min_consumer_w: { min: 0 },
+  max_consumers: { min: 1, integer: true },
+  update_interval_s: { min: 1 },
+  "view.avg_short_minutes": { min: 1, max: 120, integer: true },
+  "view.avg_long_minutes": { min: 2, max: 240, integer: true },
+  "flow.min_w": { min: 0 },
+  "flow.peak_w": { min: 1 },
+  "flow.slow_below_w": { min: 0 },
+  "flow.more_dots_above_w": { min: 0 },
+  "flow.max_dots_at_w": { min: 0 },
+  "flow.full_speed_w": { min: 0 },
+  "flow.max_dots": { min: 2, max: 10, integer: true },
+  "flow.slow_s": { min: 0.1 },
+  "flow.fast_s": { min: 0.1 },
+  "flow.dot_size": { min: 40, max: 150 },
+  "flow.line_width": { min: 30, max: 150 },
+  "consumers.min_w": { min: 0 },
+  "nodes.size": { min: 60, max: 150 },
+};
+
+/**
+ * A number within its limits: a fraction in a whole-number field rounded, a
+ * value outside drawn to the nearer limit - with a warning and a note, never
+ * an error card. Typing passes "1" on the way to "15" and "0" on the way to
+ * "0.5" (E-1, Markus 22.10.2026). Text where a number belongs still fails:
+ * only YAML can write that.
+ */
+function readLimited(
+  value: unknown,
+  field: string,
+  fallback: number,
+  hass?: HomeAssistant,
+  limits = NUMBER_LIMITS[field],
+): number {
+  let n = readNumber(value, field, fallback, hass);
+  if (limits.integer && !Number.isInteger(n)) {
+    n = Math.round(n);
+    console.warn(localize("error.config.rounded", hass, { field, value: n }));
+    notes?.push({ field, used: n, reason: "integer" });
+  }
+  const { min, max } = limits;
+  if (n < min || (max !== undefined && n > max)) {
+    const reason = n < min ? "min" : "max";
+    n = n < min ? min : (max as number);
+    console.warn(
+      max === undefined
+        ? localize("error.config.clamped_min", hass, { field, min, value: n })
+        : localize("error.config.clamped", hass, { field, min, max, value: n }),
+    );
+    notes?.push({ field, used: n, reason });
+  }
+  return n;
+}
+
+/**
+ * Values that must rise along a chain, each at least `gap` above the one
+ * before. Those someone set are sorted among themselves - two windows typed
+ * the wrong way round are swapped (Markus 22.10.2026: "einfach tauschen");
+ * a default gives way and is raised. Every value moved is noted (E-1).
+ */
+function ordered(
+  chain: readonly { field: string; value: number; set: boolean; gap: number }[],
+  hass?: HomeAssistant,
+): number[] {
+  const setAt = chain.flatMap((c, i) => (c.set ? [i] : []));
+  const sorted = setAt.map((i) => chain[i].value).sort((a, b) => a - b);
+  const out = chain.map((c) => c.value);
+  setAt.forEach((i, k) => {
+    out[i] = sorted[k];
+  });
+  // A default before a value someone set steps down below it, as far as its
+  // own lower limit allows; whatever is still out of order is then raised.
+  for (let i = out.length - 1; i > 0; i--) {
+    // Only before a value someone set: defaults among themselves keep their order.
+    if (!chain[i].set || chain[i - 1].set || out[i] >= out[i - 1] + chain[i].gap) continue;
+    const min = NUMBER_LIMITS[chain[i - 1].field]?.min ?? Number.NEGATIVE_INFINITY;
+    // Only where that settles it: otherwise the default stays and the value
+    // after it is raised - one change, not two.
+    if (out[i] - chain[i].gap >= min) out[i - 1] = out[i] - chain[i].gap;
+  }
+  for (let i = 1; i < out.length; i++) {
+    if (out[i] < out[i - 1] + chain[i].gap) out[i] = out[i - 1] + chain[i].gap;
+  }
+  const moved = chain.map((c, i) => out[i] !== c.value);
+  chain.forEach((c, i) => {
+    if (moved[i]) {
+      console.warn(localize("error.config.order_used", hass, { field: c.field, value: out[i] }));
+    }
+  });
+  // An order is a matter of both: the note stands at every value someone set
+  // and at every one moved, a default included (Markus 22.10.2026: "dann bei
+  // beiden Werten"). A default nothing happened to stays without one.
+  if (moved.some(Boolean)) {
+    chain.forEach((c, i) => {
+      if (c.set || moved[i]) notes?.push({ field: c.field, used: out[i], reason: "order" });
+    });
+  }
+  return out;
 }
 
 function inRange(
@@ -209,55 +323,6 @@ function inRange(
 ): number {
   if (value < min || value > max) throw fail("error.config.range", field, hass, { min, max });
   return value;
-}
-
-/**
- * A value outside its range is drawn to the nearer limit with a warning, not
- * refused: the editor's slider has a text field beside it, and on the way to
- * "100" it reports "1" (E-1).
- */
-function clamped(
-  value: number,
-  min: number,
-  max: number,
-  field: string,
-  hass?: HomeAssistant,
-): number {
-  if (value >= min && value <= max) return value;
-  const fixed = Math.min(max, Math.max(min, value));
-  console.warn(localize("error.config.clamped", hass, { field, min, max, value: fixed }));
-  return fixed;
-}
-
-function greaterThanZero(value: number, field: string, hass?: HomeAssistant): number {
-  if (value <= 0) throw fail("error.config.positive", field, hass);
-  return value;
-}
-
-/**
- * Two thresholds in the wrong order are repaired, not refused: the second is
- * raised to `a + step` with a warning. Both values are reachable from the GUI
- * (avg_short_minutes, flow.min_w), where a card that dies on "30 is not less
- * than 15" would leave the user stranded (REQ E-1). The label shows the value
- * actually used, so nothing is hidden.
- */
-function fixOrder(
-  a: number,
-  b: number,
-  step: number,
-  first: string,
-  second: string,
-  hass?: HomeAssistant,
-): number {
-  if (a < b) return b;
-  const fixed = a + step;
-  console.warn(localize("error.config.order_fixed", hass, { first, second, value: fixed }));
-  return fixed;
-}
-
-/** Like fixOrder, but equality is fine (flow.min_w may equal slow_below_w). */
-function fixOrderAtMost(a: number, b: number, first: string, second: string, hass?: HomeAssistant) {
-  return a <= b ? b : fixOrder(a, b, 0, first, second, hass);
 }
 
 function readEnum<T extends string>(
@@ -727,7 +792,7 @@ function readExtraField(
   const common: ExtraField = {
     entity,
     decimals: readDecimals(raw.decimals, `${field}.decimals`, hass),
-    size: clamped(readNumber(raw.size, `${field}.size`, 100, hass), 60, 150, `${field}.size`, hass),
+    size: readLimited(raw.size, `${field}.size`, 100, hass, NUMBER_LIMITS["nodes.size"]),
     weight: readEnum(raw.weight, EXTRA_WEIGHTS, `${field}.weight`, "normal", hass),
   };
   if (place === "inside") {
@@ -833,7 +898,7 @@ function readConsumers(
       icon: readString(entry.icon, `${field}.icon`, hass),
       minW: isUnset(entry.min_w)
         ? undefined
-        : atLeast(readNumber(entry.min_w, `${field}.min_w`, 0, hass), 0, `${field}.min_w`, hass),
+        : readLimited(entry.min_w, `${field}.min_w`, 0, hass, NUMBER_LIMITS["consumers.min_w"]),
       charge: readCharge(entry.charge, `${field}.charge`, hass),
     });
   }
@@ -858,7 +923,26 @@ function warnUnknownKeys(raw: Record<string, unknown>, hass?: HomeAssistant): vo
  * `hass` may be undefined: HA calls setConfig before assigning hass. It is
  * passed only so error messages can be localized (REQ E-1).
  */
-export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
+export function normalizeConfig(
+  raw: RawConfig,
+  hass?: HomeAssistant,
+  /** Filled with every number used instead of the one configured (E-1). */
+  collect?: ConfigNote[],
+): Config {
+  notes = collect;
+  // Asked for notes, the editor reads the configuration on every render;
+  // the card itself has said all of it in the console already.
+  const warn = console.warn;
+  if (collect) console.warn = () => undefined;
+  try {
+    return readConfig(raw, hass);
+  } finally {
+    notes = undefined;
+    console.warn = warn;
+  }
+}
+
+function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   const rawRecord = requireRecord(raw, "config", hass);
   warnUnknownKeys(rawRecord, hass);
 
@@ -910,126 +994,100 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   const colors = readColors(rawRecord.colors, hass);
   const consumers = readConsumers(rawRecord.consumers, colors.consumerPalette, hass);
 
-  const minConsumerW = atLeast(
-    readNumber(rawRecord.min_consumer_w, "min_consumer_w", 10, hass),
-    0,
-    "min_consumer_w",
-    hass,
-  );
+  const minConsumerW = readLimited(rawRecord.min_consumer_w, "min_consumer_w", 10, hass);
   // No limit configured means no limit at all (REQ section 3, L-4).
   const maxConsumers = isUnset(rawRecord.max_consumers)
     ? Number.POSITIVE_INFINITY
-    : atLeast(
-        readInteger(rawRecord.max_consumers, "max_consumers", 1, hass),
-        1,
-        "max_consumers",
-        hass,
-      );
-  const updateIntervalS = atLeast(
-    readNumber(rawRecord.update_interval_s, "update_interval_s", 5, hass),
-    1,
-    "update_interval_s",
-    hass,
-  );
+    : readLimited(rawRecord.max_consumers, "max_consumers", 1, hass);
+  const updateIntervalS = readLimited(rawRecord.update_interval_s, "update_interval_s", 5, hass);
 
   const rawList = readBlock(rawRecord.list, "list", hass);
   const rawRing = readBlock(rawRecord.ring, "ring", hass);
   const hasConsumers = consumers.length > 0;
 
   const rawView = readBlock(rawRecord.view, "view", hass);
-  const avgShortMinutes = inRange(
-    readInteger(rawView.avg_short_minutes, "view.avg_short_minutes", 2, hass),
-    1,
-    120,
-    "view.avg_short_minutes",
-    hass,
-  );
-  const avgLongMinutes = inRange(
-    readInteger(rawView.avg_long_minutes, "view.avg_long_minutes", 15, hass),
-    2,
-    240,
-    "view.avg_long_minutes",
-    hass,
-  );
-  const avgLongFixed = fixOrder(
-    avgShortMinutes,
-    avgLongMinutes,
-    1,
-    "view.avg_short_minutes",
-    "view.avg_long_minutes",
+  const [avgShortMinutes, avgLongFixed] = ordered(
+    [
+      {
+        field: "view.avg_short_minutes",
+        value: readLimited(rawView.avg_short_minutes, "view.avg_short_minutes", 2, hass),
+        set: !isUnset(rawView.avg_short_minutes),
+        gap: 0,
+      },
+      {
+        field: "view.avg_long_minutes",
+        value: readLimited(rawView.avg_long_minutes, "view.avg_long_minutes", 15, hass),
+        set: !isUnset(rawView.avg_long_minutes),
+        gap: 1,
+      },
+    ],
     hass,
   );
 
   const rawFlow = readBlock(rawRecord.flow, "flow", hass);
-  const minW = atLeast(readNumber(rawFlow.min_w, "flow.min_w", 10, hass), 0, "flow.min_w", hass);
+  const minW = readLimited(rawFlow.min_w, "flow.min_w", 10, hass);
   // peak_w sets the whole step rule at once - the three thresholds keep the
   // ratios of the defaults (500 / 2000 / 6000). An explicit threshold wins.
-  const peakW = greaterThanZero(
-    readNumber(rawFlow.peak_w, "flow.peak_w", 6000, hass),
-    "flow.peak_w",
+  const peakW = readLimited(rawFlow.peak_w, "flow.peak_w", 6000, hass);
+  const maxDots = readLimited(rawFlow.max_dots, "flow.max_dots", 5, hass);
+  // The step rule needs S1 <= S2 < S3 < S4.
+  const flowChain = (
+    [
+      ["flow.min_w", minW, rawFlow.min_w, 0],
+      ["flow.slow_below_w", peakW / 12, rawFlow.slow_below_w, 0],
+      ["flow.more_dots_above_w", peakW / 3, rawFlow.more_dots_above_w, 1],
+      ["flow.max_dots_at_w", peakW, rawFlow.max_dots_at_w, 1],
+    ] as const
+  ).map(([field, fallback, raw, gap]) => ({
+    field,
+    value: field === "flow.min_w" ? minW : readLimited(raw, field, fallback, hass),
+    set: !isUnset(raw),
+    gap,
+  }));
+  const [minWFixed, slowBelowFixed, moreDotsFixed, maxDotsAtFixed] = ordered(flowChain, hass);
+  const [fastS, slowSFixed] = ordered(
+    [
+      {
+        field: "flow.fast_s",
+        value: readLimited(rawFlow.fast_s, "flow.fast_s", 1.8, hass),
+        set: !isUnset(rawFlow.fast_s),
+        gap: 0,
+      },
+      {
+        field: "flow.slow_s",
+        value: readLimited(rawFlow.slow_s, "flow.slow_s", 5, hass),
+        set: !isUnset(rawFlow.slow_s),
+        gap: 1,
+      },
+    ],
     hass,
   );
-  const slowBelowW = readNumber(rawFlow.slow_below_w, "flow.slow_below_w", peakW / 12, hass);
-  const moreDotsAboveW = readNumber(
-    rawFlow.more_dots_above_w,
-    "flow.more_dots_above_w",
-    peakW / 3,
-    hass,
-  );
-  const maxDotsAtW = readNumber(rawFlow.max_dots_at_w, "flow.max_dots_at_w", peakW, hass);
-  const maxDots = inRange(
-    readInteger(rawFlow.max_dots, "flow.max_dots", 5, hass),
-    2,
-    10,
-    "flow.max_dots",
-    hass,
-  );
-  const slowS = greaterThanZero(
-    readNumber(rawFlow.slow_s, "flow.slow_s", 5, hass),
-    "flow.slow_s",
-    hass,
-  );
-  const fastS = greaterThanZero(
-    readNumber(rawFlow.fast_s, "flow.fast_s", 1.8, hass),
-    "flow.fast_s",
-    hass,
-  );
-  // The step rule needs S1 <= S2 < S3 < S4; a broken chain is pushed upwards.
-  const slowBelowFixed = fixOrderAtMost(minW, slowBelowW, "flow.min_w", "flow.slow_below_w", hass);
-  const moreDotsFixed = fixOrder(
-    slowBelowFixed,
-    moreDotsAboveW,
-    1,
-    "flow.slow_below_w",
-    "flow.more_dots_above_w",
-    hass,
-  );
-  const maxDotsAtFixed = fixOrder(
-    moreDotsFixed,
-    maxDotsAtW,
-    1,
-    "flow.more_dots_above_w",
-    "flow.max_dots_at_w",
-    hass,
-  );
-  const slowSFixed = fixOrder(fastS, slowS, 1, "flow.fast_s", "flow.slow_s", hass);
-  // Full speed and the second dot fall together unless told otherwise - and
-  // the default follows the repaired value, so one wrong input warns once.
-  const fullSpeedFixed = isUnset(rawFlow.full_speed_w)
-    ? moreDotsFixed
-    : fixOrder(
-        slowBelowFixed,
-        readNumber(rawFlow.full_speed_w, "flow.full_speed_w", moreDotsFixed, hass),
-        1,
-        "flow.slow_below_w",
-        "flow.full_speed_w",
-        hass,
+  // Full speed and the second dot fall together unless told otherwise; set,
+  // it lies above the slow threshold, which stays as the chain left it.
+  let fullSpeedFixed = moreDotsFixed;
+  if (!isUnset(rawFlow.full_speed_w)) {
+    fullSpeedFixed = readLimited(rawFlow.full_speed_w, "flow.full_speed_w", moreDotsFixed, hass);
+    if (fullSpeedFixed <= slowBelowFixed) {
+      fullSpeedFixed = slowBelowFixed + 1;
+      console.warn(
+        localize("error.config.order_used", hass, {
+          field: "flow.full_speed_w",
+          value: fullSpeedFixed,
+        }),
       );
+      notes?.push({ field: "flow.full_speed_w", used: fullSpeedFixed, reason: "order" });
+    }
+  }
 
   const buttons = readQuickButtons(rawView, rawList, grid, battery, hass);
 
   return {
     title: readString(rawRecord.title, "title", hass),
+    // A number is a name too ("memory_id: 1" in YAML).
+    memoryId:
+      typeof rawRecord.memory_id === "number"
+        ? String(rawRecord.memory_id)
+        : readString(rawRecord.memory_id, "memory_id", hass),
     sources: { solar, grid, battery, house, batterySoc },
     gridStatus,
     consumers,
@@ -1060,7 +1118,7 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       defaultEnergy: buttons.defaultEnergy,
     },
     flow: {
-      minW,
+      minW: minWFixed,
       slowBelowW: slowBelowFixed,
       fullSpeedW: fullSpeedFixed,
       moreDotsAboveW: moreDotsFixed,
@@ -1072,27 +1130,18 @@ export function normalizeConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       // Deliberately not readEnum: an id that is not in this build - because a
       // design was renamed or dropped - falls back to the plain dots instead of
       // making the card refuse its own configuration (P-10).
-      design: typeof rawFlow.design === "string" ? rawFlow.design : "none",
+      design:
+        typeof rawFlow.design === "string" && rawFlow.design.trim()
+          ? rawFlow.design.trim()
+          : "none",
       // An empty field in the editor means "no colour of its own", not the
       // empty string - which would paint every dot with nothing.
       dotColor:
         typeof rawFlow.dot_color === "string" && rawFlow.dot_color.trim()
           ? rawFlow.dot_color.trim()
           : undefined,
-      dotSize: clamped(
-        readNumber(rawFlow.dot_size, "flow.dot_size", 100, hass),
-        40,
-        150,
-        "flow.dot_size",
-        hass,
-      ),
-      lineWidth: clamped(
-        readNumber(rawFlow.line_width, "flow.line_width", 100, hass),
-        30,
-        150,
-        "flow.line_width",
-        hass,
-      ),
+      dotSize: readLimited(rawFlow.dot_size, "flow.dot_size", 100, hass),
+      lineWidth: readLimited(rawFlow.line_width, "flow.line_width", 100, hass),
       inactiveLines: readEnum(
         rawFlow.inactive_lines,
         INACTIVE_LINES,
@@ -1141,4 +1190,34 @@ export function collectEntityIds(config: Config): string[] {
   add(config.gridStatus?.entity);
   for (const consumer of config.consumers) add(consumer.entity);
   return ids;
+}
+
+/**
+ * A short random id for what a card remembers (REQ V-12): eight letters and
+ * digits. Not crypto.randomUUID(), which plain http does not offer.
+ */
+export function newMemoryId(): string {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
+}
+
+/** The card configs a part of a dashboard holds, stacks and sections included. */
+export function dashboardCards(node: unknown): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const visit = (n: unknown) => {
+    if (Array.isArray(n)) for (const each of n) visit(each);
+    else if (isRecord(n)) {
+      if (typeof n.type === "string") out.push(n);
+      for (const key of ["sections", "cards", "card"]) visit(n[key]);
+    }
+  };
+  visit(node);
+  return out;
+}
+
+/** A memory_id as the card reads it; undefined when there is none (V-12). */
+export function memoryIdOf(value: unknown): string | undefined {
+  if (typeof value === "number") return String(value);
+  return typeof value === "string" && value.trim() ? value : undefined;
 }

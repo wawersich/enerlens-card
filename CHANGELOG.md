@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   energy stays one. Start values: `view.default_mode`, `view.default_energy`,
   `list.default_scope`.
 
+- **Each card remembers for itself.** The editor gives every card a
+  `memory_id`; what its quick buttons were set to is kept per card and view,
+  so the same card twice side by side can show power and energy. Cards
+  without one share it per browser, as before.
+
 ### Changed
 - **Energy without configuration.** A card without `view.energy_periods`
   offers power, today, 24 h and week, if solar, grid, battery and house have
@@ -28,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`view.show_selector` is deprecated.** `false` still works and fixes every
   quick button on its start value; the editor turns it into the new lists.
   Remembered values no longer apply to such a card.
+- **Numbers never break the card.** A value outside its range - typed in the
+  editor on the way to another, or set in YAML - is drawn to the nearest
+  limit, a fraction in a whole-number field rounded, instead of the error
+  card. Two values set the wrong way round, such as the short and the long
+  average window, are swapped; a default gives way to a value you set. The
+  editor says in red under the field which value the card uses.
 - **One chip for the view** (#20). The three chips *Now*, *Ø 2 min* and
   *Ø 15 min* are now a single chip that steps through them on each tap and
   keeps its width while doing so.

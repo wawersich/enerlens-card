@@ -408,7 +408,17 @@ list:
 
 Ein Quick-Button mit mehreren Werten startet mit seinem Startwert -
 `view.default_mode`, `view.default_energy`, `list.default_scope` -, außer der
-Browser hat sich den letzten gemerkt (`view.remember`). Mittelwerte gibt es nur
+Browser hat sich den letzten gemerkt (`view.remember`). Jede Karte merkt sich das
+für sich: Der Editor gibt ihr eine `memory_id`, damit zwei Exemplare derselben
+Karte nebeneinander Verschiedenes zeigen können. Eine zweite Karte mit derselben
+Kennung in derselben Ansicht (eine duplizierte) merkt sich ebenfalls ihre
+eigenen Werte; eine Kopie in einer anderen Ansicht oder einem anderen Dashboard
+ist ohnehin getrennt. Karten, die nur in YAML stehen und keine `memory_id` haben,
+teilen sich wie bisher, was sie sich merken - ein beliebiger eigener Name trennt
+sie. Nach dem Update startet eine Karte mit Kennung einmal mit ihren Startwerten;
+was sie sich merkt, hängt an der Ansicht: In eine andere Ansicht verschoben, nach
+Umbenennen der Ansicht oder - bei einer Ansicht ohne eigenen `path` - nach dem
+Umsortieren der Ansichten startet sie einmal neu. Mittelwerte gibt es nur
 für die Leistung: Ohne `power` in `energy_periods` mittelt die Karte nie. In
 einem Zeitraum ist die Glättung ausgegraut.
 
@@ -596,7 +606,8 @@ zusätzliche Abfrage.
 | `view.default_mode` | `current` | Startwert der Glättung |
 | `view.avg_short_minutes` | `2` | Kurzes Mittelungsfenster |
 | `view.avg_long_minutes` | `15` | Langes Mittelungsfenster |
-| `view.remember` | `true` | Den letzten Wert jedes Quick-Buttons je Browser merken |
+| `view.remember` | `true` | Den letzten Wert jedes Quick-Buttons in diesem Browser merken |
+| `memory_id` | setzt der Editor | Was die Karte sich merkt, liegt je Ansicht unter dieser Kennung; jeder Name geht. Ohne sie teilen sich die Karten das |
 | `view.energy_periods` | `power`, `today`, `24h`, `week`, wenn die Statistik da ist | Quick-Button Leistung/Energie: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; einer = fest, `[power]` = keine Energie. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts |
 | `view.default_energy` | `power` | Startwert von Leistung/Energie |
 | `list.scope` | beide | Quick-Button Listenumfang: `filtered`, `full`; einer = fest |

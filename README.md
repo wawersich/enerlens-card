@@ -393,7 +393,15 @@ list:
 
 A button with several values starts with its start value - `view.default_mode`,
 `view.default_energy`, `list.default_scope` - unless the browser remembers the
-last one (`view.remember`). Averages exist for power only: without `power` in
+last one (`view.remember`). Each card remembers for itself: the editor gives it
+a `memory_id`, so two copies of the same card side by side can show different
+things. A second card with the same id in the same view (a duplicate) keeps
+its own values as well; a copy in another view or dashboard is apart anyway.
+Cards written in YAML without a `memory_id` share what they remember, as
+before - add any name of your own to separate them. After the update a card
+with an id starts once with its start values; what it remembers is tied to
+the view, so moving it to another view, renaming the view or - for a view
+without a `path` of its own - reordering the views starts it afresh once. Averages exist for power only: without `power` in
 `energy_periods` the card never averages. In a period the smoothing button is
 greyed out.
 
@@ -568,7 +576,8 @@ Without `grid_status` none of this exists — no strip, no X, no extra query.
 | `view.default_mode` | `current` | Start value of the smoothing |
 | `view.avg_short_minutes` | `2` | Short averaging window |
 | `view.avg_long_minutes` | `15` | Long averaging window |
-| `view.remember` | `true` | Remember the last value of each quick button per browser |
+| `view.remember` | `true` | Remember the last value of each quick button in this browser |
+| `memory_id` | set by the editor | What the card remembers is kept under this id, per view; any name will do. Without it, cards share it |
 | `view.energy_periods` | `power`, `today`, `24h`, `week` if the statistics are there | Quick button power/energy: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; one = fixed, `[power]` = no energy. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing |
 | `view.default_energy` | `power` | Start value of power/energy |
 | `list.scope` | both | Quick button list scope: `filtered`, `full`; one = fixed |
