@@ -24,9 +24,31 @@ default, both configurable; one chip in the header steps through *Now*,
 numbers. Clicking any element still opens Home Assistant's own dialog with the
 real history.
 
-**Energy without energy sensors.** A second chip switches to the energy of
-today, this week or this month, worked out from the statistics Home Assistant
-already keeps of the power sensors.
+**Energy instead of power.** At the tap of a button the card shows the energy of
+a period instead of the power: what came from the sun today, what the house used
+this week and how much went to the grid. The periods are today, 24 h, week, 7
+days, month and 30 days. No energy sensors needed: the card adds up the
+statistics Home Assistant already keeps of the power sensors. Gaps in them are
+filled and marked by colour. List and ring then show which consumer had how much
+of it. Import and export, or charge and discharge, take one sensor per direction
+– if you only have a signed one, a helper splits it (see [Energy over a
+period](#energy-over-a-period-optional)).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-energy.svg">
+  <img src="docs/images/card-en-light-energy.svg" alt="EnerLens Card in energy mode over 24 hours" width="690">
+</picture>
+
+**Quick buttons in the header.** Up to three buttons switch the view with one
+tap: now or average, power or energy, short or full consumer list. Which values
+a button offers is up to you; with a single value it disappears and the card
+shows the same on every device. Every card remembers where it was left (see
+[Quick buttons](#quick-buttons-optional)).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-en-dark-quick.svg">
+  <img src="docs/images/card-en-light-quick.svg" alt="The quick buttons: now, kW and the filter button" width="215">
+</picture>
 
 **The consumer list sorts itself and glides.** Rows reorder by power on a fixed
 beat and slide to their new position. A small filter button at the top shows
@@ -377,11 +399,11 @@ The header has up to three quick buttons; each tap steps to the next value:
 | **Power/energy** | power, energy over a period | `view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` | `power`, `today`, `24h`, `week` - see below |
 | **List scope** | filtered list, every consumer | `list.scope`: `filtered`, `full` | both |
 
-List the values a button should offer. **One value means fixed**: the button
-is gone and the card always shows that value, on every device and for every
-user - a card set up for energy stays one. Fixed values other than the live
-view are named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for
-a live reading.
+List the values a button should offer. **One value means fixed**: the button is
+gone and the card always shows that value, on every device and for every user -
+a card set up for energy stays one. Fixed values other than the live view are
+named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for a
+live reading.
 
 ```yaml
 view:
@@ -395,15 +417,15 @@ A button with several values starts with its start value - `view.default_mode`,
 `view.default_energy`, `list.default_scope` - unless the browser remembers the
 last one (`view.remember`). Each card remembers for itself: the editor gives it
 a `memory_id`, so two copies of the same card side by side can show different
-things. A second card with the same id in the same view (a duplicate) keeps
-its own values as well; a copy in another view or dashboard is apart anyway.
-Cards written in YAML without a `memory_id` share what they remember, as
-before - add any name of your own to separate them. After the update a card
-with an id starts once with its start values; what it remembers is tied to
-the view, so moving it to another view, renaming the view or - for a view
-without a `path` of its own - reordering the views starts it afresh once. Averages exist for power only: without `power` in
-`energy_periods` the card never averages. In a period the smoothing button is
-greyed out.
+things. A second card with the same id in the same view (a duplicate) keeps its
+own values as well; a copy in another view or dashboard is apart anyway. Cards
+written in YAML without a `memory_id` share what they remember, as before - add
+any name of your own to separate them. After the update a card with an id starts
+once with its start values; what it remembers is tied to the view, so moving it
+to another view, renaming the view or - for a view without a `path` of its own -
+reordering the views starts it afresh once. Averages exist for power only:
+without `power` in `energy_periods` the card never averages. In a period the
+smoothing button is greyed out.
 
 **The energy default.** With no `energy_periods` set, the card offers power,
 today, 24 h and week - but only when solar, grid, battery and house all have
@@ -463,14 +485,14 @@ statistics only about ten days - up to an hour shorter, never made up.
 - Tapping a node still opens its history.
 
 **One sensor or two for grid and battery.** An hourly mean of a signed sensor
-cannot tell how much went each way - on most days the grid does both - only
-the balance is exact. So with a single signed sensor the **grid** shows one
-figure, its balance (→ net import, ← net export), which is also what its dots
-show, and the **battery** shows no figure and no flow. PV, house and consumers are exact either way. A *derived* grid or battery
-(see above) does not work with the energy mode: the option is locked in the
-editor and the quick button does not appear. To see both
-directions, give the card two sensors each - two *Template → Sensor* helpers
-split a signed one (unit `W`, device class `power`, state class
+cannot tell how much went each way - on most days the grid does both - only the
+balance is exact. So with a single signed sensor the **grid** shows one figure,
+its balance (→ net import, ← net export), which is also what its dots show, and
+the **battery** shows no figure and no flow. PV, house and consumers are exact
+either way. A *derived* grid or battery (see above) does not work with the
+energy mode: the option is locked in the editor and the quick button does not
+appear. To see both directions, give the card two sensors each - two *Template →
+Sensor* helpers split a signed one (unit `W`, device class `power`, state class
 `measurement`):
 
 ```jinja
@@ -479,6 +501,18 @@ split a signed one (unit `W`, device class `power`, state class
 {# export #}
 {{ [-(states('sensor.grid_power')|float), 0]|max if has_value('sensor.grid_power') else none }}
 ```
+
+The battery works the same way; positive means discharge there:
+
+```jinja
+{# discharge #}
+{{ [states('sensor.battery_power')|float, 0]|max if has_value('sensor.battery_power') else none }}
+{# charge #}
+{{ [-(states('sensor.battery_power')|float), 0]|max if has_value('sensor.battery_power') else none }}
+```
+
+If your sensor reports it the other way round (charging positive), swap the two
+templates.
 
 `none` while the sensor is unavailable keeps an outage out of the statistics
 as a gap, rather than as a measured zero.
@@ -619,10 +653,10 @@ energy flows.
 
 ### Colours
 
-Every colour the card has sits under **Colours** in the editor: the seven
-nodes, the extra values (one row per value set up), one row per consumer, and
-the stops of the state-of-charge gradient. Each row shows the colour the card is painting on the left and the
-configured value on the right — `Default` while none is set.
+Every colour the card has sits under **Colours** in the editor: the seven nodes,
+the extra values (one row per value set up), one row per consumer, and the stops
+of the state-of-charge gradient. Each row shows the colour the card is painting
+on the left and the configured value on the right — `Default` while none is set.
 
 Clicking the swatch opens the picker: a saturation and brightness field over a
 hue strip, with the value below it as hex or, switched over, as sliders for RGB

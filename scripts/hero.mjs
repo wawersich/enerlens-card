@@ -15,6 +15,8 @@
  *   npm run build && npm run hero -- --below       # Liste unter dem Kreuz
  *   npm run build && npm run hero -- --fade        # Ring blendet Farben über
  *   npm run build && npm run hero -- --extras      # Zusatzwerte an den Knoten
+ *   npm run build && npm run hero -- --energy      # Energie der letzten 24 h
+ *   npm run build && npm run hero -- --quick       # nur die Quick-Buttons
  *
  * Needs Chromium (`apk add chromium` on the HA box, not persistent).
  */
@@ -40,6 +42,10 @@ const below = process.argv.includes("--below");
 const fade = process.argv.includes("--fade");
 /* Extra values at all four nodes (REQ Z-1 to Z-6, issue #9). */
 const extras = process.argv.includes("--extras");
+/* Energy over the last 24 hours, from invented statistics (REQ 2.15). */
+const energy = process.argv.includes("--energy");
+/* Only the quick buttons in the header, as a small picture (REQ QB). */
+const quick = process.argv.includes("--quick");
 
 /** One picture per language and colour scheme; the README picks with <picture>. */
 const VARIANTS = [
@@ -68,7 +74,7 @@ if (!browser) {
 }
 
 function exportOne({ lang, dark }) {
-  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}${outage ? "&outage" : ""}${below ? "&below" : ""}${fade ? "&fade" : ""}${extras ? "&extras" : ""}`;
+  const query = `?lang=${lang}${dark ? "&dark" : ""}${flowOnly ? "&scenes=1" : ""}${outage ? "&outage" : ""}${below ? "&below" : ""}${fade ? "&fade" : ""}${extras ? "&extras" : ""}${energy ? "&energy" : ""}${quick ? "&quick" : ""}`;
   const dom = execFileSync(
     browser,
     [
@@ -99,7 +105,8 @@ function exportOne({ lang, dark }) {
     .replace(/&amp;/g, "&");
 
   const dots = (svg.match(/<animateMotion/g) ?? []).length;
-  if (dots === 0) {
+  // The quick buttons have no lines, so no dots either.
+  if (dots === 0 && !quick) {
     // How the earlier mistake would have slipped through: the picture looked
     // right while every dot ran at one speed, because a pending playback rate
     // reads back as 1 until the animation is ready.
@@ -107,7 +114,7 @@ function exportOne({ lang, dark }) {
     process.exit(1);
   }
 
-  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}${outage ? "-outage" : ""}${below ? "-below" : ""}${fade ? "-fade" : ""}${extras ? "-extras" : ""}.svg`;
+  const name = `card-${lang}-${dark ? "dark" : "light"}${flowOnly ? "-flow" : ""}${outage ? "-outage" : ""}${below ? "-below" : ""}${fade ? "-fade" : ""}${extras ? "-extras" : ""}${energy ? "-energy" : ""}${quick ? "-quick" : ""}.svg`;
   const target = resolve(repo, "docs/images", name);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, svg);

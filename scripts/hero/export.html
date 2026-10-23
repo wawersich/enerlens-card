@@ -18,12 +18,17 @@
   });
   const CACHE = new Map();
   customElements.define("ha-icon", class extends HTMLElement {
+    // The size lives in :host, as in Home Assistant's own ha-icon - not in an
+    // inline style, which the card's style="color:..." replaces on a re-render
+    // (the energy view): the element then filled the node and pushed the
+    // figures out of the circle.
+    constructor(){ super(); this.attachShadow({ mode: "open" }).innerHTML =
+      "<style>:host{display:inline-flex;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}</style><slot></slot>"; }
     set icon(v){ this._i = v; this._r(); }
     // The outage banner sets `icon` as an attribute, not as a property.
-    connectedCallback(){ this.style.display="inline-flex"; this._i ??= this.getAttribute("icon"); this._r(); }
+    connectedCallback(){ this._i ??= this.getAttribute("icon"); this._r(); }
     async _r(){
       const n = (this._i||"").replace(/^mdi:/,""); if(!n) return;
-      this.style.width = this.style.height = "var(--mdc-icon-size, 24px)";
       if(!CACHE.has(n)) CACHE.set(n, fetch(`https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/${n}.svg`)
         .then(r=>r.ok?r.text():"").then(t=>(t.match(/ d="([^"]+)"/)||[])[1]||"").catch(()=>""));
       const d = await CACHE.get(n); if(!d) return;
@@ -61,8 +66,14 @@ const FADE = params.has("fade");
 /* Extra values at all four nodes (REQ Z-1 to Z-6, issue #9), one quiet scene:
  * the subject is what stands at the circles, not the list at work. */
 const EXTRAS = params.has("extras");
+/* Energy over the last 24 hours (REQ 2.15), one quiet scene. "24 h" rather
+ * than "today": a rolling day looks the same whenever the picture is made. */
+const ENERGY = params.has("energy");
+/* Only the quick buttons in the header (REQ QB), as a small picture of their
+ * own - the README explains them without showing the whole card again. */
+const QUICK = params.has("quick");
 if (BELOW) document.getElementById("host").style.width = "440px";
-const RESORT = params.get("scenes") !== "1" && !OUTAGE && !EXTRAS;
+const RESORT = params.get("scenes") !== "1" && !OUTAGE && !EXTRAS && !ENERGY && !QUICK;
 if (params.has("dark")) {
   const dark = {
     "--ha-card-background": "#1d1e21",
@@ -137,13 +148,76 @@ const extraStates = EXTRAS ? [
   E("sensor.pv_today", 23.42, "kWh"), E("sensor.pv_forecast", 6.81, "kWh"),
   E("sensor.import_today", 1.24, "kWh"), E("sensor.autarky", 92, "%"), E("sensor.battery_left", 7.9, "kWh"),
 ] : [];
-const states = { ...scene(0), ...Object.fromEntries(extraStates) };
+/* The energy picture shows both directions of grid and battery, which takes
+ * one sensor per direction (REQ 2.15) - a signed one only gives the balance. */
+const splitStates = ENERGY ? [
+  W("sensor.gi", 0), W("sensor.ge", 300), W("sensor.bd", 0), W("sensor.bc", 600),
+] : [];
+const states = { ...scene(0), ...Object.fromEntries(extraStates), ...Object.fromEntries(splitStates) };
+
+/* ------------------------------------------------------------ statistics
+ * The energy mode integrates Home Assistant's long-term statistics. This
+ * page has none, so it answers the two recorder calls itself with an
+ * invented day that adds up: PV as an arc over the day, the consumers at
+ * plausible hours, the battery taking the surplus and covering the evening,
+ * the grid the rest. Signed like the sensors: grid + = import, battery + =
+ * discharge.
+ */
+const POWER_IDS = ["sensor.s", "sensor.g", "sensor.h", "sensor.b",
+  "sensor.gi", "sensor.ge", "sensor.bd", "sensor.bc",
+  "sensor.c1", "sensor.c2", "sensor.c3", "sensor.c4", "sensor.wb"];
+function powersAt(time) {
+  const h = new Date(time).getHours() + new Date(time).getMinutes() / 60;
+  const s = h > 6 && h < 20 ? Math.round(8200 * Math.sin((Math.PI * (h - 6)) / 14)) : 0;
+  const c1 = h < 7 || h > 21 ? 1400 : 700;
+  const c2 = h >= 10 && h < 12 ? 2000 : 0;
+  const c3 = h >= 13 && h < 17 ? 900 : 0;
+  const c4 = 120;
+  const wb = h >= 11 && h < 15 ? 3700 : 0;
+  const house = 450 + c1 + c2 + c3 + c4 + wb;
+  const surplus = s - house;
+  const b = surplus > 0 ? -Math.min(surplus, 3000) : Math.min(-surplus, h > 17 || h < 1 ? 2500 : 0);
+  const g = house - s - b;
+  return { "sensor.s": s, "sensor.g": g, "sensor.h": house, "sensor.b": b,
+    "sensor.gi": Math.max(g, 0), "sensor.ge": Math.max(-g, 0),
+    "sensor.bd": Math.max(b, 0), "sensor.bc": Math.max(-b, 0),
+    "sensor.c1": c1, "sensor.c2": c2, "sensor.c3": c3, "sensor.c4": c4, "sensor.wb": wb };
+}
+const STAT_STEP = { "5minute": 300e3, hour: 3600e3, day: 86400e3 };
+async function recorder(msg) {
+  if (msg.type === "recorder/get_statistics_metadata") {
+    return msg.statistic_ids.map((id) => ({ statistic_id: id, mean_type: 1, has_mean: true,
+      unit_class: "power", statistics_unit_of_measurement: "W" }));
+  }
+  if (msg.type === "recorder/statistics_during_period") {
+    const step = STAT_STEP[msg.period];
+    const end = msg.end_time ? Date.parse(msg.end_time) : Date.now();
+    const out = {};
+    for (const id of msg.statistic_ids.filter((x) => POWER_IDS.includes(x))) out[id] = [];
+    for (let t = Math.ceil(Date.parse(msg.start_time) / step) * step; t + step <= end; t += step) {
+      // A row's mean over its whole span, sampled every five minutes.
+      const n = Math.max(1, Math.round(step / 300e3));
+      const sum = {};
+      for (let k = 0; k < n; k++) {
+        const p = powersAt(t + (k + 0.5) * (step / n));
+        for (const id of Object.keys(out)) sum[id] = (sum[id] ?? 0) + p[id];
+      }
+      for (const id of Object.keys(out)) out[id].push({ start: t, mean: sum[id] / n });
+    }
+    return out;
+  }
+  return {};
+}
+const callWS = ENERGY || QUICK ? recorder : async () => ({});
 
 await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
 card.setConfig({
   type: "custom:enerlens-card", title: TEXT.title,
-  entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b", battery_soc: "sensor.soc",
+  entities: { solar: "sensor.s", house: "sensor.h", battery_soc: "sensor.soc",
+    ...(ENERGY
+      ? { grid: { import: "sensor.gi", export: "sensor.ge" }, battery: { discharge: "sensor.bd", charge: "sensor.bc" } }
+      : { grid: "sensor.g", battery: "sensor.b" }),
     ...(OUTAGE ? { grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] } } : {}) },
   consumers: [
     { entity: "sensor.c1", name: TEXT.c1, icon: "mdi:heat-wave" },
@@ -172,7 +246,8 @@ card.setConfig({
   update_interval_s: 2,
   // The quick button power/energy as a card with statistics shows it. Set
   // explicitly: this page has no statistics to check the default against.
-  view: { energy_periods: ["power", "today", "24h", "week"] },
+  view: { energy_periods: ["power", "today", "24h", "week"],
+    ...(ENERGY ? { default_energy: "24h" } : {}) },
   ...(BELOW ? { list: { always_below: true } } : {}),
   ...(FADE ? { ring: { animation: "fade" } } : {}),
   // PV and house without their names: with no state word beside them the icon
@@ -188,14 +263,19 @@ card.setConfig({
     battery: { label: { entity: "sensor.battery_left", prefix: TEXT.left, decimals: 1 } },
   } } : {}),
 });
-card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
+card.hass = { states, locale: { language: lang, number_format: "language" }, language: lang, callWS };
 document.getElementById("host").appendChild(card);
 await card.updateComplete;
 await new Promise((r) => setTimeout(r, 400));
 // A pending playback rate only becomes the real one once the animation is
 // ready. Reading it before that gives 1 for every dot - every speed the card
 // encodes would silently collapse into one.
-await Promise.all(card.shadowRoot.getAnimations().map((a) => a.ready.catch(() => {})));
+// Raced against a timeout like in settle() below: under the headless
+// virtual clock `ready` can stay pending for good, and the page stays blank.
+await Promise.race([
+  Promise.all(card.shadowRoot.getAnimations().map((a) => a.ready.catch(() => {}))),
+  new Promise((r) => setTimeout(r, 1500)),
+]);
 await new Promise((r) => requestAnimationFrame(() => r()));
 
 /* ------------------------------------------------------------------ export
@@ -411,7 +491,7 @@ function snapshot() {
 }
 
 const setScene = (i) => {
-  card.hass = { states: scene(i), locale: { language: lang, number_format: "language" }, language: lang, callWS: async () => ({}) };
+  card.hass = { states: scene(i), locale: { language: lang, number_format: "language" }, language: lang, callWS };
 };
 /* The list re-sorts on the beat, not on the reading (REQ L-7), so every further
  * snapshot has to wait for one - otherwise the scenes come out identical. */
@@ -419,6 +499,15 @@ async function reach(i) {
   setScene(i);
   for (const a of root.getAnimations()) a.play();
   await new Promise((r) => setTimeout(r, 2 * 1000 + 900));
+  await settle();
+}
+/* The energy figures arrive after the first render, from the statistics
+ * answered above; the list then re-sorts on its next beat and glides there.
+ * A snapshot before that caught the rows 44 px low in mid-glide, and the fan,
+ * drawn to the measured rows, sat off the house. Wait out a beat and the
+ * glide, then settle as usual. */
+if (ENERGY) {
+  await pause(2 * 1000 + 900);
   await settle();
 }
 const SNAPS = [snapshot()];
@@ -490,8 +579,40 @@ function iconOf(host, colour) {
   const path = svg?.querySelector("path");
   if (!path) return "";
   const b = host.getBoundingClientRect();
-  const scale = b.width / 24;
-  return `<g transform="translate(${X(b.left)},${Y(b.top)}) scale(${scale.toFixed(4)})"><path d="${path.getAttribute("d")}" fill="${colour}"/></g>`;
+  // The stub sizes itself like Home Assistant's ha-icon (:host at
+  // --mdc-icon-size), so its box is the glyph's; a square in its middle
+  // guards against a layout that stretches one side.
+  const size = Math.min(b.width, b.height);
+  const left = b.left + (b.width - size) / 2, top = b.top + (b.height - size) / 2;
+  return `<g transform="translate(${X(left)},${Y(top)}) scale(${(size / 24).toFixed(4)})"><path d="${path.getAttribute("d")}" fill="${colour}"/></g>`;
+}
+
+/**
+ * An energy figure (REQ EM-5): its direction arrow, a small SVG of its own,
+ * and the figure beside it. The text is measured without the arrow - the
+ * element's range would include it and squeeze the figure into its width.
+ */
+function figureOf(el) {
+  const parts = [];
+  const arrow = el.querySelector("svg.arrow");
+  if (arrow) {
+    const ab = arrow.getBoundingClientRect();
+    const st = getComputedStyle(arrow);
+    const d = [...arrow.querySelectorAll("path")].map((p) => `<path d="${p.getAttribute("d")}"/>`).join("");
+    parts.push(`<svg x="${X(ab.left)}" y="${Y(ab.top)}" width="${ab.width.toFixed(1)}" height="${ab.height.toFixed(1)}" viewBox="${arrow.getAttribute("viewBox")}" overflow="visible">` +
+      `<g fill="none" stroke="${st.color}" stroke-width="${parseFloat(st.strokeWidth)}" stroke-linecap="round" stroke-linejoin="round">${d}</g></svg>`);
+  }
+  const range = document.createRange();
+  const texts = [...el.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+  if (texts.length === 0) return parts.join("");
+  range.setStart(texts[0], 0);
+  range.setEnd(texts[texts.length - 1], texts[texts.length - 1].length);
+  const tb = range.getBoundingClientRect();
+  const ls = getComputedStyle(el);
+  const baseline = Y(tb.top + tb.height / 2 + parseFloat(ls.fontSize) * 0.35);
+  const text = texts.map((n) => n.textContent).join("").trim();
+  parts.push(`<text x="${X(tb.left)}" y="${baseline}" text-anchor="start" font-size="${parseFloat(ls.fontSize).toFixed(1)}" font-weight="${ls.fontWeight}" fill="${ls.color}" font-family="Roboto, system-ui, sans-serif" textLength="${tb.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(text)}</text>`);
+  return parts.join("");
 }
 
 /** One <text> per line, pinned to the width it was measured at. */
@@ -563,7 +684,11 @@ for (const node of root.querySelectorAll(".node")) {
     out.push(`<g transform="translate(${X(xb.left)},${Y(xb.top)}) scale(${(xb.width / 24).toFixed(4)})" fill="none" stroke="${xs.stroke}" stroke-width="${parseFloat(xs.strokeWidth)}" stroke-linecap="round">` +
       [...cross.querySelectorAll("path")].map((p) => `<path d="${p.getAttribute("d")}"/>`).join("") + `</g>`);
   }
-  for (const v of node.querySelectorAll(".value, .extra-inside")) out.push(textOf(v));
+  for (const v of node.querySelectorAll(".value, .extra-inside")) {
+    // In a period the inside field keeps its room unseen (REQ EM-6).
+    if (getComputedStyle(v).visibility === "hidden") continue;
+    out.push(v.classList.contains("figure") ? figureOf(v) : textOf(v));
+  }
   out.push(textOf(node.querySelector(".label")));
 }
 
@@ -580,7 +705,15 @@ if (banner) {
 // --- header ----------------------------------------------------------------
 const title = root.querySelector(".title");
 if (title) out.push(textOf(title, "start"));
+/* Where the quick buttons begin in `out`, and the box around them. */
+const quickFrom = out.length;
+const quickBox = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
 for (const chip of root.querySelectorAll(".mode-chip, .filter-toggle")) {
+  const qb = chip.getBoundingClientRect();
+  quickBox.left = Math.min(quickBox.left, X(qb.left));
+  quickBox.top = Math.min(quickBox.top, Y(qb.top));
+  quickBox.right = Math.max(quickBox.right, X(qb.right));
+  quickBox.bottom = Math.max(quickBox.bottom, Y(qb.bottom));
   const b = chip.getBoundingClientRect();
   const st = getComputedStyle(chip);
   // A pill is a huge border-radius in CSS; SVG clamps rx and ry per axis, so
@@ -591,6 +724,7 @@ for (const chip of root.querySelectorAll(".mode-chip, .filter-toggle")) {
   if (chip.classList.contains("mode-chip")) out.push(textOf(chip.querySelector(".mode-label.active")));
   else out.push(iconOf(chip.querySelector("ha-icon"), st.color));
 }
+const quickTo = out.length;
 
 // --- list rows: they glide, and two of them trade figures -------------------
 for (const row of root.querySelectorAll(".row")) {
@@ -650,7 +784,16 @@ for (const row of root.querySelectorAll(".row")) {
 const originIcon = root.querySelector(".origin-icon");
 if (originIcon) out.push(iconOf(originIcon, getComputedStyle(originIcon).color));
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;
+/* The quick buttons alone: the card's ground behind them, nothing else, and
+ * a frame of a few pixels so the outer chips' borders are not cut. */
+const PAD = 8;
+const qx = quickBox.left - PAD, qy = quickBox.top - PAD;
+const qw = quickBox.right - quickBox.left + 2 * PAD, qh = quickBox.bottom - quickBox.top + 2 * PAD;
+const svg = QUICK
+  ? `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${qw.toFixed(0)}" height="${qh.toFixed(0)}" viewBox="${qx.toFixed(1)} ${qy.toFixed(1)} ${qw.toFixed(1)} ${qh.toFixed(1)}" role="img" aria-label="EnerLens Card quick buttons">\n` +
+    `<rect x="${qx.toFixed(1)}" y="${qy.toFixed(1)}" width="${qw.toFixed(1)}" height="${qh.toFixed(1)}" rx="10" fill="${cs(shell ?? card, "background-color")}"/>\n` +
+    `${out.slice(quickFrom, quickTo).join("\n")}\n</svg>\n`
+  : `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${card0.width.toFixed(0)}" height="${card0.height.toFixed(0)}" viewBox="0 0 ${card0.width.toFixed(0)} ${card0.height.toFixed(0)}" role="img" aria-label="EnerLens Card">\n${out.join("\n")}\n</svg>\n`;
 document.getElementById("out").textContent = svg;
 document.title = `svg ${svg.length}`;
 </script></body></html>

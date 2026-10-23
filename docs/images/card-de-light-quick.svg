@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="215" height="52" viewBox="436.9 4.0 215.1 52.0" role="img" aria-label="EnerLens Card quick buttons">
+<rect x="436.9" y="4.0" width="215.1" height="52.0" rx="10" fill="rgb(255, 255, 255)"/>
+<rect x="444.9" y="12" width="81.0" height="36.0" rx="18.0" ry="18.0" fill="rgba(0, 0, 0, 0)" stroke="rgb(3, 169, 244)" stroke-width="1"/>
+<text x="485.4" y="34.2" text-anchor="middle" font-size="12.0" font-weight="400" fill="rgb(3, 169, 244)" font-family="Roboto, system-ui, sans-serif" textLength="26.6" lengthAdjust="spacingAndGlyphs">Jetzt</text>
+<rect x="533.9" y="12" width="66.1" height="36.0" rx="18.0" ry="18.0" fill="rgba(0, 0, 0, 0)" stroke="rgb(3, 169, 244)" stroke-width="1"/>
+<text x="566.9" y="34.2" text-anchor="middle" font-size="12.0" font-weight="400" fill="rgb(3, 169, 244)" font-family="Roboto, system-ui, sans-serif" textLength="18.8" lengthAdjust="spacingAndGlyphs">kW</text>
+<rect x="608" y="12" width="36.0" height="36.0" rx="18.0" ry="18.0" fill="rgba(0, 0, 0, 0)" stroke="rgba(127, 127, 127, 0.3)" stroke-width="1"/>
+<g transform="translate(617,21) scale(0.7500)"><path d="M15,19.88C15.04,20.18 14.94,20.5 14.71,20.71C14.32,21.1 13.69,21.1 13.3,20.71L9.29,16.7C9.06,16.47 8.96,16.16 9,15.87V10.75L4.21,4.62C3.87,4.19 3.95,3.56 4.38,3.22C4.57,3.08 4.78,3 5,3V3H19V3C19.22,3 19.43,3.08 19.62,3.22C20.05,3.56 20.13,4.19 19.79,4.62L15,10.75V19.88M7.04,5L11,10.06V15.58L13,17.58V10.05L16.96,5H7.04Z" fill="rgb(114, 114, 114)"/></g>
+</svg>

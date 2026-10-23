@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **The README shows the energy mode and the quick buttons** at the top, each
+  with a picture of its own - the card over 24 hours in kWh, and the buttons
+  alone. The energy chapter has a helper example for the battery as well as
+  the grid.
+
 ## [0.11.0] - 2026-10-22
 
 ### Added

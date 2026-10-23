@@ -26,9 +26,33 @@ um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
 Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
 von Home Assistant mit der echten Historie.
 
-**Energie ohne Energie-Sensoren.** Ein zweiter Chip schaltet auf die Energie
-von heute, dieser Woche oder diesem Monat, berechnet aus der Statistik, die
-Home Assistant von den Leistungssensoren ohnehin führt.
+**Energie statt Leistung.** Auf Knopfdruck zeigt die Karte statt der Leistung
+die Energie eines Zeitraums: was heute von der Sonne kam, was das Haus diese
+Woche verbraucht hat und wie viel ins Netz ging. Zur Wahl stehen Heute, 24 h,
+Woche, 7 Tage, Monat und 30 Tage. Energie-Sensoren braucht es dafür nicht: Die
+Karte summiert die Statistik, die Home Assistant von den Leistungssensoren
+ohnehin führt. Lücken darin werden gefüllt und farblich markiert. Liste und Ring
+zeigen dann, welcher Verbraucher wie viel davon hatte. Für Bezug und Einspeisung
+bzw. Laden und Entladen braucht es je Richtung einen Sensor – hat man nur einen
+mit Vorzeichen, teilt ihn ein Helfer auf (siehe [Energie für einen
+Zeitraum](#energie-für-einen-zeitraum-optional)).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-energy.svg">
+  <img src="docs/images/card-de-light-energy.svg" alt="EnerLens Card im Energie-Modus über 24 Stunden" width="690">
+</picture>
+
+**Quick-Buttons im Kopf.** Bis zu drei Knöpfe schalten die Ansicht mit einem
+Tipp: Jetzt oder Mittelwert, Leistung oder Energie, kurze oder ganze
+Verbraucherliste. Welche Werte ein Knopf anbietet, ist einstellbar; mit nur
+einem Wert verschwindet er, und die Karte zeigt auf jedem Gerät dasselbe. Jede
+Karte merkt sich, worauf sie zuletzt stand (siehe
+[Quick-Buttons](#quick-buttons-optional)).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/card-de-dark-quick.svg">
+  <img src="docs/images/card-de-light-quick.svg" alt="Die Quick-Buttons: Jetzt, kW und der Filterknopf" width="215">
+</picture>
 
 **Die Verbraucher-Liste sortiert sich und gleitet.** Zeilen ordnen sich im
 festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
@@ -395,8 +419,8 @@ nächsten Wert:
 Eingetragen wird, was ein Quick-Button anbieten soll. **Ein Wert heißt fest**:
 Der Knopf entfällt, und die Karte zeigt immer diesen Wert - auf jedem Gerät, für
 jeden Nutzer. Eine als Energie-Karte eingerichtete Karte bleibt also eine. Feste
-Werte außer der Augenblicksansicht nennt der Kopf („Ø 15 min“, „Energie: Monat“), damit
-niemand sie für einen Live-Wert hält.
+Werte außer der Augenblicksansicht nennt der Kopf („Ø 15 min“, „Energie:
+Monat“), damit niemand sie für einen Live-Wert hält.
 
 ```yaml
 view:
@@ -408,19 +432,19 @@ list:
 
 Ein Quick-Button mit mehreren Werten startet mit seinem Startwert -
 `view.default_mode`, `view.default_energy`, `list.default_scope` -, außer der
-Browser hat sich den letzten gemerkt (`view.remember`). Jede Karte merkt sich das
-für sich: Der Editor gibt ihr eine `memory_id`, damit zwei Exemplare derselben
-Karte nebeneinander Verschiedenes zeigen können. Eine zweite Karte mit derselben
-Kennung in derselben Ansicht (eine duplizierte) merkt sich ebenfalls ihre
-eigenen Werte; eine Kopie in einer anderen Ansicht oder einem anderen Dashboard
-ist ohnehin getrennt. Karten, die nur in YAML stehen und keine `memory_id` haben,
-teilen sich wie bisher, was sie sich merken - ein beliebiger eigener Name trennt
-sie. Nach dem Update startet eine Karte mit Kennung einmal mit ihren Startwerten;
-was sie sich merkt, hängt an der Ansicht: In eine andere Ansicht verschoben, nach
-Umbenennen der Ansicht oder - bei einer Ansicht ohne eigenen `path` - nach dem
-Umsortieren der Ansichten startet sie einmal neu. Mittelwerte gibt es nur
-für die Leistung: Ohne `power` in `energy_periods` mittelt die Karte nie. In
-einem Zeitraum ist die Glättung ausgegraut.
+Browser hat sich den letzten gemerkt (`view.remember`). Jede Karte merkt sich
+das für sich: Der Editor gibt ihr eine `memory_id`, damit zwei Exemplare
+derselben Karte nebeneinander Verschiedenes zeigen können. Eine zweite Karte mit
+derselben Kennung in derselben Ansicht (eine duplizierte) merkt sich ebenfalls
+ihre eigenen Werte; eine Kopie in einer anderen Ansicht oder einem anderen
+Dashboard ist ohnehin getrennt. Karten, die nur in YAML stehen und keine
+`memory_id` haben, teilen sich wie bisher, was sie sich merken - ein beliebiger
+eigener Name trennt sie. Nach dem Update startet eine Karte mit Kennung einmal
+mit ihren Startwerten; was sie sich merkt, hängt an der Ansicht: In eine andere
+Ansicht verschoben, nach Umbenennen der Ansicht oder - bei einer Ansicht ohne
+eigenen `path` - nach dem Umsortieren der Ansichten startet sie einmal neu.
+Mittelwerte gibt es nur für die Leistung: Ohne `power` in `energy_periods`
+mittelt die Karte nie. In einem Zeitraum ist die Glättung ausgegraut.
 
 **Der Energie-Standard.** Ist `energy_periods` nicht gesetzt, bietet die Karte
 Leistung, Heute, 24 h und Woche an - aber nur, wenn PV, Netz, Batterie und Haus
@@ -487,13 +511,13 @@ Sensors mit Vorzeichen lässt sich nicht trennen, wie viel in welche Richtung
 ging - an den meisten Tagen macht das Netz beides -, exakt ist nur der Saldo.
 Mit einem Sensor mit Vorzeichen zeigt das **Netz** deshalb einen Wert, seinen
 Saldo (→ netto bezogen, ← netto eingespeist), nach dem sich auch die Punkte
-richten, die **Batterie** keine Zahl und keinen Fluss.
-PV, Haus und Verbraucher sind in jedem Fall exakt. Mit *abgeleitetem* Netz
-oder abgeleiteter Batterie (siehe oben) geht der Energie-Modus nicht: Die
-Option ist im Editor gesperrt, und der Quick-Button erscheint nicht. Für beide Richtungen
-braucht die Karte je zwei Sensoren - zwei *Template → Sensor*-Helfer teilen
-einen Sensor mit Vorzeichen auf (Einheit `W`, Geräteklasse `power`,
-Zustandsklasse `measurement`):
+richten, die **Batterie** keine Zahl und keinen Fluss. PV, Haus und Verbraucher
+sind in jedem Fall exakt. Mit *abgeleitetem* Netz oder abgeleiteter Batterie
+(siehe oben) geht der Energie-Modus nicht: Die Option ist im Editor gesperrt,
+und der Quick-Button erscheint nicht. Für beide Richtungen braucht die Karte je
+zwei Sensoren - zwei *Template → Sensor*-Helfer teilen einen Sensor mit
+Vorzeichen auf (Einheit `W`, Geräteklasse `power`, Zustandsklasse
+`measurement`):
 
 ```jinja
 {# Bezug #}
@@ -501,6 +525,17 @@ Zustandsklasse `measurement`):
 {# Einspeisung #}
 {{ [-(states('sensor.netz_leistung')|float), 0]|max if has_value('sensor.netz_leistung') else none }}
 ```
+
+Bei der Batterie genauso; positiv heißt dort Entladen:
+
+```jinja
+{# Entladen #}
+{{ [states('sensor.batterie_leistung')|float, 0]|max if has_value('sensor.batterie_leistung') else none }}
+{# Laden #}
+{{ [-(states('sensor.batterie_leistung')|float), 0]|max if has_value('sensor.batterie_leistung') else none }}
+```
+
+Meldet der Sensor andersherum (Laden positiv), die beiden Vorlagen tauschen.
 
 `none`, solange der Sensor nicht verfügbar ist, hält einen Ausfall als Lücke
 aus der Statistik heraus, statt ihn als gemessene Null einzutragen.
@@ -649,10 +684,11 @@ Linie.
 
 ### Farben
 
-Alle Farben der Karte stehen im Editor unter **Farben**: die sieben Knoten,
-die Zusatzwerte (eine Zeile je eingerichtetem Wert), eine Zeile je Verbraucher
-und die Stufen des Ladezustands-Verlaufs. Jede Zeile zeigt links die Farbe, die die Karte gerade malt, und
-rechts den konfigurierten Wert — `Standard`, solange keiner gesetzt ist.
+Alle Farben der Karte stehen im Editor unter **Farben**: die sieben Knoten, die
+Zusatzwerte (eine Zeile je eingerichtetem Wert), eine Zeile je Verbraucher und
+die Stufen des Ladezustands-Verlaufs. Jede Zeile zeigt links die Farbe, die die
+Karte gerade malt, und rechts den konfigurierten Wert — `Standard`, solange
+keiner gesetzt ist.
 
 Ein Klick auf das Farbfeld öffnet den Farbwähler: eine Fläche für Sättigung und
 Helligkeit über einem Streifen für den Farbton, darunter der Wert als Hex oder,
