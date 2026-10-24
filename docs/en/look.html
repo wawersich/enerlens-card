@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colours and look – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/look.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Colours and look</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li class="current"><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Colours and look</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Every colour the card has sits under <strong>Colours</strong> in the editor: the seven nodes,
+the extra values (one row per value set up), one row per consumer, and the stops
+of the state-of-charge gradient. Each row shows the colour the card is painting
+on the left and the configured value on the right — <code>Default</code> while none is set.</p>
+</div>
+<div class="paragraph">
+<p>Clicking the swatch opens the picker: a saturation and brightness field over a
+hue strip, with the value below it as hex or, switched over, as sliders for RGB
+or HSL. Next to those sit the colours this card already uses — one click, and
+two air conditioners get the same blue rather than two similar ones.</p>
+</div>
+<div class="paragraph">
+<p><code>CSS ▾</code> folds out a text field. That is the way in for anything that is not a
+hex value: <code>var(--primary-color)</code> stays bound to the theme instead of being
+frozen to a fixed value. That is why the field stayed — a picker on its own can
+only do <code>#rrggbb</code>.</p>
+</div>
+<div class="paragraph">
+<p>A consumer&#8217;s colour therefore lives here, not on the consumer&#8217;s own card. Two
+places for one setting would be one too many.</p>
+</div>
+<div class="paragraph">
+<p>The ends of the gradient are pinned: at 0% and 100% the colour can be changed,
+the percentage cannot, and neither can be removed — the card refuses a gradient
+that does not run the whole scale. Stops in between can be moved, added and
+removed, as long as two remain.</p>
+</div>
+<div class="paragraph">
+<p>Defaults come from Home Assistant&#8217;s energy theme variables, so the card matches
+the energy dashboard without configuration. To colour by good and bad instead:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">colors:
+  grid_export: "#43a047"        # exporting is good
+  grid_import: "#e53935"        # importing is not
+  battery_charge: "#43a047"
+  battery_discharge: "#e53935"</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="transparent-background-card-mod"><a class="anchor" href="#transparent-background-card-mod"></a>Transparent background (card-mod)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To let a dashboard wallpaper show through, the card can be made transparent
+with <a href="https://github.com/thomasloven/lovelace-card-mod">card-mod</a> (card version
+0.8.2 or later):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">card_mod:
+  style: |
+    ha-card {
+      --ha-card-background: transparent;
+      background: none;
+      box-shadow: none;
+      border: none;
+    }</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The first line is the one that matters here: the four nodes are filled with the
+card&#8217;s background colour, and <code>background: none</code> on its own leaves them
+standing as solid discs. This works with <code>appearance: auto</code> only - set to
+<code>light</code> or <code>dark</code>, the card paints its own background, and card-mod does not
+reach it.</p>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+= EnerLens Card
+:page-key: start
+:nav-order: 1
+
+An energy flow card for Home Assistant. The familiar cross of PV, grid, house
+and battery — plus a breakdown of what the house figure is actually made of.
+
+The card here is not a recording but the real card with invented values – try the filter button or tap “Now”.
+
+++++
+<div class="card-demo"></div>
+++++
+
+== What it does differently
+
+*Consumers are optional.* If individual consumers are measured (a heat pump,
+say, or a device behind a Shelly), their entities can be added. The list beside
+the house node and the ring around it then show what makes up the house value.
+The remainder holds everything that is not measured individually.
+
+*Moving average.* A live power diagram jumps by kilowatts within seconds.
+Alternatively the card shows moving averages — over 2 and 15 minutes by
+default, both configurable; one chip in the header steps through _Now_,
+_Ø 2 min_ and _Ø 15 min_. They calm the picture down without falsifying the
+numbers. Clicking any element still opens Home Assistant's own dialog with the
+real history.
+
+*Energy instead of power.* At the tap of a button the card shows the energy of
+a period instead of the power: what came from the sun today, what the house used
+this week and how much went to the grid. The periods are today, 24 h, week, 7
+days, month and 30 days. No energy sensors needed: the card adds up the
+statistics Home Assistant already keeps of the power sensors. Gaps in them are
+filled and marked by colour. List and ring then show which consumer had how much
+of it. Import and export, or charge and discharge, take one sensor per direction
+– if you only have a signed one, a helper splits it (see link:energy.html[Energy over a
+period]).
+
+++++
+<div class="card-demo" data-demo="energy"></div>
+++++
+
+*Quick buttons in the header.* Up to three buttons switch the view with one
+tap: now or average, power or energy, short or full consumer list. Which values
+a button offers is up to you; with a single value it disappears and the card
+shows the same on every device. Every card remembers where it was left (see
+link:quick.html[Quick buttons]).
+
+[.only-light]
+image::card-en-light-quick.svg["The quick buttons: now, kW and the filter button",215]
+
+[.only-dark]
+image::card-en-dark-quick.svg["The quick buttons: now, kW and the filter button",215]
+
+*The consumer list sorts itself and glides.* Rows reorder by power on a fixed
+beat and slide to their new position. A small filter button at the top shows
+*every* consumer on request, regardless of power — for tapping the history of
+a device that has just gone quiet.
+
+*The ring follows along.* When the order changes, its segments travel to
+their new places and overtake on an inner lane — or, with
+`ring.animation: fade`, keep their places and blend their colours, as shown
+here:
+
+++++
+<div class="card-demo" data-demo="fade"></div>
+++++
+
+*The flow is yours to tune.* The dots show the power: the more flows, the
+faster and the more of them. When they start, how fast they get and how many
+there can be are all settings — one knob, `flow.peak_w`, for all of it, or
+threshold by threshold. On top come six dot designs, a single dot colour for
+the whole card, and idle lines that can be dimmed or hidden. All of it is in
+the editor too.
+
+*Extra values at the nodes.* Each circle can show a second value - in the
+circle or right next to it, with a short prefix: today's yield beside the
+solar power, the energy drawn from the grid today, a self-sufficiency rate at
+the house, the battery's remaining energy. It can be any entity; the card
+shows it the way Home Assistant does and computes nothing itself. A node's
+name and state word can be hidden. See _Extra values at the nodes_.
+
+++++
+<div class="card-demo" data-demo="extras"></div>
+++++
+
+A *grid outage* is shown, provided the installation reports the grid status.
+
+++++
+<div class="card-demo" data-demo="outage"></div>
+++++
+
+*Narrow columns.* When there is no room beside the cross — on a phone or in a
+narrow dashboard column — the consumer list moves below it. With
+`list.always_below` it stays there on wide screens too.
+
+++++
+<div class="card-demo narrow" data-demo="below"></div>
+++++
+
+*Set up in the editor.* Almost everything is a click in the GUI editor, with
+the card live beside it — the colours too, with a picker that offers the ones
+the card already uses.
+
+[.only-light]
+image::editor-en-light.png["The card editor with the colour picker open",690]
+
+[.only-dark]
+image::editor-en-dark.png["The card editor with the colour picker open",690]

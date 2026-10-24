@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/setup.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Setup</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li class="current"><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Setup</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The card ships a GUI editor. Every entity form below — a single entity, an
+inverted one, two entities, or a derived quantity — is a choice in the form, so
+YAML is never required. Only the consumer palette stays YAML-only. The YAML is
+documented for people who prefer it.</p>
+</div>
+<div class="paragraph">
+<p>A card added through the dashboard does not guess your sensors: it starts with
+the placeholders <code>sensor.solar_power</code> and <code>sensor.grid_power</code> and shows example
+values, marked as such, until you pick your own.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="minimal"><a class="anchor" href="#minimal"></a>Minimal</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">type: custom:enerlens-card
+entities:
+  solar: sensor.pv_power
+  grid: sensor.grid_power
+  house: sensor.house_consumption</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="with-a-battery-and-consumers"><a class="anchor" href="#with-a-battery-and-consumers"></a>With a battery and consumers</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">type: custom:enerlens-card
+title: Energy
+entities:
+  solar: sensor.pv_power
+  grid: sensor.grid_power
+  house: sensor.house_consumption
+  battery: sensor.battery_power
+  battery_soc: sensor.battery_level
+consumers:
+  - entity: sensor.heat_pump_power
+    name: Heat pump
+  - entity: sensor.washing_machine_power
+  - entity: sensor.fridge_power
+max_consumers: 5</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sign-conventions"><a class="anchor" href="#sign-conventions"></a>Sign conventions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The card follows Home Assistant&#8217;s own convention, the same one
+<code>power-flow-card-plus</code> and the energy dashboard use:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Quantity</th>
+<th class="tableblock halign-left valign-top">Positive</th>
+<th class="tableblock halign-left valign-top">Negative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>grid</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">import from the grid</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">export</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>battery</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">discharging</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">charging</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>If your sensor reports the other way round — many inverters report export as a
+positive number — invert it per entity:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">entities:
+  grid:
+    entity: sensor.grid_power
+    invert: true</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you have separate sensors per direction instead of one signed sensor, name
+both. Values are expected to be zero or positive:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">entities:
+  grid:
+    import: sensor.grid_import
+    export: sensor.grid_export
+  battery:
+    discharge: sensor.battery_discharge
+    charge: sensor.battery_charge</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>One entity or two?</strong> If your installation offers both — a signed sensor and a
+pair per direction — take the signed one. Home Assistant&#8217;s history dialog shows
+one entity at a time, so a split pair hides half of what happened: tap the grid
+node while 4 W are being exported and you get the export curve, in which last
+night&#8217;s charging from the grid does not appear at all.</p>
+</div>
+<div class="paragraph">
+<p>If there is no signed sensor, a <em>Template → Sensor</em> helper builds one (unit <code>W</code>,
+device class <code>power</code>, state class <code>measurement</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ (states('sensor.grid_import')|float(0)
+  - states('sensor.grid_export')|float(0))|round(0) }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Give it the same availability rule as the derived house sensor below —
+unavailable as soon as one input is — so that a dropout does not enter the
+statistics as a zero. Its value is then recorded, which a figure the card
+computes never is: history, long-term statistics, automations and the energy
+dashboard all see it.</p>
+</div>
+<div class="paragraph">
+<p>Failing both, the two-entity form is right in every number the card shows; only
+the history stays in two places.</p>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

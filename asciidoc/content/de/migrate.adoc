@@ -1,0 +1,16 @@
+= Umstieg von power-flow-card-plus
+:page-key: migrate
+:nav-order: 14
+
+* Die Vorzeichen sind identisch — vorhandene Sensoren sollten unverändert
+funktionieren.
+* Aus den einzelnen Verbrauchern wird die `consumers`-Liste, und sie sind eine
+_Aufschlüsselung_ des Hauswerts statt zusätzlicher Knoten. Der Rest zeigt,
+was übrig bleibt.
+* `watt_threshold` gibt es nicht; stattdessen zwei bewusst getrennte Schwellen.
+`min_consumer_w` entscheidet, ob eine Zeile überhaupt in der Liste steht.
+`flow.min_w` entscheidet, ob Punkte laufen — im Kreuz zusätzlich über
+Linienfarbe, Zustandswort und Ring-Segment. Eine *Verbraucherzeile* wird
+farbig gezeichnet, sobald sie ihren Platz in der Liste verdient hat _oder_
+etwas fließt; eine mit 15 W gelistete Zeile steht also nie neben einer
+grauen Linie. Ihre Punkte warten weiterhin auf `flow.min_w`.

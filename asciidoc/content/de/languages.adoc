@@ -1,0 +1,20 @@
+= Sprachen
+:page-key: languages
+:nav-order: 13
+
+Die Karte richtet sich nach der Sprache des angemeldeten Home-Assistant-Nutzers
+(_Profil → Sprache_). Es gibt keine eigene Spracheinstellung auf der Karte —
+das hieße, dieselbe Wahl zweimal zu pflegen.
+
+[cols=",",]
+|===
+|Unterstützt |Englisch, Deutsch
+|Ausgewählt über |`hass.language`, Rückfall auf Englisch
+|Nicht übersetzt |Alles Selbstgeschriebene — Titel, Verbrauchernamen, `rest_label`
+|===
+
+Eine Sprache hinzuzufügen erfordert keinen Code: `src/translations/en.json`
+kopieren, die Werte übersetzen, die Schlüssel behalten und als `++<++code++>++.json`
+ablegen. Ein Test prüft, dass jede Übersetzungsdatei genau dieselben Schlüssel
+trägt wie die englische — ein fehlender Eintrag lässt also den Build scheitern,
+statt in irgendeinem Dashboard als roher Schlüssel aufzutauchen.

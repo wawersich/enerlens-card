@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All options – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/options.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>All options</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li class="current"><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>All options</h1>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Option</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>title</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Card heading</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.solar</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PV power, W or kW</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.grid</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grid power, signed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.house</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">derived</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">House consumption</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.battery</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Battery power, signed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.battery_soc</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">State of charge in %</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.grid_status</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{entity, outage, ok}</code> — see <em>Grid outage</em></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>consumers</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">List of <code>{entity, name, color, icon, min_w, charge}</code> - <code>charge</code> see <em>Wallbox and EV</em></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>min_consumer_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>10</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Consumers below this are folded into the remainder; a consumer&#8217;s own <code>min_w</code> overrides it</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>max_consumers</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Only the strongest are listed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>update_interval_s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">How often the list reorders</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power.unit</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kW</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kW</code>, <code>W</code> or <code>auto</code>. <code>auto</code> picks the unit per value: whole watts below 1000 W, kilowatts above</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power.decimals</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Decimals for a fixed <code>kW</code>: 1, 2 or 3. Watts are always whole</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power.digits</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>3</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Significant digits for <code>auto</code>: 2, 3 or 4 - <code>1.23 kW</code>, <code>12.3 kW</code>, <code>123 kW</code>. A decimal place says something different at every size; this keeps what the figure tells constant</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.enabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">on with consumers</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Show the list</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.rest_label</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">localised</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the remainder</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.title</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Heading above the list</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.always_below</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keep the list under the cross even when there is room beside it</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.enabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">on with consumers</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Show the ring</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.animation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>overtake</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">How the ring follows a reordered list. <code>overtake</code>: every segment travels to its new place, one moving forward passes on an inner lane. <code>fade</code>: the places stay, their colours blend into the new order. <code>jump</code>: the ring does not move, new values show at once - dots and list keep moving</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.modes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all three</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick button smoothing: <code>current</code>, <code>avg_short</code>, <code>avg_long</code>; one = fixed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.default_mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>current</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Start value of the smoothing</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.avg_short_minutes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Short averaging window</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.avg_long_minutes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>15</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Long averaging window</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.remember</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Remember the last value of each quick button in this browser</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>memory_id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">set by the editor</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">What the card remembers is kept under this id, per view; any name will do. Without it, cards share it</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.energy_periods</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code> if the statistics are there</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick button power/energy: <code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code>, <code>7d</code>, <code>month</code>, <code>30d</code>; one = fixed, <code>[power]</code> = no energy. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.default_energy</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Start value of power/energy</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.scope</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">both</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick button list scope: <code>filtered</code>, <code>full</code>; one = fixed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.default_scope</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filtered</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Start value of the list scope</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.show_selector</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Deprecated: <code>false</code> fixes every quick button on its start value</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>appearance</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code>, <code>light</code> or <code>dark</code> - shows <strong>this one card</strong> light or dark whatever the theme says, and settles the flow design&#8217;s value set with it</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.design</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>none</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>none</code>, or the id of a design from <code>flow-designs.json</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.dot_color</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">empty</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.dot_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Dot size in percent, 40–150. 100 is the dot of the design on a card with large nodes; smaller cards draw somewhat smaller dots on their own</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.line_width</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Line width in percent, 30–150 - 100 is 3 px for the connections and 2 px for the lines to the list on a card with large nodes, thinner on smaller cards</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.inactive_lines</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>show</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>show</code>, <code>dim</code> or <code>hide</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.animation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code>, <code>on</code> or <code>off</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.min_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>10</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Below this no dots move. In the cross it also turns the line grey and drops the state word; for a consumer row the colour and the ring segment follow the list instead</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.peak_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One knob for the motion: the power at which dots peak; the three thresholds below default to 1/12, 1/3 and 1/1 of it</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.slow_below_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>500</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One slow dot up to here</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.full_speed_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">= <code>more_dots_above_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Where the single dot reaches full speed; set it apart from <code>more_dots_above_w</code> to separate speed from count</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.more_dots_above_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>2000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">More dots beyond here</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.max_dots_at_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Where the dot count peaks</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.max_dots</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Upper limit on dots</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.slow_s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds per pass at the low threshold</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.fast_s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1.8</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds per pass at the top threshold</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.*</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HA energy colours</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Any CSS value, including <code>var(--…)</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.soc_stops</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">red → yellow → green</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Gradient for the charge level</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.consumer_palette</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10 colours</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Cycled through consumers without a colour of their own</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>icons.*</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mdi defaults</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Per-node icon; <code>icons.rest</code> gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with <code>mdi:cloud-question</code> there; delete it for the colour dot</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;node&gt;.show_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Show the node&#8217;s name (<code>solar</code>, <code>grid</code>, <code>house</code>, <code>battery</code>)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;node&gt;.show_state</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Show the state word - <code>grid</code> and <code>battery</code> only</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;node&gt;.inside</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Extra value in the circle: <code>{entity, position, decimals, size, weight}</code>, defaults <code>above</code>, <code>ha</code>, <code>100</code>, <code>normal</code> - not for <code>battery</code>. See <em>Extra values at the nodes</em></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;node&gt;.label</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Extra value next to the circle: <code>{entity, prefix, decimals, size, weight}</code>, defaults no prefix, <code>ha</code>, <code>100</code>, <code>normal</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.&lt;node&gt;_inside</code>, <code>colors.&lt;node&gt;_label</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">grey</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Colour of an extra value</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><code>flow.animation: auto</code> follows the device&#8217;s reduce-motion preference — that
+setting lives in the operating system, not in Home Assistant. It covers
+everything that moves: the dots, the list re-sorting and the ring, whatever
+<code>ring.animation</code> says. With motion
+off there are no dots at all, and none in a browser that cannot move them -
+standing still they would say nothing; the line&#8217;s colour still shows where
+energy flows.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

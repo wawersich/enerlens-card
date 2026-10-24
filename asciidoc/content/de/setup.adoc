@@ -1,0 +1,106 @@
+= Einrichtung
+:page-key: setup
+:nav-order: 3
+
+Die Karte bringt einen GUI-Editor mit. Jede Entitätsform unten — eine Entität,
+eine mit umgedrehtem Vorzeichen, zwei Entitäten oder eine abgeleitete Größe —
+ist im Formular eine Auswahl; YAML braucht es also nie. Nur die Verbraucher-
+palette bleibt dem YAML vorbehalten. Das YAML ist für alle dokumentiert, die es
+vorziehen.
+
+Eine über das Dashboard neu angelegte Karte rät deine Sensoren nicht: Sie
+startet mit den Platzhaltern `sensor.solar_power` und `sensor.grid_power` und
+zeigt gekennzeichnete Beispielwerte, bis du deine eigenen auswählst.
+
+== Minimal
+
+[source,yaml]
+----
+type: custom:enerlens-card
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch
+----
+
+== Mit Batterie und Verbrauchern
+
+[source,yaml]
+----
+type: custom:enerlens-card
+title: Energie
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch
+  battery: sensor.batterie_leistung
+  battery_soc: sensor.batterie_ladezustand
+consumers:
+  - entity: sensor.waermepumpe_leistung
+    name: Wärmepumpe
+  - entity: sensor.waschmaschine_leistung
+  - entity: sensor.kuehlschrank_leistung
+max_consumers: 5
+----
+
+== Vorzeichen
+
+Die Karte folgt der Konvention von Home Assistant — derselben, die auch
+`power-flow-card-plus` und das Energie-Dashboard verwenden:
+
+[cols=",,",options="header",]
+|===
+|Größe |Positiv |Negativ
+|`grid` |Bezug aus dem Netz |Einspeisung
+|`battery` |Entladen |Laden
+|===
+
+Meldet dein Sensor es andersherum — viele Wechselrichter geben die Einspeisung
+positiv aus — lässt sich das je Entität umkehren:
+
+[source,yaml]
+----
+entities:
+  grid:
+    entity: sensor.netz_leistung
+    invert: true
+----
+
+Wer statt eines signierten Sensors getrennte Sensoren je Richtung hat, nennt
+beide. Erwartet werden Werte ab null:
+
+[source,yaml]
+----
+entities:
+  grid:
+    import: sensor.netz_bezug
+    export: sensor.netz_einspeisung
+  battery:
+    discharge: sensor.batterie_entladen
+    charge: sensor.batterie_laden
+----
+
+*Eine Entität oder zwei?* Wenn deine Anlage beides hergibt — einen
+vorzeichenbehafteten Sensor und ein Paar je Richtung — nimm den
+vorzeichenbehafteten. Der Verlaufsdialog von Home Assistant zeigt immer nur eine
+Entität, ein Paar verbirgt also die Hälfte: Tippst du bei 4 W Einspeisung auf
+den Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von
+gestern Abend überhaupt nicht vorkommt.
+
+Gibt es keinen vorzeichenbehafteten Sensor, baut ein Helfer _Template → Sensor_
+einen (Einheit `W`, Geräteklasse `power`, Statusklasse `measurement`):
+
+[source,jinja]
+----
+{{ (states('sensor.netz_bezug')|float(0)
+  - states('sensor.netz_einspeisung')|float(0))|round(0) }}
+----
+
+Gib ihm dieselbe Verfügbarkeitsregel wie dem abgeleiteten Haussensor weiter
+unten — nicht verfügbar, sobald eine der Quellen es ist —, damit ein Aussetzer
+nicht als Null in die Statistik wandert. Sein Wert wird dann aufgezeichnet, was
+für einen von der Karte gerechneten Wert nie gilt: Verlauf, Langzeitstatistik,
+Automationen und das Energie-Dashboard sehen ihn.
+
+Geht beides nicht, ist die Zwei-Entitäten-Form in jeder angezeigten Zahl
+richtig; nur die Historie bleibt geteilt.

@@ -1,0 +1,29 @@
+= Wallbox and EV
+:page-key: ev
+:nav-order: 6
+
+A wallbox is a consumer like any other. The car's state of charge comes from
+the car's own integration, not from the wallbox - Home Assistant does not link
+the two, so the consumer is told which one belongs to it:
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_power
+    name: Wallbox
+    icon: mdi:ev-station
+    charge:
+      soc: sensor.car_battery_level          # the car, in %
+      show: plugged                          # charging (default) | plugged | always
+      plugged: binary_sensor.car_charge_cable
+----
+
+A thin ring around the icon shows the charge. While the car charges, the row
+shows the power; otherwise it shows the charge instead, so the row needs no
+extra room. With `show: plugged` the row stays in the list as long as the car
+is plugged in - full and at 0 W too. `plugged` can also be a wallbox status
+sensor; `unplugged: ++[++available, none++]++` then lists the states that mean "not
+plugged in". When the car is asleep and its sensor unavailable, the last known
+charge is shown grey. Hover the icon for the value, tap it for its history; in
+the editor it is under the consumer, _State of charge_. It is not limited to
+cars - a power station works the same way.

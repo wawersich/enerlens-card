@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EnerLens Card – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/index.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>EnerLens Card</b></button>
+  <ul>
+<li class="current"><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>EnerLens Card</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Eine Energiefluss-Karte für Home Assistant. Das bekannte Kreuz aus PV, Netz,
+Haus und Batterie — dazu eine Aufschlüsselung, woraus der Hauswert eigentlich
+besteht.</p>
+</div>
+<div class="paragraph">
+<p>Die Karte hier ist keine Aufnahme, sondern die echte Karte mit ausgedachten Werten – probier den Filterknopf oder tippe auf „Jetzt“.</p>
+</div>
+<div class="card-demo"></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="was-sie-anders-macht"><a class="anchor" href="#was-sie-anders-macht"></a>Was sie anders macht</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>Verbraucher können optional angegeben werden.</strong> Sofern einzelne Verbraucher
+erfasst werden (z. B. eine Wärmepumpe oder ein mit einem Shelly gemessenes
+Gerät), können ihre Entitäten hinterlegt werden. Die Liste neben dem Haus-Knoten
+und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest fasst
+zusammen, was nicht einzeln gemessen wird.</p>
+</div>
+<div class="paragraph">
+<p><strong>Zeitlicher Mittelwert.</strong> Ein Live-Leistungsdiagramm springt binnen Sekunden
+um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
+über 2 und 15 Minuten, frei einstellbar; ein Chip im Kopf schaltet reihum
+<em>Jetzt</em>, <em>Ø 2 min</em> und <em>Ø 15 min</em>. Sie beruhigen das Bild, ohne die
+Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
+von Home Assistant mit der echten Historie.</p>
+</div>
+<div class="paragraph">
+<p><strong>Energie statt Leistung.</strong> Auf Knopfdruck zeigt die Karte statt der Leistung
+die Energie eines Zeitraums: was heute von der Sonne kam, was das Haus diese
+Woche verbraucht hat und wie viel ins Netz ging. Zur Wahl stehen Heute, 24 h,
+Woche, 7 Tage, Monat und 30 Tage. Energie-Sensoren braucht es dafür nicht: Die
+Karte summiert die Statistik, die Home Assistant von den Leistungssensoren
+ohnehin führt. Lücken darin werden gefüllt und farblich markiert. Liste und Ring
+zeigen dann, welcher Verbraucher wie viel davon hatte. Für Bezug und Einspeisung
+bzw. Laden und Entladen braucht es je Richtung einen Sensor – hat man nur einen
+mit Vorzeichen, teilt ihn ein Helfer auf (siehe <a href="energy.html">Energie für einen
+Zeitraum</a>).</p>
+</div>
+<div class="card-demo" data-demo="energy"></div>
+<div class="paragraph">
+<p><strong>Quick-Buttons im Kopf.</strong> Bis zu drei Knöpfe schalten die Ansicht mit einem
+Tipp: Jetzt oder Mittelwert, Leistung oder Energie, kurze oder ganze
+Verbraucherliste. Welche Werte ein Knopf anbietet, ist einstellbar; mit nur
+einem Wert verschwindet er, und die Karte zeigt auf jedem Gerät dasselbe. Jede
+Karte merkt sich, worauf sie zuletzt stand (siehe
+<a href="quick.html">Quick-Buttons</a>).</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/card-de-light-quick.svg" alt="Die Quick-Buttons: Jetzt, kW und der Filterknopf" width="215">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/card-de-dark-quick.svg" alt="Die Quick-Buttons: Jetzt, kW und der Filterknopf" width="215">
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Die Verbraucher-Liste sortiert sich und gleitet.</strong> Zeilen ordnen sich im
+festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
+Filter-Knopf oben zeigt auf Wunsch <strong>alle</strong> Verbraucher unabhängig von ihrer
+Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
+ist.</p>
+</div>
+<div class="paragraph">
+<p><strong>Der Ring zieht mit.</strong> Ändert sich die Reihenfolge, wandern seine Segmente an
+ihren neuen Platz und überholen auf einer inneren Bahn — oder sie bleiben mit
+<code>ring.animation: fade</code> stehen und blenden ihre Farben über, so wie hier gezeigt:</p>
+</div>
+<div class="card-demo" data-demo="fade"></div>
+<div class="paragraph">
+<p><strong>Der Fluss ist frei einstellbar.</strong> Die Punkte zeigen die Leistung: Sie werden
+schneller und zahlreicher, je mehr fließt. Ab welcher Leistung sie loslaufen,
+wie schnell sie höchstens werden und wie viele es höchstens sind, lässt sich
+einstellen — mit einem einzigen Regler <code>flow.peak_w</code> für alles oder Schwelle
+für Schwelle. Dazu kommen sechs Designs für die Punkte, eine gemeinsame
+Punktfarbe, und ruhende Linien lassen sich abdunkeln oder ausblenden. Alles
+davon steht auch im Editor.</p>
+</div>
+<div class="paragraph">
+<p><strong>Zusatzwerte an den Knoten.</strong> Jeder Kreis kann einen zweiten Wert zeigen –
+im Kreis oder direkt daneben, mit einem kurzen Vorsatz: den Tagesertrag neben
+der PV-Leistung, den Netzbezug von heute, eine Autarkiequote am Haus, die
+Restenergie der Batterie. Es kann jede Entität sein; die Karte zeigt sie so,
+wie Home Assistant es tut, und rechnet nichts selbst. Name und Zustandswort
+eines Knotens lassen sich ausblenden. Siehe <em>Zusatzwerte an den Knoten</em>.</p>
+</div>
+<div class="card-demo" data-demo="extras"></div>
+<div class="paragraph">
+<p>Ein <strong>Netzausfall</strong> wird angezeigt, sofern die Anlage den Netzstatus erfasst.</p>
+</div>
+<div class="card-demo" data-demo="outage"></div>
+<div class="paragraph">
+<p><strong>Schmale Spalten.</strong> Ist neben dem Kreuz kein Platz — auf dem Handy oder in
+einer schmalen Dashboard-Spalte —, rückt die Verbraucher-Liste darunter. Mit
+<code>list.always_below</code> bleibt sie auch auf breiten Flächen dort.</p>
+</div>
+<div class="card-demo narrow" data-demo="below"></div>
+<div class="paragraph">
+<p><strong>Eingerichtet im Editor.</strong> Fast alles ist ein Klick im GUI-Editor, die Karte
+live daneben — auch die Farben, mit einem Farbwähler, der die schon
+verwendeten gleich mit anbietet.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-de-light.png" alt="Der Karteneditor mit aufgeklapptem Farbwähler" width="690">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-de-dark.png" alt="Der Karteneditor mit aufgeklapptem Farbwähler" width="690">
+</div>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

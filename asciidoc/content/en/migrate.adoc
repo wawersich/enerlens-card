@@ -1,0 +1,15 @@
+= Coming from power-flow-card-plus
+:page-key: migrate
+:nav-order: 14
+
+* Sign conventions are identical — existing sensors should work unchanged.
+* Individual consumers become the `consumers` list, and they are a _breakdown_
+of the house value rather than additional nodes. The remainder shows what is
+left.
+* There is no `watt_threshold`; there are two deliberately separate thresholds.
+`min_consumer_w` decides whether a row appears in the list at all.
+`flow.min_w` decides whether dots move - in the cross it also decides the
+line colour, the state word and the ring segment. A *consumer row* is
+drawn in colour as soon as it earned its place in the list _or_ something
+flows on it, so a row listed at 15 W is never left with a grey line; its
+dots still wait for `flow.min_w`.

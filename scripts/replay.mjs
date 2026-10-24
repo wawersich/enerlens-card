@@ -3,7 +3,7 @@
 //
 // Home Assistant cannot back-date states: POST /api/states always writes "now".
 // Scenarios are therefore *played back* onto dedicated test entities instead of
-// being written into the recorder history (see docs/test-setup.md).
+// being written into the recorder history (see dev-docs/test-setup.md).
 //
 // Reference data lives OUTSIDE this repository (REQ 5.1), by default in
 // /share/dev/enerlens-fixture/history-YYYY-MM-DD.json with the shape

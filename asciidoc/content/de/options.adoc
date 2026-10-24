@@ -1,0 +1,72 @@
+= Alle Optionen
+:page-key: options
+:nav-order: 12
+
+[cols=",,",options="header",]
+|===
+|Option |Standard |Bedeutung
+|`title` |— |Überschrift der Karte
+|`entities.solar` |Pflicht |PV-Leistung, W oder kW
+|`entities.grid` |Pflicht |Netzleistung, signiert
+|`entities.house` |abgeleitet |Hausverbrauch
+|`entities.battery` |— |Batterieleistung, signiert
+|`entities.battery_soc` |— |Ladezustand in %
+|`entities.grid_status` |— |`++{++entity, outage, ok}` — siehe _Netzausfall_
+|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, charge}` – `charge` siehe _Wallbox und E-Auto_
+|`min_consumer_w` |`10` |Verbraucher darunter zählen zum Rest; ein eigenes `min_w` am Verbraucher hat Vorrang
+|`max_consumers` |alle |Nur die stärksten werden gelistet
+|`update_interval_s` |`5` |Wie oft die Liste neu sortiert
+|`power.unit` |`kW` |`kW`, `W` oder `auto`. `auto` wählt die Einheit je Wert: unter 1000 W ganze Watt, darüber kW
+|`power.decimals` |`2` |Nachkommastellen bei festem `kW`: 1, 2 oder 3. Watt sind immer ganz
+|`power.digits` |`3` |Relevante Stellen bei `auto`: 2, 3 oder 4 — `1,23 kW`, `12,3 kW`, `123 kW`. Eine Nachkommastelle bedeutet bei jeder Größe etwas anderes; so bleibt gleich, wie viel die Zahl aussagt
+|`list.enabled` |an mit Verbrauchern |Liste anzeigen
+|`list.rest_label` |lokalisiert |Bezeichnung des Rests
+|`list.title` |— |Überschrift über der Liste
+|`list.always_below` |`false` |Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre
+|`ring.enabled` |an mit Verbrauchern |Ring anzeigen
+|`ring.animation` |`overtake` |Wie der Ring einer umsortierten Liste folgt. `overtake`: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. `fade`: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. `jump`: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter
+|`view.modes` |alle drei |Quick-Button Glättung: `current`, `avg_short`, `avg_long`; einer = fest
+|`view.default_mode` |`current` |Startwert der Glättung
+|`view.avg_short_minutes` |`2` |Kurzes Mittelungsfenster
+|`view.avg_long_minutes` |`15` |Langes Mittelungsfenster
+|`view.remember` |`true` |Den letzten Wert jedes Quick-Buttons in diesem Browser merken
+|`memory_id` |setzt der Editor |Was die Karte sich merkt, liegt je Ansicht unter dieser Kennung; jeder Name geht. Ohne sie teilen sich die Karten das
+|`view.energy_periods` |`power`, `today`, `24h`, `week`, wenn die Statistik da ist |Quick-Button Leistung/Energie: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; einer = fest, `++[++power++]++` = keine Energie. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts
+|`view.default_energy` |`power` |Startwert von Leistung/Energie
+|`list.scope` |beide |Quick-Button Listenumfang: `filtered`, `full`; einer = fest
+|`list.default_scope` |`filtered` |Startwert des Listenumfangs
+|`view.show_selector` |— |Veraltet: `false` stellt jeden Quick-Button fest auf seinen Startwert
+|`appearance` |`auto` |`auto`, `light` oder `dark` — zeigt *diese eine Karte* hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest
+|`flow.design` |`none` |`none` oder die Kennung eines Designs aus `flow-designs.json`
+|`flow.dot_color` |leer |Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre
+|`flow.dot_size` |`100` |Punktgröße in Prozent, 40–150. 100 ist der Punkt des Designs auf einer Karte mit großen Knoten; kleinere Karten zeichnen von sich aus etwas kleinere Punkte
+|`flow.line_width` |`100` |Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner
+|`flow.inactive_lines` |`show` |`show`, `dim` oder `hide`
+|`flow.animation` |`auto` |`auto`, `on` oder `off`
+|`flow.min_w` |`10` |Darunter laufen keine Punkte. Im Kreuz wird die Linie zusätzlich grau und das Zustandswort entfällt; bei einer Verbraucherzeile richten sich Farbe und Ring-Segment stattdessen nach der Liste
+|`flow.peak_w` |`6000` |Ein Regler für die Bewegung: Leistung, bei der die Punkte ihr Maximum erreichen; die drei Schwellen darunter sind standardmäßig 1/12, 1/3 und 1/1 davon
+|`flow.slow_below_w` |`500` |Bis hier ein langsamer Punkt
+|`flow.full_speed_w` |= `more_dots_above_w` |Ab hier hat der einzelne Punkt sein Höchsttempo; getrennt von `more_dots_above_w` setzen, um Tempo und Anzahl zu entkoppeln
+|`flow.more_dots_above_w` |`2000` |Ab hier kommen Punkte hinzu
+|`flow.max_dots_at_w` |`6000` |Wo die Punktzahl ihr Maximum erreicht
+|`flow.max_dots` |`5` |Obergrenze für Punkte
+|`flow.slow_s` |`5` |Sekunden pro Durchlauf an der unteren Schwelle
+|`flow.fast_s` |`1.8` |Sekunden pro Durchlauf an der oberen Schwelle
+|`colors.++*++` |HA-Energiefarben |Jeder CSS-Wert, auch `var(--…)`
+|`colors.soc_stops` |rot → gelb → grün |Verlauf für den Ladezustand
+|`colors.consumer_palette` |10 Farben |Reihum für Verbraucher ohne eigene Farbe
+|`icons.++*++` |mdi-Standard |Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts. Eine über das Dashboard neu angelegte Karte bringt dort `mdi:cloud-question` mit; wird es gelöscht, erscheint wieder der Farbpunkt
+|`nodes.++<++knoten++>++.show_name` |`true` |Namen des Knotens zeigen (`solar`, `grid`, `house`, `battery`)
+|`nodes.++<++knoten++>++.show_state` |`true` |Zustandswort zeigen – nur `grid` und `battery`
+|`nodes.++<++knoten++>++.inside` |— |Zusatzwert im Kreis: `++{++entity, position, decimals, size, weight}`, Standard `above`, `ha`, `100`, `normal` – nicht bei `battery`. Siehe _Zusatzwerte an den Knoten_
+|`nodes.++<++knoten++>++.label` |— |Zusatzwert direkt am Kreis: `++{++entity, prefix, decimals, size, weight}`, Standard ohne Vorsatz, `ha`, `100`, `normal`
+|`colors.++<++knoten++>_++inside`, `colors.++<++knoten++>_++label` |grau |Farbe eines Zusatzwerts
+|===
+
+`flow.animation: auto` folgt der Einstellung „Bewegung reduzieren" des Geräts —
+die steht im Betriebssystem, nicht in Home Assistant. Sie gilt für alles, was
+sich bewegt: die Punkte, das Umsortieren der Liste und den Ring, gleich was
+`ring.animation` sagt. Ohne Bewegung
+gibt es keine Punkte, ebenso in einem Browser, der sie nicht bewegen kann –
+stehend sagen sie nichts; wo Energie fließt, zeigt weiterhin die Farbe der
+Linie.

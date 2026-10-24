@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extra values at the nodes – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/extras.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Extra values at the nodes</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li class="current"><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Extra values at the nodes</h1>
+<div class="paragraph">
+<p>Each node can show a second value: today&#8217;s yield next to the PV power, the
+energy drawn from the grid today, a self-sufficiency rate at the house, the
+battery&#8217;s remaining energy. It can be any entity - the card shows its state
+the way Home Assistant does and computes nothing itself.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">nodes:
+  solar:
+    inside: { entity: sensor.pv_energy_today, decimals: 1 }       # in the circle
+    label: { entity: sensor.pv_forecast_remaining, prefix: Forecast }
+  grid:
+    label: { entity: sensor.grid_import_today, prefix: Import, decimals: 0 }
+  house:
+    show_name: false
+    inside: { entity: sensor.self_sufficiency, position: below }
+  battery:
+    show_state: false
+    label: { entity: sensor.battery_remaining_energy, prefix: Left, weight: bold }</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li><strong><code>inside</code></strong> sits in the circle, above the icon (<code>position: above</code>, the
+default) or under the value (<code>below</code>). There is room for a number and its
+unit, not more. The battery has none - it already shows two values there.</li>
+<li><strong><code>label</code></strong> sits right next to the circle, with an optional <code>prefix</code> in
+front. Too long for the room it has, the prefix is shortened first.</li>
+<li><strong><code>decimals</code></strong>: <code>ha</code> (default) writes the value as Home Assistant does,
+including the display precision set in the entity&#8217;s settings. <code>0</code>–<code>3</code> fixes
+the decimals, <code>sig2</code>–<code>sig4</code> the significant digits, whatever the unit. The
+unit is never converted - Wh stay Wh.</li>
+<li><strong><code>size</code></strong> (60–150 %, default 100, relative to the node value or the
+label) and <strong><code>weight</code></strong> (<code>normal</code> - the default -, <code>medium</code>, <code>bold</code>) per field; the colour is under
+<em>Colours</em> (<code>colors.solar_inside</code>, <code>colors.house_label</code>, … - grey by default).</li>
+<li><strong><code>show_name</code></strong> and <strong><code>show_state</code></strong> hide the name ("PV", "Grid", …) and the
+state word ("export", "charging") - with or without extra values. Without
+the state word only the colour tells the direction.</li>
+<li>Extra values always show the current state, also in the average views.
+Tapping a value next to the circle or above the icon opens its own history;
+one under the value belongs to the node and opens the node&#8217;s entity.</li>
+<li><code>decimals</code> does nothing for text, money, durations and points in time -
+those always look as in Home Assistant. And a node&#8217;s own power entity used
+as an extra value is written the way Home Assistant writes it ("3800 W"),
+not the way the card does ("3.80 kW").</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In the editor: <em>Labels &amp; extra values</em>, one section per node.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

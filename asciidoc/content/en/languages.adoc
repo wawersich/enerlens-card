@@ -1,0 +1,19 @@
+= Languages
+:page-key: languages
+:nav-order: 13
+
+The card follows the language of the signed-in Home Assistant user (_Profile →
+Language_). There is no language setting on the card itself — that would mean
+maintaining the same choice twice.
+
+[cols=",",]
+|===
+|Supported |English, German
+|Chosen by |`hass.language`, falling back to English
+|Not translated |Anything you typed yourself — titles, consumer names, `rest_label`
+|===
+
+Adding a language needs no code: copy `src/translations/en.json`, translate the
+values, keep the keys, and drop it in as `++<++code++>++.json`. A test checks that every
+translation file carries exactly the same keys as the English one, so a missing
+entry fails the build rather than surfacing as a raw key in someone's dashboard.

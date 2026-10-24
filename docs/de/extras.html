@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zusatzwerte an den Knoten – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/extras.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Zusatzwerte an den Knoten</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li class="current"><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Zusatzwerte an den Knoten</h1>
+<div class="paragraph">
+<p>Jeder Knoten kann einen zweiten Wert zeigen: den Tagesertrag neben der
+PV-Leistung, den Netzbezug von heute, eine Autarkiequote am Haus, die
+Restenergie der Batterie. Es kann jede Entität sein – die Karte zeigt ihren
+Zustand so, wie Home Assistant es tut, und rechnet selbst nichts aus.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">nodes:
+  solar:
+    inside: { entity: sensor.pv_ertrag_heute, decimals: 1 }      # im Kreis
+    label: { entity: sensor.pv_prognose_rest, prefix: Prognose }
+  grid:
+    label: { entity: sensor.netzbezug_heute, prefix: Bezug, decimals: 0 }
+  house:
+    show_name: false
+    inside: { entity: sensor.autarkie, position: below }
+  battery:
+    show_state: false
+    label: { entity: sensor.batterie_restenergie, prefix: Rest, weight: bold }</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li><strong><code>inside</code></strong> steht im Kreis, über dem Icon (<code>position: above</code>, Standard)
+oder unter dem Wert (<code>below</code>). Dort ist Platz für eine Zahl mit Einheit,
+nicht mehr. Die Batterie hat keins – sie zeigt dort schon zwei Werte.</li>
+<li><strong><code>label</code></strong> steht direkt am Kreis, mit optionalem Vorsatz <code>prefix</code>. Reicht
+der Platz nicht, wird zuerst der Vorsatz gekürzt.</li>
+<li><strong><code>decimals</code></strong>: <code>ha</code> (Standard) schreibt den Wert wie Home Assistant,
+einschließlich der Angezeigten Genauigkeit aus den Einstellungen der Entität.
+<code>0</code>–<code>3</code> legt die Nachkommastellen fest, <code>sig2</code>–<code>sig4</code> die signifikanten
+Stellen, unabhängig von der Einheit. Die Einheit wird nie umgerechnet – Wh
+bleiben Wh.</li>
+<li><strong><code>size</code></strong> (60–150 %, Standard 100, bezogen auf den Knotenwert bzw. die
+Beschriftung) und <strong><code>weight</code></strong> (<code>normal</code> – Standard –, <code>medium</code>, <code>bold</code>) je Feld; die Farbe steht unter
+<em>Farben</em> (<code>colors.solar_inside</code>, <code>colors.house_label</code>, … – standardmäßig grau).</li>
+<li><strong><code>show_name</code></strong> und <strong><code>show_state</code></strong> blenden den Namen („PV", „Netz", …) und
+das Zustandswort („Einspeisung", „lädt") aus – mit oder ohne Zusatzwerte.
+Ohne Zustandswort zeigt nur noch die Farbe die Richtung.</li>
+<li>Zusatzwerte zeigen immer den aktuellen Zustand, auch in den Ø-Ansichten.
+Antippen eines Werts am Kreis oder über dem Icon öffnet seine eigene
+Historie; ein Wert unter dem Knotenwert gehört zum Knoten und öffnet dessen
+Entität.</li>
+<li><code>decimals</code> wirkt nicht auf Text, Geldbeträge, Dauer und Zeitpunkte – die
+stehen immer so da wie in Home Assistant. Und die eigene Leistungs-Entität
+eines Knotens als Zusatzwert erscheint im Format von Home Assistant
+(„3800 W“), nicht in dem der Karte („3,80 kW“).</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Im Editor: <em>Beschriftung &amp; Zusatzwerte</em>, ein Abschnitt je Knoten.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

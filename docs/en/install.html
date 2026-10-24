@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/install.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Installation</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li class="current"><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Installation</h1>
+<div class="sect1">
+<h2 id="hacs"><a class="anchor" href="#hacs"></a>HACS</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>HACS → ⋮ → <em>Custom repositories</em> → add <code><a href="https://github.com/wawersich/enerlens-card" class="bare">https://github.com/wawersich/enerlens-card</a></code>,
+type <em>Dashboard</em></li>
+<li>Search for <em>EnerLens</em>, install, reload the browser</li>
+<li>HACS registers the resource <code>/hacsfiles/enerlens-card/enerlens-card.js</code> for
+you; if the card does not appear, check <em>Settings → Dashboards → Resources</em></li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="manually"><a class="anchor" href="#manually"></a>Manually</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>Download <code>enerlens-card.js</code> from the latest release</li>
+<li>Copy it to <code>config/www/</code></li>
+<li>Add the resource under <em>Settings → Dashboards → Resources</em>:
+<code>/local/enerlens-card.js</code> as <em>JavaScript module</em></li>
+</ol>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

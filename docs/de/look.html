@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Farben und Aussehen – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/look.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Farben und Aussehen</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li class="current"><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Farben und Aussehen</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Alle Farben der Karte stehen im Editor unter <strong>Farben</strong>: die sieben Knoten, die
+Zusatzwerte (eine Zeile je eingerichtetem Wert), eine Zeile je Verbraucher und
+die Stufen des Ladezustands-Verlaufs. Jede Zeile zeigt links die Farbe, die die
+Karte gerade malt, und rechts den konfigurierten Wert — <code>Standard</code>, solange
+keiner gesetzt ist.</p>
+</div>
+<div class="paragraph">
+<p>Ein Klick auf das Farbfeld öffnet den Farbwähler: eine Fläche für Sättigung und
+Helligkeit über einem Streifen für den Farbton, darunter der Wert als Hex oder,
+umgeschaltet, als Schieberegler für RGB beziehungsweise HSL. Daneben liegen die
+Farben, die in dieser Karte schon vorkommen — ein Klick, und zwei Klimageräte
+bekommen wirklich dasselbe Blau statt zwei ähnlicher.</p>
+</div>
+<div class="paragraph">
+<p><code>CSS ▾</code> klappt ein Textfeld aus. Das ist der Weg für alles, was kein Hex-Wert
+ist: <code>var(--primary-color)</code> bleibt so an das Theme gebunden, statt auf einen
+festen Wert eingefroren zu werden. Genau dafür ist das Feld geblieben — ein
+Farbwähler allein kann nur <code>#rrggbb</code>.</p>
+</div>
+<div class="paragraph">
+<p>Die Farbe eines Verbrauchers steht damit nicht mehr in seiner Karteikarte,
+sondern hier. Zwei Orte für dieselbe Einstellung wären einer zu viel.</p>
+</div>
+<div class="paragraph">
+<p>Beim Ladezustands-Verlauf sind die Enden festgenagelt: Bei 0 % und 100 % lässt
+sich die Farbe ändern, der Prozentwert nicht, und entfernen lassen sie sich auch
+nicht — die Karte weist einen Verlauf zurück, der nicht über die ganze Skala
+läuft. Stufen dazwischen lassen sich verschieben, hinzufügen und löschen,
+solange zwei übrig bleiben.</p>
+</div>
+<div class="paragraph">
+<p>Die Standardwerte kommen aus den Energie-Theme-Variablen von Home Assistant,
+sodass die Karte ohne Konfiguration zum Energie-Dashboard passt. Wer stattdessen
+nach gut und schlecht färben will:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">colors:
+  grid_export: "#43a047"        # Einspeisen ist gut
+  grid_import: "#e53935"        # Beziehen nicht
+  battery_charge: "#43a047"
+  battery_discharge: "#e53935"</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="transparenter-hintergrund-card-mod"><a class="anchor" href="#transparenter-hintergrund-card-mod"></a>Transparenter Hintergrund (card-mod)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Soll das Hintergrundbild des Dashboards durchscheinen, lässt sich die Karte mit
+<a href="https://github.com/thomasloven/lovelace-card-mod">card-mod</a> durchsichtig machen
+(ab Kartenversion 0.8.2):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">card_mod:
+  style: |
+    ha-card {
+      --ha-card-background: transparent;
+      background: none;
+      box-shadow: none;
+      border: none;
+    }</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Auf die erste Zeile kommt es an: Die vier Knoten sind mit der Hintergrundfarbe
+der Karte gefüllt, und <code>background: none</code> allein lässt sie als volle Scheiben
+stehen. Das klappt nur mit <code>appearance: auto</code> – bei <code>light</code> oder <code>dark</code> malt die
+Karte ihren Hintergrund selbst, und dorthin reicht card-mod nicht.</p>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

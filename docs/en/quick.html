@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick buttons – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/quick.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Quick buttons</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li class="current"><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Quick buttons</h1>
+<div class="paragraph">
+<p>The header has up to three quick buttons; each tap steps to the next value:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Quick button</th>
+<th class="tableblock halign-left valign-top">Values</th>
+<th class="tableblock halign-left valign-top">Key</th>
+<th class="tableblock halign-left valign-top">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Smoothing</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Now, short average, long average</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.modes</code>: <code>current</code>, <code>avg_short</code>, <code>avg_long</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">all three</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Power/energy</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">power, energy over a period</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.energy_periods</code>: <code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code>, <code>7d</code>, <code>month</code>, <code>30d</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code> - see below</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>List scope</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">filtered list, every consumer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.scope</code>: <code>filtered</code>, <code>full</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">both</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>List the values a button should offer. <strong>One value means fixed</strong>: the button is
+gone and the card always shows that value, on every device and for every user -
+a card set up for energy stays one. Fixed values other than the live view are
+named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for a
+live reading.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">view:
+  energy_periods: [month]          # an energy card: always this month
+  modes: [current, avg_long]       # no short average
+list:
+  scope: [full]                    # always every consumer</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A button with several values starts with its start value - <code>view.default_mode</code>,
+<code>view.default_energy</code>, <code>list.default_scope</code> - unless the browser remembers the
+last one (<code>view.remember</code>). Each card remembers for itself: the editor gives it
+a <code>memory_id</code>, so two copies of the same card side by side can show different
+things. A second card with the same id in the same view (a duplicate) keeps its
+own values as well; a copy in another view or dashboard is apart anyway. Cards
+written in YAML without a <code>memory_id</code> share what they remember, as before - add
+any name of your own to separate them. After the update a card with an id starts
+once with its start values; what it remembers is tied to the view, so moving it
+to another view, renaming the view or - for a view without a <code>path</code> of its own -
+reordering the views starts it afresh once. Averages exist for power only:
+without <code>power</code> in <code>energy_periods</code> the card never averages. In a period the
+smoothing button is greyed out.</p>
+</div>
+<div class="paragraph">
+<p><strong>The energy default.</strong> With no <code>energy_periods</code> set, the card offers power,
+today, 24 h and week - but only when solar, grid, battery and house all have
+long-term statistics. It checks that once when it loads (metadata only, no
+readings); otherwise it stays with power and says why in the browser console.
+<code>energy_periods: [power]</code> switches the energy mode off.</p>
+</div>
+<div class="paragraph">
+<p>The editor has a group per quick button; the last ticked value cannot be
+unticked. The older <code>view.show_selector: false</code> still works and means every
+quick button fixed on its start value; the editor turns it into the lists
+above when it opens.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+/* EnerLens docs - one stylesheet, light and dark from the same tokens. */
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f5f6f8;
+  --text: #1f2328;
+  --muted: #5f6b76;
+  --line: #d9dee3;
+  --accent: #ff9800; /* the PV orange of the card */
+  --link: #0a6ebd;
+  --code-bg: #f0f2f4;
+  --note: #0a6ebd;
+  --tip: #2e7d32;
+  --warn: #c77700;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131417;
+    --bg-soft: #1b1d21;
+    --text: #e4e6e9;
+    --muted: #9aa3ad;
+    --line: #2c3036;
+    --link: #6cb6ff;
+    --code-bg: #1f2227;
+    --note: #6cb6ff;
+    --tip: #7bc47f;
+    --warn: #f0a640;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131417;
+  --bg-soft: #1b1d21;
+  --text: #e4e6e9;
+  --muted: #9aa3ad;
+  --line: #2c3036;
+  --link: #6cb6ff;
+  --code-bg: #1f2227;
+  --note: #6cb6ff;
+  --tip: #7bc47f;
+  --warn: #f0a640;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+a { color: var(--link); }
+
+/* --- header ------------------------------------------------------------- */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; }
+.brand span { color: var(--accent); }
+.search { flex: 1; max-width: 420px; margin-left: auto; }
+.lang { color: var(--muted); text-decoration: none; font-size: 14px; }
+.lang:hover { color: var(--text); }
+.theme {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.theme svg { width: 18px; height: 18px; fill: currentColor; }
+
+/* --- frame: navigation and content -------------------------------------- */
+.frame {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 760px);
+  gap: 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+.side .menu {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.side .menu b { color: var(--text); font-weight: 600; }
+.side .menu::after { content: "▾"; margin-left: auto; }
+.side.open .menu::after { content: "▴"; }
+.side ul { list-style: none; margin: 0; padding: 0; position: sticky; top: 80px; }
+.side li a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+.side li a:hover { color: var(--text); background: var(--bg-soft); }
+.side li.current a { color: var(--text); background: var(--bg-soft); font-weight: 600; }
+
+main { min-width: 0; }
+main h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 24px; }
+main h2 { font-size: 1.4rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+main h3 { font-size: 1.1rem; margin: 28px 0 8px; }
+main p { margin: 0 0 14px; }
+main .anchor { display: none; }
+
+/* --- lists: compact by the converter, spacing only from here ------------ */
+main .ulist, main .olist { margin: 0 0 14px; }
+main ul, main ol { margin: 0; padding-left: 1.4em; }
+main li + li { margin-top: 4px; }
+/* An item with a continued paragraph keeps its <p>; that one sits tight. */
+main li > p { margin: 0 0 6px; }
+main .ulist > .title, main .olist > .title { font-weight: 600; margin-bottom: 4px; }
+
+/* --- code, tables, admonitions ------------------------------------------ */
+code { font: 0.9em/1.4 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; }
+pre code { background: none; padding: 0; }
+.listingblock > .title, .tableblock > caption { font-size: 0.9em; color: var(--muted); margin-bottom: 4px; }
+
+table.tableblock { border-collapse: collapse; width: 100%; margin: 0 0 18px; font-size: 0.95em; }
+table.tableblock th, table.tableblock td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+table.tableblock th { background: var(--bg-soft); }
+table.tableblock p { margin: 0; }
+
+.admonitionblock { margin: 0 0 18px; }
+.admonitionblock table { border-collapse: collapse; width: 100%; }
+.admonitionblock td { padding: 10px 14px; vertical-align: top; }
+.admonitionblock td.icon { width: 1%; white-space: nowrap; font-weight: 700; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; }
+/* Only the label and the bar take the colour; the text stays text. Simple
+   content stands directly in the cell, so colouring the cell would tint it. */
+.admonitionblock td.content { border-left: 3px solid var(--kind); background: var(--bg-soft); color: var(--text); }
+.admonitionblock td.content > :last-child { margin-bottom: 0; }
+.admonitionblock td.icon { color: var(--kind); }
+.admonitionblock.note { --kind: var(--note); }
+.admonitionblock.tip { --kind: var(--tip); }
+.admonitionblock.warning, .admonitionblock.important, .admonitionblock.caution { --kind: var(--warn); }
+
+.imageblock { margin: 0 0 18px; }
+/* A README picture comes in a light and a dark version; the page shows the
+   one that matches its own scheme, switch included. */
+.only-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .only-dark { display: block; }
+  :root:not([data-theme="light"]) .only-light { display: none; }
+}
+:root[data-theme="dark"] .only-dark { display: block; }
+:root[data-theme="dark"] .only-light { display: none; }
+.imageblock img { max-width: 100%; height: auto; }
+
+/* --- the live card ------------------------------------------------------- */
+/* The card's own ground matches the page in light mode; a rim sets it apart. */
+.card-demo { margin: 8px 0 24px; max-width: 680px; border: 1px solid var(--line); border-radius: 13px; }
+/* Font and line height are inherited into the card's shadow DOM. The page's
+   16px/1.6 made every label taller than in a dashboard; on a phone the list
+   then ran into the battery. Home Assistant's own body text: */
+/* A relative line height: the card's title (20px, overflow hidden) inherits
+   it, and a fixed 20px cut off the descender of the g in "Energie". */
+.card-demo { font: 14px/1.5 Roboto, "Noto Sans", system-ui, sans-serif; }
+/* The README pictures are cards too, white on white in light mode. */
+.imageblock img { border: 1px solid var(--line); border-radius: 13px; }
+
+/* What a tap on a node would open in Home Assistant, said instead. */
+.card-demo { position: relative; }
+.card-demo-note {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  padding: 8px 12px; border-radius: 8px;
+  background: var(--text); color: var(--bg); font-size: 13px;
+  opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; pointer-events: none;
+}
+.card-demo-note.show { opacity: .92; transform: none; }
+.card-demo.narrow { max-width: 440px; }
+
+/* --- Pagefind search, in the site's colours ----------------------------- */
+.search {
+  --pagefind-ui-scale: 0.75;
+  --pagefind-ui-primary: var(--link);
+  --pagefind-ui-text: var(--text);
+  --pagefind-ui-background: var(--bg);
+  --pagefind-ui-border: var(--line);
+  --pagefind-ui-tag: var(--bg-soft);
+  position: relative;
+}
+.search .pagefind-ui__drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.2);
+}
+
+/* --- footer --------------------------------------------------------------- */
+.foot { max-width: 1100px; margin: 0 auto; padding: 20px 24px 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+.foot a { color: inherit; }
+
+/* --- phone ---------------------------------------------------------------- */
+@media (max-width: 800px) {
+  .top { padding: 10px 16px; gap: 10px; }
+  /* minmax(0, 1fr), not 1fr: a grid track would otherwise grow to its widest
+     content - the card measured 466 px on a 390 px phone and laid itself out
+     for that width. */
+  .frame { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 60px; gap: 16px; }
+  /* On a phone the pages fold behind one button; 15 chips filled the screen. */
+  .side .menu { display: flex; width: 100%; }
+  .side ul { position: static; display: none; margin-top: 8px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; }
+  .side.open ul { display: block; }
+  .search { max-width: none; }
+}

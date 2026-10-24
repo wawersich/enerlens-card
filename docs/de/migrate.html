@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Umstieg von power-flow-card-plus – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/migrate.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Umstieg von power-flow-card-plus</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li class="current"><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Umstieg von power-flow-card-plus</h1>
+<div class="ulist">
+<ul>
+<li>Die Vorzeichen sind identisch — vorhandene Sensoren sollten unverändert
+funktionieren.</li>
+<li>Aus den einzelnen Verbrauchern wird die <code>consumers</code>-Liste, und sie sind eine
+<em>Aufschlüsselung</em> des Hauswerts statt zusätzlicher Knoten. Der Rest zeigt,
+was übrig bleibt.</li>
+<li><code>watt_threshold</code> gibt es nicht; stattdessen zwei bewusst getrennte Schwellen.
+<code>min_consumer_w</code> entscheidet, ob eine Zeile überhaupt in der Liste steht.
+<code>flow.min_w</code> entscheidet, ob Punkte laufen — im Kreuz zusätzlich über
+Linienfarbe, Zustandswort und Ring-Segment. Eine <strong>Verbraucherzeile</strong> wird
+farbig gezeichnet, sobald sie ihren Platz in der Liste verdient hat <em>oder</em>
+etwas fließt; eine mit 15 W gelistete Zeile steht also nie neben einer
+grauen Linie. Ihre Punkte warten weiterhin auf <code>flow.min_w</code>.</li>
+</ul>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

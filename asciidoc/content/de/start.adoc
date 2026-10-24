@@ -1,0 +1,113 @@
+= EnerLens Card
+:page-key: start
+:nav-order: 1
+
+Eine Energiefluss-Karte für Home Assistant. Das bekannte Kreuz aus PV, Netz,
+Haus und Batterie — dazu eine Aufschlüsselung, woraus der Hauswert eigentlich
+besteht.
+
+Die Karte hier ist keine Aufnahme, sondern die echte Karte mit ausgedachten Werten – probier den Filterknopf oder tippe auf „Jetzt“.
+
+++++
+<div class="card-demo"></div>
+++++
+
+== Was sie anders macht
+
+*Verbraucher können optional angegeben werden.* Sofern einzelne Verbraucher
+erfasst werden (z. B. eine Wärmepumpe oder ein mit einem Shelly gemessenes
+Gerät), können ihre Entitäten hinterlegt werden. Die Liste neben dem Haus-Knoten
+und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest fasst
+zusammen, was nicht einzeln gemessen wird.
+
+*Zeitlicher Mittelwert.* Ein Live-Leistungsdiagramm springt binnen Sekunden
+um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
+über 2 und 15 Minuten, frei einstellbar; ein Chip im Kopf schaltet reihum
+_Jetzt_, _Ø 2 min_ und _Ø 15 min_. Sie beruhigen das Bild, ohne die
+Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
+von Home Assistant mit der echten Historie.
+
+*Energie statt Leistung.* Auf Knopfdruck zeigt die Karte statt der Leistung
+die Energie eines Zeitraums: was heute von der Sonne kam, was das Haus diese
+Woche verbraucht hat und wie viel ins Netz ging. Zur Wahl stehen Heute, 24 h,
+Woche, 7 Tage, Monat und 30 Tage. Energie-Sensoren braucht es dafür nicht: Die
+Karte summiert die Statistik, die Home Assistant von den Leistungssensoren
+ohnehin führt. Lücken darin werden gefüllt und farblich markiert. Liste und Ring
+zeigen dann, welcher Verbraucher wie viel davon hatte. Für Bezug und Einspeisung
+bzw. Laden und Entladen braucht es je Richtung einen Sensor – hat man nur einen
+mit Vorzeichen, teilt ihn ein Helfer auf (siehe link:energy.html[Energie für einen
+Zeitraum]).
+
+++++
+<div class="card-demo" data-demo="energy"></div>
+++++
+
+*Quick-Buttons im Kopf.* Bis zu drei Knöpfe schalten die Ansicht mit einem
+Tipp: Jetzt oder Mittelwert, Leistung oder Energie, kurze oder ganze
+Verbraucherliste. Welche Werte ein Knopf anbietet, ist einstellbar; mit nur
+einem Wert verschwindet er, und die Karte zeigt auf jedem Gerät dasselbe. Jede
+Karte merkt sich, worauf sie zuletzt stand (siehe
+link:quick.html[Quick-Buttons]).
+
+[.only-light]
+image::card-de-light-quick.svg["Die Quick-Buttons: Jetzt, kW und der Filterknopf",215]
+
+[.only-dark]
+image::card-de-dark-quick.svg["Die Quick-Buttons: Jetzt, kW und der Filterknopf",215]
+
+*Die Verbraucher-Liste sortiert sich und gleitet.* Zeilen ordnen sich im
+festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
+Filter-Knopf oben zeigt auf Wunsch *alle* Verbraucher unabhängig von ihrer
+Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
+ist.
+
+*Der Ring zieht mit.* Ändert sich die Reihenfolge, wandern seine Segmente an
+ihren neuen Platz und überholen auf einer inneren Bahn — oder sie bleiben mit
+`ring.animation: fade` stehen und blenden ihre Farben über, so wie hier gezeigt:
+
+++++
+<div class="card-demo" data-demo="fade"></div>
+++++
+
+*Der Fluss ist frei einstellbar.* Die Punkte zeigen die Leistung: Sie werden
+schneller und zahlreicher, je mehr fließt. Ab welcher Leistung sie loslaufen,
+wie schnell sie höchstens werden und wie viele es höchstens sind, lässt sich
+einstellen — mit einem einzigen Regler `flow.peak_w` für alles oder Schwelle
+für Schwelle. Dazu kommen sechs Designs für die Punkte, eine gemeinsame
+Punktfarbe, und ruhende Linien lassen sich abdunkeln oder ausblenden. Alles
+davon steht auch im Editor.
+
+*Zusatzwerte an den Knoten.* Jeder Kreis kann einen zweiten Wert zeigen –
+im Kreis oder direkt daneben, mit einem kurzen Vorsatz: den Tagesertrag neben
+der PV-Leistung, den Netzbezug von heute, eine Autarkiequote am Haus, die
+Restenergie der Batterie. Es kann jede Entität sein; die Karte zeigt sie so,
+wie Home Assistant es tut, und rechnet nichts selbst. Name und Zustandswort
+eines Knotens lassen sich ausblenden. Siehe _Zusatzwerte an den Knoten_.
+
+++++
+<div class="card-demo" data-demo="extras"></div>
+++++
+
+Ein *Netzausfall* wird angezeigt, sofern die Anlage den Netzstatus erfasst.
+
+++++
+<div class="card-demo" data-demo="outage"></div>
+++++
+
+*Schmale Spalten.* Ist neben dem Kreuz kein Platz — auf dem Handy oder in
+einer schmalen Dashboard-Spalte —, rückt die Verbraucher-Liste darunter. Mit
+`list.always_below` bleibt sie auch auf breiten Flächen dort.
+
+++++
+<div class="card-demo narrow" data-demo="below"></div>
+++++
+
+*Eingerichtet im Editor.* Fast alles ist ein Klick im GUI-Editor, die Karte
+live daneben — auch die Farben, mit einem Farbwähler, der die schon
+verwendeten gleich mit anbietet.
+
+[.only-light]
+image::editor-de-light.png["Der Karteneditor mit aufgeklapptem Farbwähler",690]
+
+[.only-dark]
+image::editor-de-dark.png["Der Karteneditor mit aufgeklapptem Farbwähler",690]

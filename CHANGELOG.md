@@ -6,11 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **A website with the full documentation**, in English and German:
+  <https://wawersich.github.io/enerlens-card/>. Its cards are not pictures but
+  the real card running in the browser with invented values - the view, energy
+  and filter buttons can be tried, and the grid outage, extra values and
+  narrow layout each have a card of their own. Light and dark, searchable.
+
 ### Changed
-- **The README shows the energy mode and the quick buttons** at the top, each
-  with a picture of its own - the card over 24 hours in kWh, and the buttons
-  alone. The energy chapter has a helper example for the battery as well as
-  the grid.
+- **The README is short again:** what the card does, installation, a first
+  step and links into the website, instead of every chapter twice.
 
 ## [0.11.0] - 2026-10-22
 

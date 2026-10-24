@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid outage – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/outage.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Grid outage</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li class="current"><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Grid outage</h1>
+<div class="paragraph">
+<p>Some installations report whether the grid is there at all — an inverter that
+can run an island usually does. Then the card can say so, instead of showing
+0 W, which looks exactly like a quiet minute with nothing flowing:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">entities:
+  grid_status:
+    entity: sensor.grid_status
+    outage: [not_detected]
+    ok: [ok]</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>outage</code> is required, and nothing about it is guessed: every integration names
+its states differently, and a default taken from one vendor would be wrong more
+often than right. A bare entity id without state names is ignored, with a note
+in the console. <code>ok</code> may be left out when the entity publishes its own
+<code>options</code> — enum sensors and <code>input_select</code> do — because then everything in
+<code>options</code> except the outage states means "grid is there".</p>
+</div>
+<div class="paragraph">
+<p>Give the <strong>raw</strong> states, not the labels Home Assistant displays: an enum sensor
+shows a translated name, so what reads <em>Not detected</em> on screen is
+<code>not_detected</code> underneath. Case and stray spaces do not matter, a translation
+does — which is why the editor offers the entity&#8217;s own values for picking.</p>
+</div>
+<div class="paragraph">
+<p>During an outage the grid node carries a red X over its icon and reads <em>no grid</em>
+instead of a figure, and a red strip appears above the cross. Tapping the node
+opens the status entity, since that is the one that says since when.</p>
+</div>
+<div class="paragraph">
+<p><strong>Everything else keeps the last state.</strong> <code>unavailable</code>, <code>unknown</code> and any state
+you did not list leave the outage as it was. That is deliberate: an outage often
+takes the connection with it, and an integration may keep serving its last known
+value for minutes before it gives up. A card that read silence as "the grid is
+back" would drop the outage exactly when it is real.</p>
+</div>
+<div class="paragraph">
+<p>On load the card asks the recorder for the last real state of the past ten days,
+so a page opened during an outage starts with the outage. If it finds nothing,
+it claims nothing and draws the grid as usual.</p>
+</div>
+<div class="paragraph">
+<p>Without <code>grid_status</code> none of this exists — no strip, no X, no extra query.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

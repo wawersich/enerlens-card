@@ -1,0 +1,50 @@
+= Balkonkraftwerk und weitere PV
+:page-key: balcony
+:nav-order: 5
+
+Viele Anlagen haben mehr als eine PV-Quelle: die Dachanlage am
+Hybrid-Wechselrichter und dazu ein Balkonkraftwerk oder weitere
+Mikro-Wechselrichter. `solar` nimmt genau eine Entität. Mehrere Quellen fasst
+ein Helfer zusammen, die Karte addiert nicht selbst.
+
+*1. PV-Summe.* Unter _Einstellungen → Geräte & Dienste → Helfer → Helfer
+erstellen → Gruppe → Sensor-Gruppe_ alle PV-Leistungen als _Mitglieder_
+eintragen, _Typ_ *Summe* wählen und *Nicht-numerisch ignorieren*
+einschalten. Mikro-Wechselrichter melden sich nachts oft als nicht verfügbar;
+ohne diese Option wäre dann die ganze Summe nicht verfügbar. Den neuen Sensor
+als `solar` eintragen.
+
+*2. Hausverbrauch korrigieren.* Ein Hybrid-Wechselrichter sieht nur seine
+eigenen Strings. Ein Balkonkraftwerk, das hinter dem Zähler einspeist,
+erscheint in seinem Hauswert als _weniger Verbrauch_, nicht als Erzeugung; der
+Hauswert ist also um genau dessen Leistung zu klein. Ein Helfer _Template →
+Sensor_ (Einheit `W`, Geräteklasse `power`, Zustandsklasse `measurement`)
+addiert sie wieder:
+
+[source,jinja]
+----
+{{ [0, states('sensor.haus_wechselrichter')|float(0)
+     + states('sensor.balkonkraftwerk')|float(0)]|max|round(0) }}
+----
+
+Unter _Verfügbarkeit_ gehört
+
+[source,jinja]
+----
+{{ states('sensor.haus_wechselrichter')|is_number }}
+----
+
+So wird der Sensor nur dann nicht verfügbar, wenn der Wechselrichter es ist.
+Ein schlafendes Balkonkraftwerk zählt als 0. Diesen Sensor als `house`
+eintragen.
+
+*Oder einfacher:* Schritt 2 weglassen und `house` gar nicht angeben. Dann
+leitet die Karte das Haus aus PV-Summe, Netz und Batterie ab (siehe _Fehlende
+Größen ableiten_). Das kostet einen Helfer weniger, aber ein Tipp auf das Haus
+öffnet dann keinen Verlauf, und die Genauigkeit hängt am langsamsten der
+Sensoren. Hat der Wechselrichter einen schnellen Haussensor, ist der
+korrigierte Sensor die bessere Wahl.
+
+`grid` braucht keine Korrektur, solange der Netzsensor am Hausanschluss misst,
+wie es ein Smart Meter oder der Stromwandler des Wechselrichters tut. Er sieht
+die Einspeisung des Balkonkraftwerks dann ohnehin.

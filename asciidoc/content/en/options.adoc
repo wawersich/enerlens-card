@@ -1,0 +1,72 @@
+= All options
+:page-key: options
+:nav-order: 12
+
+[cols=",,",options="header",]
+|===
+|Option |Default |Meaning
+|`title` |— |Card heading
+|`entities.solar` |required |PV power, W or kW
+|`entities.grid` |required |Grid power, signed
+|`entities.house` |derived |House consumption
+|`entities.battery` |— |Battery power, signed
+|`entities.battery_soc` |— |State of charge in %
+|`entities.grid_status` |— |`++{++entity, outage, ok}` — see _Grid outage_
+|`consumers` |— |List of `++{++entity, name, color, icon, min_w, charge}` - `charge` see _Wallbox and EV_
+|`min_consumer_w` |`10` |Consumers below this are folded into the remainder; a consumer's own `min_w` overrides it
+|`max_consumers` |all |Only the strongest are listed
+|`update_interval_s` |`5` |How often the list reorders
+|`power.unit` |`kW` |`kW`, `W` or `auto`. `auto` picks the unit per value: whole watts below 1000 W, kilowatts above
+|`power.decimals` |`2` |Decimals for a fixed `kW`: 1, 2 or 3. Watts are always whole
+|`power.digits` |`3` |Significant digits for `auto`: 2, 3 or 4 - `1.23 kW`, `12.3 kW`, `123 kW`. A decimal place says something different at every size; this keeps what the figure tells constant
+|`list.enabled` |on with consumers |Show the list
+|`list.rest_label` |localised |Name of the remainder
+|`list.title` |— |Heading above the list
+|`list.always_below` |`false` |Keep the list under the cross even when there is room beside it
+|`ring.enabled` |on with consumers |Show the ring
+|`ring.animation` |`overtake` |How the ring follows a reordered list. `overtake`: every segment travels to its new place, one moving forward passes on an inner lane. `fade`: the places stay, their colours blend into the new order. `jump`: the ring does not move, new values show at once - dots and list keep moving
+|`view.modes` |all three |Quick button smoothing: `current`, `avg_short`, `avg_long`; one = fixed
+|`view.default_mode` |`current` |Start value of the smoothing
+|`view.avg_short_minutes` |`2` |Short averaging window
+|`view.avg_long_minutes` |`15` |Long averaging window
+|`view.remember` |`true` |Remember the last value of each quick button in this browser
+|`memory_id` |set by the editor |What the card remembers is kept under this id, per view; any name will do. Without it, cards share it
+|`view.energy_periods` |`power`, `today`, `24h`, `week` if the statistics are there |Quick button power/energy: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; one = fixed, `++[++power++]++` = no energy. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing
+|`view.default_energy` |`power` |Start value of power/energy
+|`list.scope` |both |Quick button list scope: `filtered`, `full`; one = fixed
+|`list.default_scope` |`filtered` |Start value of the list scope
+|`view.show_selector` |— |Deprecated: `false` fixes every quick button on its start value
+|`appearance` |`auto` |`auto`, `light` or `dark` - shows *this one card* light or dark whatever the theme says, and settles the flow design's value set with it
+|`flow.design` |`none` |`none`, or the id of a design from `flow-designs.json`
+|`flow.dot_color` |empty |Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs
+|`flow.dot_size` |`100` |Dot size in percent, 40–150. 100 is the dot of the design on a card with large nodes; smaller cards draw somewhat smaller dots on their own
+|`flow.line_width` |`100` |Line width in percent, 30–150 - 100 is 3 px for the connections and 2 px for the lines to the list on a card with large nodes, thinner on smaller cards
+|`flow.inactive_lines` |`show` |`show`, `dim` or `hide`
+|`flow.animation` |`auto` |`auto`, `on` or `off`
+|`flow.min_w` |`10` |Below this no dots move. In the cross it also turns the line grey and drops the state word; for a consumer row the colour and the ring segment follow the list instead
+|`flow.peak_w` |`6000` |One knob for the motion: the power at which dots peak; the three thresholds below default to 1/12, 1/3 and 1/1 of it
+|`flow.slow_below_w` |`500` |One slow dot up to here
+|`flow.full_speed_w` |= `more_dots_above_w` |Where the single dot reaches full speed; set it apart from `more_dots_above_w` to separate speed from count
+|`flow.more_dots_above_w` |`2000` |More dots beyond here
+|`flow.max_dots_at_w` |`6000` |Where the dot count peaks
+|`flow.max_dots` |`5` |Upper limit on dots
+|`flow.slow_s` |`5` |Seconds per pass at the low threshold
+|`flow.fast_s` |`1.8` |Seconds per pass at the top threshold
+|`colors.++*++` |HA energy colours |Any CSS value, including `var(--…)`
+|`colors.soc_stops` |red → yellow → green |Gradient for the charge level
+|`colors.consumer_palette` |10 colours |Cycled through consumers without a colour of their own
+|`icons.++*++` |mdi defaults |Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with `mdi:cloud-question` there; delete it for the colour dot
+|`nodes.++<++node++>++.show_name` |`true` |Show the node's name (`solar`, `grid`, `house`, `battery`)
+|`nodes.++<++node++>++.show_state` |`true` |Show the state word - `grid` and `battery` only
+|`nodes.++<++node++>++.inside` |— |Extra value in the circle: `++{++entity, position, decimals, size, weight}`, defaults `above`, `ha`, `100`, `normal` - not for `battery`. See _Extra values at the nodes_
+|`nodes.++<++node++>++.label` |— |Extra value next to the circle: `++{++entity, prefix, decimals, size, weight}`, defaults no prefix, `ha`, `100`, `normal`
+|`colors.++<++node++>_++inside`, `colors.++<++node++>_++label` |grey |Colour of an extra value
+|===
+
+`flow.animation: auto` follows the device's reduce-motion preference — that
+setting lives in the operating system, not in Home Assistant. It covers
+everything that moves: the dots, the list re-sorting and the ring, whatever
+`ring.animation` says. With motion
+off there are no dots at all, and none in a browser that cannot move them -
+standing still they would say nothing; the line's colour still shows where
+energy flows.

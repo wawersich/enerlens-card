@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alle Optionen – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/options.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Alle Optionen</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li class="current"><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Alle Optionen</h1>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Option</th>
+<th class="tableblock halign-left valign-top">Standard</th>
+<th class="tableblock halign-left valign-top">Bedeutung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>title</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Überschrift der Karte</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.solar</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pflicht</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PV-Leistung, W oder kW</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.grid</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pflicht</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Netzleistung, signiert</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.house</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">abgeleitet</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Hausverbrauch</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.battery</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Batterieleistung, signiert</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.battery_soc</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ladezustand in %</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.grid_status</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{entity, outage, ok}</code> — siehe <em>Netzausfall</em></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>consumers</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Liste aus <code>{entity, name, color, icon, min_w, charge}</code> – <code>charge</code> siehe <em>Wallbox und E-Auto</em></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>min_consumer_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>10</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verbraucher darunter zählen zum Rest; ein eigenes <code>min_w</code> am Verbraucher hat Vorrang</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>max_consumers</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">alle</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Nur die stärksten werden gelistet</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>update_interval_s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wie oft die Liste neu sortiert</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power.unit</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kW</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kW</code>, <code>W</code> oder <code>auto</code>. <code>auto</code> wählt die Einheit je Wert: unter 1000 W ganze Watt, darüber kW</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power.decimals</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Nachkommastellen bei festem <code>kW</code>: 1, 2 oder 3. Watt sind immer ganz</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power.digits</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>3</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Relevante Stellen bei <code>auto</code>: 2, 3 oder 4 — <code>1,23 kW</code>, <code>12,3 kW</code>, <code>123 kW</code>. Eine Nachkommastelle bedeutet bei jeder Größe etwas anderes; so bleibt gleich, wie viel die Zahl aussagt</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.enabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">an mit Verbrauchern</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Liste anzeigen</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.rest_label</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">lokalisiert</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bezeichnung des Rests</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.title</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Überschrift über der Liste</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.always_below</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.enabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">an mit Verbrauchern</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ring anzeigen</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.animation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>overtake</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wie der Ring einer umsortierten Liste folgt. <code>overtake</code>: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. <code>fade</code>: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. <code>jump</code>: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.modes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">alle drei</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button Glättung: <code>current</code>, <code>avg_short</code>, <code>avg_long</code>; einer = fest</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.default_mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>current</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Startwert der Glättung</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.avg_short_minutes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kurzes Mittelungsfenster</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.avg_long_minutes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>15</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Langes Mittelungsfenster</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.remember</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Den letzten Wert jedes Quick-Buttons in diesem Browser merken</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>memory_id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">setzt der Editor</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Was die Karte sich merkt, liegt je Ansicht unter dieser Kennung; jeder Name geht. Ohne sie teilen sich die Karten das</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.energy_periods</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code>, wenn die Statistik da ist</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button Leistung/Energie: <code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code>, <code>7d</code>, <code>month</code>, <code>30d</code>; einer = fest, <code>[power]</code> = keine Energie. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.default_energy</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Startwert von Leistung/Energie</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.scope</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">beide</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button Listenumfang: <code>filtered</code>, <code>full</code>; einer = fest</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.default_scope</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filtered</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Startwert des Listenumfangs</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.show_selector</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Veraltet: <code>false</code> stellt jeden Quick-Button fest auf seinen Startwert</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>appearance</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code>, <code>light</code> oder <code>dark</code> — zeigt <strong>diese eine Karte</strong> hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.design</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>none</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>none</code> oder die Kennung eines Designs aus <code>flow-designs.json</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.dot_color</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">leer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.dot_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Punktgröße in Prozent, 40–150. 100 ist der Punkt des Designs auf einer Karte mit großen Knoten; kleinere Karten zeichnen von sich aus etwas kleinere Punkte</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.line_width</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.inactive_lines</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>show</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>show</code>, <code>dim</code> oder <code>hide</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.animation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auto</code>, <code>on</code> oder <code>off</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.min_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>10</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Darunter laufen keine Punkte. Im Kreuz wird die Linie zusätzlich grau und das Zustandswort entfällt; bei einer Verbraucherzeile richten sich Farbe und Ring-Segment stattdessen nach der Liste</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.peak_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ein Regler für die Bewegung: Leistung, bei der die Punkte ihr Maximum erreichen; die drei Schwellen darunter sind standardmäßig 1/12, 1/3 und 1/1 davon</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.slow_below_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>500</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bis hier ein langsamer Punkt</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.full_speed_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">= <code>more_dots_above_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ab hier hat der einzelne Punkt sein Höchsttempo; getrennt von <code>more_dots_above_w</code> setzen, um Tempo und Anzahl zu entkoppeln</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.more_dots_above_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>2000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ab hier kommen Punkte hinzu</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.max_dots_at_w</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6000</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wo die Punktzahl ihr Maximum erreicht</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.max_dots</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Obergrenze für Punkte</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.slow_s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sekunden pro Durchlauf an der unteren Schwelle</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.fast_s</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1.8</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sekunden pro Durchlauf an der oberen Schwelle</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.*</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HA-Energiefarben</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Jeder CSS-Wert, auch <code>var(--…)</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.soc_stops</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rot → gelb → grün</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verlauf für den Ladezustand</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.consumer_palette</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">10 Farben</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reihum für Verbraucher ohne eigene Farbe</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>icons.*</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mdi-Standard</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Icon je Knoten; <code>icons.rest</code> gibt auch der Rest-Zeile eines, statt des Farbpunkts. Eine über das Dashboard neu angelegte Karte bringt dort <code>mdi:cloud-question</code> mit; wird es gelöscht, erscheint wieder der Farbpunkt</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;knoten&gt;.show_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Namen des Knotens zeigen (<code>solar</code>, <code>grid</code>, <code>house</code>, <code>battery</code>)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;knoten&gt;.show_state</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Zustandswort zeigen – nur <code>grid</code> und <code>battery</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;knoten&gt;.inside</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Zusatzwert im Kreis: <code>{entity, position, decimals, size, weight}</code>, Standard <code>above</code>, <code>ha</code>, <code>100</code>, <code>normal</code> – nicht bei <code>battery</code>. Siehe <em>Zusatzwerte an den Knoten</em></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;knoten&gt;.label</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Zusatzwert direkt am Kreis: <code>{entity, prefix, decimals, size, weight}</code>, Standard ohne Vorsatz, <code>ha</code>, <code>100</code>, <code>normal</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.&lt;knoten&gt;_inside</code>, <code>colors.&lt;knoten&gt;_label</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">grau</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Farbe eines Zusatzwerts</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><code>flow.animation: auto</code> folgt der Einstellung „Bewegung reduzieren" des Geräts —
+die steht im Betriebssystem, nicht in Home Assistant. Sie gilt für alles, was
+sich bewegt: die Punkte, das Umsortieren der Liste und den Ring, gleich was
+<code>ring.animation</code> sagt. Ohne Bewegung
+gibt es keine Punkte, ebenso in einem Browser, der sie nicht bewegen kann –
+stehend sagen sie nichts; wo Energie fließt, zeigt weiterhin die Farbe der
+Linie.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

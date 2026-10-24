@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EnerLens Card – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/index.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>EnerLens Card</b></button>
+  <ul>
+<li class="current"><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>EnerLens Card</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>An energy flow card for Home Assistant. The familiar cross of PV, grid, house
+and battery — plus a breakdown of what the house figure is actually made of.</p>
+</div>
+<div class="paragraph">
+<p>The card here is not a recording but the real card with invented values – try the filter button or tap “Now”.</p>
+</div>
+<div class="card-demo"></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="what-it-does-differently"><a class="anchor" href="#what-it-does-differently"></a>What it does differently</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>Consumers are optional.</strong> If individual consumers are measured (a heat pump,
+say, or a device behind a Shelly), their entities can be added. The list beside
+the house node and the ring around it then show what makes up the house value.
+The remainder holds everything that is not measured individually.</p>
+</div>
+<div class="paragraph">
+<p><strong>Moving average.</strong> A live power diagram jumps by kilowatts within seconds.
+Alternatively the card shows moving averages — over 2 and 15 minutes by
+default, both configurable; one chip in the header steps through <em>Now</em>,
+<em>Ø 2 min</em> and <em>Ø 15 min</em>. They calm the picture down without falsifying the
+numbers. Clicking any element still opens Home Assistant&#8217;s own dialog with the
+real history.</p>
+</div>
+<div class="paragraph">
+<p><strong>Energy instead of power.</strong> At the tap of a button the card shows the energy of
+a period instead of the power: what came from the sun today, what the house used
+this week and how much went to the grid. The periods are today, 24 h, week, 7
+days, month and 30 days. No energy sensors needed: the card adds up the
+statistics Home Assistant already keeps of the power sensors. Gaps in them are
+filled and marked by colour. List and ring then show which consumer had how much
+of it. Import and export, or charge and discharge, take one sensor per direction
+– if you only have a signed one, a helper splits it (see <a href="energy.html">Energy over a
+period</a>).</p>
+</div>
+<div class="card-demo" data-demo="energy"></div>
+<div class="paragraph">
+<p><strong>Quick buttons in the header.</strong> Up to three buttons switch the view with one
+tap: now or average, power or energy, short or full consumer list. Which values
+a button offers is up to you; with a single value it disappears and the card
+shows the same on every device. Every card remembers where it was left (see
+<a href="quick.html">Quick buttons</a>).</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/card-en-light-quick.svg" alt="The quick buttons: now, kW and the filter button" width="215">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/card-en-dark-quick.svg" alt="The quick buttons: now, kW and the filter button" width="215">
+</div>
+</div>
+<div class="paragraph">
+<p><strong>The consumer list sorts itself and glides.</strong> Rows reorder by power on a fixed
+beat and slide to their new position. A small filter button at the top shows
+<strong>every</strong> consumer on request, regardless of power — for tapping the history of
+a device that has just gone quiet.</p>
+</div>
+<div class="paragraph">
+<p><strong>The ring follows along.</strong> When the order changes, its segments travel to
+their new places and overtake on an inner lane — or, with
+<code>ring.animation: fade</code>, keep their places and blend their colours, as shown
+here:</p>
+</div>
+<div class="card-demo" data-demo="fade"></div>
+<div class="paragraph">
+<p><strong>The flow is yours to tune.</strong> The dots show the power: the more flows, the
+faster and the more of them. When they start, how fast they get and how many
+there can be are all settings — one knob, <code>flow.peak_w</code>, for all of it, or
+threshold by threshold. On top come six dot designs, a single dot colour for
+the whole card, and idle lines that can be dimmed or hidden. All of it is in
+the editor too.</p>
+</div>
+<div class="paragraph">
+<p><strong>Extra values at the nodes.</strong> Each circle can show a second value - in the
+circle or right next to it, with a short prefix: today&#8217;s yield beside the
+solar power, the energy drawn from the grid today, a self-sufficiency rate at
+the house, the battery&#8217;s remaining energy. It can be any entity; the card
+shows it the way Home Assistant does and computes nothing itself. A node&#8217;s
+name and state word can be hidden. See <em>Extra values at the nodes</em>.</p>
+</div>
+<div class="card-demo" data-demo="extras"></div>
+<div class="paragraph">
+<p>A <strong>grid outage</strong> is shown, provided the installation reports the grid status.</p>
+</div>
+<div class="card-demo" data-demo="outage"></div>
+<div class="paragraph">
+<p><strong>Narrow columns.</strong> When there is no room beside the cross — on a phone or in a
+narrow dashboard column — the consumer list moves below it. With
+<code>list.always_below</code> it stays there on wide screens too.</p>
+</div>
+<div class="card-demo narrow" data-demo="below"></div>
+<div class="paragraph">
+<p><strong>Set up in the editor.</strong> Almost everything is a click in the GUI editor, with
+the card live beside it — the colours too, with a picker that offers the ones
+the card already uses.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-en-light.png" alt="The card editor with the colour picker open" width="690">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-en-dark.png" alt="The card editor with the colour picker open" width="690">
+</div>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

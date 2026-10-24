@@ -27,18 +27,18 @@ type Path = readonly string[];
 const REQUIRED = new Set(["type", "entities"]);
 
 /*
- * The checklist: every option the README's table "All options" documents.
- * A new option is covered as soon as it is documented - and one that is not
- * documented is a gap of its own (22.10.2026, memory_id and the quick
+ * The checklist: every option the table "All options" documents - on the
+ * website since 24.10.2026 (asciidoc/content/en/options.adoc), in the README
+ * before. A new option is covered as soon as it is documented - and one that
+ * is not documented is a gap of its own (22.10.2026, memory_id and the quick
  * buttons' keys had slipped through a list kept by hand).
  */
 const DOCUMENTED: readonly string[] = (() => {
-  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-  const table = readme.slice(readme.indexOf("### All options"));
-  const end = table.indexOf("\n### ", 4);
-  return [...(end === -1 ? table : table.slice(0, end)).matchAll(/^\| `([a-z_.]+)` \|/gm)].map(
-    (m) => m[1],
+  const page = readFileSync(
+    new URL("../asciidoc/content/en/options.adoc", import.meta.url),
+    "utf8",
   );
+  return [...page.matchAll(/^\|`([a-z_.]+)` \|/gm)].map((m) => m[1]);
 })();
 
 /** Documented, but not a key of its own to leave empty here. */
@@ -46,7 +46,7 @@ const NOT_EMPTIABLE = new Set(["entities.solar", "entities.grid"]);
 
 /*
  * Every optional top-level key comes from the card's own list, every key
- * inside a block from the README's table, and a few more by hand.
+ * inside a block from the documented table, and a few more by hand.
  */
 const OPTIONAL: readonly Path[] = [
   ...[...KNOWN_KEYS].filter((key) => !REQUIRED.has(key)).map((key) => [key]),

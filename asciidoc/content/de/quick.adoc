@@ -1,0 +1,56 @@
+= Quick-Buttons
+:page-key: quick
+:nav-order: 8
+
+Im Kopf der Karte gibt es bis zu drei Quick-Buttons; jeder Tipp schaltet zum
+nächsten Wert:
+
+[cols=",,,",options="header",]
+|===
+|Quick-Button |Werte |Schlüssel |Standard
+|*Glättung* |Jetzt, kurzer Mittelwert, langer Mittelwert |`view.modes`: `current`, `avg_short`, `avg_long` |alle drei
+|*Leistung/Energie* |Leistung, Energie über einen Zeitraum |`view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` |`power`, `today`, `24h`, `week` - siehe unten
+|*Listenumfang* |gefilterte Liste, alle Verbraucher |`list.scope`: `filtered`, `full` |beide
+|===
+
+Eingetragen wird, was ein Quick-Button anbieten soll. *Ein Wert heißt fest*:
+Der Knopf entfällt, und die Karte zeigt immer diesen Wert - auf jedem Gerät, für
+jeden Nutzer. Eine als Energie-Karte eingerichtete Karte bleibt also eine. Feste
+Werte außer der Augenblicksansicht nennt der Kopf („Ø 15 min“, „Energie:
+Monat“), damit niemand sie für einen Live-Wert hält.
+
+[source,yaml]
+----
+view:
+  energy_periods: [month]          # eine Energie-Karte: immer dieser Monat
+  modes: [current, avg_long]       # ohne kurzen Mittelwert
+list:
+  scope: [full]                    # immer alle Verbraucher
+----
+
+Ein Quick-Button mit mehreren Werten startet mit seinem Startwert -
+`view.default_mode`, `view.default_energy`, `list.default_scope` -, außer der
+Browser hat sich den letzten gemerkt (`view.remember`). Jede Karte merkt sich
+das für sich: Der Editor gibt ihr eine `memory_id`, damit zwei Exemplare
+derselben Karte nebeneinander Verschiedenes zeigen können. Eine zweite Karte mit
+derselben Kennung in derselben Ansicht (eine duplizierte) merkt sich ebenfalls
+ihre eigenen Werte; eine Kopie in einer anderen Ansicht oder einem anderen
+Dashboard ist ohnehin getrennt. Karten, die nur in YAML stehen und keine
+`memory_id` haben, teilen sich wie bisher, was sie sich merken - ein beliebiger
+eigener Name trennt sie. Nach dem Update startet eine Karte mit Kennung einmal
+mit ihren Startwerten; was sie sich merkt, hängt an der Ansicht: In eine andere
+Ansicht verschoben, nach Umbenennen der Ansicht oder - bei einer Ansicht ohne
+eigenen `path` - nach dem Umsortieren der Ansichten startet sie einmal neu.
+Mittelwerte gibt es nur für die Leistung: Ohne `power` in `energy_periods`
+mittelt die Karte nie. In einem Zeitraum ist die Glättung ausgegraut.
+
+*Der Energie-Standard.* Ist `energy_periods` nicht gesetzt, bietet die Karte
+Leistung, Heute, 24 h und Woche an - aber nur, wenn PV, Netz, Batterie und Haus
+eine Langzeitstatistik haben. Das prüft sie einmal beim Laden (nur Metadaten,
+keine Messwerte); sonst bleibt sie bei der Leistung und sagt in der
+Browser-Konsole, warum. `energy_periods: ++[++power++]++` schaltet den Energie-Modus ab.
+
+Der Editor hat je Quick-Button eine Gruppe; das letzte Häkchen lässt sich nicht
+abwählen. Das ältere `view.show_selector: false` gilt weiter und heißt: jeder
+Quick-Button fest auf seinem Startwert. Der Editor macht beim Öffnen die Listen
+oben daraus.

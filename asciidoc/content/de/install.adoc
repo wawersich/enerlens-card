@@ -1,0 +1,21 @@
+= Installation
+:page-key: install
+:nav-order: 2
+
+== HACS
+
+[arabic]
+. HACS → ⋮ → _Benutzerdefinierte Repositories_ → `https://github.com/wawersich/enerlens-card`
+hinzufügen, Typ _Dashboard_
+. Nach _EnerLens_ suchen, installieren, Browser neu laden
+. HACS trägt die Ressource `/hacsfiles/enerlens-card/enerlens-card.js` selbst
+ein; erscheint die Karte nicht, unter _Einstellungen → Dashboards →
+Ressourcen_ nachsehen
+
+== Von Hand
+
+[arabic]
+. `enerlens-card.js` aus dem letzten Release herunterladen
+. Nach `config/www/` kopieren
+. Unter _Einstellungen → Dashboards → Ressourcen_ eintragen:
+`/local/enerlens-card.js` als _JavaScript-Modul_

@@ -1,0 +1,110 @@
+= Energy over a period
+:page-key: energy
+:nav-order: 9
+
+Besides power, the card can show energy: what came from the sun today, what
+was bought this week, what the heat pump used this month. It needs no energy
+sensors for that - it adds up the long-term statistics Home Assistant keeps of
+the power sensors that are already configured.
+
+[source,yaml]
+----
+view:
+  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # any of them
+----
+
+The quick button power/energy next to the filter button then steps through
+_kW_ (the power view, `power`; _Watt_ with `power.unit: W`) and the periods
+switched on. Without any setting it offers power, today, 24 h and week (see
+_Quick buttons_):
+
+[cols=",,",options="header",]
+|===
+|Key |Chip |Period
+|`today` |Today |since midnight
+|`24h` |24 h |the last 24 hours
+|`week` |Week |since the first day of the week as set in your Home Assistant profile
+|`7d` |7 days |the last 7 × 24 hours
+|`month` |Month |since the first of the month
+|`30d` |30 days |the last 30 × 24 hours
+|===
+
+Every period ends at the last statistics Home Assistant has written, a few
+minutes behind the clock. The rolling ones are exact to five minutes; _30
+days_ starts on the full hour, because Home Assistant keeps its five-minute
+statistics only about ten days - up to an hour shorter, never made up.
+
+* *PV and house* show one figure each, in kWh.
+* *Grid* with two sensors shows the import above the icon (→) and the
+export below it (←), *battery* with two sensors the discharge above (↑)
+and the charge below (↓) - over a day, both happen. With one signed sensor
+see below. The state of charge is a now, not a period, so it is not shown.
+* *The list and the ring* work with the energy of the period. Thresholds
+given in W count as W × 1 hour: `min_consumer_w: 10` hides consumers below
+10 Wh.
+* *The dots* run on the mean power over the period - its energy divided by
+the time it took - with the usual thresholds, so a month moves like its
+average day, not at top speed.
+* Extra values and the state words ("import", "charging") are hidden; their
+room stays, so nothing moves when you switch.
+* Tapping a node still opens its history.
+
+*One sensor or two for grid and battery.* An hourly mean of a signed sensor
+cannot tell how much went each way - on most days the grid does both - only the
+balance is exact. So with a single signed sensor the *grid* shows one figure,
+its balance (→ net import, ← net export), which is also what its dots show, and
+the *battery* shows no figure and no flow. PV, house and consumers are exact
+either way. A _derived_ grid or battery (see above) does not work with the
+energy mode: the option is locked in the editor and the quick button does not
+appear. To see both directions, give the card two sensors each - two _Template →
+Sensor_ helpers split a signed one (unit `W`, device class `power`, state class
+`measurement`):
+
+[source,jinja]
+----
+{# import #}
+{{ [states('sensor.grid_power')|float, 0]|max if has_value('sensor.grid_power') else none }}
+{# export #}
+{{ [-(states('sensor.grid_power')|float), 0]|max if has_value('sensor.grid_power') else none }}
+----
+
+The battery works the same way; positive means discharge there:
+
+[source,jinja]
+----
+{# discharge #}
+{{ [states('sensor.battery_power')|float, 0]|max if has_value('sensor.battery_power') else none }}
+{# charge #}
+{{ [-(states('sensor.battery_power')|float), 0]|max if has_value('sensor.battery_power') else none }}
+----
+
+If your sensor reports it the other way round (charging positive), swap the two
+templates.
+
+`none` while the sensor is unavailable keeps an outage out of the statistics
+as a gap, rather than as a measured zero.
+
+Statistics only exist from the moment a sensor is created, so new helpers show
+"Month from 10/21" in the chip until a whole month has passed.
+
+*How sure a figure is.* Home Assistant's statistics can have holes - a
+restart, an integration that was down. The card fills an hour that is missing
+for one of the balance values (PV, import, export, discharge, charge, house)
+from the other five, otherwise from the same hour the day before (or after).
+An hour without PV after a dark hour counts as zero: small inverters switch
+off at night. A figure is then coloured by how much of the period was filled:
+
+[cols=",",options="header",]
+|===
+|Filled |Shown
+|up to 2 % |normal
+|2 – 10 % |muted blue-grey
+|more than 10 % |amber
+|===
+
+Hovering over the figure says how much. If one of the main sensors only has
+statistics from a date inside the period, the whole period counts from then -
+the chip says "Month from 10/8" in amber - so that the balance still adds up.
+Nothing is ever extrapolated. A consumer that is newer than the period does not
+shorten it; its row and the remainder are amber, and a consumer without
+statistics (a sensor without a state class) is listed last with a dash.

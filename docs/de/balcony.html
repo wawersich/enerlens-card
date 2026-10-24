@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balkonkraftwerk und weitere PV – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/balcony.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Balkonkraftwerk und weitere PV</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li class="current"><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Balkonkraftwerk und weitere PV</h1>
+<div class="paragraph">
+<p>Viele Anlagen haben mehr als eine PV-Quelle: die Dachanlage am
+Hybrid-Wechselrichter und dazu ein Balkonkraftwerk oder weitere
+Mikro-Wechselrichter. <code>solar</code> nimmt genau eine Entität. Mehrere Quellen fasst
+ein Helfer zusammen, die Karte addiert nicht selbst.</p>
+</div>
+<div class="paragraph">
+<p><strong>1. PV-Summe.</strong> Unter <em>Einstellungen → Geräte &amp; Dienste → Helfer → Helfer
+erstellen → Gruppe → Sensor-Gruppe</em> alle PV-Leistungen als <em>Mitglieder</em>
+eintragen, <em>Typ</em> <strong>Summe</strong> wählen und <strong>Nicht-numerisch ignorieren</strong>
+einschalten. Mikro-Wechselrichter melden sich nachts oft als nicht verfügbar;
+ohne diese Option wäre dann die ganze Summe nicht verfügbar. Den neuen Sensor
+als <code>solar</code> eintragen.</p>
+</div>
+<div class="paragraph">
+<p><strong>2. Hausverbrauch korrigieren.</strong> Ein Hybrid-Wechselrichter sieht nur seine
+eigenen Strings. Ein Balkonkraftwerk, das hinter dem Zähler einspeist,
+erscheint in seinem Hauswert als <em>weniger Verbrauch</em>, nicht als Erzeugung; der
+Hauswert ist also um genau dessen Leistung zu klein. Ein Helfer <em>Template →
+Sensor</em> (Einheit <code>W</code>, Geräteklasse <code>power</code>, Zustandsklasse <code>measurement</code>)
+addiert sie wieder:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ [0, states('sensor.haus_wechselrichter')|float(0)
+     + states('sensor.balkonkraftwerk')|float(0)]|max|round(0) }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Unter <em>Verfügbarkeit</em> gehört</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ states('sensor.haus_wechselrichter')|is_number }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>So wird der Sensor nur dann nicht verfügbar, wenn der Wechselrichter es ist.
+Ein schlafendes Balkonkraftwerk zählt als 0. Diesen Sensor als <code>house</code>
+eintragen.</p>
+</div>
+<div class="paragraph">
+<p><strong>Oder einfacher:</strong> Schritt 2 weglassen und <code>house</code> gar nicht angeben. Dann
+leitet die Karte das Haus aus PV-Summe, Netz und Batterie ab (siehe <em>Fehlende
+Größen ableiten</em>). Das kostet einen Helfer weniger, aber ein Tipp auf das Haus
+öffnet dann keinen Verlauf, und die Genauigkeit hängt am langsamsten der
+Sensoren. Hat der Wechselrichter einen schnellen Haussensor, ist der
+korrigierte Sensor die bessere Wahl.</p>
+</div>
+<div class="paragraph">
+<p><code>grid</code> braucht keine Korrektur, solange der Netzsensor am Hausanschluss misst,
+wie es ein Smart Meter oder der Stromwandler des Wechselrichters tut. Er sieht
+die Einspeisung des Balkonkraftwerks dann ohnehin.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

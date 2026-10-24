@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Einrichtung – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/setup.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Einrichtung</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li class="current"><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Einrichtung</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Die Karte bringt einen GUI-Editor mit. Jede Entitätsform unten — eine Entität,
+eine mit umgedrehtem Vorzeichen, zwei Entitäten oder eine abgeleitete Größe —
+ist im Formular eine Auswahl; YAML braucht es also nie. Nur die Verbraucher-
+palette bleibt dem YAML vorbehalten. Das YAML ist für alle dokumentiert, die es
+vorziehen.</p>
+</div>
+<div class="paragraph">
+<p>Eine über das Dashboard neu angelegte Karte rät deine Sensoren nicht: Sie
+startet mit den Platzhaltern <code>sensor.solar_power</code> und <code>sensor.grid_power</code> und
+zeigt gekennzeichnete Beispielwerte, bis du deine eigenen auswählst.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="minimal"><a class="anchor" href="#minimal"></a>Minimal</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">type: custom:enerlens-card
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mit-batterie-und-verbrauchern"><a class="anchor" href="#mit-batterie-und-verbrauchern"></a>Mit Batterie und Verbrauchern</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">type: custom:enerlens-card
+title: Energie
+entities:
+  solar: sensor.pv_leistung
+  grid: sensor.netz_leistung
+  house: sensor.hausverbrauch
+  battery: sensor.batterie_leistung
+  battery_soc: sensor.batterie_ladezustand
+consumers:
+  - entity: sensor.waermepumpe_leistung
+    name: Wärmepumpe
+  - entity: sensor.waschmaschine_leistung
+  - entity: sensor.kuehlschrank_leistung
+max_consumers: 5</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="vorzeichen"><a class="anchor" href="#vorzeichen"></a>Vorzeichen</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Die Karte folgt der Konvention von Home Assistant — derselben, die auch
+<code>power-flow-card-plus</code> und das Energie-Dashboard verwenden:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Größe</th>
+<th class="tableblock halign-left valign-top">Positiv</th>
+<th class="tableblock halign-left valign-top">Negativ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>grid</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bezug aus dem Netz</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Einspeisung</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>battery</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Entladen</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Laden</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Meldet dein Sensor es andersherum — viele Wechselrichter geben die Einspeisung
+positiv aus — lässt sich das je Entität umkehren:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">entities:
+  grid:
+    entity: sensor.netz_leistung
+    invert: true</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wer statt eines signierten Sensors getrennte Sensoren je Richtung hat, nennt
+beide. Erwartet werden Werte ab null:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">entities:
+  grid:
+    import: sensor.netz_bezug
+    export: sensor.netz_einspeisung
+  battery:
+    discharge: sensor.batterie_entladen
+    charge: sensor.batterie_laden</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Eine Entität oder zwei?</strong> Wenn deine Anlage beides hergibt — einen
+vorzeichenbehafteten Sensor und ein Paar je Richtung — nimm den
+vorzeichenbehafteten. Der Verlaufsdialog von Home Assistant zeigt immer nur eine
+Entität, ein Paar verbirgt also die Hälfte: Tippst du bei 4 W Einspeisung auf
+den Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von
+gestern Abend überhaupt nicht vorkommt.</p>
+</div>
+<div class="paragraph">
+<p>Gibt es keinen vorzeichenbehafteten Sensor, baut ein Helfer <em>Template → Sensor</em>
+einen (Einheit <code>W</code>, Geräteklasse <code>power</code>, Statusklasse <code>measurement</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ (states('sensor.netz_bezug')|float(0)
+  - states('sensor.netz_einspeisung')|float(0))|round(0) }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Gib ihm dieselbe Verfügbarkeitsregel wie dem abgeleiteten Haussensor weiter
+unten — nicht verfügbar, sobald eine der Quellen es ist —, damit ein Aussetzer
+nicht als Null in die Statistik wandert. Sein Wert wird dann aufgezeichnet, was
+für einen von der Karte gerechneten Wert nie gilt: Verlauf, Langzeitstatistik,
+Automationen und das Energie-Dashboard sehen ihn.</p>
+</div>
+<div class="paragraph">
+<p>Geht beides nicht, ist die Zwei-Entitäten-Form in jeder angezeigten Zahl
+richtig; nur die Historie bleibt geteilt.</p>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

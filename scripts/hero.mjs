@@ -11,12 +11,18 @@
  *
  *   npm run build && npm run hero              # mit Umsortieren
  *   npm run build && npm run hero -- --flow-only   # nur der Fluss
- *   npm run build && npm run hero -- --outage      # Netzausfall, Inselbetrieb
- *   npm run build && npm run hero -- --below       # Liste unter dem Kreuz
- *   npm run build && npm run hero -- --fade        # Ring blendet Farben über
- *   npm run build && npm run hero -- --extras      # Zusatzwerte an den Knoten
- *   npm run build && npm run hero -- --energy      # Energie der letzten 24 h
  *   npm run build && npm run hero -- --quick       # nur die Quick-Buttons
+ *
+ * Release pictures are only these: the title picture (README) and the quick
+ * buttons (website). The variants below are not part of a release since
+ * 24.10.2026 - the website shows live cards instead - and their files are not
+ * kept; they stay here for pictures in forum or Reddit posts:
+ *
+ *   npm run hero -- --outage      # Netzausfall, Inselbetrieb
+ *   npm run hero -- --below       # Liste unter dem Kreuz
+ *   npm run hero -- --fade        # Ring blendet Farben über
+ *   npm run hero -- --extras      # Zusatzwerte an den Knoten
+ *   npm run hero -- --energy      # Energie der letzten 24 h
  *
  * Needs Chromium (`apk add chromium` on the HA box, not persistent).
  */

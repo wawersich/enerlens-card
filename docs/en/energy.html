@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energy over a period – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/energy.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Energy over a period</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li class="current"><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Energy over a period</h1>
+<div class="paragraph">
+<p>Besides power, the card can show energy: what came from the sun today, what
+was bought this week, what the heat pump used this month. It needs no energy
+sensors for that - it adds up the long-term statistics Home Assistant keeps of
+the power sensors that are already configured.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">view:
+  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # any of them</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The quick button power/energy next to the filter button then steps through
+<em>kW</em> (the power view, <code>power</code>; <em>Watt</em> with <code>power.unit: W</code>) and the periods
+switched on. Without any setting it offers power, today, 24 h and week (see
+<em>Quick buttons</em>):</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Key</th>
+<th class="tableblock halign-left valign-top">Chip</th>
+<th class="tableblock halign-left valign-top">Period</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>today</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Today</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">since midnight</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>24h</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">24 h</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the last 24 hours</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>week</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Week</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">since the first day of the week as set in your Home Assistant profile</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>7d</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">7 days</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the last 7 × 24 hours</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>month</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Month</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">since the first of the month</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>30d</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">30 days</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the last 30 × 24 hours</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Every period ends at the last statistics Home Assistant has written, a few
+minutes behind the clock. The rolling ones are exact to five minutes; <em>30
+days</em> starts on the full hour, because Home Assistant keeps its five-minute
+statistics only about ten days - up to an hour shorter, never made up.</p>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>PV and house</strong> show one figure each, in kWh.</li>
+<li><strong>Grid</strong> with two sensors shows the import above the icon (→) and the
+export below it (←), <strong>battery</strong> with two sensors the discharge above (↑)
+and the charge below (↓) - over a day, both happen. With one signed sensor
+see below. The state of charge is a now, not a period, so it is not shown.</li>
+<li><strong>The list and the ring</strong> work with the energy of the period. Thresholds
+given in W count as W × 1 hour: <code>min_consumer_w: 10</code> hides consumers below
+10 Wh.</li>
+<li><strong>The dots</strong> run on the mean power over the period - its energy divided by
+the time it took - with the usual thresholds, so a month moves like its
+average day, not at top speed.</li>
+<li>Extra values and the state words ("import", "charging") are hidden; their
+room stays, so nothing moves when you switch.</li>
+<li>Tapping a node still opens its history.</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><strong>One sensor or two for grid and battery.</strong> An hourly mean of a signed sensor
+cannot tell how much went each way - on most days the grid does both - only the
+balance is exact. So with a single signed sensor the <strong>grid</strong> shows one figure,
+its balance (→ net import, ← net export), which is also what its dots show, and
+the <strong>battery</strong> shows no figure and no flow. PV, house and consumers are exact
+either way. A <em>derived</em> grid or battery (see above) does not work with the
+energy mode: the option is locked in the editor and the quick button does not
+appear. To see both directions, give the card two sensors each - two <em>Template →
+Sensor</em> helpers split a signed one (unit <code>W</code>, device class <code>power</code>, state class
+<code>measurement</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{# import #}
+{{ [states('sensor.grid_power')|float, 0]|max if has_value('sensor.grid_power') else none }}
+{# export #}
+{{ [-(states('sensor.grid_power')|float), 0]|max if has_value('sensor.grid_power') else none }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The battery works the same way; positive means discharge there:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{# discharge #}
+{{ [states('sensor.battery_power')|float, 0]|max if has_value('sensor.battery_power') else none }}
+{# charge #}
+{{ [-(states('sensor.battery_power')|float), 0]|max if has_value('sensor.battery_power') else none }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If your sensor reports it the other way round (charging positive), swap the two
+templates.</p>
+</div>
+<div class="paragraph">
+<p><code>none</code> while the sensor is unavailable keeps an outage out of the statistics
+as a gap, rather than as a measured zero.</p>
+</div>
+<div class="paragraph">
+<p>Statistics only exist from the moment a sensor is created, so new helpers show
+"Month from 10/21" in the chip until a whole month has passed.</p>
+</div>
+<div class="paragraph">
+<p><strong>How sure a figure is.</strong> Home Assistant&#8217;s statistics can have holes - a
+restart, an integration that was down. The card fills an hour that is missing
+for one of the balance values (PV, import, export, discharge, charge, house)
+from the other five, otherwise from the same hour the day before (or after).
+An hour without PV after a dark hour counts as zero: small inverters switch
+off at night. A figure is then coloured by how much of the period was filled:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Filled</th>
+<th class="tableblock halign-left valign-top">Shown</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">up to 2 %</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">normal</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2 – 10 %</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">muted blue-grey</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">more than 10 %</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">amber</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Hovering over the figure says how much. If one of the main sensors only has
+statistics from a date inside the period, the whole period counts from then -
+the chip says "Month from 10/8" in amber - so that the balance still adds up.
+Nothing is ever extrapolated. A consumer that is newer than the period does not
+shorten it; its row and the remainder are amber, and a consumer without
+statistics (a sensor without a state class) is listed last with a dash.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

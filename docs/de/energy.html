@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energie für einen Zeitraum – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/energy.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Energie für einen Zeitraum</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li class="current"><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Energie für einen Zeitraum</h1>
+<div class="paragraph">
+<p>Neben der Leistung kann die Karte Energie zeigen: was heute von der Sonne kam,
+was diese Woche eingekauft wurde, was die Wärmepumpe diesen Monat gebraucht
+hat. Energie-Sensoren braucht sie dafür nicht - sie summiert die
+Langzeitstatistik, die Home Assistant von den schon eingetragenen
+Leistungssensoren führt.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">view:
+  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # beliebig viele</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Der Quick-Button Leistung/Energie neben dem Filterknopf schaltet dann reihum
+<em>kW</em> (die Leistungsansicht, <code>power</code>; <em>Watt</em> bei <code>power.unit: W</code>) und die
+eingeschalteten Zeiträume. Ohne Einstellung bietet er Leistung, Heute, 24 h und
+Woche an (siehe <em>Quick-Buttons</em>):</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Schlüssel</th>
+<th class="tableblock halign-left valign-top">Chip</th>
+<th class="tableblock halign-left valign-top">Zeitraum</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>today</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Heute</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">seit 0 Uhr</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>24h</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">24 h</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">die letzten 24 Stunden</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>week</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Woche</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">seit dem ersten Wochentag laut deinem Home-Assistant-Profil</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>7d</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">7 Tage</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">die letzten 7 × 24 Stunden</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>month</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Monat</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">seit dem Monatsersten</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>30d</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">30 Tage</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">die letzten 30 × 24 Stunden</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Jeder Zeitraum endet bei der letzten Statistik, die Home Assistant geschrieben
+hat, ein paar Minuten hinter der Uhr. Die rollenden sind auf fünf Minuten
+genau; <em>30 Tage</em> beginnen zur vollen Stunde, weil Home Assistant die
+Fünf-Minuten-Statistik nur rund zehn Tage aufhebt - bis zu einer Stunde
+kürzer, nie hochgerechnet.</p>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>PV und Haus</strong> zeigen je einen Wert in kWh.</li>
+<li><strong>Netz</strong> mit zwei Sensoren zeigt den Bezug über dem Icon (→) und die
+Einspeisung darunter (←), <strong>Batterie</strong> mit zwei Sensoren das Entladen oben
+(↑) und das Laden unten (↓) - über einen Tag passiert beides. Mit einem
+Sensor mit Vorzeichen siehe unten. Der Ladezustand ist ein Jetzt, kein
+Zeitraum, und entfällt.</li>
+<li><strong>Liste und Ring</strong> arbeiten mit der Energie des Zeitraums. Schwellen in W
+gelten als W × 1 Stunde: <code>min_consumer_w: 10</code> blendet Verbraucher unter
+10 Wh aus.</li>
+<li><strong>Die Punkte</strong> laufen nach der mittleren Leistung im Zeitraum - Energie
+geteilt durch die Zeit - mit den üblichen Schwellen; ein Monat bewegt sich
+wie sein Durchschnittstag, nicht mit Höchstgeschwindigkeit.</li>
+<li>Zusatzwerte und Zustandswörter („Bezug", „lädt") sind ausgeblendet; ihr Platz
+bleibt, beim Umschalten verschiebt sich nichts.</li>
+<li>Antippen eines Knotens öffnet weiterhin seinen Verlauf.</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><strong>Ein oder zwei Sensoren für Netz und Batterie.</strong> Aus dem Stundenmittel eines
+Sensors mit Vorzeichen lässt sich nicht trennen, wie viel in welche Richtung
+ging - an den meisten Tagen macht das Netz beides -, exakt ist nur der Saldo.
+Mit einem Sensor mit Vorzeichen zeigt das <strong>Netz</strong> deshalb einen Wert, seinen
+Saldo (→ netto bezogen, ← netto eingespeist), nach dem sich auch die Punkte
+richten, die <strong>Batterie</strong> keine Zahl und keinen Fluss. PV, Haus und Verbraucher
+sind in jedem Fall exakt. Mit <em>abgeleitetem</em> Netz oder abgeleiteter Batterie
+(siehe oben) geht der Energie-Modus nicht: Die Option ist im Editor gesperrt,
+und der Quick-Button erscheint nicht. Für beide Richtungen braucht die Karte je
+zwei Sensoren - zwei <em>Template → Sensor</em>-Helfer teilen einen Sensor mit
+Vorzeichen auf (Einheit <code>W</code>, Geräteklasse <code>power</code>, Zustandsklasse
+<code>measurement</code>):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{# Bezug #}
+{{ [states('sensor.netz_leistung')|float, 0]|max if has_value('sensor.netz_leistung') else none }}
+{# Einspeisung #}
+{{ [-(states('sensor.netz_leistung')|float), 0]|max if has_value('sensor.netz_leistung') else none }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Bei der Batterie genauso; positiv heißt dort Entladen:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-jinja" data-lang="jinja">{# Entladen #}
+{{ [states('sensor.batterie_leistung')|float, 0]|max if has_value('sensor.batterie_leistung') else none }}
+{# Laden #}
+{{ [-(states('sensor.batterie_leistung')|float), 0]|max if has_value('sensor.batterie_leistung') else none }}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Meldet der Sensor andersherum (Laden positiv), die beiden Vorlagen tauschen.</p>
+</div>
+<div class="paragraph">
+<p><code>none</code>, solange der Sensor nicht verfügbar ist, hält einen Ausfall als Lücke
+aus der Statistik heraus, statt ihn als gemessene Null einzutragen.</p>
+</div>
+<div class="paragraph">
+<p>Statistik gibt es erst ab dem Anlegen eines Sensors; neue Helfer zeigen darum
+„Monat ab 21.10." im Chip, bis ein ganzer Monat vorbei ist.</p>
+</div>
+<div class="paragraph">
+<p><strong>Wie sicher ein Wert ist.</strong> Die Statistik von Home Assistant kann Löcher haben</p>
+</div>
+<div class="ulist">
+<ul>
+<li>ein Neustart, eine Integration, die ausgefallen war. Fehlt in einer Stunde
+einer der Bilanzwerte (PV, Bezug, Einspeisung, Entladen, Laden, Haus), ergänzt
+die Karte ihn aus den anderen fünf, sonst aus derselben Stunde des Vortags (oder
+Folgetags). Eine Stunde ohne PV nach einer dunklen Stunde zählt als null:
+kleine Wechselrichter schalten nachts ab. Ein Wert wird dann danach gefärbt, wie
+viel vom Zeitraum ergänzt ist:</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Ergänzt</th>
+<th class="tableblock halign-left valign-top">Anzeige</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">bis 2 %</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">normal</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2 – 10 %</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gedämpftes Blaugrau</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mehr als 10 %</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bernstein</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Mit der Maus über dem Wert steht, wie viel. Hat einer der Hauptsensoren erst
+ab einem Datum im Zeitraum Statistik, zählt der ganze Zeitraum ab dann - der
+Chip zeigt „Monat ab 8.10." in Bernstein -, damit die Bilanz aufgeht.
+Hochgerechnet wird nie. Ein Verbraucher, der neuer ist als der Zeitraum, kürzt
+ihn nicht; seine Zeile und der Rest sind bernsteinfarben, und ein Verbraucher
+ohne Statistik (ein Sensor ohne Zustandsklasse) steht mit Strich am Ende der
+Liste.</p>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js"></script>
+</body>
+</html>

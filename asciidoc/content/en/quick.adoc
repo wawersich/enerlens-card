@@ -1,0 +1,53 @@
+= Quick buttons
+:page-key: quick
+:nav-order: 8
+
+The header has up to three quick buttons; each tap steps to the next value:
+
+[cols=",,,",options="header",]
+|===
+|Quick button |Values |Key |Default
+|*Smoothing* |Now, short average, long average |`view.modes`: `current`, `avg_short`, `avg_long` |all three
+|*Power/energy* |power, energy over a period |`view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` |`power`, `today`, `24h`, `week` - see below
+|*List scope* |filtered list, every consumer |`list.scope`: `filtered`, `full` |both
+|===
+
+List the values a button should offer. *One value means fixed*: the button is
+gone and the card always shows that value, on every device and for every user -
+a card set up for energy stays one. Fixed values other than the live view are
+named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for a
+live reading.
+
+[source,yaml]
+----
+view:
+  energy_periods: [month]          # an energy card: always this month
+  modes: [current, avg_long]       # no short average
+list:
+  scope: [full]                    # always every consumer
+----
+
+A button with several values starts with its start value - `view.default_mode`,
+`view.default_energy`, `list.default_scope` - unless the browser remembers the
+last one (`view.remember`). Each card remembers for itself: the editor gives it
+a `memory_id`, so two copies of the same card side by side can show different
+things. A second card with the same id in the same view (a duplicate) keeps its
+own values as well; a copy in another view or dashboard is apart anyway. Cards
+written in YAML without a `memory_id` share what they remember, as before - add
+any name of your own to separate them. After the update a card with an id starts
+once with its start values; what it remembers is tied to the view, so moving it
+to another view, renaming the view or - for a view without a `path` of its own -
+reordering the views starts it afresh once. Averages exist for power only:
+without `power` in `energy_periods` the card never averages. In a period the
+smoothing button is greyed out.
+
+*The energy default.* With no `energy_periods` set, the card offers power,
+today, 24 h and week - but only when solar, grid, battery and house all have
+long-term statistics. It checks that once when it loads (metadata only, no
+readings); otherwise it stays with power and says why in the browser console.
+`energy_periods: ++[++power++]++` switches the energy mode off.
+
+The editor has a group per quick button; the last ticked value cannot be
+unticked. The older `view.show_selector: false` still works and means every
+quick button fixed on its start value; the editor turns it into the lists
+above when it opens.
