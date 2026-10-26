@@ -3,8 +3,8 @@
 :nav-order: 1
 
 Eine *hoch-konfigurative* Energiefluss-Karte für Home Assistant. PV, Netz,
-Haus und Batterie in vier Anordnungen — dazu eine Aufschlüsselung, woraus der
-Hauswert eigentlich besteht.
+Haus und Batterie in vier Anordnungen — dazu optional eine Aufschlüsselung,
+woraus der Hauswert und die PV-Anteile eigentlich bestehen.
 
 Die Karte hier ist keine Aufnahme, sondern die echte Karte mit ausgedachten
 Werten – probier die Schalter darüber und die Quick-Buttons im Kopf der Karte.

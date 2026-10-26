@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   time-of-day slider moves the card's clock - *Today* then runs up to the time
   set. The invented PV sources each follow their own day (south, west,
   morning).
+- **A chapter on the animations:** one card to switch how the ring follows a
+  new order (overtake, cross-fade, jump), one to try the dot designs with
+  sliders for number, size and speed - with the editor pictures to match.
 
 ### Fixed
 - **A PV source that overtook another one under "% kWp" stayed on the inner

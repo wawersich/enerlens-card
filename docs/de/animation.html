@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animationen – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/animation.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Animationen</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="layout.html">Anordnungen</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li class="current"><a href="animation.html">Animationen</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Animationen</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Die Karte bewegt zwei Dinge: den Verbraucher-Ring, wenn sich die Reihenfolge
+der Verbraucher ändert, und die Punkte auf den Linien, die den Fluss zeigen.
+Beides lässt sich einstellen. Unter <em>Flüsse</em> → <strong>Bewegung</strong> schaltet <code>off</code> jede
+Bewegung ab; der Standard <code>auto</code> folgt der Einstellung „Bewegung reduzieren“
+des Geräts.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="der-ring"><a class="anchor" href="#der-ring"></a>Der Ring</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Die Liste ordnet sich im festen Takt nach Leistung, und der Ring folgt ihr.
+Wie er das tut, gibt es dreimal:</p>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>Überholen</strong> (Standard): Jedes Segment wandert an seinen neuen Platz. Wer nach
+vorn rückt, taucht auf eine innere Bahn ab, fährt unter den anderen hindurch
+und taucht an seinem Platz wieder auf.</li>
+<li><strong>Farben überblenden</strong>: Die Plätze bleiben stehen, ihre Farben blenden in die
+neue Reihenfolge über. Ruhiger, gerade wenn sich die Reihenfolge oft ändert.</li>
+<li><strong>Springen</strong>: Keine Bewegung, der Ring steht sofort in der neuen Ordnung.</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Zum Ausprobieren: In dieser Karte schwanken vier Verbraucher um denselben
+Mittelwert, ihre Reihenfolge ändert sich alle paar Sekunden. Liste und
+Quick-Buttons sind ausgeblendet, damit nur der Ring zu sehen ist.</p>
+</div>
+<div class="card-demo" data-demo="ring" data-controls="ring"></div>
+<div class="paragraph">
+<p>Im Editor steht die Auswahl unter <em>Darstellung</em> → <strong>Animation des
+Verbraucher-Rings</strong>:</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-ring-anim-de-light.png" alt="Die Animation des Verbraucher-Rings im Abschnitt Darstellung" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-ring-anim-de-dark.png" alt="Die Animation des Verbraucher-Rings im Abschnitt Darstellung" width="490">
+</div>
+</div>
+<div class="paragraph">
+<p>Der PV-Ring mehrerer Quellen folgt derselben Einstellung.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="die-punkte"><a class="anchor" href="#die-punkte"></a>Die Punkte</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Die Punkte zeigen, wohin Leistung fließt. Tempo und Anzahl hängen an der
+Leistung: Unter der <strong>Mindestleistung</strong> (Standard 10 W) läuft keiner, darüber
+zuerst ein langsamer Punkt; mit mehr Leistung wird er schneller, dann kommen
+weitere dazu, bis Höchsttempo und <strong>Höchstzahl</strong> erreicht sind. Wo das ist, sagt
+ein einziger Wert, die <strong>Höchstleistung der Anlage</strong> (Standard 6000 W); wer es
+genauer will, findet die einzelnen Schwellen unter <strong>Feineinstellung der
+Bewegung</strong>.</p>
+</div>
+<div class="paragraph">
+<p>Wie ein Punkt aussieht, ist sein <strong>Design</strong>: <strong>Einfache Punkte</strong> (Standard) sind ein
+Kreis ohne alles, die übrigen geben ihm einen hellen Kern und je nach Design ein
+Glühen. Das Design ändert nur das Aussehen, nie Tempo oder Anzahl.</p>
+</div>
+<div class="paragraph">
+<p>Zum Ausprobieren: Hier stehen alle Werte still, nichts sortiert um – nur die
+Punkte bewegen sich. Die Schalter wählen das Design, die Schieber die
+Höchstzahl der Punkte (die Karte nimmt 2 bis 10, Standard 5), die Punktgröße
+(40 bis 150 %, Standard 100) und das Tempo:
+Sekunden pro Runde an der unteren und an der oberen Schwelle, Standard 5 und
+1,8.</p>
+</div>
+<div class="card-demo" data-demo="dots" data-controls="design,dots,dotsize,speed"></div>
+<div class="paragraph">
+<p>Im Editor: die Gruppe <em>Flüsse</em>. Höchstzahl und Tempo stehen unter
+<strong>Feineinstellung der Bewegung</strong>.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-flow-de-light.png" alt="Die Gruppe Flüsse mit der Feineinstellung" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-flow-de-dark.png" alt="Die Gruppe Flüsse mit der Feineinstellung" width="490">
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">ring:
+  animation: fade          # overtake | fade | jump
+flow:
+  animation: auto          # auto | on | off
+  design: neutrino
+  max_dots: 8
+  slow_s: 8                # Sekunden pro Runde bei wenig Leistung
+  fast_s: 3                # ... bei viel Leistung</code></pre>
+</div>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js?v=7a02d850"></script>
+</body>
+</html>

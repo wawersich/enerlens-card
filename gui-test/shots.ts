@@ -239,6 +239,19 @@ const SHOTS: Shot[] = [
     }),
     part: '.section[data-section="grid_status"]',
   },
+  // Page "Animationen" (animation.adoc).
+  {
+    name: "editor-ring-anim",
+    config: (lang) => ({ ...BASIC(lang), ring: { animation: "fade" } }),
+    part: '.section[data-section="display"]',
+    from: "ring_enabled",
+    to: "ring_animation",
+  },
+  {
+    name: "editor-flow",
+    config: (lang) => ({ ...BASIC(lang), flow: { design: "neutrino", max_dots: 8 } }),
+    part: '.section[data-section="flow"]',
+  },
   // Page "Farben und Aussehen" (look.adoc).
   {
     name: "editor-colors",

@@ -3,8 +3,8 @@
 :nav-order: 1
 
 A *highly configurable* energy flow card for Home Assistant. Solar, grid,
-house and battery in four arrangements — plus a breakdown of what the house
-figure is actually made of.
+house and battery in four arrangements — plus, optionally, a breakdown of what
+the house figure and the PV shares are actually made of.
 
 The card here is not a recording but the real card with invented values – try
 the switches above it and the quick buttons in its header.

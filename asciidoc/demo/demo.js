@@ -104,9 +104,11 @@ function setTimeOfDay(hours) {
 
 function powers(t, scene, shift = SHIFT) {
   const d = new Date(t + shift);
-  const h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+  // The dots scene stands still at half past twelve: only the dots move.
+  const still = scene === "dots";
+  const h = still ? 12.5 : d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
   const s = t / 1000; // seconds, for the small live wobble
-  const wave = (period, amp, phase = 0) => amp * Math.sin((s / period) * 2 * Math.PI + phase);
+  const wave = (period, amp, phase = 0) => (still ? 0 : amp * Math.sin((s / period) * 2 * Math.PI + phase));
   const fast = scene === "fade" ? 0.45 : 1; // the fade scene re-sorts more often
   // Each PV source has its own day by where it faces (PV-4): the roof faces
   // south, west catches the afternoon, the balcony the morning and is held to
@@ -121,13 +123,19 @@ function powers(t, scene, shift = SHIFT) {
   // shows; it is part of the arrangement scene only.
   const pv4 = scene === "arrange" ? lit(9, 16, 8, 0) : 0;
   const pv = pv1 + pv2 + pv3 + pv4;
-  const c1 = (h < 7 || h > 21 ? 1500 : 2300) + wave(23 * fast, 900);
-  const c2 = h >= 9 && h < 15 ? 1700 + wave(17 * fast, 1100, 2) : 0;
-  const c3 = h >= 12 && h < 18 ? 850 + wave(11, 150, 1) : 0;
+  let c1 = (h < 7 || h > 21 ? 1500 : 2300) + wave(23 * fast, 900);
+  let c2 = h >= 9 && h < 15 ? 1700 + wave(17 * fast, 1100, 2) : 0;
+  let c3 = h >= 12 && h < 18 ? 850 + wave(11, 150, 1) : 0;
   // The arrangement scene keeps its list short, so the PV rows and the
   // consumers on either side are about even; the fridges fall to the filter.
-  const c4 = scene === "arrange" ? 6 : 140;
+  let c4 = scene === "arrange" ? 6 : 140;
   let wb = h >= 11 && h < 15 ? 3700 : 0;
+  if (scene === "ring") {
+    // Four consumers around the same mean, each on its own beat: their order
+    // changes every few seconds, so the ring re-sorts all the time.
+    [c1, c2, c3, c4] = [13, 17, 11, 19].map((period, i) => 1200 + wave(period, 900, i * 1.6));
+    wb = 0;
+  }
   const q1 = 0;
   const q2 = 8;
   const q3 = 3;
@@ -333,6 +341,32 @@ function config(scene, t, data = {}) {
           battery: { label: { entity: "sensor.battery_left", prefix: t.left, decimals: 1 } },
         },
       };
+    case "ring":
+      // The ring alone in a plain cross: no list, no quick buttons; the
+      // switch above picks how it follows the new order.
+      return {
+        ...base,
+        list: { enabled: false, scope: ["filtered"] },
+        view: { ...base.view, modes: ["current"], energy_periods: ["power"] },
+        ring: { animation: data.ring ?? "overtake" },
+        update_interval_s: 2,
+      };
+    case "dots":
+      // Constant values, so nothing re-sorts: only the dots move, in the
+      // design, number and speed switched above.
+      return {
+        ...base,
+        ...sources,
+        list: { solar: true, scope: ["filtered"] },
+        view: { ...base.view, modes: ["current"], energy_periods: ["power"], pv_scales: ["share"] },
+        flow: {
+          ...base.flow,
+          design: data.design ?? "electron",
+          max_dots: Number(data.dots ?? 5),
+          dot_size: Number(data.dotsize ?? 100),
+          ...speedOf(Number(data.speed ?? SPEED_DEFAULT)),
+        },
+      };
     case "nodes":
       // Driven by the switches above the card (data-controls): the same extra
       // values at every node, placed and styled as switched.
@@ -345,6 +379,18 @@ function config(scene, t, data = {}) {
       return base;
   }
 }
+
+/**
+ * The speed slider: seconds per run at the top of the range (fast_s), from
+ * slower than slow to fast. The low end (slow_s) keeps the card's own ratio,
+ * 5 to 1.8 - at the default step 7 that gives the card's defaults.
+ */
+const FAST_S = [12, 9, 7, 5, 4, 3, 2.4, 1.8, 1.4, 1.1, 0.8];
+const SPEED_DEFAULT = 7;
+const speedOf = (step) => {
+  const fast = FAST_S[step];
+  return { fast_s: fast, slow_s: Math.round(((fast * 5) / 1.8) * 10) / 10 };
+};
 
 /** The extra values of the "nodes" scene, as the switches set them (Z-1 ff.). */
 function extraNodes(t, data) {
@@ -468,6 +514,10 @@ const WORDS = {
     weight: "Schriftstärke", normal: "normal", medium: "mittel", bold: "fett",
     size: "Größe", 80: "80 %", 100: "100 %", 130: "130 %",
     name: "Name anzeigen", word: "Zustandswort anzeigen",
+    ring: "Animation des Verbraucher-Rings", overtake: "Überholen", fade: "Farben überblenden", jump: "Springen",
+    design: "Aussehen der Punkte", d_none: "Einfache Punkte", d_kugeln: "Kugeln", d_partylicht: "Partylicht",
+    d_leuchtpunkte: "Leuchtpunkte", d_electron: "Electron", d_proton: "Proton", d_neutrino: "Neutrino",
+    dots: "Höchstzahl Punkte", speed: "Tempo", run: "s pro Runde", dotsize: "Punktgröße",
   },
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
@@ -479,6 +529,10 @@ const WORDS = {
     weight: "Font weight", normal: "normal", medium: "medium", bold: "bold",
     size: "Size", 80: "80%", 100: "100%", 130: "130%",
     name: "Show name", word: "Show state word",
+    ring: "Consumer ring animation", overtake: "Overtake", fade: "Cross-fade colours", jump: "Jump",
+    design: "Dot style", d_none: "Plain dots", d_kugeln: "Orbs", d_partylicht: "Party Light",
+    d_leuchtpunkte: "Glowing Dots", d_electron: "Electron", d_proton: "Proton", d_neutrino: "Neutrino",
+    dots: "Maximum dots", speed: "Speed", run: "s a run", dotsize: "Dot size",
   },
 };
 
@@ -487,13 +541,40 @@ function controls(host, card, lang, { set, feed, clock }) {
   const state = {
     layout: "cross", lines: undefined, pvRows: true, list: true, expanded: host.dataset.expanded,
     inside: "above", label: "prefix", weight: "normal", size: "100", name: "on", word: "on",
+    ring: "overtake", design: "electron", dots: 5, speed: SPEED_DEFAULT, dotsize: 100,
   };
   // The extra-value switches: name, values, the state key they set.
   const EXTRAS = [
     ["inside", ["off", "above", "below"]], ["label", ["off", "plain", "prefix"]],
     ["weight", ["normal", "medium", "bold"]], ["size", ["80", "100", "130"]],
     ["name", ["on", "off"]], ["word", ["on", "off"]],
+    ["ring", ["overtake", "fade", "jump"]],
+    ["design", ["none", "kugeln", "partylicht", "leuchtpunkte", "electron", "proton", "neutrino"], "d_"],
   ];
+  // Sliders: range, and what the label says of a value.
+  const decimal = (x) => x.toLocaleString(lang, { maximumFractionDigits: 1 });
+  const SLIDERS = [
+    // The card takes 2 to 10 dots (flow.max_dots).
+    ["dots", 2, 8, (v) => String(v)],
+    // flow.dot_size takes 40 to 150 %.
+    ["dotsize", 40, 150, (v) => `${v} %`, 10],
+    ["speed", 0, FAST_S.length - 1, (v) => `${decimal(speedOf(v).slow_s)} – ${decimal(speedOf(v).fast_s)} ${w.run}`],
+  ];
+  const sliders = new Map();
+  const slide = (key, min, max, text, step = 1) => {
+    const g = document.createElement("label");
+    g.className = "demo-group demo-time";
+    g.innerHTML = `<span class="demo-label">${w[key]} <output>${text(state[key])}</output></span>`;
+    const r = document.createElement("input");
+    Object.assign(r, { type: "range", min, max, step, value: state[key] });
+    r.addEventListener("input", () => {
+      state[key] = Number(r.value);
+      g.querySelector("output").textContent = text(state[key]);
+      apply();
+    });
+    g.appendChild(r);
+    return g;
+  };
   let shown;
   // The card in a frame of its own, apart from the switches and the YAML.
   host.classList.add("with-controls");
@@ -516,7 +597,7 @@ function controls(host, card, lang, { set, feed, clock }) {
   };
   // The line form the card uses: chosen, or the arrangement's default.
   const lines = () => state.lines ?? (state.layout === "cross" ? "curved" : "straight");
-  const choice = (label, values, current, pick) => {
+  const choice = (label, values, current, pick, prefix = "") => {
     const g = document.createElement("div");
     g.className = "demo-group";
     g.setAttribute("role", "group");
@@ -527,7 +608,7 @@ function controls(host, card, lang, { set, feed, clock }) {
     for (const v of values) {
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = w[v];
+      b.textContent = w[prefix + v];
       b.setAttribute("aria-pressed", String(v === current));
       b.addEventListener("click", () => pick(v));
       row.appendChild(b);
@@ -580,17 +661,42 @@ function controls(host, card, lang, { set, feed, clock }) {
             state.list = v === "on";
             apply();
           }),
-        ...EXTRAS.filter(([key]) => want.includes(key)).map(([key, values]) =>
-          choice(w[key], values, state[key], (v) => {
-            state[key] = v;
-            apply();
-          }),
+        ...EXTRAS.filter(([key]) => want.includes(key)).map(([key, values, prefix]) =>
+          choice(
+            w[key],
+            values,
+            state[key],
+            (v) => {
+              state[key] = v;
+              apply();
+            },
+            prefix,
+          ),
         ),
+        ...SLIDERS.filter(([key]) => want.includes(key)).map(([key, min, max, text, step]) => {
+          // Kept across redraws, so a drag is not cut off.
+          if (!sliders.has(key)) sliders.set(key, slide(key, min, max, text, step));
+          return sliders.get(key);
+        }),
         slider,
       ].filter(Boolean),
     );
     const out = [];
     if (shown.nodes) out.push(...nodesYaml(shown.nodes));
+    if (want.includes("ring") && state.ring !== "overtake") out.push("ring:", `  animation: ${state.ring}`);
+    if (want.includes("design")) {
+      // Only what differs from the card's own defaults (design none, 5 dots,
+      // 5 s and 1.8 s a run).
+      const flow = [];
+      if (state.design !== "none") flow.push(`  design: ${state.design}`);
+      if (state.dots !== 5) flow.push(`  max_dots: ${state.dots}`);
+      if (state.dotsize !== 100) flow.push(`  dot_size: ${state.dotsize}`);
+      if (state.speed !== SPEED_DEFAULT) {
+        const { slow_s, fast_s } = speedOf(state.speed);
+        flow.push(`  slow_s: ${slow_s}`, `  fast_s: ${fast_s}`);
+      }
+      if (flow.length) out.push("flow:", ...flow);
+    }
     // Only the keys this card has switches for.
     const pvRows = want.includes("pvrows") && state.pvRows;
     const noList = want.includes("list") && !state.list;
