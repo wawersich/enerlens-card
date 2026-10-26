@@ -8,6 +8,7 @@
   --accent: #ff9800; /* the PV orange of the card */
   --link: #0a6ebd;
   --code-bg: #f0f2f4;
+  --demo-panel: #eaf1f8; /* switches and YAML next to a live card */
   --note: #0a6ebd;
   --tip: #2e7d32;
   --warn: #c77700;
@@ -22,6 +23,7 @@
     --line: #2c3036;
     --link: #6cb6ff;
     --code-bg: #1f2227;
+    --demo-panel: #1a2330;
     --note: #6cb6ff;
     --tip: #7bc47f;
     --warn: #f0a640;
@@ -36,6 +38,7 @@
   --line: #2c3036;
   --link: #6cb6ff;
   --code-bg: #1f2227;
+    --demo-panel: #1a2330;
   --note: #6cb6ff;
   --tip: #7bc47f;
   --warn: #f0a640;
@@ -64,7 +67,9 @@ a { color: var(--link); }
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; }
+.brand { font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none;
+  display: inline-flex; align-items: center; }
+.brand svg { width: 30px; height: 30px; flex: none; margin-right: 8px; }
 .brand span { color: var(--accent); }
 .search { flex: 1; max-width: 420px; margin-left: auto; }
 .lang { color: var(--muted); text-decoration: none; font-size: 14px; }
@@ -150,7 +155,8 @@ table.tableblock p { margin: 0; }
 .admonitionblock td.icon { color: var(--kind); }
 .admonitionblock.note { --kind: var(--note); }
 .admonitionblock.tip { --kind: var(--tip); }
-.admonitionblock.warning, .admonitionblock.important, .admonitionblock.caution { --kind: var(--warn); }
+/* Important, warning and caution in the orange of the logo. */
+.admonitionblock.warning, .admonitionblock.important, .admonitionblock.caution { --kind: var(--accent); }
 
 .imageblock { margin: 0 0 18px; }
 /* A README picture comes in a light and a dark version; the page shows the
@@ -186,6 +192,37 @@ table.tableblock p { margin: 0; }
 }
 .card-demo-note.show { opacity: .92; transform: none; }
 .card-demo.narrow { max-width: 440px; }
+/* Only the header of the card: its quick buttons. */
+.card-demo.header-only { overflow: hidden; }
+
+/* Switches above a live card and the YAML they amount to, below it. */
+/* Set apart from the card - own ground, own frame, room between - so they
+   do not read as part of it. */
+.card-demo.with-controls { border: 0; display: flex; flex-direction: column; gap: 16px; }
+.card-frame { position: relative; border: 1px solid var(--line); border-radius: 13px; }
+.demo-controls, .demo-yaml { background: var(--demo-panel); border: 1px solid var(--line); border-radius: 10px; }
+.demo-controls {
+  display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-end;
+  padding: 12px 14px;
+}
+.demo-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.demo-label { font-size: 12px; color: var(--muted); }
+.demo-choices {
+  display: flex; flex-wrap: wrap; align-self: flex-start;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg);
+}
+.demo-choices button {
+  font: inherit; font-size: 13px; padding: 5px 10px; border: 0; border-left: 1px solid var(--line);
+  background: var(--bg); color: var(--text); cursor: pointer;
+}
+.demo-choices button:first-child { border-left: 0; }
+.demo-choices button[aria-pressed="true"] { background: var(--link); color: var(--bg); }
+.demo-choices button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+.demo-time { flex: 1 1 200px; }
+.demo-time input { width: 100%; accent-color: var(--link); }
+.demo-time output { font-variant-numeric: tabular-nums; }
+.demo-yaml { padding: 10px 14px 12px; }
+.demo-yaml pre { margin: 4px 0 0; background: var(--bg); overflow-x: auto; }
 
 /* --- Pagefind search, in the site's colours ----------------------------- */
 .search {

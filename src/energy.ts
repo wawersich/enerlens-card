@@ -40,6 +40,12 @@ export interface EnergyQuery {
    * missing hours are gaps (EM-9, EM-10). Without it, the window decides.
    */
   since?: Record<string, number>;
+  /**
+   * Several PV sources (PV-2): the solar role is their sum. Each one is filled
+   * on its own - from the day before, or 0 after a dark hour - never from the
+   * balance, and a new one shortens nothing (like a consumer, EM-12).
+   */
+  solarSources?: string[];
 }
 
 export interface SeriesEnergy {
@@ -57,6 +63,8 @@ export interface EnergyResult {
   lateStart: boolean;
   main: Record<EnergyRole, SeriesEnergy | null>;
   consumers: Record<string, SeriesEnergy | null>;
+  /** Per PV source, when the solar role is their sum (PV-2). */
+  sources?: Record<string, SeriesEnergy | null>;
   /** Energy per connection in Wh (EM-8). */
   flows: Flows;
 }
@@ -281,13 +289,28 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const measured = ROLES.filter((r) => q.roles[r] !== undefined);
   // Solar or house without a sensor comes from the balance (A-1).
   const derived = (["solar", "house"] as EnergyRole[]).find((r) => q.roles[r] === undefined);
-  const withData = measured.filter((r) => get(q.roles[r] as string).exists);
+  // Several sources: the solar role is theirs, it exists while one of them
+  // does, and begins with the oldest - a new one shortens nothing (PV-2).
+  const parts = q.solarSources?.length
+    ? q.solarSources.map((id) => ({ id, s: get(id) }))
+    : undefined;
+  const existing = parts?.filter((p) => p.s.exists) ?? [];
+  const exists = (role: EnergyRole) =>
+    role === "solar" && parts ? existing.length > 0 : get(q.roles[role] as string).exists;
+  const first = (role: EnergyRole) =>
+    role === "solar" && parts
+      ? Math.min(...existing.map((p) => p.s.first))
+      : get(q.roles[role] as string).first;
+  const withData = measured.filter(exists);
   const complete = withData.length === measured.length;
 
   // The statistics end where the last row ends; later time is not written yet.
   let dataEnd = Number.NEGATIVE_INFINITY;
   let hourlyEnd = Number.NEGATIVE_INFINITY;
-  for (const s of [...measured.map((r) => get(q.roles[r] as string)), ...q.consumers.map(get)]) {
+  const mainSeries = measured.flatMap((r) =>
+    r === "solar" && parts ? parts.map((p) => p.s) : [get(q.roles[r] as string)],
+  );
+  for (const s of [...mainSeries, ...q.consumers.map(get)]) {
     for (const start of s.hourly.keys()) hourlyEnd = Math.max(hourlyEnd, start + HOUR);
     for (const start of s.fiveMin.keys()) dataEnd = Math.max(dataEnd, start + FIVE_MIN);
   }
@@ -295,7 +318,7 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const to = Math.max(q.from, Math.min(q.to, dataEnd));
 
   // The youngest main sensor sets the start, so the balance holds (EM-9).
-  const youngest = Math.max(q.from, ...withData.map((r) => get(q.roles[r] as string).first));
+  const youngest = Math.max(q.from, ...withData.map(first));
   const from = Math.min(youngest, to);
   const span = to - from;
   const list = slots(from, to, hourlyEnd);
@@ -304,6 +327,13 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const filledMs: Record<EnergyRole, number> = { ...ZERO };
   const flows: Flows = {};
   let lastSolar: number | undefined;
+  // Per source: energy, filled and counted time, and its last value (PV-2).
+  const part = new Map(
+    existing.map((p) => [
+      p.id,
+      { wh: 0, filledMs: 0, counted: 0, last: undefined as number | undefined },
+    ]),
+  );
 
   for (const slot of list) {
     const hours = (slot.end - slot.start) / HOUR;
@@ -312,6 +342,43 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     const missing: EnergyRole[] = [];
 
     for (const role of withData) {
+      if (role === "solar" && parts) {
+        // The sum of the sources, each filled on its own; never "missing",
+        // so never taken from the balance.
+        let sum = 0;
+        for (const { id, s } of existing) {
+          if (slot.start < s.first) continue;
+          const own = part.get(id) as {
+            wh: number;
+            filledMs: number;
+            counted: number;
+            last?: number;
+          };
+          const hit = s.at(slot);
+          let w: number;
+          let wasFilled = false;
+          if (hit) {
+            w = hit.w;
+            wasFilled = hit.filled;
+          } else if ((own.last ?? s.before(slot) ?? q.pvZeroBelowW) < q.pvZeroBelowW) {
+            // Off for the night: dark, not missing (EM-10 (3)).
+            w = 0;
+          } else {
+            w = s.neighbour(slot, to);
+            wasFilled = true;
+          }
+          own.last = w;
+          own.wh += w * hours;
+          own.counted += slot.end - slot.start;
+          if (wasFilled) {
+            own.filledMs += slot.end - slot.start;
+            filled.add("solar");
+          }
+          sum += w;
+        }
+        values.solar = sum;
+        continue;
+      }
       const s = get(q.roles[role] as string);
       const hit = s.at(slot);
       if (hit) {
@@ -379,7 +446,22 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const consumers: Record<string, SeriesEnergy | null> = {};
   for (const id of q.consumers) consumers[id] = consumerEnergy(get(id), list, from, to);
 
-  return { from, to, lateStart: from > q.from, main, consumers, flows };
+  const sources = parts
+    ? Object.fromEntries(
+        parts.map(({ id, s }) => {
+          const own = part.get(id);
+          if (!own) return [id, null];
+          const result: SeriesEnergy = {
+            wh: own.wh,
+            filledShare: own.counted > 0 ? own.filledMs / own.counted : 0,
+          };
+          if (s.first > from) result.since = s.first;
+          return [id, result];
+        }),
+      )
+    : undefined;
+
+  return { from, to, lateStart: from > q.from, main, consumers, sources, flows };
 }
 
 /** A consumer counts from its own start and never shortens the period (EM-12). */

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<style>.fg{color:#1d1e21}@media (prefers-color-scheme:dark){.fg{color:#e3e3e3}}</style>
+<path class="fg" d="M4 56 H60" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+<path d="M21 54 A11 11 0 0 1 43 54 Z" fill="#ff9800"/>
+<g stroke-width="3" stroke-linecap="round">
+<path d="M17.5 50.1 L8.8 47.8" stroke="#5c6bc0"/><path d="M22.4 42.5 L16.6 35.6" stroke="#7e57c2"/><path d="M32 39 V30" stroke="#26a69a"/>
+<path d="M41.6 42.5 L47.4 35.6" stroke="#ec407a"/><path d="M46.5 50.1 L55.2 47.8" stroke="#8d6e63"/>
+</g>
+<circle cx="5" cy="46.8" r="3.6" fill="#5c6bc0"/><circle cx="14" cy="32.6" r="3.6" fill="#7e57c2"/><circle cx="32" cy="26" r="3.6" fill="#26a69a"/>
+<circle cx="50" cy="32.6" r="3.6" fill="#ec407a"/><circle cx="59" cy="46.8" r="3.6" fill="#8d6e63"/>
+</svg>

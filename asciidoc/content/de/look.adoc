@@ -8,6 +8,13 @@ die Stufen des Ladezustands-Verlaufs. Jede Zeile zeigt links die Farbe, die die
 Karte gerade malt, und rechts den konfigurierten Wert — `Standard`, solange
 keiner gesetzt ist.
 
+
+[.only-light]
+image::editor-colors-de-light.png["Die Gruppe Farben",490]
+
+[.only-dark]
+image::editor-colors-de-dark.png["Die Gruppe Farben",490]
+
 Ein Klick auf das Farbfeld öffnet den Farbwähler: eine Fläche für Sättigung und
 Helligkeit über einem Streifen für den Farbton, darunter der Wert als Hex oder,
 umgeschaltet, als Schieberegler für RGB beziehungsweise HSL. Daneben liegen die

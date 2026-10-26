@@ -4,47 +4,89 @@
 
 Viele Anlagen haben mehr als eine PV-Quelle: die Dachanlage am
 Hybrid-Wechselrichter und dazu ein Balkonkraftwerk oder weitere
-Mikro-Wechselrichter. `solar` nimmt genau eine Entität. Mehrere Quellen fasst
-ein Helfer zusammen, die Karte addiert nicht selbst.
+Mikro-Wechselrichter. Die Karte nimmt jede Quelle einzeln: Am PV-Knoten steht
+ihre Summe, der Ring zeigt den Anteil jeder Quelle, und auf Wunsch steht jede
+als eigene Zeile in der Liste.
 
-*1. PV-Summe.* Unter _Einstellungen → Geräte & Dienste → Helfer → Helfer
-erstellen → Gruppe → Sensor-Gruppe_ alle PV-Leistungen als _Mitglieder_
-eintragen, _Typ_ *Summe* wählen und *Nicht-numerisch ignorieren*
-einschalten. Mikro-Wechselrichter melden sich nachts oft als nicht verfügbar;
-ohne diese Option wäre dann die ganze Summe nicht verfügbar. Den neuen Sensor
-als `solar` eintragen.
+== Mehrere Quellen eintragen
 
-*2. Hausverbrauch korrigieren.* Ein Hybrid-Wechselrichter sieht nur seine
-eigenen Strings. Ein Balkonkraftwerk, das hinter dem Zähler einspeist,
-erscheint in seinem Hauswert als _weniger Verbrauch_, nicht als Erzeugung; der
-Hauswert ist also um genau dessen Leistung zu klein. Ein Helfer _Template →
-Sensor_ (Einheit `W`, Geräteklasse `power`, Zustandsklasse `measurement`)
-addiert sie wieder:
+Im Editor unter *Basis-Entitäten* bei der PV *Mehrere Quellen (je
+Wechselrichter)* wählen. Darunter erscheint der Abschnitt *PV-Quellen*: je
+Quelle die Leistungs-Entität, ein Name, die Spitzenleistung in kWp und ein
+Icon. Mit *Quelle hinzufügen* kommt die nächste dazu.
 
-[source,jinja]
-----
-{{ [0, states('sensor.haus_wechselrichter')|float(0)
-     + states('sensor.balkonkraftwerk')|float(0)]|max|round(0) }}
-----
+[.only-light]
+image::editor-pv-sources-de-light.png["Der Abschnitt PV-Quellen mit Dach und Balkon",490]
 
-Unter _Verfügbarkeit_ gehört
+[.only-dark]
+image::editor-pv-sources-de-dark.png["Der Abschnitt PV-Quellen mit Dach und Balkon",490]
 
-[source,jinja]
-----
-{{ states('sensor.haus_wechselrichter')|is_number }}
-----
+Eine Summen-Entität braucht es dafür nicht. Nachts melden sich
+Mikro-Wechselrichter oft als nicht verfügbar; die Karte zählt eine Quelle,
+deren letzter Wert nahe null war, still als 0. Fällt eine Quelle dagegen aus,
+während sie lieferte, steht die Summe in Gelb, und der Tooltip nennt, was fehlt
+(„ohne Balkon“).
 
-So wird der Sensor nur dann nicht verfügbar, wenn der Wechselrichter es ist.
-Ein schlafendes Balkonkraftwerk zählt als 0. Diesen Sensor als `house`
-eintragen.
+== Balkonkraftwerk: nicht im Hauswert enthalten
 
-*Oder einfacher:* Schritt 2 weglassen und `house` gar nicht angeben. Dann
-leitet die Karte das Haus aus PV-Summe, Netz und Batterie ab (siehe _Fehlende
-Größen ableiten_). Das kostet einen Helfer weniger, aber ein Tipp auf das Haus
-öffnet dann keinen Verlauf, und die Genauigkeit hängt am langsamsten der
-Sensoren. Hat der Wechselrichter einen schnellen Haussensor, ist der
-korrigierte Sensor die bessere Wahl.
+Ein Hybrid-Wechselrichter sieht nur seine eigenen Strings. Ein
+Balkonkraftwerk, das hinter dem Zähler einspeist, erscheint in seinem
+Hauswert als _weniger Verbrauch_, nicht als Erzeugung – der Hauswert ist um
+genau dessen Leistung zu klein.
+
+Dafür gibt es je Quelle den Schalter *Nicht im Hauswert enthalten*. Die Karte
+addiert die Leistung dieser Quelle zum gemessenen Hauswert, und das Haus heißt
+dann „· berechnet“. Ein Tipp auf das Haus öffnet weiter den Verlauf des
+gemessenen Sensors.
 
 `grid` braucht keine Korrektur, solange der Netzsensor am Hausanschluss misst,
 wie es ein Smart Meter oder der Stromwandler des Wechselrichters tut. Er sieht
-die Einspeisung des Balkonkraftwerks dann ohnehin.
+die Einspeisung des Balkonkraftwerks ohnehin.
+
+== Ring und Zeilen
+
+Unter *Darstellung* stehen zwei Schalter für die Quellen: *PV-Ring anzeigen*
+(Standard: an) und *PV-Zeilen in der Liste* (Standard: aus). Die PV-Zeilen
+stehen über den Verbrauchern, sortieren sich wie diese und haben ihren eigenen
+Fächer zum PV-Knoten.
+
+[.only-light]
+image::editor-pv-display-de-light.png["Die Schalter für Liste, PV-Zeilen und Ringe",490]
+
+[.only-dark]
+image::editor-pv-display-de-dark.png["Die Schalter für Liste, PV-Zeilen und Ringe",490]
+
+Ist bei jeder Quelle die Spitzenleistung eingetragen, bietet die Karte einen
+weiteren Knopf: *100 %* zeigt die Anteile am Ring, *% kWp* die Leistung im
+Verhältnis zur gesamten Spitzenleistung – siehe link:quick.html[Quick-Buttons].
+
+== In YAML
+
+[source,yaml]
+----
+entities:
+  solar:
+    - entity: sensor.wechselrichter_dach
+      name: Dach
+      kwp: 8
+    - entity: sensor.balkonkraftwerk
+      name: Balkon
+      kwp: 0.8
+      house: excluded
+  grid: sensor.netz
+  house: sensor.hausverbrauch
+list:
+  solar: true
+----
+
+Alle Felder einer Quelle stehen unter link:options.html[Alle Optionen].
+
+== Weiterhin möglich: ein Summen-Helfer
+
+Wer die Summe auch anderswo braucht, kann wie bisher einen Helfer anlegen
+(_Gruppe → Sensor-Gruppe_, Typ *Summe*, *Nicht-numerisch ignorieren* an) und
+ihn als eine Entität eintragen. Ring-Anteile, PV-Zeilen und die Skala in kWp
+gibt es dann nicht – die Karte kennt die einzelnen Quellen nicht. Für den
+Energie-Modus braucht auch die Gruppe die Zustandsklasse „Messung“; sie
+übernimmt sie von ihren Mitgliedern, wenn alle dieselbe haben (siehe
+link:energy.html#zustandsklasse[Energie]).

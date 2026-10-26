@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<style>.fg{color:#1d1e21}@media (prefers-color-scheme:dark){.fg{color:#e3e3e3}}</style>
+<path class="fg" d="M2 58 H62" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+<path d="M18 54 A14 14 0 0 1 46 54 Z" fill="#ff9800"/>
+<g stroke-width="6" stroke-linecap="round"><path d="M15.5 44 L10.3 41" stroke="#5c6bc0"/><path d="M32 35 V29" stroke="#26a69a"/><path d="M48.5 44 L53.7 41" stroke="#ec407a"/></g>
+<circle cx="7" cy="38.5" r="6.5" fill="#5c6bc0"/><circle cx="32" cy="22" r="6.5" fill="#26a69a"/><circle cx="57" cy="38.5" r="6.5" fill="#ec407a"/>
+</svg>

@@ -6,7 +6,8 @@
 |===
 |Option |Standard |Bedeutung
 |`title` |— |Überschrift der Karte
-|`entities.solar` |Pflicht |PV-Leistung, W oder kW
+|`layout` |`cross` |Anordnung der Knoten: `cross` (Kreuz), `square_right` (Quadrat · PV rechts), `square_left` (Quadrat · PV links), `triangle` (Dreieck) — siehe _Anordnungen_
+|`entities.solar` |Pflicht |PV-Leistung, W oder kW: eine Entität oder eine Liste von Quellen `++{++entity, name, kwp, icon, color, invert, house}` — siehe _Balkonkraftwerk und weitere PV_
 |`entities.grid` |Pflicht |Netzleistung, signiert
 |`entities.house` |abgeleitet |Hausverbrauch
 |`entities.battery` |— |Batterieleistung, signiert
@@ -22,25 +23,28 @@
 |`list.enabled` |an mit Verbrauchern |Liste anzeigen
 |`list.rest_label` |lokalisiert |Bezeichnung des Rests
 |`list.title` |— |Überschrift über der Liste
-|`list.always_below` |`false` |Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre
-|`ring.enabled` |an mit Verbrauchern |Ring anzeigen
-|`ring.animation` |`overtake` |Wie der Ring einer umsortierten Liste folgt. `overtake`: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. `fade`: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. `jump`: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter
+|`list.solar` |`false` |PV-Zeilen über den Verbrauchern, je Quelle eine (bei mehreren Quellen)
+|`list.always_below` |`false` |Liste auch dann unter der Zeichnung halten, wenn daneben Platz wäre
+|`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen
+|`ring.solar` |`true` |PV-Ring am PV-Knoten: Anteil jeder Quelle (bei mehreren Quellen)
+|`ring.animation` |`overtake` |Wie der Verbraucher-Ring einer umsortierten Liste folgt. `overtake`: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. `fade`: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. `jump`: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter
 |`view.modes` |alle drei |Quick-Button Glättung: `current`, `avg_short`, `avg_long`; einer = fest
-|`view.default_mode` |`current` |Startwert der Glättung
 |`view.avg_short_minutes` |`2` |Kurzes Mittelungsfenster
 |`view.avg_long_minutes` |`15` |Langes Mittelungsfenster
 |`view.remember` |`true` |Den letzten Wert jedes Quick-Buttons in diesem Browser merken
 |`memory_id` |setzt der Editor |Was die Karte sich merkt, liegt je Ansicht unter dieser Kennung; jeder Name geht. Ohne sie teilen sich die Karten das
 |`view.energy_periods` |`power`, `today`, `24h`, `week`, wenn die Statistik da ist |Quick-Button Leistung/Energie: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; einer = fest, `++[++power++]++` = keine Energie. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts
-|`view.default_energy` |`power` |Startwert von Leistung/Energie
+|`view.pv_scales` |beide, soweit möglich |Quick-Button PV-Skala: `share` (100 %, Anteile am Ring), `peak` (% kWp, braucht `kwp` an jeder Quelle); einer = fest
 |`list.scope` |beide |Quick-Button Listenumfang: `filtered`, `full`; einer = fest
-|`list.default_scope` |`filtered` |Startwert des Listenumfangs
-|`view.show_selector` |— |Veraltet: `false` stellt jeden Quick-Button fest auf seinen Startwert
+|`view.quick_style` |`segment` |Darstellung aller Quick-Buttons: `segment` (Segment-Buttons), `segment_compact` (Segment-Buttons kompakt, flacher), `single` (Einzel-Buttons)
+|`view.expanded` |— |Aufgeklappte Quick-Buttons, jeder Wert ein eigener Button: `modes`, `energy_periods`, `pv_scales`, `scope`
+|`view.show_selector` |— |Veraltet: `false` stellt jeden Quick-Button fest auf einen Wert
 |`appearance` |`auto` |`auto`, `light` oder `dark` — zeigt *diese eine Karte* hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest
 |`flow.design` |`none` |`none` oder die Kennung eines Designs aus `flow-designs.json`
 |`flow.dot_color` |leer |Leer: jeder Punkt in der Farbe seines Flusses. Gesetzt: alle Punkte der Karte in dieser Farbe, die Linien behalten ihre
 |`flow.dot_size` |`100` |Punktgröße in Prozent, 40–150. 100 ist der Punkt des Designs auf einer Karte mit großen Knoten; kleinere Karten zeichnen von sich aus etwas kleinere Punkte
 |`flow.line_width` |`100` |Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner
+|`flow.lines` |`curved` beim Kreuz, sonst `straight` |Linienform der Verbindungen: `curved` (geschwungen) oder `straight` (gerade)
 |`flow.inactive_lines` |`show` |`show`, `dim` oder `hide`
 |`flow.animation` |`auto` |`auto`, `on` oder `off`
 |`flow.min_w` |`10` |Darunter laufen keine Punkte. Im Kreuz wird die Linie zusätzlich grau und das Zustandswort entfällt; bei einer Verbraucherzeile richten sich Farbe und Ring-Segment stattdessen nach der Liste

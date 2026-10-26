@@ -18,6 +18,16 @@ consumers:
       plugged: binary_sensor.auto_ladekabel
 ----
 
+Im Editor klappt der Verbraucher auf; unter *Ladestand* stehen die
+*Ladestand-Entität (%)*, wann er gezeigt wird – *Beim Laden*, *Wenn angesteckt*
+oder *Immer* – und bei *Wenn angesteckt* das Kabel:
+
+[.only-light]
+image::editor-ev-de-light.png["Wallbox mit dem Ladestand des Autos",490]
+
+[.only-dark]
+image::editor-ev-de-dark.png["Wallbox mit dem Ladestand des Autos",490]
+
 Ein dünner Ring um das Icon zeigt den Ladestand. Lädt das Auto, zeigt die
 Zeile die Leistung, sonst stattdessen den Ladestand – die Zeile braucht also
 keinen zusätzlichen Platz. Mit `show: plugged` bleibt die Zeile in der Liste,

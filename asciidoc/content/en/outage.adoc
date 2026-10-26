@@ -15,6 +15,15 @@ entities:
     ok: [ok]
 ----
 
+In the editor: *Grid outage (optional)*. It offers the entity's own states to
+pick from:
+
+[.only-light]
+image::editor-outage-en-light.png["The Grid outage section",490]
+
+[.only-dark]
+image::editor-outage-en-dark.png["The Grid outage section",490]
+
 `outage` is required, and nothing about it is guessed: every integration names
 its states differently, and a default taken from one vendor would be wrong more
 often than right. A bare entity id without state names is ignored, with a note

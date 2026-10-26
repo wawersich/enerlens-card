@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Suchen"></div>
   <a class="lang" href="../en/index.html" hreflang="en">English</a>
   <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Einrichtung</a></li>
 <li><a href="derive.html">Fehlende Größen ableiten</a></li>
 <li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="layout.html">Anordnungen</a></li>
 <li><a href="ev.html">Wallbox und E-Auto</a></li>
 <li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
 <li><a href="quick.html">Quick-Buttons</a></li>
@@ -43,19 +54,27 @@
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Eine Energiefluss-Karte für Home Assistant. Das bekannte Kreuz aus PV, Netz,
-Haus und Batterie — dazu eine Aufschlüsselung, woraus der Hauswert eigentlich
-besteht.</p>
+<p>Eine <strong>hoch-konfigurative</strong> Energiefluss-Karte für Home Assistant. PV, Netz,
+Haus und Batterie in vier Anordnungen — dazu eine Aufschlüsselung, woraus der
+Hauswert eigentlich besteht.</p>
 </div>
 <div class="paragraph">
-<p>Die Karte hier ist keine Aufnahme, sondern die echte Karte mit ausgedachten Werten – probier den Filterknopf oder tippe auf „Jetzt“.</p>
+<p>Die Karte hier ist keine Aufnahme, sondern die echte Karte mit ausgedachten
+Werten – probier die Schalter darüber und die Quick-Buttons im Kopf der Karte.</p>
 </div>
-<div class="card-demo"></div>
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list" data-expanded="modes,energy_periods,pv_scales" data-yaml="off"></div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="was-sie-anders-macht"><a class="anchor" href="#was-sie-anders-macht"></a>Was sie anders macht</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p><strong>Vier Anordnungen.</strong> PV, Netz, Haus und Batterie stehen im Kreuz, in einem von
+zwei um 45° gedrehten Quadraten oder im Dreieck, mit geschwungenen oder geraden
+Linien. Die Listen rücken jeweils an ihren Knoten: beim Quadrat · PV links
+stehen die PV-Zeilen links der Zeichnung, die Verbraucher rechts (siehe
+<a href="layout.html">Anordnungen</a>).</p>
+</div>
 <div class="paragraph">
 <p><strong>Verbraucher können optional angegeben werden.</strong> Sofern einzelne Verbraucher
 erfasst werden (z. B. eine Wärmepumpe oder ein mit einem Shelly gemessenes
@@ -85,23 +104,32 @@ Zeitraum</a>).</p>
 </div>
 <div class="card-demo" data-demo="energy"></div>
 <div class="paragraph">
-<p><strong>Quick-Buttons im Kopf.</strong> Bis zu drei Knöpfe schalten die Ansicht mit einem
-Tipp: Jetzt oder Mittelwert, Leistung oder Energie, kurze oder ganze
-Verbraucherliste. Welche Werte ein Knopf anbietet, ist einstellbar; mit nur
-einem Wert verschwindet er, und die Karte zeigt auf jedem Gerät dasselbe. Jede
-Karte merkt sich, worauf sie zuletzt stand (siehe
+<p><strong>Quick-Buttons im Kopf.</strong> Bis zu vier Quick-Buttons schalten die Ansicht mit
+einem Tipp: Jetzt oder Mittelwert, Leistung oder Energie, die PV-Skala, kurze
+oder ganze Verbraucherliste. Jeder schaltet bei jedem Tipp weiter oder zeigt
+aufgeklappt alle seine Werte nebeneinander. Für alle zusammen gibt es drei
+Darstellungen: <strong>Segment-Buttons</strong>, <strong>Segment-Buttons kompakt</strong> und
+<strong>Einzel-Buttons</strong>. Welche Werte ein Quick-Button anbietet, ist einstellbar; mit
+nur einem Wert verschwindet er, und die Karte zeigt auf jedem Gerät dasselbe.
+Jede Karte merkt sich, worauf sie zuletzt stand (siehe
 <a href="quick.html">Quick-Buttons</a>).</p>
 </div>
-<div class="imageblock only-light">
-<div class="content">
-<img src="../images/card-de-light-quick.svg" alt="Die Quick-Buttons: Jetzt, kW und der Filterknopf" width="215">
+<div class="paragraph">
+<p>Segment-Buttons, zum Weiterschalten:</p>
 </div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded=""></div>
+<div class="paragraph">
+<p>Segment-Buttons, aufgeklappt:</p>
 </div>
-<div class="imageblock only-dark">
-<div class="content">
-<img src="../images/card-de-dark-quick.svg" alt="Die Quick-Buttons: Jetzt, kW und der Filterknopf" width="215">
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+<div class="paragraph">
+<p>Segment-Buttons kompakt, aufgeklappt:</p>
 </div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment_compact" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+<div class="paragraph">
+<p>Einzel-Buttons, aufgeklappt:</p>
 </div>
+<div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
 <div class="paragraph">
 <p><strong>Die Verbraucher-Liste sortiert sich und gleitet.</strong> Zeilen ordnen sich im
 festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
@@ -111,10 +139,10 @@ ist.</p>
 </div>
 <div class="paragraph">
 <p><strong>Der Ring zieht mit.</strong> Ändert sich die Reihenfolge, wandern seine Segmente an
-ihren neuen Platz und überholen auf einer inneren Bahn — oder sie bleiben mit
-<code>ring.animation: fade</code> stehen und blenden ihre Farben über, so wie hier gezeigt:</p>
+ihren neuen Platz und überholen auf einer inneren Bahn — in jeder Karte auf
+dieser Seite zu sehen. Mit <code>ring.animation: fade</code> bleiben sie stehen und
+blenden ihre Farben über.</p>
 </div>
-<div class="card-demo" data-demo="fade"></div>
 <div class="paragraph">
 <p><strong>Der Fluss ist frei einstellbar.</strong> Die Punkte zeigen die Leistung: Sie werden
 schneller und zahlreicher, je mehr fließt. Ab welcher Leistung sie loslaufen,
@@ -164,6 +192,6 @@ verwendeten gleich mit anbietet.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

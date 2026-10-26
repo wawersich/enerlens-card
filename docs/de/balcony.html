@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Suchen"></div>
   <a class="lang" href="../en/balcony.html" hreflang="en">English</a>
   <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Einrichtung</a></li>
 <li><a href="derive.html">Fehlende Größen ableiten</a></li>
 <li class="current"><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="layout.html">Anordnungen</a></li>
 <li><a href="ev.html">Wallbox und E-Auto</a></li>
 <li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
 <li><a href="quick.html">Quick-Buttons</a></li>
@@ -40,64 +51,136 @@
   </ul></nav>
   <main data-pagefind-body>
     <h1>Balkonkraftwerk und weitere PV</h1>
+<div id="preamble">
+<div class="sectionbody">
 <div class="paragraph">
 <p>Viele Anlagen haben mehr als eine PV-Quelle: die Dachanlage am
 Hybrid-Wechselrichter und dazu ein Balkonkraftwerk oder weitere
-Mikro-Wechselrichter. <code>solar</code> nimmt genau eine Entität. Mehrere Quellen fasst
-ein Helfer zusammen, die Karte addiert nicht selbst.</p>
+Mikro-Wechselrichter. Die Karte nimmt jede Quelle einzeln: Am PV-Knoten steht
+ihre Summe, der Ring zeigt den Anteil jeder Quelle, und auf Wunsch steht jede
+als eigene Zeile in der Liste.</p>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mehrere-quellen-eintragen"><a class="anchor" href="#mehrere-quellen-eintragen"></a>Mehrere Quellen eintragen</h2>
+<div class="sectionbody">
 <div class="paragraph">
-<p><strong>1. PV-Summe.</strong> Unter <em>Einstellungen → Geräte &amp; Dienste → Helfer → Helfer
-erstellen → Gruppe → Sensor-Gruppe</em> alle PV-Leistungen als <em>Mitglieder</em>
-eintragen, <em>Typ</em> <strong>Summe</strong> wählen und <strong>Nicht-numerisch ignorieren</strong>
-einschalten. Mikro-Wechselrichter melden sich nachts oft als nicht verfügbar;
-ohne diese Option wäre dann die ganze Summe nicht verfügbar. Den neuen Sensor
-als <code>solar</code> eintragen.</p>
+<p>Im Editor unter <strong>Basis-Entitäten</strong> bei der PV <strong>Mehrere Quellen (je
+Wechselrichter)</strong> wählen. Darunter erscheint der Abschnitt <strong>PV-Quellen</strong>: je
+Quelle die Leistungs-Entität, ein Name, die Spitzenleistung in kWp und ein
+Icon. Mit <strong>Quelle hinzufügen</strong> kommt die nächste dazu.</p>
 </div>
-<div class="paragraph">
-<p><strong>2. Hausverbrauch korrigieren.</strong> Ein Hybrid-Wechselrichter sieht nur seine
-eigenen Strings. Ein Balkonkraftwerk, das hinter dem Zähler einspeist,
-erscheint in seinem Hauswert als <em>weniger Verbrauch</em>, nicht als Erzeugung; der
-Hauswert ist also um genau dessen Leistung zu klein. Ein Helfer <em>Template →
-Sensor</em> (Einheit <code>W</code>, Geräteklasse <code>power</code>, Zustandsklasse <code>measurement</code>)
-addiert sie wieder:</p>
-</div>
-<div class="listingblock">
+<div class="imageblock only-light">
 <div class="content">
-<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ [0, states('sensor.haus_wechselrichter')|float(0)
-     + states('sensor.balkonkraftwerk')|float(0)]|max|round(0) }}</code></pre>
+<img src="../images/editor-pv-sources-de-light.png" alt="Der Abschnitt PV-Quellen mit Dach und Balkon" width="490">
 </div>
 </div>
-<div class="paragraph">
-<p>Unter <em>Verfügbarkeit</em> gehört</p>
-</div>
-<div class="listingblock">
+<div class="imageblock only-dark">
 <div class="content">
-<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ states('sensor.haus_wechselrichter')|is_number }}</code></pre>
+<img src="../images/editor-pv-sources-de-dark.png" alt="Der Abschnitt PV-Quellen mit Dach und Balkon" width="490">
 </div>
 </div>
 <div class="paragraph">
-<p>So wird der Sensor nur dann nicht verfügbar, wenn der Wechselrichter es ist.
-Ein schlafendes Balkonkraftwerk zählt als 0. Diesen Sensor als <code>house</code>
-eintragen.</p>
+<p>Eine Summen-Entität braucht es dafür nicht. Nachts melden sich
+Mikro-Wechselrichter oft als nicht verfügbar; die Karte zählt eine Quelle,
+deren letzter Wert nahe null war, still als 0. Fällt eine Quelle dagegen aus,
+während sie lieferte, steht die Summe in Gelb, und der Tooltip nennt, was fehlt
+(„ohne Balkon“).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="balkonkraftwerk-nicht-im-hauswert-enthalten"><a class="anchor" href="#balkonkraftwerk-nicht-im-hauswert-enthalten"></a>Balkonkraftwerk: nicht im Hauswert enthalten</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Ein Hybrid-Wechselrichter sieht nur seine eigenen Strings. Ein
+Balkonkraftwerk, das hinter dem Zähler einspeist, erscheint in seinem
+Hauswert als <em>weniger Verbrauch</em>, nicht als Erzeugung – der Hauswert ist um
+genau dessen Leistung zu klein.</p>
 </div>
 <div class="paragraph">
-<p><strong>Oder einfacher:</strong> Schritt 2 weglassen und <code>house</code> gar nicht angeben. Dann
-leitet die Karte das Haus aus PV-Summe, Netz und Batterie ab (siehe <em>Fehlende
-Größen ableiten</em>). Das kostet einen Helfer weniger, aber ein Tipp auf das Haus
-öffnet dann keinen Verlauf, und die Genauigkeit hängt am langsamsten der
-Sensoren. Hat der Wechselrichter einen schnellen Haussensor, ist der
-korrigierte Sensor die bessere Wahl.</p>
+<p>Dafür gibt es je Quelle den Schalter <strong>Nicht im Hauswert enthalten</strong>. Die Karte
+addiert die Leistung dieser Quelle zum gemessenen Hauswert, und das Haus heißt
+dann „· berechnet“. Ein Tipp auf das Haus öffnet weiter den Verlauf des
+gemessenen Sensors.</p>
 </div>
 <div class="paragraph">
 <p><code>grid</code> braucht keine Korrektur, solange der Netzsensor am Hausanschluss misst,
 wie es ein Smart Meter oder der Stromwandler des Wechselrichters tut. Er sieht
-die Einspeisung des Balkonkraftwerks dann ohnehin.</p>
+die Einspeisung des Balkonkraftwerks ohnehin.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ring-und-zeilen"><a class="anchor" href="#ring-und-zeilen"></a>Ring und Zeilen</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Unter <strong>Darstellung</strong> stehen zwei Schalter für die Quellen: <strong>PV-Ring anzeigen</strong>
+(Standard: an) und <strong>PV-Zeilen in der Liste</strong> (Standard: aus). Die PV-Zeilen
+stehen über den Verbrauchern, sortieren sich wie diese und haben ihren eigenen
+Fächer zum PV-Knoten.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-pv-display-de-light.png" alt="Die Schalter für Liste, PV-Zeilen und Ringe" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-pv-display-de-dark.png" alt="Die Schalter für Liste, PV-Zeilen und Ringe" width="490">
+</div>
+</div>
+<div class="paragraph">
+<p>Ist bei jeder Quelle die Spitzenleistung eingetragen, bietet die Karte einen
+weiteren Knopf: <strong>100 %</strong> zeigt die Anteile am Ring, <strong>% kWp</strong> die Leistung im
+Verhältnis zur gesamten Spitzenleistung – siehe <a href="quick.html">Quick-Buttons</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="in-yaml"><a class="anchor" href="#in-yaml"></a>In YAML</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">entities:
+  solar:
+    - entity: sensor.wechselrichter_dach
+      name: Dach
+      kwp: 8
+    - entity: sensor.balkonkraftwerk
+      name: Balkon
+      kwp: 0.8
+      house: excluded
+  grid: sensor.netz
+  house: sensor.hausverbrauch
+list:
+  solar: true</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Alle Felder einer Quelle stehen unter <a href="options.html">Alle Optionen</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="weiterhin-möglich-ein-summen-helfer"><a class="anchor" href="#weiterhin-möglich-ein-summen-helfer"></a>Weiterhin möglich: ein Summen-Helfer</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Wer die Summe auch anderswo braucht, kann wie bisher einen Helfer anlegen
+(<em>Gruppe → Sensor-Gruppe</em>, Typ <strong>Summe</strong>, <strong>Nicht-numerisch ignorieren</strong> an) und
+ihn als eine Entität eintragen. Ring-Anteile, PV-Zeilen und die Skala in kWp
+gibt es dann nicht – die Karte kennt die einzelnen Quellen nicht. Für den
+Energie-Modus braucht auch die Gruppe die Zustandsklasse „Messung“; sie
+übernimmt sie von ihren Mitgliedern, wenn alle dieselbe haben (siehe
+<a href="energy.html#zustandsklasse">Energie</a>).</p>
+</div>
+</div>
 </div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

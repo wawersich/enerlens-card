@@ -11,6 +11,29 @@ A card added through the dashboard does not guess your sensors: it starts with
 the placeholders `sensor.solar_power` and `sensor.grid_power` and shows example
 values, marked as such, until you pick your own.
 
+== In the editor
+
+Under *Main entities* you pick the power entity of solar, grid, house and
+battery. The choice above each sets its form: *One entity*, *Two entities*,
+*Derived from the other quantities* or, for solar, *Several sources (one per
+inverter)*. With a battery, *State of charge* comes along.
+
+[.only-light]
+image::editor-entities-en-light.png["The Main entities section",490]
+
+[.only-dark]
+image::editor-entities-en-dark.png["The Main entities section",490]
+
+The consumers have a list of their own below: *Add consumer*, pick the
+entity, done. Each entry unfolds for name, icon, a threshold of its own and a
+car's state of charge; drag to change their order.
+
+[.only-light]
+image::editor-consumers-en-light.png["The consumer list",490]
+
+[.only-dark]
+image::editor-consumers-en-dark.png["The consumer list",490]
+
 == Minimal
 
 [source,yaml]
@@ -65,6 +88,15 @@ entities:
     invert: true
 ----
 
+In the editor that is the switch *Flip sign* at the entity, or the choice
+*Two entities* for separate sensors:
+
+[.only-light]
+image::editor-signs-en-light.png["Grid with two entities, battery with its sign flipped",490]
+
+[.only-dark]
+image::editor-signs-en-dark.png["Grid with two entities, battery with its sign flipped",490]
+
 If you have separate sensors per direction instead of one signed sensor, name
 both. Values are expected to be zero or positive:
 
@@ -86,7 +118,8 @@ node while 4 W are being exported and you get the export curve, in which last
 night's charging from the grid does not appear at all.
 
 If there is no signed sensor, a _Template → Sensor_ helper builds one (unit `W`,
-device class `power`, state class `measurement`):
+device class `power`, state class `measurement` - without it no statistics and
+no energy, see link:energy.html#state-class[Energy]):
 
 [source,jinja]
 ----

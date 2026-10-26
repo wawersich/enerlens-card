@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anordnungen – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/layout.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Anordnungen</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li class="current"><a href="layout.html">Anordnungen</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Anordnungen</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Wo PV, Netz, Haus und Batterie stehen, ist wählbar: das Kreuz, zwei um 45°
+gedrehte Quadrate und ein Dreieck. Was die Karte zeigt, bleibt in jeder
+Anordnung gleich – Werte, Ringe, Punkte, Listen. Die Karte auf dieser Seite
+läuft mit erfundenen Werten und drei PV-Quellen.</p>
+</div>
+<div class="paragraph">
+<p>Zum Ausprobieren: Die Schalter über der Karte stellen um, was du im Editor
+umstellen würdest; darunter steht, was davon in YAML landet.</p>
+</div>
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list"></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="kreuz"><a class="anchor" href="#kreuz"></a>Kreuz</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>PV oben, Netz links, Haus rechts, Batterie unten – die Anordnung, mit der die
+Karte angefangen hat, und der Standard. Die Verbindungen sind geschwungen.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="quadrat-pv-rechts"><a class="anchor" href="#quadrat-pv-rechts"></a>Quadrat · PV rechts</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Um 45° gedreht: PV oben rechts, Haus unten rechts, Netz oben links, Batterie
+unten links. Beide Listen stehen rechts, die PV-Zeilen auf Höhe der PV, die
+Verbraucher auf Höhe des Hauses.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="quadrat-pv-links"><a class="anchor" href="#quadrat-pv-links"></a>Quadrat · PV links</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In die andere Richtung gedreht: PV oben links, Haus oben rechts, Netz unten
+links, Batterie unten rechts. Die PV-Zeilen stehen links der Zeichnung, die
+Verbraucher rechts – jeder Fächer läuft zu seinem Knoten. Dafür braucht die
+Karte etwa 590 px Breite; ist sie schmaler, etwa auf dem Handy oder in einer
+Spalte der Abschnitte-Ansicht, stehen beide Listen darunter.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dreieck"><a class="anchor" href="#dreieck"></a>Dreieck</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>PV, Haus und Batterie übereinander, das Netz links vom Haus. Das Dreieck ist
+höher als breit und wird darum nie breiter als 320 px. Ohne Batterie entfällt
+das untere Drittel.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="einstellen"><a class="anchor" href="#einstellen"></a>Einstellen</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Im Editor unter <strong>Darstellung</strong> stehen ganz oben <strong>Anordnung</strong> und <strong>Linienform</strong>.
+Die Linienform ist beim Kreuz geschwungen, bei den anderen Anordnungen gerade;
+beides lässt sich umstellen.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-layout-de-light.png" alt="Anordnung und Linienform im Abschnitt Darstellung" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-layout-de-dark.png" alt="Anordnung und Linienform im Abschnitt Darstellung" width="490">
+</div>
+</div>
+<div class="paragraph">
+<p>Im Energie-Modus zeigen die Pfeile an Netz und Batterie in jeder Anordnung
+zur Mitte der Zeichnung, wenn Energie bezogen oder entladen wurde, und von ihr
+weg beim Einspeisen und Laden.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">layout: square_left        # cross | square_right | square_left | triangle
+flow:
+  lines: curved            # curved | straight</code></pre>
+</div>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
+</body>
+</html>

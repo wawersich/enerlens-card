@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Suchen"></div>
   <a class="lang" href="../en/options.html" hreflang="en">English</a>
   <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Einrichtung</a></li>
 <li><a href="derive.html">Fehlende Größen ableiten</a></li>
 <li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="layout.html">Anordnungen</a></li>
 <li><a href="ev.html">Wallbox und E-Auto</a></li>
 <li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
 <li><a href="quick.html">Quick-Buttons</a></li>
@@ -60,9 +71,14 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock">Überschrift der Karte</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>layout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cross</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Anordnung der Knoten: <code>cross</code> (Kreuz), <code>square_right</code> (Quadrat · PV rechts), <code>square_left</code> (Quadrat · PV links), <code>triangle</code> (Dreieck) — siehe <em>Anordnungen</em></p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.solar</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Pflicht</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">PV-Leistung, W oder kW</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PV-Leistung, W oder kW: eine Entität oder eine Liste von Quellen <code>{entity, name, kwp, icon, color, invert, house}</code> — siehe <em>Balkonkraftwerk und weitere PV</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.grid</code></p></td>
@@ -140,29 +156,34 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock">Überschrift über der Liste</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.solar</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PV-Zeilen über den Verbrauchern, je Quelle eine (bei mehreren Quellen)</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.always_below</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Liste auch dann unter dem Kreuz halten, wenn daneben Platz wäre</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Liste auch dann unter der Zeichnung halten, wenn daneben Platz wäre</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.enabled</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">an mit Verbrauchern</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Ring anzeigen</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verbraucher-Ring am Haus anzeigen</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.solar</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PV-Ring am PV-Knoten: Anteil jeder Quelle (bei mehreren Quellen)</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring.animation</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>overtake</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Wie der Ring einer umsortierten Liste folgt. <code>overtake</code>: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. <code>fade</code>: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. <code>jump</code>: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wie der Verbraucher-Ring einer umsortierten Liste folgt. <code>overtake</code>: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. <code>fade</code>: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. <code>jump</code>: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.modes</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">alle drei</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button Glättung: <code>current</code>, <code>avg_short</code>, <code>avg_long</code>; einer = fest</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.default_mode</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>current</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Startwert der Glättung</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.avg_short_minutes</code></p></td>
@@ -190,9 +211,9 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button Leistung/Energie: <code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code>, <code>7d</code>, <code>month</code>, <code>30d</code>; einer = fest, <code>[power]</code> = keine Energie. Netz und Batterie zeigen mit je zwei Sensoren beide Richtungen, sonst das Netz den Saldo und die Batterie nichts</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.default_energy</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Startwert von Leistung/Energie</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.pv_scales</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">beide, soweit möglich</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button PV-Skala: <code>share</code> (100 %, Anteile am Ring), <code>peak</code> (% kWp, braucht <code>kwp</code> an jeder Quelle); einer = fest</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.scope</code></p></td>
@@ -200,14 +221,19 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock">Quick-Button Listenumfang: <code>filtered</code>, <code>full</code>; einer = fest</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.default_scope</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filtered</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Startwert des Listenumfangs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.quick_style</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>segment</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Darstellung aller Quick-Buttons: <code>segment</code> (Segment-Buttons), <code>segment_compact</code> (Segment-Buttons kompakt, flacher), <code>single</code> (Einzel-Buttons)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.expanded</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Aufgeklappte Quick-Buttons, jeder Wert ein eigener Button: <code>modes</code>, <code>energy_periods</code>, <code>pv_scales</code>, <code>scope</code></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.show_selector</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Veraltet: <code>false</code> stellt jeden Quick-Button fest auf seinen Startwert</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Veraltet: <code>false</code> stellt jeden Quick-Button fest auf einen Wert</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>appearance</code></p></td>
@@ -233,6 +259,11 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.line_width</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.lines</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>curved</code> beim Kreuz, sonst <code>straight</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Linienform der Verbindungen: <code>curved</code> (geschwungen) oder <code>straight</code> (gerade)</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow.inactive_lines</code></p></td>
@@ -349,6 +380,6 @@ Linie.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

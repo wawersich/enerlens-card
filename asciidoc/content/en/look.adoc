@@ -7,6 +7,13 @@ the extra values (one row per value set up), one row per consumer, and the stops
 of the state-of-charge gradient. Each row shows the colour the card is painting
 on the left and the configured value on the right — `Default` while none is set.
 
+
+[.only-light]
+image::editor-colors-en-light.png["The Colours group",490]
+
+[.only-dark]
+image::editor-colors-en-dark.png["The Colours group",490]
+
 Clicking the swatch opens the picker: a saturation and brightness field over a
 hue strip, with the value below it as hex or, switched over, as sliders for RGB
 or HSL. Next to those sit the colours this card already uses — one click, and

@@ -200,6 +200,7 @@ function wallbox(w: number | null, show: ChargeShow, plugged: boolean, soc = 80)
 function model(consumers: ConsumerReading[]): Model {
   return {
     solar: { available: false, derived: false },
+    solarSources: [],
     grid: { available: false, derived: false },
     battery: null,
     soc: { available: false, derived: false },

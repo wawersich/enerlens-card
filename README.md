@@ -1,7 +1,8 @@
 # EnerLens Card
 
-An energy flow card for Home Assistant. The familiar cross of PV, grid, house
-and battery — plus a breakdown of what the house figure is actually made of.
+A **highly configurable** energy flow card for Home Assistant. Solar, grid,
+house and battery in four arrangements — plus a breakdown of what the house
+figure is actually made of.
 
 **Documentation and live demo: <https://wawersich.github.io/enerlens-card/en/index.html>**
 
@@ -14,12 +15,18 @@ and battery — plus a breakdown of what the house figure is actually made of.
 
 ## What it does differently
 
+- **Four arrangements:** a cross, two squares turned by 45° or a triangle,
+  with curved or straight lines.
+- **Several PV sources:** roof, west, balcony — each with its own share of the
+  ring and, on request, a row of its own; no sum helper needed.
 - **Consumers as a breakdown:** list and ring show what makes up the house
   value; the remainder holds everything not measured individually.
 - **Moving averages:** 2 and 15 minutes, configurable, calm the picture
   without falsifying the numbers.
 - **Energy instead of power:** today, 24 h, week, 7 days, month, 30 days —
   from the statistics of the power sensors, no energy sensors needed.
+- **Quick buttons in the header:** smoothing, power/energy, PV scale and list
+  scope with one tap — stepping on or expanded, in three styles.
 - **EV at the wallbox:** a ring around the icon shows the state of charge.
 - **Extra values at the nodes:** today's yield, self-sufficiency, energy left
   in the battery and anything else an entity provides.

@@ -2,21 +2,39 @@
 :page-key: quick
 :nav-order: 8
 
-The header has up to three quick buttons; each tap steps to the next value:
+The header has up to four quick buttons; each tap steps to the next value:
 
 [cols=",,,",options="header",]
 |===
 |Quick button |Values |Key |Default
 |*Smoothing* |Now, short average, long average |`view.modes`: `current`, `avg_short`, `avg_long` |all three
 |*Power/energy* |power, energy over a period |`view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` |`power`, `today`, `24h`, `week` - see below
+|*PV scale* |shares on the ring, power relative to peak power - only with several PV sources |`view.pv_scales`: `share`, `peak` |both, as far as possible - `peak` needs `kwp` on every source
 |*List scope* |filtered list, every consumer |`list.scope`: `filtered`, `full` |both
 |===
+
+This is how they look by default - try them, each tap steps on (the card
+below them is left out here):
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded=""></div>
+++++
 
 List the values a button should offer. *One value means fixed*: the button is
 gone and the card always shows that value, on every device and for every user -
 a card set up for energy stays one. Fixed values other than the live view are
 named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for a
 live reading.
+
+In the editor each quick button has a part in the group *Quick buttons*: the
+ticks of its values and the switch *Expand*; at the top, *Style* for all of
+them.
+
+[.only-light]
+image::editor-quick-en-light.png["The Quick buttons group",490]
+
+[.only-dark]
+image::editor-quick-en-dark.png["The Quick buttons group",490]
 
 [source,yaml]
 ----
@@ -27,19 +45,46 @@ list:
   scope: [full]                    # always every consumer
 ----
 
-A button with several values starts with its start value - `view.default_mode`,
-`view.default_energy`, `list.default_scope` - unless the browser remembers the
-last one (`view.remember`). Each card remembers for itself: the editor gives it
+A button with several values starts with the value last chosen, on the very
+first opening with the first one. Each card remembers for itself: the editor gives it
 a `memory_id`, so two copies of the same card side by side can show different
 things. A second card with the same id in the same view (a duplicate) keeps its
 own values as well; a copy in another view or dashboard is apart anyway. Cards
 written in YAML without a `memory_id` share what they remember, as before - add
-any name of your own to separate them. After the update a card with an id starts
-once with its start values; what it remembers is tied to the view, so moving it
+any name of your own to separate them. What it remembers is tied to the view, so moving it
 to another view, renaming the view or - for a view without a `path` of its own -
 reordering the views starts it afresh once. Averages exist for power only:
 without `power` in `energy_periods` the card never averages. In a period the
 smoothing button is greyed out.
+
+*Expand and style.* Instead of one button that steps on with every tap,
+each quick button can show all its values side by side: in the editor the
+switch *Expand* in its part, in YAML
+`view.expanded: ++[++modes, energy_periods, pv_scales, scope++]++`. A tap then picks a
+value directly. Under *All quick buttons*, *Style* sets how they look:
+*Segment buttons* (one bar per quick button, the chosen value filled),
+*Segment buttons, compact* (the same bar, flatter - the cycling buttons too)
+or *Single buttons* (every value its own button, a thin frame around the quick
+button). Short of room, the quick buttons wrap, always as a whole.
+
+Segment buttons, all expanded:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
+
+Segment buttons compact, only smoothing and power/energy expanded - the other
+two step on:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment_compact" data-expanded="modes,energy_periods"></div>
+++++
+
+Single buttons, all expanded:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
 
 *The energy default.* With no `energy_periods` set, the card offers power,
 today, 24 h and week - but only when solar, grid, battery and house all have
@@ -49,5 +94,5 @@ readings); otherwise it stays with power and says why in the browser console.
 
 The editor has a group per quick button; the last ticked value cannot be
 unticked. The older `view.show_selector: false` still works and means every
-quick button fixed on its start value; the editor turns it into the lists
-above when it opens.
+quick button fixed on one value; the editor turns it into the lists above when
+it opens.

@@ -46,18 +46,29 @@ import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./
 import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
-import { NODE_R, VIEW_W, holesPath } from "./render/geometry";
+import {
+  exitDirection,
+  fanPath,
+  placeBlock,
+  placeBlocks,
+  splitPoint,
+  trunkPath,
+} from "./render/fan-path";
+import { NODE_R, VIEW_W, geometryFor, holesPathOf } from "./render/geometry";
 import { groundIsDark, seeThrough } from "./render/ground";
 import {
   type EnergyChip,
+  type ScaleChip,
   renderExampleBanner,
   renderHeader,
   renderOutageBanner,
 } from "./render/header";
-import { RowAnimator, renderList } from "./render/list";
+import { RowAnimator, renderList, renderSolarSide } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
 import { sizeFactors } from "./render/sizing";
+import { buildSolarRows, refreshSolarRows, solarSegments } from "./solar";
+import { SolarMemory } from "./solar-memory";
 import { styles } from "./styles";
 import {
   type Config,
@@ -69,6 +80,7 @@ import {
   type Model,
   type NormalizedCharge,
   type OutageState,
+  type PvScale,
   type RawConfig,
   type Sample,
   type ViewMode,
@@ -80,6 +92,7 @@ const MODE_KEY = "view-mode";
 const SHOW_ALL_KEY = "show-all";
 /** The energy chip's choice, "kw" for the power view (REQ EM-2). */
 const ENERGY_KEY = "energy-period";
+const PV_SCALE_KEY = "pv-scale";
 /** A period is asked for again this often while it is shown (REQ EM-4). */
 const ENERGY_REFRESH_MS = 5 * 60_000;
 /** After a failed request, the next one comes this much sooner. */
@@ -175,6 +188,7 @@ class EnerLensCard extends LitElement {
     hass: { attribute: false, noAccessor: true },
     _model: { state: true },
     _showAll: { state: true },
+    _pvScale: { state: true },
     _outage: { state: true },
     _scale: { state: true },
     _seeThrough: { state: true },
@@ -189,6 +203,8 @@ class EnerLensCard extends LitElement {
   /** Entities of the extra fields: watched, never averaged (REQ Z-9). */
   private _extraIds: string[] = [];
   private readonly _charge = new ChargeTracker();
+  /** The last value of each PV source: night or fault (REQ PV-2). */
+  private readonly _solarMemory = new SolarMemory();
   /** Hands the model a consumer's charge as the tracker knows it now. */
   private readonly _chargeOf = (charge: NormalizedCharge) =>
     this._charge.state(this._hass as HomeAssistant, charge);
@@ -199,6 +215,10 @@ class EnerLensCard extends LitElement {
   private readonly _rows = new RowAnimator();
   /** Latest entries by key - the fan needs colour and value per row. */
   private _lastEntries = new Map<string, { w: number; color: string; threshold: number }>();
+  /** The PV rows as last rendered - the PV fan reads them like the consumers' (PV-7). */
+  private _lastSolar = new Map<string, { w: number; color: string; threshold: number }>();
+  /** The fan from the PV rows into the PV node (PV-7). */
+  private _solarFan?: FanLayer;
   private _mode: ViewMode = "current";
   private _buffer?: AveragingBuffer;
   /** The buffer the history was last fetched for (REQ V-6, issue #16). */
@@ -213,6 +233,8 @@ class EnerLensCard extends LitElement {
   private _warnedDesign?: string;
   private _fan?: FanLayer;
   private readonly _ring = new RingAnimator();
+  /** The PV ring moves on its own: two rings in one animator would mix their ranks. */
+  private readonly _solarRing = new RingAnimator();
   /** Frame loop that keeps the fan on the rows while they glide. */
   private _fanFollow?: number;
   private _technique: DotTechnique = "static";
@@ -220,6 +242,8 @@ class EnerLensCard extends LitElement {
   private _visible = true;
   /** True while the list wraps below the cross - the lanes only run there. */
   private _stacked = false;
+  /** The body's width when the lists last went below (AN-3 hysteresis). */
+  private _stackedWidth = 0;
   /**
    * False until a measurement has left the layout alone. The first one can move
    * the list from beside the cross to below it, which is a jump of most of the
@@ -229,6 +253,8 @@ class EnerLensCard extends LitElement {
   /** Filter lifted by the toggle above the list (REQ L-12). Kept per browser
    *  like the view mode, unless view.remember is off. */
   private _showAll = false;
+  /** Scale of the PV ring (PV-5, PV-6). */
+  private _pvScale: PvScale = "share";
   /** Plot width over VIEW_W - the ring inside the house node is sized by it. */
   private _scale = 1;
   /** The plot's width over the viewBox's, as last measured - unrounded, unlike _scale. */
@@ -325,6 +351,10 @@ class EnerLensCard extends LitElement {
       const stored = load(this._memKey(SHOW_ALL_KEY));
       if (stored === "1") this._showAll = config.list.scope.includes("full");
       if (stored === "0") this._showAll = !config.list.scope.includes("filtered");
+    }
+    if (config.view.pvScales.length > 1) {
+      const stored = config.view.pvScales.find((s) => s === load(this._memKey(PV_SCALE_KEY)));
+      if (stored) this._pvScale = stored;
     }
     this._startEnergy(config, true);
     if (this._hass) this._tickModel = this._modelForMode(this._hass, config);
@@ -430,12 +460,17 @@ class EnerLensCard extends LitElement {
    * button, instead of an empty list filling up (EM-16, 20.10.2026).
    */
   private _cycleEnergy(): void {
-    const hass = this._hass;
     if (!this._config) return;
     const order = this._energyOffer(this._config);
     // From what is shown: the preview shows kW even with a period remembered.
     const from = this._energyPending !== undefined ? this._energyPending : this._period;
-    const next = order[(order.indexOf(from) + 1) % order.length];
+    this._selectEnergy(order[(order.indexOf(from) + 1) % order.length]);
+  }
+
+  /** Power or a period, picked directly (expanded, QB-10) or as the next one. */
+  private _selectEnergy(next: EnergyPeriod | null): void {
+    const hass = this._hass;
+    if (!this._config) return;
     const ready = next === null || (hass !== undefined && this._fresh(next, hass, Date.now()));
     if (ready) {
       this._energyPending = undefined;
@@ -554,12 +589,79 @@ class EnerLensCard extends LitElement {
           ? localize("energy.late", hass, { date: formatDay(view.from, hass, true) })
           : "",
       onCycle: () => this._cycleEnergy(),
+      // Expanded: the date of a late start only in the tooltip, so no value
+      // grows when it is picked (QB-14, EM-2).
+      options: order.map((p) => {
+        const v = p ? this._energyViews.get(p) : undefined;
+        const lateHere = p !== null && v?.lateStart === true;
+        return {
+          label: energyChipLabel(p, undefined, hass, unit),
+          late: lateHere,
+          title:
+            lateHere && v
+              ? localize("energy.late", hass, { date: formatDay(v.from, hass, true) })
+              : "",
+        };
+      }),
+      selected: order.indexOf(period),
+      onSelect: (index: number) => this._selectEnergy(order[index]),
     };
   }
 
   /** Drawn node diameter in CSS px; mirrors --el-node-size in styles.ts. */
   private get _nodePx(): number {
     return Math.max(70, 112 * this._scale + 11);
+  }
+
+  /** The arrangement as drawn now (AN-1): the battery decides the triangle's height. */
+  private _geometry() {
+    const config = this._config as Config;
+    return geometryFor(config.layout, config.flow.lines, (this._model?.battery ?? null) !== null);
+  }
+
+  /** One tap, the next scale of the PV ring (PV-6); remembered like the rest (V-12). */
+  private _cyclePvScale(): void {
+    const scales = this._config?.view.pvScales ?? [];
+    if (scales.length < 2) return;
+    this._setPvScale(scales[(scales.indexOf(this._pvScale) + 1) % scales.length]);
+  }
+
+  /** A scale of the PV ring, picked directly or as the next one (PV-6, QB-10). */
+  private _setPvScale(scale: PvScale): void {
+    this._pvScale = scale;
+    if (this._config?.view.remember && !isPreview(this)) {
+      store(this._memKey(PV_SCALE_KEY), this._pvScale);
+    }
+  }
+
+  /** The PV scale chip as the header draws it; undefined when fixed or absent (PV-6). */
+  private _pvScaleChip(hass: HomeAssistant, config: Config): ScaleChip | undefined {
+    const scales = config.view.pvScales;
+    if (scales.length < 2) return undefined;
+    const label = (scale: PvScale) => localize(`pv_scale.${scale}`, hass);
+    const next = scales[(scales.indexOf(this._pvScale) + 1) % scales.length];
+    const titleKey =
+      this._pvScale === "peak" && this._period
+        ? "pv_scale.peak_period_title"
+        : `pv_scale.${this._pvScale}_title`;
+    return {
+      labels: scales.map(label),
+      active: label(this._pvScale),
+      ariaLabel: localize("pv_scale.chip", hass, { mode: label(this._pvScale), next: label(next) }),
+      title: localize(titleKey, hass),
+      onCycle: () => this._cyclePvScale(),
+      // Expanded, each scale says what it shows (PV-6, QB-10).
+      titles: scales.map((scale) =>
+        localize(
+          scale === "peak" && this._period
+            ? "pv_scale.peak_period_title"
+            : `pv_scale.${scale}_title`,
+          hass,
+        ),
+      ),
+      selected: scales.indexOf(this._pvScale),
+      onSelect: (index: number) => this._setPvScale(scales[index]),
+    };
   }
 
   private _toggleShowAll(): void {
@@ -637,7 +739,9 @@ class EnerLensCard extends LitElement {
       this._outage = readStatus(hass, this._config.gridStatus, this._outage);
     }
     this._observeCharge(hass);
-    this._model = buildModel(hass, this._config, this._chargeOf);
+    // Invented readings are no last values of real sources (E-5).
+    if (!this._example) this._solarMemory.observe(hass, this._config.solarSources);
+    this._model = buildModel(hass, this._config, this._chargeOf, this._solarMemory.values);
     this._tickModel ??= this._model;
     // Invented readings never go into the averages: they would outlive the
     // example as a "measured" mean (E-5).
@@ -738,6 +842,26 @@ class EnerLensCard extends LitElement {
       this._outagePrefilled = true;
       void this._prefillOutage();
     }
+    // A PV source already gone when the card opened: was it night, or a
+    // fault? The recorder knows its last value (REQ PV-2).
+    const gone = this._solarMemory.missing(hass, this._config.solarSources);
+    if (gone.length > 0) {
+      this._solarMemory
+        .prefill(hass, this._config.solarSources, gone)
+        .catch(() => undefined)
+        .finally(() => {
+          if (this._hass && this._config) {
+            this._model = buildModel(
+              this._hass,
+              this._config,
+              this._chargeOf,
+              this._solarMemory.values,
+            );
+            this._tickModel = this._modelForMode(this._hass, this._config);
+          }
+          this.requestUpdate();
+        });
+    }
     if (this._chargeIds.length === 0) return;
     const missing = this._charge.missing(hass, this._config.consumers);
     if (missing.length === 0) return;
@@ -746,7 +870,12 @@ class EnerLensCard extends LitElement {
       .catch(() => undefined)
       .finally(() => {
         if (this._hass && this._config) {
-          this._model = buildModel(this._hass, this._config, this._chargeOf);
+          this._model = buildModel(
+            this._hass,
+            this._config,
+            this._chargeOf,
+            this._solarMemory.values,
+          );
           this._tickModel = this._modelForMode(this._hass, this._config);
         }
         this.requestUpdate();
@@ -790,6 +919,14 @@ class EnerLensCard extends LitElement {
       !view.modes.includes(this._mode)
     ) {
       this._mode = view.defaultMode;
+    }
+    // The scale follows the same rule as the other buttons (QB-4).
+    if (
+      !previous ||
+      previous.view.defaultPvScale !== view.defaultPvScale ||
+      !view.pvScales.includes(this._pvScale)
+    ) {
+      this._pvScale = view.defaultPvScale;
     }
     const list = this._config.list;
     const scope = this._showAll ? "full" : "filtered";
@@ -842,7 +979,7 @@ class EnerLensCard extends LitElement {
 
     if (this._hass) {
       this._observeCharge(this._hass);
-      this._model = buildModel(this._hass, this._config, this._chargeOf);
+      this._model = buildModel(this._hass, this._config, this._chargeOf, this._solarMemory.values);
       this._tickModel = this._model;
     }
     if (!previous || previous.updateIntervalS !== this._config.updateIntervalS) {
@@ -948,11 +1085,17 @@ class EnerLensCard extends LitElement {
     const period = this._period;
     if (period) {
       const view = this._energyViews.get(period);
-      return buildModelFrom(hass, config, (id) => view?.meanW(id) ?? null, this._chargeOf);
+      return buildModelFrom(
+        hass,
+        config,
+        (id) => view?.meanW(id) ?? null,
+        this._chargeOf,
+        this._solarMemory.values,
+      );
     }
     // The example has no history to average; it shows its invented now.
     if (this._mode === "current" || !this._buffer || this._example) {
-      return buildModel(hass, config, this._chargeOf);
+      return buildModel(hass, config, this._chargeOf, this._solarMemory.values);
     }
     const minutes =
       this._mode === "avg_short" ? config.view.avgShortMinutes : config.view.avgLongMinutes;
@@ -1135,7 +1278,7 @@ class EnerLensCard extends LitElement {
     this._holeR = r;
     // Straight onto the path: a measurement does not re-render. The next
     // render writes the same value from _holeR.
-    plot.querySelector("path.holes")?.setAttribute("d", holesPath(r));
+    plot.querySelector("path.holes")?.setAttribute("d", holesPathOf(this._geometry(), r));
   }
 
   /**
@@ -1154,6 +1297,7 @@ class EnerLensCard extends LitElement {
     this._pathZoom = zoom;
     this._dots?.setPathZoom(zoom);
     this._fan?.setPathZoom(zoom);
+    this._solarFan?.setPathZoom(zoom);
     // The fan sets its paths when it draws; the cross dots took theirs above.
     this._drawFan();
   }
@@ -1165,13 +1309,40 @@ class EnerLensCard extends LitElement {
    */
   private _checkStacked(): boolean {
     const cross = this.renderRoot?.querySelector(".cross") as HTMLElement | null;
-    const list = this.renderRoot?.querySelector(".list") as HTMLElement | null;
-    if (!cross || !list) return false;
-    const stacked = list.offsetTop >= cross.offsetTop + cross.offsetHeight / 2;
+    const list = this.renderRoot?.querySelector(".list:not(.pv-side)") as HTMLElement | null;
+    const body = this.renderRoot?.querySelector(".body") as HTMLElement | null;
+    if (!cross || !body) return false;
+    let stacked: boolean;
+    if (this._splitsLists()) {
+      // Not laid out yet (or hidden): nothing to measure.
+      if (body.clientWidth === 0) return false;
+      if (this._stacked) {
+        // Both lists below (forced, so they cannot climb back on their own)
+        // until the card is wider than where they last did not fit: a figure
+        // growing from "999 W" to "1,00 kW" cannot tip it (AN-3).
+        stacked = body.clientWidth <= this._stackedWidth;
+      } else {
+        // Three in a row, or one of them wrapped: a wrapped item starts at
+        // the left again.
+        const side = this.renderRoot.querySelector(".pv-side") as HTMLElement | null;
+        stacked =
+          (side !== null && cross.offsetLeft <= side.offsetLeft) ||
+          (list !== null && list.offsetLeft <= cross.offsetLeft);
+      }
+    } else {
+      if (!list) return false;
+      stacked = list.offsetTop >= cross.offsetTop + cross.offsetHeight / 2;
+    }
     if (stacked === this._stacked) return false;
+    if (stacked) this._stackedWidth = body.clientWidth;
     this._stacked = stacked;
     this.requestUpdate();
     return true;
+  }
+
+  /** Square, solar left with PV rows (AN-3): one list on each side of the drawing. */
+  private _splitsLists(): boolean {
+    return this._config?.layout === "square_left" && this._lastSolar.size > 0;
   }
 
   /**
@@ -1202,36 +1373,79 @@ class EnerLensCard extends LitElement {
   }
 
   private _drawFan(): void {
-    const svg = this.renderRoot?.querySelector("svg.fan") as SVGSVGElement | null;
-    if (!svg || !this._config) return;
-    if (!this._fan) {
-      this._fan = new FanLayer(svg);
-      this._fan.setPathZoom(this._pathZoom);
-    }
-    // The rows follow the same design as the cross (P-10).
-    this._fan.setDesign(
-      flowDesign(this._config.flow.design),
-      groundIsDark(this, this._config.appearance),
-    );
-    this._fan.setDotColor(this._config.flow.dotColor);
+    if (!this._config) return;
+    // The blocks first: the fans are measured from where the rows stand.
+    this._placeLists();
+    this._drawConsumerFan();
+    this._drawSolarFan();
+  }
 
-    const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
-    const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;
-    const block = this.renderRoot.querySelector(".rows") as HTMLElement | null;
-    const rows = this.renderRoot.querySelectorAll<HTMLElement>(".row");
-    if (!body || !house || !block || rows.length === 0) {
-      this._fan.destroy();
+  /**
+   * Beside the drawing, the PV rows level with the PV node and the consumers
+   * with the house - as far as they fit; together taller than the drawing
+   * they stand as the layout put them, with the drawing in their middle
+   * (L-17). Moved by transform, not margin: layout stays as it was, so the
+   * stacked check cannot swing on it.
+   */
+  private _placeLists(): void {
+    const pv = this.renderRoot?.querySelector(".pv-rows") as HTMLElement | null;
+    const rows = this.renderRoot?.querySelector(".rows") as HTMLElement | null;
+    const blocks = [pv, rows].filter((b): b is HTMLElement => b !== null);
+    const body = this.renderRoot?.querySelector(".body") as HTMLElement | null;
+    const cross = this.renderRoot?.querySelector(".cross") as HTMLElement | null;
+    const solar = this.renderRoot?.querySelector(".node.solar") as HTMLElement | null;
+    const house = this.renderRoot?.querySelector(".node.house") as HTMLElement | null;
+    if (this._stacked || !pv || !body || !cross || !solar || !house) {
+      for (const b of blocks) b.style.transform = "";
       return;
     }
+    const apart = pv.parentElement?.classList.contains("pv-side") ?? false;
+    const origin = body.getBoundingClientRect().top;
+    const shift = (el: HTMLElement) => {
+      const m = /translateY\((-?[\d.]+)px\)/.exec(el.style.transform);
+      return m ? Number(m[1]) : 0;
+    };
+    const centre = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return r.top + r.height / 2 - origin;
+    };
+    const block = (el: HTMLElement | null, node: HTMLElement) => {
+      if (!el) return { top: 0, height: 0, node: centre(node) };
+      const r = el.getBoundingClientRect();
+      return { top: r.top - origin - shift(el), height: r.height, node: centre(node) };
+    };
+    const c = cross.getBoundingClientRect();
+    const drawing = { top: c.top - origin, bottom: c.bottom - origin };
+    const set = (el: HTMLElement | null, by: number) => {
+      if (!el) return;
+      const t = by ? `translateY(${by}px)` : "";
+      if (el.style.transform !== t) el.style.transform = t;
+    };
+    if (apart) {
+      // One list on each side (AN-3): each one alone with its node.
+      set(pv, placeBlock(drawing, block(pv, solar)));
+      if (rows) set(rows, placeBlock(drawing, block(rows, house)));
+      return;
+    }
+    const moves = placeBlocks({
+      drawing,
+      pv: block(pv, solar),
+      consumers: block(rows, house),
+      // The margin under the PV rows (styles.ts): they part no closer.
+      gap: 10,
+    });
+    set(pv, moves.pv);
+    set(rows, moves.consumers);
+  }
 
-    const origin = body.getBoundingClientRect();
-    const source = this._stacked ? block.getBoundingClientRect() : house.getBoundingClientRect();
-    const start = this._stacked
-      ? { x: source.left - origin.left, y: source.top + source.height / 2 - origin.top }
-      : { x: source.right - origin.left, y: source.top + source.height / 2 - origin.top };
-
-    const entries = this._lastEntries;
-    const fanRows = [...rows]
+  /** A fan's rows as the layer draws them (P-9, L-13, L-15). */
+  private _fanRows(
+    rows: HTMLElement[],
+    entries: Map<string, { w: number; color: string; threshold: number }>,
+    origin: DOMRect,
+    side: 1 | -1 = 1,
+  ) {
+    return rows
       .map((row) => {
         const key = row.dataset.key;
         const entry = key ? entries.get(key) : undefined;
@@ -1268,7 +1482,7 @@ class EnerLensCard extends LitElement {
         const left = ring ? Math.min(box.left, ring.getBoundingClientRect().left) : box.left;
         return {
           key: key as string,
-          x: left - origin.left,
+          x: (side === 1 ? left : box.right) - origin.left,
           y: rowBox.top + rowBox.height / 2 - origin.top,
           color: entry.color,
           // No dots without motion, as on the cross (P-7).
@@ -1280,27 +1494,174 @@ class EnerLensCard extends LitElement {
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
+  }
 
-    // The base size of the connection dots and the colour mark, grown with the
-    // card like the cross (K-12).
-    this._fan.setDotRadius(5);
-    this._fan.setDotScale(sizeFactors(this._plotScale, this._config.flow).dot);
-    // Beside the cross the fan leaves the house's circle, and its dots start
-    // half inside it (K-16). Measured like the start, on screen, the border
-    // taken at the same scale as the box.
-    let hole: { x: number; y: number; r: number } | undefined;
-    if (!this._stacked && this._seeThrough) {
-      const border = Number.parseFloat(getComputedStyle(house).borderTopWidth) || 0;
-      const scale = source.width / (house.offsetWidth || source.width);
-      hole = { x: start.x - source.width / 2, y: start.y, r: source.width / 2 - border * scale };
-    }
-    this._fan.update(
-      fanRows,
-      start,
-      { width: origin.width, height: origin.height },
-      this._animationsWanted,
-      hole,
+  /** A layer for an overlay, set up like the cross (P-10, P-13, issue #7). */
+  private _layer(existing: FanLayer | undefined, svg: SVGSVGElement): FanLayer {
+    const layer = existing ?? new FanLayer(svg);
+    if (!existing) layer.setPathZoom(this._pathZoom);
+    const config = this._config as Config;
+    layer.setDesign(flowDesign(config.flow.design), groundIsDark(this, config.appearance));
+    layer.setDotColor(config.flow.dotColor);
+    // The base size of the connection dots and the colour mark, grown with
+    // the card like the cross (K-12).
+    layer.setDotRadius(5);
+    layer.setDotScale(sizeFactors(this._plotScale, config.flow).dot);
+    return layer;
+  }
+
+  /**
+   * Where a fan leaves its node beside the drawing (L-16): on the circle,
+   * towards the middle of its rows, and the circle's inside for the cut-out
+   * (K-16) - measured on screen, the border at the same scale as the box.
+   */
+  private _exit(
+    node: HTMLElement,
+    rows: { x: number; y: number }[],
+    origin: DOMRect,
+    side: 1 | -1,
+  ) {
+    const box = node.getBoundingClientRect();
+    const centre = {
+      x: box.left + box.width / 2 - origin.left,
+      y: box.top + box.height / 2 - origin.top,
+    };
+    const rowX =
+      rows.length > 0
+        ? side === 1
+          ? Math.min(...rows.map((r) => r.x))
+          : Math.max(...rows.map((r) => r.x))
+        : undefined;
+    const dir = exitDirection(
+      centre,
+      rows.map((r) => r.y),
+      side,
+      rowX,
     );
+    const radius = box.width / 2;
+    const start = { x: centre.x + dir.x * radius, y: centre.y + dir.y * radius };
+    const border = Number.parseFloat(getComputedStyle(node).borderTopWidth) || 0;
+    const scale = box.width / (node.offsetWidth || box.width);
+    const hole = this._seeThrough
+      ? { x: centre.x, y: centre.y, r: radius - border * scale }
+      : undefined;
+    // The straight piece out of the circle grows with the lines (K-12).
+    const lead = 10 * sizeFactors(this._plotScale, (this._config as Config).flow).line;
+    return { centre, dir, start, hole, lead, radius };
+  }
+
+  /**
+   * One line from the house node to each row, with dots on it (REQ P-1 style).
+   *
+   * Beside the cross the lines leave the house towards their rows (L-16).
+   * Stacked below it they start at the left edge of the rows, halfway down the
+   * block - a fan from the house node would have to cross every row above its
+   * target, but the rows still deserve lines that converge on one point rather
+   * than parallel bars (REQ L-13). The list is HTML and the cross is SVG, so
+   * there is no shared coordinate system: both are measured and the fan is
+   * drawn in CSS pixels on its own overlay.
+   */
+  private _drawConsumerFan(): void {
+    const svg = this.renderRoot?.querySelector("svg.fan:not(.pv-fan)") as SVGSVGElement | null;
+    if (!svg || !this._config) return;
+    this._fan = this._layer(this._fan, svg);
+    const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
+    const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;
+    const block = this.renderRoot.querySelector(".rows") as HTMLElement | null;
+    const rows = [...this.renderRoot.querySelectorAll<HTMLElement>(".rows .row")];
+    if (!body || !house || !block || rows.length === 0) {
+      this._fan.destroy();
+      return;
+    }
+    const origin = body.getBoundingClientRect();
+    const fanRows = this._fanRows(rows, this._lastEntries, origin);
+    const size = { width: origin.width, height: origin.height };
+    if (this._stacked) {
+      const b = block.getBoundingClientRect();
+      this._fan.route = undefined;
+      this._fan.update(
+        fanRows,
+        { x: b.left - origin.left, y: b.top + b.height / 2 - origin.top },
+        size,
+        this._animationsWanted,
+      );
+      return;
+    }
+    const exit = this._exit(house, fanRows, origin, 1);
+    this._fan.route = exit.dir.y !== 0 ? (o, r) => fanPath(o, exit.dir, r, exit.lead) : undefined;
+    this._fan.update(fanRows, exit.start, size, this._animationsWanted, exit.hole);
+  }
+
+  /**
+   * The PV fan (PV-7): from each PV row into the PV node, dots running in.
+   * Beside the drawing the lines leave the node together and part at one
+   * point, as close to it as the house allows - none crosses another, none
+   * the house or the consumers' lines. Stacked, they gather at the left of
+   * the PV block, where the PV icon stands (L-13).
+   */
+  private _drawSolarFan(): void {
+    const svg = this.renderRoot?.querySelector("svg.pv-fan") as SVGSVGElement | null;
+    if (!svg || !this._config) return;
+    this._solarFan = this._layer(this._solarFan, svg);
+    this._solarFan.reverse = true;
+    const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
+    const solar = this.renderRoot.querySelector(".node.solar") as HTMLElement | null;
+    const house = this.renderRoot.querySelector(".node.house") as HTMLElement | null;
+    const block = this.renderRoot.querySelector(".pv-rows") as HTMLElement | null;
+    const rows = [...this.renderRoot.querySelectorAll<HTMLElement>(".pv-rows .row")];
+    if (!body || !solar || !house || !block || rows.length === 0) {
+      this._solarFan.destroy();
+      return;
+    }
+    const origin = body.getBoundingClientRect();
+    const apart = block.parentElement?.classList.contains("pv-side") ?? false;
+    const fanRows = this._fanRows(rows, this._lastSolar, origin, apart ? -1 : 1);
+    const size = { width: origin.width, height: origin.height };
+    if (this._stacked) {
+      const b = block.getBoundingClientRect();
+      this._solarFan.route = undefined;
+      this._solarFan.update(
+        fanRows,
+        { x: b.left - origin.left, y: b.top + b.height / 2 - origin.top },
+        size,
+        this._animationsWanted,
+      );
+      return;
+    }
+    // Left of the drawing in square, solar left (AN-3), else right of it.
+    const side: 1 | -1 = block.parentElement?.classList.contains("pv-side") ? -1 : 1;
+    const exit = this._exit(solar, fanRows, origin, side);
+    // Clear of every other node by the line, its dots and some air (the
+    // house beside the cross, the grid in square, solar left) ...
+    const obstacles = [...this.renderRoot.querySelectorAll<HTMLElement>(".node:not(.solar)")].map(
+      (node) => {
+        const b = node.getBoundingClientRect();
+        return {
+          x: b.left + b.width / 2 - origin.left,
+          y: b.top + b.height / 2 - origin.top,
+          r: b.width / 2 + 14,
+        };
+      },
+    );
+    // ... and out of the strip right of the house, below its middle, where
+    // the consumers' lines start.
+    const h = house.getBoundingClientRect();
+    const houseY = h.top + h.height / 2 - origin.top;
+    const fanEdge = h.right - origin.left + 16;
+    const rowX =
+      side === 1 ? Math.min(...fanRows.map((r) => r.x)) : Math.max(...fanRows.map((r) => r.x));
+    const xs = splitPoint(
+      exit.start,
+      fanRows.map((r) => r.y),
+      rowX,
+      side,
+      obstacles,
+      side === 1 ? (x, y) => x < fanEdge && y > houseY - 6 : undefined,
+      exit.dir,
+      exit.lead,
+    );
+    this._solarFan.route = (o, r) => trunkPath(o, exit.dir, xs, r, exit.lead);
+    this._solarFan.update(fanRows, exit.start, size, this._animationsWanted, exit.hole);
   }
 
   /**
@@ -1335,12 +1696,15 @@ class EnerLensCard extends LitElement {
     if (this._visible && !documentHidden) {
       this._dots?.resume();
       this._fan?.resume();
+      this._solarFan?.resume();
     } else {
       this._dots?.pause();
       this._fan?.pause();
+      this._solarFan?.pause();
       // Nobody is looking: the ring goes to its values now, not after its
       // glide - there may be no render to stop it until it is seen again (P-8).
       this._ring.stop();
+      this._solarRing.stop();
     }
   }
 
@@ -1377,7 +1741,10 @@ class EnerLensCard extends LitElement {
       this._config?.ring.animation !== "jump" &&
       this._visible &&
       !(typeof document !== "undefined" && document.hidden);
-    this._ring.update(this.renderRoot, ringMoves, this._nodePx);
+    const nodeOf = (key: string) => this.renderRoot.querySelector(`.node.${key}`);
+    this._ring.update(nodeOf("house") ?? this.renderRoot, ringMoves, this._nodePx);
+    const solarNode = nodeOf("solar");
+    if (solarNode) this._solarRing.update(solarNode, ringMoves, this._nodePx);
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
@@ -1413,10 +1780,13 @@ class EnerLensCard extends LitElement {
     this._dots.setDotScale(sizes.dot);
 
     const ticked =
-      this._tickModel ?? this._model ?? buildModel(this._hass, this._config, this._chargeOf);
+      this._tickModel ??
+      this._model ??
+      buildModel(this._hass, this._config, this._chargeOf, this._solarMemory.values);
     // Still, a dot says nothing - its speed is the message, and the line's
     // colour already tells whether anything flows.
     const plans = this._dotsMove ? planDots(this._flowsOf(ticked), this._shownConfig()) : [];
+    this._dots.setPaths(this._geometry().paths);
     this._dots.update(plans, this._config, this._animationsWanted);
 
     // The dots need a quieter line to stand out against; the design says how
@@ -1451,7 +1821,10 @@ class EnerLensCard extends LitElement {
     this._fanFollow = undefined;
     this._fan?.destroy();
     this._fan = undefined;
+    this._solarFan?.destroy();
+    this._solarFan = undefined;
     this._ring.stop();
+    this._solarRing.stop();
     if (this._tickTimer) clearInterval(this._tickTimer);
     this._tickTimer = undefined;
   }
@@ -1501,6 +1874,28 @@ class EnerLensCard extends LitElement {
     this._lastEntries = new Map(
       breakdown.entries.map((e) => [e.key, { w: e.w, color: e.color, threshold: e.threshold }]),
     );
+    // The PV rows (PV-7): selection and order from the tick, figures live (L-7).
+    const solarRows = shown.list.solar
+      ? refreshSolarRows(buildSolarRows(ticked, shown, this._showAll), model)
+      : [];
+    this._lastSolar = new Map(
+      solarRows.map((e) => [e.key, { w: e.w, color: e.color, threshold: e.threshold }]),
+    );
+    // Square, solar left: the PV rows left of the drawing, as long as it fits (AN-3).
+    const solarApart = this._splitsLists() && !this._stacked;
+    // The PV ring: its order from the tick like the rows, its figures live (L-7).
+    const solarRing =
+      shown.view.pvScales.length > 0
+        ? {
+            segments: solarSegments(
+              model,
+              shown,
+              this._pvScale,
+              buildSolarRows(ticked, shown, true).map((row) => row.key),
+            ),
+            layout: this._pvScale,
+          }
+        : undefined;
     const openEntry = (entity: string, ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 
@@ -1516,16 +1911,21 @@ class EnerLensCard extends LitElement {
           this._showAll,
           () => this._toggleShowAll(),
           this._energyChip(this._hass, this._config),
+          this._pvScaleChip(this._hass, this._config),
         )}
         ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
         ${this._example ? renderExampleBanner(this._hass) : nothing}
         <div
-          class="body ${this._stacked ? "stacked" : ""} ${
-            this._config.list.alwaysBelow ? "force-below" : ""
-          } ${this._config.list.enabled ? "" : "no-list"}"
+          class="body layout-${this._config.layout.replace("_", "-")} ${this._stacked ? "stacked" : ""} ${
+            this._config.list.alwaysBelow || (this._stacked && this._splitsLists())
+              ? "force-below"
+              : ""
+          } ${solarApart ? "split" : ""} ${this._config.list.enabled || solarRows.length > 0 ? "" : "no-list"}"
           style=${labelRoom(this._config, model.battery !== null)}
         >
           <svg class="fan" aria-hidden="true"></svg>
+          <svg class="fan pv-fan" aria-hidden="true"></svg>
+          ${solarApart ? renderSolarSide(breakdown, shown, this._hass, openEntry, solarRows) : nothing}
           ${renderCross(
             model,
             shown,
@@ -1537,8 +1937,9 @@ class EnerLensCard extends LitElement {
             this._animationsWanted,
             this._holeR,
             this._seeThrough,
+            solarRing,
           )}
-          ${renderList(breakdown, shown, this._hass, openEntry, this._stacked)}
+          ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart)}
         </div>
       </ha-card>
     `;

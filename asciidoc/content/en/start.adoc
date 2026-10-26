@@ -2,16 +2,23 @@
 :page-key: start
 :nav-order: 1
 
-An energy flow card for Home Assistant. The familiar cross of PV, grid, house
-and battery — plus a breakdown of what the house figure is actually made of.
+A *highly configurable* energy flow card for Home Assistant. Solar, grid,
+house and battery in four arrangements — plus a breakdown of what the house
+figure is actually made of.
 
-The card here is not a recording but the real card with invented values – try the filter button or tap “Now”.
+The card here is not a recording but the real card with invented values – try
+the switches above it and the quick buttons in its header.
 
 ++++
-<div class="card-demo"></div>
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list" data-expanded="modes,energy_periods,pv_scales" data-yaml="off"></div>
 ++++
 
 == What it does differently
+
+*Four arrangements.* Solar, grid, house and battery stand in a cross, in one of
+two squares turned by 45° or in a triangle, with curved or straight lines. The
+lists move to their nodes: with Square · solar left the PV rows stand left of
+the drawing and the consumers right of it (see link:layout.html[Arrangements]).
 
 *Consumers are optional.* If individual consumers are measured (a heat pump,
 say, or a device behind a Shelly), their entities can be added. The list beside
@@ -39,17 +46,38 @@ period]).
 <div class="card-demo" data-demo="energy"></div>
 ++++
 
-*Quick buttons in the header.* Up to three buttons switch the view with one
-tap: now or average, power or energy, short or full consumer list. Which values
-a button offers is up to you; with a single value it disappears and the card
-shows the same on every device. Every card remembers where it was left (see
+*Quick buttons in the header.* Up to four quick buttons switch the view with
+one tap: now or average, power or energy, the PV scale, short or full consumer
+list. Each one steps on with every tap or, expanded, shows all its values side
+by side. For all of them together there are three styles: *Segment buttons*,
+*Segment buttons compact* and *Single buttons*. Which values a quick button
+offers is up to you; with a single value it disappears and the card shows the
+same on every device. Every card remembers where it was left (see
 link:quick.html[Quick buttons]).
 
-[.only-light]
-image::card-en-light-quick.svg["The quick buttons: now, kW and the filter button",215]
+Segment buttons, stepping on:
 
-[.only-dark]
-image::card-en-dark-quick.svg["The quick buttons: now, kW and the filter button",215]
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded=""></div>
+++++
+
+Segment buttons, expanded:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
+
+Segment buttons compact, expanded:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment_compact" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
+
+Single buttons, expanded:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
 
 *The consumer list sorts itself and glides.* Rows reorder by power on a fixed
 beat and slide to their new position. A small filter button at the top shows
@@ -57,13 +85,9 @@ beat and slide to their new position. A small filter button at the top shows
 a device that has just gone quiet.
 
 *The ring follows along.* When the order changes, its segments travel to
-their new places and overtake on an inner lane — or, with
-`ring.animation: fade`, keep their places and blend their colours, as shown
-here:
-
-++++
-<div class="card-demo" data-demo="fade"></div>
-++++
+their new places and overtake on an inner lane — to be seen in every card on
+this page. With `ring.animation: fade` they keep their places and blend their
+colours.
 
 *The flow is yours to tune.* The dots show the power: the more flows, the
 faster and the more of them. When they start, how fast they get and how many

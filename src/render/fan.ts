@@ -45,8 +45,19 @@ interface FanLine {
   mixFrom?: string;
 }
 
+/** Each layer's cut-out needs an id of its own - two fans share a shadow root (N-8). */
+let layers = 0;
+
 export class FanLayer {
   private readonly lines = new Map<string, FanLine>();
+  private readonly holeId = `el-fan-hole-${++layers}`;
+  /**
+   * A path of the card's own instead of the plain curve: the exit along the
+   * radius (L-16), or the PV lines through their split point (PV-7).
+   */
+  route?: (origin: { x: number; y: number }, row: { x: number; y: number }) => string;
+  /** Dots run from the rows into the node - the PV fan, where power flows in (PV-7). */
+  reverse = false;
   private paused = false;
   private dotRadius = 5;
   private design?: FlowDesign;
@@ -114,7 +125,7 @@ export class FanLayer {
     const seen = new Set<string>();
     for (const row of rows) {
       seen.add(row.key);
-      const d = this.pathFor(origin, row);
+      const d = this.route ? this.route(origin, row) : this.pathFor(origin, row);
       const fresh = !this.lines.has(row.key);
       const line = this.lines.get(row.key) ?? this.createLine(row.key);
       line.path.setAttribute("d", d);
@@ -198,7 +209,8 @@ export class FanLayer {
 
         let animation = line.animations[i];
         if (!animation) {
-          animation = dot.animate([{ offsetDistance: "0%" }, { offsetDistance: "100%" }], {
+          const run = [{ offsetDistance: "0%" }, { offsetDistance: "100%" }];
+          animation = dot.animate(this.reverse ? run.reverse() : run, {
             duration: BASE_MS,
             iterations: Number.POSITIVE_INFINITY,
             easing: "linear",
@@ -274,10 +286,10 @@ export class FanLayer {
       this.defs = document.createElementNS(SVG_NS, "defs");
       this.svg.appendChild(this.defs);
     }
-    let path = this.defs.querySelector("#el-fan-hole path");
+    let path = this.defs.querySelector(`#${this.holeId} path`);
     if (!path) {
       const clip = document.createElementNS(SVG_NS, "clipPath");
-      clip.setAttribute("id", "el-fan-hole");
+      clip.setAttribute("id", this.holeId);
       clip.setAttribute("clipPathUnits", "userSpaceOnUse");
       path = document.createElementNS(SVG_NS, "path");
       path.setAttribute("clip-rule", "evenodd");
@@ -287,7 +299,7 @@ export class FanLayer {
     const { width: w, height: h } = size;
     const d = `M${-w},${-h}H${2 * w}V${2 * h}H${-w}Z${circlePath(hole.x, hole.y, hole.r)}`;
     if (path.getAttribute("d") !== d) path.setAttribute("d", d);
-    return "url(#el-fan-hole)";
+    return `url(#${this.holeId})`;
   }
 
   /** A radial gradient for the drawn halo, one per colour and strength. */

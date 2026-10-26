@@ -20,6 +20,14 @@ entities:
   battery: derived        # no battery power sensor
 ----
 
+In the editor that is *Derived from the other quantities* at the quantity:
+
+[.only-light]
+image::editor-derive-en-light.png["House derived from the other quantities",490]
+
+[.only-dark]
+image::editor-derive-en-dark.png["House derived from the other quantities",490]
+
 Exactly one quantity may be derived — two unknowns cannot be solved from one
 equation, and the card says so rather than guessing. Derived nodes are labelled
 and are not clickable, because there is no entity behind them to show.
@@ -27,7 +35,8 @@ and are not clickable, because there is no entity behind them to show.
 *Want a history for the derived value?* A derived node has no entity, so
 tapping it cannot open Home Assistant's history. If you want that, let Home
 Assistant do the same sum: create a _Template → Sensor_ helper (unit `W`,
-device class `power`, state class `measurement`) with
+device class `power`, state class `measurement` - without it no statistics and
+no energy, see link:energy.html#state-class[Energy]) with
 
 [source,jinja]
 ----

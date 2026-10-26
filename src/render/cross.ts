@@ -14,21 +14,14 @@ import type {
   ExtraField,
   ExtraWeight,
   HomeAssistant,
+  LayoutName,
   Model,
   NodeKey,
   Reading,
   Segment,
   Signed,
 } from "../types";
-import {
-  DRAWN_CONNECTIONS,
-  NODE_R,
-  PATHS,
-  VIEW_H,
-  VIEW_W,
-  holesPath,
-  nodePercent,
-} from "./geometry";
+import { DRAWN_CONNECTIONS, NODE_R, geometryFor, holesPathOf, nodePercentOf } from "./geometry";
 import { renderRing } from "./ring";
 
 /**
@@ -105,6 +98,19 @@ interface NodeView {
   /** Energy mode during an outage: the symbol crossed out in red, the
    *  period's figures kept - they are still right (EM-6). */
   crossed?: boolean;
+  /** Power view: a PV source failed while delivering - the value is a
+   *  partial sum, amber, and this names what is missing (PV-2). */
+  partial?: string;
+}
+
+/** The note for a value built on a partial PV sum (PV-2), power view only. */
+function partialNote(
+  missing: string[] | undefined,
+  config: Config,
+  hass: HomeAssistant,
+): string | undefined {
+  if (!missing || config.energy) return undefined;
+  return localize("node.partial", hass, { names: missing.join(", ") });
 }
 
 /** One energy figure with its direction arrow (REQ EM-5). */
@@ -199,10 +205,25 @@ function blockHeight(config: Config, key: NodeKey, stateWord: boolean): number {
  * As custom properties for .body, where both the cross and the list read them.
  */
 export function labelRoom(config: Config, withBattery: boolean): string {
-  const top = Math.max(8, PAD_TOP + blockHeight(config, "solar", false) - LABEL_LINE);
-  const bottom = withBattery
-    ? Math.max(8, PAD_BOTTOM + blockHeight(config, "battery", true) - 2 * LABEL_LINE)
-    : PAD_BOTTOM;
+  // Every label in the upper row above, in the lower row below (AN-5); the
+  // cross has PV above and the battery below, as it always had.
+  const g = geometryFor(config.layout, config.flow.lines, withBattery);
+  const keys = (Object.keys(g.nodePos) as NodeKey[]).filter((k) => k !== "battery" || withBattery);
+  const word = (k: NodeKey) => k === "grid" || k === "battery";
+  const middle = g.viewH / 2;
+  const tops = keys.filter((k) => g.labelAbove[k] && g.nodePos[k].y < middle);
+  const bottoms = keys.filter((k) => !g.labelAbove[k] && g.nodePos[k].y > middle + 1);
+  const top = Math.max(
+    8,
+    ...tops.map((k) => PAD_TOP + blockHeight(config, k, word(k)) - LABEL_LINE),
+  );
+  const bottom =
+    bottoms.length > 0
+      ? Math.max(
+          8,
+          ...bottoms.map((k) => PAD_BOTTOM + blockHeight(config, k, word(k)) - 2 * LABEL_LINE),
+        )
+      : PAD_BOTTOM;
   const shift = top - PAD_TOP - (bottom - PAD_BOTTOM);
   return `--el-pad-top:${top}px;--el-pad-bottom:${bottom}px;--el-list-mt:${Math.max(0, shift)}px;--el-list-mb:${Math.max(0, -shift)}px`;
 }
@@ -219,11 +240,13 @@ function renderHits(
   config: Config,
   hass: HomeAssistant,
   tap: (entity?: string) => (ev: Event) => void,
+  /** The label stands above the node (AN-5). */
+  labelAbove = v.key === "solar",
 ): TemplateResult | string {
   const options = config.nodes[v.key];
   const near = options.label ? "-2px" : "-22px";
-  const top = v.key === "solar" ? near : "-22px";
-  const bottom = v.key === "solar" ? "-22px" : near;
+  const top = labelAbove ? near : "-22px";
+  const bottom = labelAbove ? "-22px" : near;
   // In a period the extra fields are hidden, and with them their targets (EM-6).
   const above = options.inside?.position === "above" && !config.energy ? options.inside : undefined;
   const upper = v.figures?.upper?.entity
@@ -246,16 +269,14 @@ function renderHits(
         class="hit upper"
         style=${
           // Later in the document, the lower half would take back the overlap.
-          v.key === "solar" && options.label
-            ? `top:${top};bottom:auto;${half};z-index:3`
-            : `top:${top}`
+          above && options.label ? `top:${top};bottom:auto;${half};z-index:3` : `top:${top}`
         }
         aria-label=${`${v.label} ${upper.text}`}
         @click=${tap(upper.entity)}
       ></button>
       <button
         class="hit lower"
-        style=${v.key !== "solar" && options.label ? `top:auto;bottom:${bottom};${half}` : `bottom:${bottom}`}
+        style=${!labelAbove && options.label ? `top:auto;bottom:${bottom};${half}` : `bottom:${bottom}`}
         aria-label=${v.value ? `${v.label} ${v.value}` : v.label}
         @click=${tap(v.entity)}
         ?disabled=${!v.entity}
@@ -283,6 +304,8 @@ function renderLabel(
   config: Config,
   hass: HomeAssistant,
   tap: (entity?: string) => (ev: Event) => void,
+  /** The label stands above the node (AN-5). */
+  above = v.key === "solar",
 ): TemplateResult | string {
   const options = config.nodes[v.key];
   const [name, ...rest] = v.label.split(" · ");
@@ -319,7 +342,7 @@ function renderLabel(
   const lines = html`${showName ? html`<span class="label-name">${name}</span>` : ""}${
     state ? html`<span class="label-state">${state}</span>` : ""
   }${suffix ? html`<span class="label-state derived">${suffix}</span>` : ""}`;
-  return html`<div class="label">${v.key === "solar" ? html`${lines}${extra}` : html`${extra}${lines}`}</div>`;
+  return html`<div class="label">${above ? html`${lines}${extra}` : html`${extra}${lines}`}</div>`;
 }
 
 export function buildNodeViews(
@@ -339,7 +362,9 @@ export function buildNodeViews(
     derived: model.solar.derived,
     value: readingValue(model.solar, hass, config),
     available: model.solar.available,
+    // Several sources: no one entity behind the sum, so no tap (PV-10).
     entity: model.solar.derived ? undefined : model.solar.entity,
+    partial: partialNote(model.solar.missing, config, hass),
   });
 
   const grid = model.grid;
@@ -368,6 +393,7 @@ export function buildNodeViews(
         : localize("state.unavailable", hass),
     available: gridOutage || grid.available,
     outage: gridOutage,
+    partial: partialNote(grid.missing, config, hass),
     // While the grid is gone, the node shows the status - so a tap opens the
     // status history, which is the one that says since when.
     entity: gridOutage ? config.gridStatus?.entity : moreInfoEntity(grid, config.flow.minW),
@@ -378,10 +404,13 @@ export function buildNodeViews(
     icon: config.icons.house ?? DEFAULT_ICONS.house,
     color: config.colors.house,
     label: localize("node.house", hass),
-    derived: model.house.derived,
+    // Corrected by sources outside the measured value: "calculated", but
+    // still the measured entity behind it, so a tap opens it (PV-3).
+    derived: model.house.derived || model.house.corrected === true,
     value: readingValue(model.house, hass, config),
     available: model.house.available,
     entity: model.house.derived ? undefined : model.house.entity,
+    partial: partialNote(model.house.missing, config, hass),
   });
 
   const bat = model.battery;
@@ -412,6 +441,7 @@ export function buildNodeViews(
         : undefined,
       entity: moreInfoEntity(bat, config.flow.minW),
       socEntity,
+      partial: partialNote(bat.missing, config, hass),
     });
   }
 
@@ -426,6 +456,7 @@ export function buildNodeViews(
  */
 function energyViews(views: NodeView[], model: Model, config: Config, hass: HomeAssistant): void {
   const marks = config.energy?.roles ?? {};
+  const arrows = arrowsFor(config.layout);
   const unavailable = localize("state.unavailable", hass);
   const fig = (
     arrow: string,
@@ -461,7 +492,7 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
         const net = g.available ? g.net : null;
         const out = (net ?? 0) < 0;
         const balance = fig(
-          out ? "←" : "→",
+          out ? arrows.export : arrows.import,
           out ? "grid_export" : "grid_import",
           net === null ? null : Math.abs(net),
           out ? "export" : "import",
@@ -474,8 +505,8 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
         continue;
       }
       v.figures = {
-        upper: fig("→", "grid_import", imp, "import", g.entityPositive),
-        lower: fig("←", "grid_export", exp, "export", g.entityNegative),
+        upper: fig(arrows.import, "grid_import", imp, "import", g.entityPositive),
+        lower: fig(arrows.export, "grid_export", exp, "export", g.entityNegative),
       };
       v.entity = g.entityNegative;
       v.value = v.figures.lower.text;
@@ -500,8 +531,8 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
         continue;
       }
       v.figures = {
-        upper: fig("↑", "battery_discharge", out, "discharge", b.entityPositive),
-        lower: fig("↓", "battery_charge", into, "charge", b.entityNegative),
+        upper: fig(arrows.discharge, "battery_discharge", out, "discharge", b.entityPositive),
+        lower: fig(arrows.charge, "battery_charge", into, "charge", b.entityNegative),
       };
       v.entity = b.entityNegative;
       v.value = v.figures.lower.text;
@@ -512,12 +543,39 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
 /** The drawn arrow per direction: a long shaft and a short head (Markus,
  *  20.10.2026: "etwas länger"). Horizontal ones lie in a wide box, vertical
  *  ones in a tall one, so neither takes room it does not show. */
-const ARROWS: Record<string, { box: string; d: string; vertical: boolean }> = {
-  "→": { box: "0 0 18 12", d: "M1.5 6 H16 M12 2.2 L16 6 L12 9.8", vertical: false },
-  "←": { box: "0 0 18 12", d: "M16.5 6 H2 M6 2.2 L2 6 L6 9.8", vertical: false },
-  "↓": { box: "0 0 12 18", d: "M6 1.5 V16 M2.2 12 L6 16 L9.8 12", vertical: true },
-  "↑": { box: "0 0 12 18", d: "M6 16.5 V2 M2.2 6 L6 2 L9.8 6", vertical: true },
-};
+export const ARROWS: Record<string, { box: string; d: string; shape: "wide" | "tall" | "square" }> =
+  {
+    "→": { box: "0 0 18 12", d: "M1.5 6 H16 M12 2.2 L16 6 L12 9.8", shape: "wide" },
+    "←": { box: "0 0 18 12", d: "M16.5 6 H2 M6 2.2 L2 6 L6 9.8", shape: "wide" },
+    "↓": { box: "0 0 12 18", d: "M6 1.5 V16 M2.2 12 L6 16 L9.8 12", shape: "tall" },
+    "↑": { box: "0 0 12 18", d: "M6 16.5 V2 M2.2 6 L6 2 L9.8 6", shape: "tall" },
+    // The diagonals of the squares (AN-4): corner to corner, the head as a
+    // corner of its own - the same stroke as the straight ones.
+    "↘": { box: "0 0 16 16", d: "M2 2 L14 14 M14 7.5 V14 H7.5", shape: "square" },
+    "↖": { box: "0 0 16 16", d: "M14 14 L2 2 M2 8.5 V2 H8.5", shape: "square" },
+    "↗": { box: "0 0 16 16", d: "M2 14 L14 2 M7.5 2 H14 V8.5", shape: "square" },
+    "↙": { box: "0 0 16 16", d: "M14 2 L2 14 M2 7.5 V14 H8.5", shape: "square" },
+  };
+
+/**
+ * Which way the arrows point in an arrangement (AN-4): import and discharge
+ * from the node to the middle of the drawing, export and charge away from it.
+ */
+export function arrowsFor(layout: LayoutName): {
+  import: string;
+  export: string;
+  discharge: string;
+  charge: string;
+} {
+  switch (layout) {
+    case "square_right":
+      return { import: "↘", export: "↖", discharge: "↗", charge: "↙" };
+    case "square_left":
+      return { import: "↗", export: "↙", discharge: "↖", charge: "↘" };
+    default:
+      return { import: "→", export: "←", discharge: "↑", charge: "↓" };
+  }
+}
 
 /**
  * The arrow is drawn, not typed: the font's arrows are hairlines next to the
@@ -534,7 +592,7 @@ function renderFigure(f: Figure): TemplateResult {
   const arrow = ARROWS[f.arrow] ?? ARROWS["→"];
   return html`<div class="value figure ${markClass(f.mark)}" title=${f.mark?.note ?? ""}>
     <svg
-      class="arrow ${arrow.vertical ? "vertical" : ""}"
+      class="arrow ${arrow.shape === "tall" ? "vertical" : arrow.shape === "square" ? "diagonal" : ""}"
       data-arrow=${f.arrow}
       viewBox=${arrow.box}
       aria-hidden="true"
@@ -574,8 +632,12 @@ export function renderCross(
   holeR = NODE_R,
   /** Whether the nodes let the lines show through, and they are cut out (K-16). */
   cut = false,
+  /** The PV ring (PV-4, PV-5); undefined when there is none. */
+  solarRing?: { segments: Segment[]; layout: "share" | "peak" },
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass, outage);
+  // The arrangement (AN-1): where the nodes stand, the lines, the labels.
+  const g = geometryFor(config.layout, config.flow.lines, model.battery !== null);
   // No battery configured: its lines go with it, the rest of the cross stays put.
   const withBattery = model.battery
     ? DRAWN_CONNECTIONS
@@ -603,12 +665,12 @@ export function renderCross(
   return html`
     <div class="cross ${model.battery === null ? "no-battery" : ""}">
       <div class="plot">
-        <svg viewBox="0 0 ${VIEW_W} ${VIEW_H}" aria-hidden="true">
+        <svg viewBox="0 0 ${g.viewW} ${g.viewH}" aria-hidden="true">
           ${
             cut
               ? svg`<defs>
             <clipPath id="el-holes" clipPathUnits="userSpaceOnUse">
-              <path class="holes" clip-rule="evenodd" d=${holesPath(holeR)}></path>
+              <path class="holes" clip-rule="evenodd" d=${holesPathOf(g, holeR)}></path>
             </clipPath>
           </defs>`
               : nothing
@@ -619,28 +681,45 @@ export function renderCross(
               svg`<path
                 class="link ${activeConnections.has(id) ? "active" : `inactive-${config.flow.inactiveLines}`}"
                 style=${activeConnections.has(id) ? `stroke:${activeConnections.get(id)}` : ""}
-                d=${PATHS[id]}
+                d=${g.paths[id]}
               ></path>`,
           )}
             <g class="dots"></g>
           </g>
         </svg>
         ${views.map((v) => {
-          const pos = nodePercent(v.key);
+          const pos = nodePercentOf(g, v.key);
+          const above = g.labelAbove[v.key];
           const tap = (entity?: string) => (ev: Event) => {
             if (entity) openMoreInfo(ev.currentTarget as EventTarget, entity);
           };
+          const ring =
+            v.key === "house" ? segments : v.key === "solar" ? (solarRing?.segments ?? []) : [];
+          const ringShown = ring.some((s) => s.share > 0);
           return html`
           <div
-            class="node ${v.key} ${v.key === "house" && segments.length > 0 ? "has-ring" : ""} ${
-              v.outage ? "outage" : ""
-            } ${config.energy ? "in-period" : ""}"
+            class="node ${v.key} ${ringShown ? "has-ring" : ""} ${above ? "label-above" : ""} ${
+              // Triangle: the house's label sits on the lines below it (AN-5).
+              g.layout === "triangle" && v.key === "house" ? "label-ground" : ""
+            } ${v.outage ? "outage" : ""} ${config.energy ? "in-period" : ""}"
             style="left:${pos.left};top:${pos.top};border-color:${
               // With segments to show, the ring is the contour (REQ K-14).
-              v.key === "house" && segments.length > 0 ? "transparent" : v.color
+              ringShown ? "transparent" : v.color
             }"
           >
             ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx, config.ring.animation, moving) : ""}
+            ${
+              v.key === "solar" && solarRing
+                ? renderRing(
+                    solarRing.segments,
+                    true,
+                    nodePx,
+                    config.ring.animation,
+                    moving,
+                    solarRing.layout,
+                  )
+                : ""
+            }
             ${
               v.socPercent !== undefined
                 ? html`<div class="fill-clip">
@@ -677,16 +756,19 @@ export function renderCross(
                 : v.figures
                   ? renderFigure(v.figures.lower)
                   : html`<div
-                    class="value ${v.available ? "" : "unavailable"} ${markClass(v.mark)}"
-                    title=${v.mark?.note ?? ""}
+                    class="value ${v.available ? "" : "unavailable"} ${markClass(v.mark)} ${
+                      // Amber means "incomplete" on the whole card (PV-2, EM-11).
+                      v.partial ? "warn2" : ""
+                    }"
+                    title=${v.partial ?? v.mark?.note ?? ""}
                   >${v.value}</div>`
             }
             ${insideAt(v, config, hass, "below")}
-            ${v.key === "solar" ? renderLabel(v, config, hass, tap) : ""}
-            ${renderHits(v, config, hass, tap)}
+            ${above ? renderLabel(v, config, hass, tap, above) : ""}
+            ${renderHits(v, config, hass, tap, above)}
             ${
               // After the node's targets below the circle, so Tab runs top to bottom (I-5).
-              v.key === "solar" ? "" : renderLabel(v, config, hass, tap)
+              above ? "" : renderLabel(v, config, hass, tap, above)
             }
           </div>
           `;

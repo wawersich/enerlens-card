@@ -8,11 +8,38 @@ hat. Energie-Sensoren braucht sie dafür nicht - sie summiert die
 Langzeitstatistik, die Home Assistant von den schon eingetragenen
 Leistungssensoren führt.
 
+[[zustandsklasse]]
+[IMPORTANT]
+====
+*Voraussetzung: Zustandsklasse „Messung“.* Home Assistant führt eine
+Langzeitstatistik nur für Sensoren mit der Zustandsklasse `measurement` (in der
+Oberfläche „Messung“). Das gilt für jeden Leistungssensor der Karte - PV, Netz,
+Batterie, Haus und Verbraucher - und besonders für selbst angelegte Helfer: Bei
+_Template → Sensor_ muss das Feld *Zustandsklasse* auf „Messung“ stehen. Fehlt
+sie, zeigt der Energie-Modus für diesen Wert „—“; fehlt sie bei PV, Netz,
+Batterie oder Haus, bietet die Karte ohne eigene Einstellung gar keine Energie
+an. Eine _Sensor-Gruppe_ übernimmt die Zustandsklasse ihrer Mitglieder, wenn
+alle dieselbe haben.
+
+Die Statistik beginnt erst, wenn die Zustandsklasse gesetzt ist; nachträglich
+gesetzt, fehlt alles davor. Prüfen lässt es sich unter _Entwicklerwerkzeuge →
+Zustände_: Die Entität muss das Attribut `state_class: measurement` haben.
+====
+
 [source,yaml]
 ----
 view:
   energy_periods: [power, today, 24h, week, 7d, month, 30d]   # beliebig viele
 ----
+
+Im Editor stehen die Zeiträume in der Gruppe *Quick-Buttons*, Teil
+*Leistung/Energie*:
+
+[.only-light]
+image::editor-energy-de-light.png["Die Zeiträume im Teil Leistung/Energie",490]
+
+[.only-dark]
+image::editor-energy-de-dark.png["Die Zeiträume im Teil Leistung/Energie",490]
 
 Der Quick-Button Leistung/Energie neben dem Filterknopf schaltet dann reihum
 _kW_ (die Leistungsansicht, `power`; _Watt_ bei `power.unit: W`) und die
@@ -63,7 +90,7 @@ sind in jedem Fall exakt. Mit _abgeleitetem_ Netz oder abgeleiteter Batterie
 und der Quick-Button erscheint nicht. Für beide Richtungen braucht die Karte je
 zwei Sensoren - zwei _Template → Sensor_-Helfer teilen einen Sensor mit
 Vorzeichen auf (Einheit `W`, Geräteklasse `power`, Zustandsklasse
-`measurement`):
+`measurement` - siehe <<zustandsklasse,oben>>):
 
 [source,jinja]
 ----

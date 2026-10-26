@@ -1685,20 +1685,8 @@ describe("editor: quick buttons (REQ QB-1, QB-6, QB-7)", () => {
     expect(options(two, "modes").some((o) => o.disabled)).toBe(false);
   });
 
-  it("offers a start value only among several ticked ones (QB-6)", async () => {
-    const el = await mount({ ...BASE, view: { modes: ["current", "avg_long"] } });
-    expect(options(el, "default_mode").map((o) => o.value)).toEqual(["current", "avg_long"]);
-    const one = await mount({ ...BASE, view: { modes: ["avg_long"] }, list: { scope: ["full"] } });
-    expect(findField(one, "default_mode")).toBeUndefined();
-    expect(findField(one, "default_scope")).toBeUndefined();
-    expect(options(el, "default_energy").map((o) => o.value)).toEqual([
-      "power",
-      "today",
-      "24h",
-      "week",
-    ]);
-  });
-
+  // No start value field since issue #22 (25.10.2026) - the keys stay valid
+  // in YAML: test/editor-roundtrip.test.ts, block D.
   it("drops a start value that is unticked (QB-6)", async () => {
     const el = await mount({ ...BASE, view: { default_mode: "avg_long" } });
     const saved = await change(el, { modes: ["current", "avg_short"] });

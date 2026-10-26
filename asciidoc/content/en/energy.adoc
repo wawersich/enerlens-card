@@ -7,11 +7,37 @@ was bought this week, what the heat pump used this month. It needs no energy
 sensors for that - it adds up the long-term statistics Home Assistant keeps of
 the power sensors that are already configured.
 
+[[state-class]]
+[IMPORTANT]
+====
+*Required: state class "Measurement".* Home Assistant keeps long-term
+statistics only for sensors with the state class `measurement` ("Measurement"
+in the UI). That applies to every power sensor of the card - solar, grid,
+battery, house and consumers - and above all to helpers you create yourself:
+with _Template → Sensor_ the field *State class* must be set to "Measurement".
+Without it the energy mode shows "—" for that value; without it on solar, grid,
+battery or house, the card offers no energy at all unless told to. A _sensor
+group_ takes the state class of its members when they all have the same.
+
+Statistics start only once the state class is set; set later, everything
+before is missing. To check: _Developer tools → States_ - the entity must have
+the attribute `state_class: measurement`.
+====
+
 [source,yaml]
 ----
 view:
   energy_periods: [power, today, 24h, week, 7d, month, 30d]   # any of them
 ----
+
+In the editor the periods sit in the group *Quick buttons*, part
+*Power/energy*:
+
+[.only-light]
+image::editor-energy-en-light.png["The periods in the part Power/energy",490]
+
+[.only-dark]
+image::editor-energy-en-dark.png["The periods in the part Power/energy",490]
 
 The quick button power/energy next to the filter button then steps through
 _kW_ (the power view, `power`; _Watt_ with `power.unit: W`) and the periods
@@ -58,7 +84,7 @@ either way. A _derived_ grid or battery (see above) does not work with the
 energy mode: the option is locked in the editor and the quick button does not
 appear. To see both directions, give the card two sensors each - two _Template →
 Sensor_ helpers split a signed one (unit `W`, device class `power`, state class
-`measurement`):
+`measurement` - see <<state-class,above>>):
 
 [source,jinja]
 ----

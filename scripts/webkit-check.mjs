@@ -8,16 +8,19 @@
  * lines (issue #7), and getScreenCTM() leaves out the scale of an element above
  * the card. This loads `scripts/webkit-check/page.html` at several page zooms,
  * in a plain, a scaled and a narrow setting with the card as most people have
- * it, and in two settings with extra values (with and without a battery,
- * issue #9), and measures what went wrong before:
+ * it, in two settings with extra values (with and without a battery,
+ * issue #9), in the three other arrangements with several PV sources, their
+ * rows and fan (AN-5, PV-7), and with every quick button expanded and compact
+ * on a phone (QB-14), and measures what went wrong before:
  *
- *   - every dot lies on a drawn line (cross and fan), at three places each;
+ *   - every dot lies on a drawn line (cross, fan and PV fan), at three places each;
  *   - the consumer ring sits centred on the house node;
  *   - nodes, rows, ring and dots stay inside the card;
  *   - the lines are as wide as the card asked for (K-12), where unzoomed;
  *   - the label blocks stay 8 px clear of the card's edge, the other nodes'
- *     circles and each other, never reach under the mode chips, and the list
- *     beside the cross stays level with the house (Z-3, Z-8);
+ *     circles and each other, never reach under the mode chips, and beside
+ *     the drawing the consumers stand level with the house and the PV rows
+ *     with PV, as far as the drawing allows (Z-3, Z-8, L-17);
  *   - every line reaches its circle, and with the card made transparent
  *     (card-mod, issue #8) no line or dot shows inside one, read off a
  *     picture of each run (K-16).
@@ -56,7 +59,11 @@ const shots = option("--shots");
 const TOLERANCE_PX = 1.5;
 /** How far a line's width may be off what the card asked for, in screen pixels. */
 const LINE_TOLERANCE_PX = 0.1;
-const SCENES = ["plain", "scaled", "below", "extras", "nobatt", "clear", "clearring", "clearlate"];
+const SCENES = [
+  "plain", "scaled", "below", "extras", "nobatt", "clear", "clearring", "clearlate",
+  // The arrangements with several PV sources (AN-5) and the expanded quick buttons (QB-14).
+  "right", "left", "triangle", "quick",
+];
 /** How far a pixel may stray from the page's white and still count as white. */
 const CLEAR_TOLERANCE = 24;
 /* 100 % once; the zooms both set before loading (Safari remembers them per
@@ -414,6 +421,8 @@ function problems(m, lines) {
   if (!m.fan.dots) found.push("keine Punkte am Fächer");
   if (m.cross.worst > TOLERANCE_PX) found.push(`Kreuz-Punkte ${m.cross.worst} px neben der Linie`);
   if (m.fan.worst > TOLERANCE_PX) found.push(`Fächer-Punkte ${m.fan.worst} px neben der Linie`);
+  if (m.pvfan?.worst > TOLERANCE_PX) found.push(`PV-Fächer-Punkte ${m.pvfan.worst} px neben der Linie`);
+  if (["right", "left", "triangle"].includes(m.scene) && !m.pvfan?.dots) found.push("keine Punkte am PV-Fächer");
   // The clear scene has no ring on purpose.
   if (m.ring === null) {
     if (!m.ringOff) found.push("kein Ring am Haus");

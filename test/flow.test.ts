@@ -27,6 +27,7 @@ const unavailableSigned: Signed = { available: false, derived: false };
 function model(over: Partial<Model> = {}): Model {
   return {
     solar: reading(0),
+    solarSources: [],
     grid: signed(0),
     battery: signed(0),
     soc: unavailable,
@@ -39,6 +40,8 @@ function model(over: Partial<Model> = {}): Model {
 /** REQ P-3 defaults: S1 500, S2 2000, S3 6000, max_dots 5, slow 5 s, fast 1.8 s. */
 function config(over: Partial<Config["flow"]> = {}): Config {
   return {
+    layout: "cross",
+    solarSources: [],
     sources: {
       solar: { kind: "absent" },
       grid: { kind: "absent" },
@@ -52,10 +55,11 @@ function config(over: Partial<Config["flow"]> = {}): Config {
     list: {
       enabled: true,
       alwaysBelow: false,
+      solar: false,
       scope: ["filtered", "full"],
       defaultScope: "filtered",
     },
-    ring: { enabled: true, animation: "overtake" },
+    ring: { enabled: true, animation: "overtake", solar: true },
     view: {
       modes: ["current", "avg_short", "avg_long"],
       defaultMode: "current",
@@ -66,6 +70,10 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       energyPeriods: [],
       energyDefault: false,
       defaultEnergy: "power",
+      pvScales: [],
+      defaultPvScale: "share",
+      quickStyle: "segment",
+      expanded: [],
     },
     flow: {
       minW: 10,
@@ -78,6 +86,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      lines: "curved",
       design: "none",
       dotSize: 100,
       lineWidth: 100,

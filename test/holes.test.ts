@@ -102,13 +102,15 @@ describe("the fan", () => {
       y: 40,
       r: 38,
     });
-    const hole = svg.querySelector("clipPath#el-fan-hole path");
+    // An id per layer: the PV fan shares the shadow root (N-8).
+    const clip = svg.querySelector('clipPath[id^="el-fan-hole"]');
+    const hole = clip?.querySelector("path");
     expect(hole?.getAttribute("clip-rule")).toBe("evenodd");
     expect(hole?.getAttribute("d")).toContain("M-18,40A38,38 0 1 0 58,40");
     const line = svg.querySelector("path.fan-line");
-    expect(line?.getAttribute("clip-path")).toBe("url(#el-fan-hole)");
+    expect(line?.getAttribute("clip-path")).toBe(`url(#${clip?.id})`);
     const dots = svg.querySelector("g.fan-dot")?.parentElement;
-    expect(dots?.getAttribute("clip-path")).toBe("url(#el-fan-hole)");
+    expect(dots?.getAttribute("clip-path")).toBe(`url(#${clip?.id})`);
     fan.destroy();
     svg.remove();
   });
@@ -237,5 +239,25 @@ describe("a ground that changes later", () => {
       fill.mockRestore();
       el.remove();
     }
+  });
+});
+
+describe("two fans in one shadow root (N-8, PV-7)", () => {
+  it("each has a cut-out of its own", () => {
+    const row = { key: "a", x: 200, y: 40, color: "#ff9800", count: 2, durationS: 3 };
+    const svg1 = document.createElementNS(SVG_NS, "svg") as SVGSVGElement;
+    const svg2 = document.createElementNS(SVG_NS, "svg") as SVGSVGElement;
+    document.body.append(svg1, svg2);
+    const a = new FanLayer(svg1);
+    const b = new FanLayer(svg2);
+    const hole = { x: 20, y: 40, r: 38 };
+    a.update([row], { x: 60, y: 40 }, { width: 300, height: 80 }, false, hole);
+    b.update([row], { x: 60, y: 40 }, { width: 300, height: 80 }, false, hole);
+    const ids = [svg1, svg2].map((s) => s.querySelector("clipPath")?.id);
+    expect(ids[0]).not.toBe(ids[1]);
+    a.destroy();
+    b.destroy();
+    svg1.remove();
+    svg2.remove();
   });
 });

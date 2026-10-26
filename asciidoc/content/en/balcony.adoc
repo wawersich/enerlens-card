@@ -3,44 +3,85 @@
 :nav-order: 5
 
 Many installations have more than one PV source: the roof array on the hybrid
-inverter plus a balcony plant or further micro-inverters. `solar` takes exactly
-one entity. A helper combines several sources; the card does not add them up
-itself.
+inverter plus a balcony plant or further micro-inverters. The card takes each
+source on its own: the PV node shows their sum, the ring shows each source's
+share, and each one can have its own row in the list.
 
-*1. PV sum.* Under _Settings → Devices & services → Helpers → Create helper →
-Group → Sensor group_, add every PV power as a _member_, choose _Type_ *Sum*
-and turn on *Ignore non-numeric*. Micro-inverters often report unavailable
-at night; without that option the whole sum would be unavailable then. Use the
-new sensor as `solar`.
+== Adding several sources
 
-*2. Correct the house consumption.* A hybrid inverter only sees its own
-strings. A balcony plant feeding in behind the meter shows up in its house
-value as _less consumption_, not as production, so the house value is low by
-exactly that power. A _Template → Sensor_ helper (unit `W`, device class
-`power`, state class `measurement`) adds it back:
+In the editor, under *Main entities*, choose *Several sources (one per
+inverter)* for PV. The section *PV sources* appears below it: for each source
+the power entity, a name, the peak power in kWp and an icon. *Add source* adds
+the next one.
 
-[source,jinja]
+[.only-light]
+image::editor-pv-sources-en-light.png["The PV sources section with roof and balcony",490]
+
+[.only-dark]
+image::editor-pv-sources-en-dark.png["The PV sources section with roof and balcony",490]
+
+No sum entity is needed. At night micro-inverters often report as
+unavailable; the card counts a source whose last value was close to zero as 0,
+silently. If a source drops out while it was producing, the sum turns amber
+and its tooltip names what is missing ("without balcony").
+
+== Balcony plant: not part of the house value
+
+A hybrid inverter only sees its own strings. A balcony plant feeding in behind
+the meter shows up in its house value as _less consumption_, not as
+production – the house value is too small by exactly its power.
+
+For this each source has the switch *Not part of the house value*. The card
+adds that source's power to the measured house value, and the house then reads
+"· calculated". A tap on the house still opens the history of the measured
+sensor.
+
+`grid` needs no correction as long as the grid sensor measures at the service
+connection, as a smart meter or the inverter's current transformer does. It
+sees the balcony plant's feed-in anyway.
+
+== Ring and rows
+
+Under *Display* there are two switches for the sources: *Show PV ring*
+(default: on) and *PV rows in the list* (default: off). The PV rows stand above
+the consumers, sort like them and have their own fan to the PV node.
+
+[.only-light]
+image::editor-pv-display-en-light.png["The switches for list, PV rows and rings",490]
+
+[.only-dark]
+image::editor-pv-display-en-dark.png["The switches for list, PV rows and rings",490]
+
+With the peak power entered for every source, the card offers one more
+button: *100%* shows the shares on the ring, *% kWp* the power relative to the
+total peak power – see link:quick.html[Quick buttons].
+
+== In YAML
+
+[source,yaml]
 ----
-{{ [0, states('sensor.house_inverter')|float(0)
-     + states('sensor.balcony_solar')|float(0)]|max|round(0) }}
+entities:
+  solar:
+    - entity: sensor.inverter_roof
+      name: Roof
+      kwp: 8
+    - entity: sensor.balcony_plant
+      name: Balcony
+      kwp: 0.8
+      house: excluded
+  grid: sensor.grid
+  house: sensor.house_consumption
+list:
+  solar: true
 ----
 
-with this under _Availability_:
+All fields of a source are listed under link:options.html[All options].
 
-[source,jinja]
-----
-{{ states('sensor.house_inverter')|is_number }}
-----
+== Still possible: a sum helper
 
-That way the sensor is only unavailable when the inverter is. A sleeping
-balcony plant counts as 0. Use this sensor as `house`.
-
-*Or simpler:* skip step 2 and leave `house` out. The card then derives the
-house from the PV sum, grid and battery (see _Deriving a missing quantity_).
-That saves a helper, but tapping the house opens no history, and the accuracy
-depends on the slowest of the sensors. If the inverter has a fast house
-sensor, the corrected sensor is the better choice.
-
-`grid` needs no correction as long as the grid sensor measures at the house
-connection, as a smart meter or the inverter's current clamp does. It sees the
-balcony plant's feed-in anyway.
+If you need the sum elsewhere too, you can create a helper as before
+(_Group → Sensor group_, type *Sum*, *Ignore non-numeric* on) and enter it as
+one entity. Ring shares, PV rows and the kWp scale are not available then –
+the card does not know the individual sources. For the energy mode the group,
+too, needs the state class "Measurement"; it takes it from its members when
+they all have the same (see link:energy.html#state-class[Energy]).

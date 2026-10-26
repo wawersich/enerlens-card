@@ -181,6 +181,50 @@ describe("an edit keeps valid keys the form has no field for (issue #19)", () =>
     expect(saved.view).toEqual({ remember: false, default_mode: "avg_short" });
     el.remove();
   });
+
+  /** Sends the main form's data with `patch` applied, as a field would. */
+  function editForm(el: Editor, patch: Record<string, unknown>): Record<string, unknown> {
+    const form = el.shadowRoot?.querySelector("ha-form") as Form;
+    let saved: Record<string, unknown> | undefined;
+    el.addEventListener("config-changed", (ev) => {
+      saved = (ev as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
+    });
+    form.dispatchEvent(
+      new CustomEvent("value-changed", { detail: { value: { ...form.data, ...patch } } }),
+    );
+    if (!saved) throw new Error("no config-changed");
+    return saved;
+  }
+
+  it("a consumer's charge keeps its other keys when the consumer is edited", async () => {
+    const charge = { soc: "sensor.car_soc", show: "charging", note: "kept" };
+    const el = await mount({
+      entities: ENTITIES,
+      consumers: [{ entity: "sensor.car", name: "Car", charge }],
+    });
+    const saved = editForm(el, {
+      consumers: [{ entity: "sensor.car", name: "Auto", charge }],
+    });
+    expect(saved.consumers).toEqual([{ entity: "sensor.car", name: "Auto", charge }]);
+    el.remove();
+  });
+
+  it("the grid status keeps its other keys when its states are edited", async () => {
+    const el = await mount({
+      entities: {
+        ...ENTITIES,
+        grid_status: { entity: "sensor.status", outage: ["off"], ok: ["on"], note: "kept" },
+      },
+    });
+    const saved = editForm(el, { grid_status_ok: ["on", "fine"] });
+    expect((saved.entities as Record<string, unknown>).grid_status).toEqual({
+      entity: "sensor.status",
+      outage: ["off"],
+      ok: ["on", "fine"],
+      note: "kept",
+    });
+    el.remove();
+  });
 });
 
 describe("every form field belongs to a part of the YAML (issue #19)", () => {
@@ -246,6 +290,9 @@ describe("every form field reaches the YAML (issue #19)", () => {
     // Quick buttons show their defaults ticked; a real value differs from those.
     if (name === "modes") return ["current"];
     if (name === "scope") return ["full"];
+    if (name === "pv_scales") return ["peak"];
+    // Unset expand switches are off (QB-10): the other value is on.
+    if (name.startsWith("expanded_")) return value !== true;
     if (typeof value === "boolean") return !value;
     if (typeof value === "number") return value === 100 ? 120 : value + 1;
     if (Array.isArray(value))

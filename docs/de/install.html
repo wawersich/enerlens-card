@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Suchen"></div>
   <a class="lang" href="../en/install.html" hreflang="en">English</a>
   <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Einrichtung</a></li>
 <li><a href="derive.html">Fehlende Größen ableiten</a></li>
 <li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="layout.html">Anordnungen</a></li>
 <li><a href="ev.html">Wallbox und E-Auto</a></li>
 <li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
 <li><a href="quick.html">Quick-Buttons</a></li>
@@ -72,6 +83,6 @@ Ressourcen</em> nachsehen</li>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

@@ -34,12 +34,12 @@ function runway(): TemplateResult {
  * it the node sits far above the block, so without this the bundle would come
  * out of nowhere (REQ L-13).
  */
-function origin(config: Config): TemplateResult {
+function origin(config: Config, of: "house" | "solar" = "house"): TemplateResult {
   return html`<ha-icon
     class="origin-icon"
     aria-hidden="true"
-    .icon=${config.icons.house ?? DEFAULT_ICONS.house}
-    style="color:${config.colors.house}"
+    .icon=${config.icons[of] ?? DEFAULT_ICONS[of]}
+    style="color:${config.colors[of]}"
   ></ha-icon>`;
 }
 
@@ -111,49 +111,125 @@ export function renderList(
   hass: HomeAssistant,
   onEntry: (entity: string, ev: Event) => void,
   stacked: boolean,
+  /** The PV rows above the consumers (PV-7); empty when there are none. */
+  solarRows: ListEntry[] = [],
+  /** The PV rows stand apart, left of the drawing (AN-3): not in this list. */
+  solarApart = false,
 ): TemplateResult | typeof nothing {
-  if (!config.list.enabled) return nothing;
+  const consumers = config.list.enabled;
+  if (!consumers && (solarRows.length === 0 || solarApart)) return nothing;
+  const count = pitchCount(breakdown, config, solarRows);
 
   return html`
-    <div class="list ${stacked ? "stacked" : ""}" style="--el-row-h:${rowHeight(breakdown.entries.length)}px">
+    <div class="list ${stacked ? "stacked" : ""}" style="--el-row-h:${rowHeight(count)}px">
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
+      ${solarRows.length > 0 && !solarApart ? renderSolarRows(solarRows, config, hass, onEntry, stacked) : nothing}
+      ${consumers ? renderConsumers(breakdown, config, hass, onEntry, stacked) : nothing}
+    </div>
+  `;
+}
+
+/**
+ * The PV rows on their own, left of the drawing (AN-3): mirrored, the mark
+ * towards the drawing. Never stacked - too narrow, they join the list below.
+ */
+export function renderSolarSide(
+  breakdown: Breakdown,
+  config: Config,
+  hass: HomeAssistant,
+  onEntry: (entity: string, ev: Event) => void,
+  solarRows: ListEntry[],
+): TemplateResult | typeof nothing {
+  if (solarRows.length === 0) return nothing;
+  return html`
+    <div class="list pv-side" style="--el-row-h:${rowHeight(pitchCount(breakdown, config, solarRows))}px">
+      ${renderSolarRows(solarRows, config, hass, onEntry, false)}
+    </div>
+  `;
+}
+
+/** One pitch for both blocks, on one side or two: they read as one list (L-9, PV-7). */
+function pitchCount(breakdown: Breakdown, config: Config, solarRows: ListEntry[]): number {
+  return (config.list.enabled ? breakdown.entries.length : 0) + solarRows.length;
+}
+
+function renderSolarRows(
+  solarRows: ListEntry[],
+  config: Config,
+  hass: HomeAssistant,
+  onEntry: (entity: string, ev: Event) => void,
+  stacked: boolean,
+): TemplateResult {
+  return html`<div class="pv-rows">
+    ${stacked ? origin(config, "solar") : nothing}
+    ${repeat(
+      solarRows,
+      (entry) => entry.key,
+      (entry) => renderRow(entry, config, hass, onEntry, stacked, true),
+    )}
+  </div>`;
+}
+
+function renderConsumers(
+  breakdown: Breakdown,
+  config: Config,
+  hass: HomeAssistant,
+  onEntry: (entity: string, ev: Event) => void,
+  stacked: boolean,
+): TemplateResult {
+  return html`
       <div class="rows">
         ${stacked ? origin(config) : nothing}
         ${repeat(
           breakdown.entries,
           (entry) => entry.key,
-          (entry) => {
-            const charge = entry.charge;
-            const percent = showsCharge(entry, config);
-            const value =
-              percent && charge?.soc !== undefined
-                ? formatPercent(charge.soc, hass)
-                : entry.powerUnknown
-                  ? "—"
-                  : formatPower(entry.w, hass, config.power);
-            const title = charge ? chargeTitle(charge, hass) : "";
-            // In a period: gaps filled in, a late start, a remainder that holds
-            // them (EM-11, EM-12).
-            const mark = config.energy
-              ? entry.isRest
-                ? config.energy.rest
-                : config.energy.consumers[entry.entity ?? ""]
-              : undefined;
-            const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
-            // Each part opens the history of what it shows (REQ L-15): the mark
-            // and a charge in the value column the charge, the rest the power.
-            const socHit = (part: string) =>
-              charge
-                ? html`<button
+          (entry) => renderRow(entry, config, hass, onEntry, stacked, false),
+        )}
+      </div>
+  `;
+}
+
+/** One row - a consumer, the rest, or a PV source (PV-7, same columns). */
+function renderRow(
+  entry: ListEntry,
+  config: Config,
+  hass: HomeAssistant,
+  onEntry: (entity: string, ev: Event) => void,
+  stacked: boolean,
+  solar: boolean,
+): TemplateResult {
+  {
+    const charge = entry.charge;
+    const percent = showsCharge(entry, config);
+    const value =
+      percent && charge?.soc !== undefined
+        ? formatPercent(charge.soc, hass)
+        : entry.powerUnknown
+          ? "—"
+          : formatPower(entry.w, hass, config.power);
+    const title = charge ? chargeTitle(charge, hass) : "";
+    // In a period: gaps filled in, a late start, a remainder that holds
+    // them (EM-11, EM-12) - a PV source's under its entity as well (PV-2).
+    const mark = config.energy
+      ? entry.isRest
+        ? config.energy.rest
+        : config.energy.consumers[entry.entity ?? ""]
+      : undefined;
+    const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
+    // Each part opens the history of what it shows (REQ L-15): the mark
+    // and a charge in the value column the charge, the rest the power.
+    const socHit = (part: string) =>
+      charge
+        ? html`<button
                   class="soc-hit ${part}"
                   title=${title}
                   aria-label=${`${rowLabel(entry, hass)}: ${title}`}
                   @click=${(ev: Event) => onEntry(charge.entity, ev)}
                 ></button>`
-                : nothing;
-            return html`
+        : nothing;
+    return html`
             <div
-              class="row ${entry.isRest ? "rest" : ""} ${charge ? "charge" : ""} ${
+              class="row ${solar ? "pv" : ""} ${entry.isRest ? "rest" : ""} ${charge ? "charge" : ""} ${
                 charge?.stale ? "stale" : ""
               }"
               data-key=${entry.key}
@@ -193,11 +269,7 @@ export function renderList(
               }
             </div>
           `;
-          },
-        )}
-      </div>
-    </div>
-  `;
+  }
 }
 
 /**

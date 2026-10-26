@@ -530,6 +530,10 @@ describe("defaults (section 3)", () => {
       energyPeriods: ["today", "24h", "week"],
       energyDefault: true,
       defaultEnergy: "power",
+      pvScales: [],
+      defaultPvScale: "share",
+      quickStyle: "segment",
+      expanded: [],
     });
     expect(config.flow).toEqual({
       minW: 10,
@@ -542,6 +546,7 @@ describe("defaults (section 3)", () => {
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show",
+      lines: "curved",
       design: "none",
       dotSize: 100,
       lineWidth: 100,
@@ -689,6 +694,7 @@ describe("numeric ranges (schema rules)", () => {
       fastS: 1,
       animation: "off",
       inactiveLines: "show",
+      lines: "curved",
       design: "none",
       dotSize: 100,
       lineWidth: 100,

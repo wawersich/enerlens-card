@@ -58,6 +58,12 @@ if (scene === "extras" || scene === "nobatt") document.getElementById("host").st
 // the card has drawn and measured, with no re-render of its own and no state
 // update after it: the fill's own change has to make the card measure (K-16).
 const clear = scene === "clear" || scene === "clearring" || scene === "clearlate";
+// right, left, triangle: the other arrangements (AN-1, AN-5), with several PV
+// sources and their rows and fan (PV-7) - at 640 px, so square_left has its PV
+// rows on the left (AN-3). quick: every quick button expanded, compact, on a
+// phone (QB-9 to QB-14).
+const LAYOUT = { right: "square_right", left: "square_left", triangle: "triangle", quick: "cross" }[scene];
+if (LAYOUT) document.getElementById("host").style.width = scene === "quick" ? "380px" : "640px";
 const ringOff = scene === "clear" || scene === "clearlate";
 
 const W = (id, w) => [id, { entity_id: id, state: String(w),
@@ -65,6 +71,7 @@ const W = (id, w) => [id, { entity_id: id, state: String(w),
 const states = Object.fromEntries([
   W("sensor.s", 6000), W("sensor.g", 1500), W("sensor.h", 4500), W("sensor.b", -3000),
   W("sensor.c1", 2400), W("sensor.c2", 1200), W("sensor.c3", 600),
+  W("sensor.pv1", 3500), W("sensor.pv2", 1800), W("sensor.pv3", 700),
   // Extra values (Z-1): a figure in the PV circle, and a label field at every
   // node, wide enough to need the room and the width limits of Z-3 and Z-8.
   ["sensor.today", { entity_id: "sensor.today", state: "12.4", attributes: { unit_of_measurement: "kWh" }, last_changed: "", last_updated: "" }],
@@ -77,7 +84,20 @@ card.setConfig({
   type: "custom:enerlens-card", title: "Energie",
   entities: scene === "nobatt"
     ? { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" }
-    : { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
+    : LAYOUT
+      ? { solar: [
+            { entity: "sensor.pv1", name: "Dach", kwp: 8 },
+            { entity: "sensor.pv2", name: "West", kwp: 4 },
+            { entity: "sensor.pv3", name: "Balkon", kwp: 1 },
+          ], grid: "sensor.g", house: "sensor.h", battery: "sensor.b" }
+      : { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
+  // "right" carries a list title wider than any row: it must not widen the
+  // rows' shared column (PV-7).
+  ...(LAYOUT ? { layout: LAYOUT, list: { solar: true, ...(scene === "right" ? { title: "Alle Verbraucher und PV-Quellen dieses Hauses" } : {}) } } : {}),
+  ...(scene === "quick" ? { view: {
+    energy_periods: ["power"], quick_style: "segment_compact",
+    expanded: ["modes", "pv_scales", "scope"], remember: false,
+  } } : {}),
   consumers: [
     { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave" },
     { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine" },
@@ -198,13 +218,40 @@ function labels(root) {
   if (grid && home && grid.bottom > home.top && home.bottom > grid.top && home.left - grid.right < 7) {
     out.push(`Netz- und Haus-Beschriftung ${(home.left - grid.right).toFixed(1)} px auseinander`);
   }
-  // Beside the cross the list stays level with the house (L-1, Z-8).
-  const list = root.querySelector(".list");
-  const house = root.querySelector(".node.house");
-  if (list && house && !root.querySelector(".body.stacked")) {
-    const l = list.getBoundingClientRect(), h = house.getBoundingClientRect();
-    const off = l.top + l.height / 2 - (h.top + h.height / 2);
-    if (Math.abs(off) > 2) out.push(`Liste ${off.toFixed(1)} px neben der Haushöhe`);
+  // Beside the drawing each block stands level with its node - the consumers
+  // with the house, the PV rows with PV - as far as the drawing allows: it
+  // may stop at the drawing's edge or at the other block (L-1, Z-8, L-17).
+  // Together taller than the drawing, the blocks stand as laid out.
+  const cross = root.querySelector(".cross")?.getBoundingClientRect();
+  const blocks = [
+    [root.querySelector(".rows"), root.querySelector(".node.house"), "Verbraucher"],
+    [root.querySelector(".pv-rows"), root.querySelector(".node.solar"), "PV-Zeilen"],
+  ].filter(([b]) => b);
+  const tall = blocks.reduce((sum, [b]) => sum + b.getBoundingClientRect().height, 0) + 10;
+  if (cross && !root.querySelector(".body.stacked") && tall <= cross.height) {
+    const boxes = blocks.map(([b]) => b.getBoundingClientRect());
+    blocks.forEach(([block, node, name], i) => {
+      const l = boxes[i], n = node.getBoundingClientRect();
+      const off = l.top + l.height / 2 - (n.top + n.height / 2);
+      const near = (a, b) => Math.abs(a - b) <= 2;
+      const stopped =
+        near(l.top, cross.top) || near(l.bottom, cross.bottom) ||
+        boxes.some((o, j) => j !== i && (Math.abs(o.bottom - l.top) <= 12 || Math.abs(l.bottom - o.top) <= 12));
+      if (Math.abs(off) > 2 && !stopped) out.push(`${name} ${off.toFixed(1)} px neben ihrem Knoten`);
+    });
+  }
+  // PV rows and consumers in one list share their columns (PV-7): marks,
+  // names and values of both blocks stand one below the other.
+  const pv = root.querySelector(".list:not(.pv-side) .pv-rows");
+  if (pv && pv.parentElement.querySelector(".rows")) {
+    for (const [sel, side, what] of [[".swatch", "left", "Marken"], [".name", "left", "Namen"], [".row-value", "right", "Werte"]]) {
+      const xs = [...pv.parentElement.querySelectorAll(`.pv-rows .row ${sel}, .rows .row ${sel}`)].map((e) => e.getBoundingClientRect()[side]);
+      const spread = Math.max(...xs) - Math.min(...xs);
+      if (spread > 1) out.push(`${what} der PV-Zeilen und Verbraucher ${spread.toFixed(1)} px versetzt`);
+    }
+    // The longest name decides the width: at least one name fills its room.
+    const slack = Math.min(...[...pv.parentElement.querySelectorAll(".row .name")].map((n) => n.clientWidth - n.scrollWidth));
+    if (slack > 1) out.push(`Spalte ${slack} px breiter als der längste Name`);
   }
   return out;
 }
@@ -238,8 +285,32 @@ function lineWidths(root) {
   return { off: +off.toFixed(3) };
 }
 
-/** From each node towards the middle of the cross, where its lines arrive. */
+/** From each node of the cross towards its middle, where its lines arrive. */
 const TOWARDS = { solar: [0, 1], grid: [1, 0], house: [-1, 0], battery: [0, -1] };
+
+/**
+ * The direction a line of `node` leaves it in. The cross keeps its fixed
+ * directions; the other arrangements (AN-1) take the line drawn nearest to
+ * the node: from its end at the circle a few units along it.
+ */
+function towards(node, root, key) {
+  if (!LAYOUT || LAYOUT === "cross") return TOWARDS[key];
+  const svg = root.querySelector(".plot svg");
+  const ctm = svg.getScreenCTM();
+  const screen = (p) => ({ x: ctm.a * p.x + ctm.c * p.y + ctm.e, y: ctm.b * p.x + ctm.d * p.y + ctm.f });
+  const n = centre(node);
+  let best;
+  for (const path of svg.querySelectorAll("path.link")) {
+    const len = path.getTotalLength();
+    for (const [at, step] of [[0, 6], [len, len - 6]]) {
+      const end = screen(path.getPointAtLength(at));
+      const d = Math.hypot(end.x - n.x, end.y - n.y);
+      if (!best || d < best.d) best = { d, end, next: screen(path.getPointAtLength(step)) };
+    }
+  }
+  const dx = best.next.x - n.x, dy = best.next.y - n.y, l = Math.hypot(dx, dy) || 1;
+  return [dx / l, dy / l];
+}
 
 /**
  * For the pictures webkit-check.mjs takes (K-16): each circle's centre, outer
@@ -264,7 +335,7 @@ function rims(root) {
     view: innerWidth,
     nodes: [...root.querySelectorAll(".node")].map((node) => {
       const b = node.getBoundingClientRect();
-      const key = [...node.classList].find((c) => Object.hasOwn(TOWARDS, c));
+      const key = [...node.classList].find((c) => ["solar", "grid", "house", "battery"].includes(c));
       let inner = b.width / 2 - parseFloat(getComputedStyle(node).borderTopWidth);
       const ring = node.querySelector("svg.ring");
       const seg = ring?.querySelector(".ring-seg");
@@ -272,7 +343,7 @@ function rims(root) {
         const r = +seg.getAttribute("r"), sw = +seg.getAttribute("stroke-width");
         inner = Math.min(inner, ((r - sw / 2) / 100) * ring.getBoundingClientRect().width);
       }
-      return { key, x: b.left + b.width / 2, y: b.top + b.height / 2, outer: b.width / 2, inner, towards: TOWARDS[key] };
+      return { key, x: b.left + b.width / 2, y: b.top + b.height / 2, outer: b.width / 2, inner, towards: towards(node, root, key) };
     }),
   };
 }
@@ -290,7 +361,9 @@ window.check = () => {
     vendor: navigator.vendor,
     zoom: card._pathZoom,
     cross: offLines(root.querySelector(".plot svg"), "g.dot", "path.link"),
-    fan: offLines(root.querySelector("svg.fan"), "g.fan-dot", "path.fan-line"),
+    fan: offLines(root.querySelector("svg.fan:not(.pv-fan)"), "g.fan-dot", "path.fan-line"),
+    // The PV rows' own fan (PV-7), where there are PV rows.
+    pvfan: offLines(root.querySelector("svg.pv-fan"), "g.fan-dot", "path.fan-line"),
     ring: h && r ? +Math.hypot(h.x - r.x, h.y - r.y).toFixed(2) : null,
     outside: outside(root),
     labels: labels(root),
@@ -301,6 +374,7 @@ window.check = () => {
   result.clipped = !!root.querySelector(".plot svg [clip-path]");
   result.fanClipped = !!root.querySelector("svg.fan [clip-path]");
   result.clear = clear;
+  result.scene = scene;
   result.ringOff = ringOff;
   return JSON.stringify(result);
 };

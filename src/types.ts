@@ -77,6 +77,9 @@ export type EnergyPeriod = "today" | "24h" | "week" | "7d" | "month" | "30d";
 export type EnergyChoice = "power" | EnergyPeriod;
 /** What the quick button list scope offers (REQ QB-2, L-12). */
 export type ListScope = "filtered" | "full";
+/** What the quick button PV scale offers (REQ PV-5, PV-6): the ring always
+ *  full, or measured against the peak power of all sources. */
+export type PvScale = "share" | "peak";
 export type AnimationMode = "auto" | "on" | "off";
 
 /**
@@ -162,6 +165,19 @@ export type EntityRef =
   | { import: string; export: string }
   | { discharge: string; charge: string };
 
+/** One PV source of a list under `entities.solar` (REQ PV-1). */
+export interface SolarSourceConfig {
+  entity: string;
+  name?: string;
+  /** Peak power in kWp (REQ PV-5). */
+  kwp?: number;
+  icon?: string;
+  color?: string;
+  invert?: boolean;
+  /** "excluded": not part of the measured house value (REQ PV-3). */
+  house?: "excluded";
+}
+
 /**
  * Which entity reports whether the grid is there, and which of its states mean
  * what. Every integration names them differently, so both lists are the user's
@@ -198,12 +214,24 @@ export interface SocStop {
   color: string;
 }
 
+/** The arrangement of the four nodes (REQ AN-1). */
+export type LayoutName = "cross" | "square_right" | "square_left" | "triangle";
+/** How the lines between the nodes run (REQ AN-2). */
+export type LineForm = "curved" | "straight";
+/** How the quick buttons look (REQ QB-9). */
+export type QuickStyle = "segment" | "segment_compact" | "single";
+/** A quick button, named after the key of its values (REQ QB-10). */
+export type QuickName = "modes" | "energy_periods" | "pv_scales" | "scope";
+
 export interface RawConfig extends LovelaceCardConfig {
+  /** The arrangement (AN-1); unknown values fall back to the cross. */
+  layout?: LayoutName;
   /** What the card remembers is kept under this id (REQ V-12). */
   memory_id?: string;
   title?: string;
   entities?: {
-    solar?: EntityRef;
+    /** One entity, or a list of sources whose sum is the PV (REQ PV-1). */
+    solar?: EntityRef | (string | SolarSourceConfig)[];
     grid?: EntityRef;
     battery?: EntityRef;
     battery_soc?: string;
@@ -220,11 +248,13 @@ export interface RawConfig extends LovelaceCardConfig {
     rest_label?: string;
     title?: string;
     always_below?: boolean;
+    /** The PV rows (REQ PV-7). */
+    solar?: boolean;
     /** The list scopes the quick button offers; one = fixed (REQ QB-2). */
     scope?: ListScope[];
     default_scope?: ListScope;
   };
-  ring?: { enabled?: boolean; animation?: RingAnimation };
+  ring?: { enabled?: boolean; animation?: RingAnimation; solar?: boolean };
   /** Which half of a flow design applies (REQ P-10). */
   appearance?: Appearance;
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
@@ -241,8 +271,17 @@ export interface RawConfig extends LovelaceCardConfig {
     /** Power and the periods the quick button power/energy offers (REQ QB-2, EM-1). */
     energy_periods?: EnergyChoice[];
     default_energy?: EnergyChoice;
+    /** The PV scales the quick button offers; one = fixed (REQ PV-6). */
+    pv_scales?: PvScale[];
+    default_pv_scale?: PvScale;
+    /** Segment buttons, compact, or single buttons (REQ QB-9). */
+    quick_style?: QuickStyle;
+    /** The quick buttons showing all their values (REQ QB-10). */
+    expanded?: QuickName[] | QuickName;
   };
   flow?: {
+    /** Curved or straight lines (AN-2); the default depends on the arrangement. */
+    lines?: LineForm;
     min_w?: number;
     /** One knob for the whole step rule: the power at which the animation peaks.
      *  The three thresholds default to peak/12, peak/3 and peak (REQ P-3). */
@@ -305,7 +344,24 @@ export type SourceSpec =
   | { kind: "single"; entity: string; invert: boolean }
   | { kind: "split"; positive: string; negative: string }
   | { kind: "derived" }
-  | { kind: "absent" };
+  | { kind: "absent" }
+  /** The PV as the sum of `Config.solarSources` (REQ PV-2). */
+  | { kind: "sum" };
+
+/** One PV source after normalization (REQ PV-1). */
+export interface NormalizedSolarSource {
+  /** Stable identity for rows and ring segments - the entity id. */
+  key: string;
+  entity: string;
+  /** Configured name; undefined falls back to friendly_name at render time. */
+  name?: string;
+  kwp?: number;
+  icon?: string;
+  color: string;
+  invert: boolean;
+  /** Not part of the measured house value; added to it (REQ PV-3). */
+  excluded: boolean;
+}
 
 /** Normalized grid status: state names lower-cased and trimmed (REQ NS-2). */
 export interface GridStatusSpec {
@@ -352,6 +408,8 @@ export interface ChargeState {
 }
 
 export interface Config {
+  /** The arrangement (AN-1). */
+  layout: LayoutName;
   /** Remembered values are this card's own (REQ V-12); unset = shared per browser. */
   memoryId?: string;
   title?: string;
@@ -364,6 +422,8 @@ export interface Config {
   };
   /** Undefined = the feature is off, which is the case for most installations. */
   gridStatus?: GridStatusSpec;
+  /** The PV sources when `entities.solar` is a list; empty for one entity (REQ PV-1). */
+  solarSources: NormalizedSolarSource[];
   consumers: NormalizedConsumer[];
   minConsumerW: number;
   maxConsumers: number;
@@ -373,12 +433,14 @@ export interface Config {
     restLabel?: string;
     title?: string;
     alwaysBelow: boolean;
+    /** The PV rows (REQ PV-7). */
+    solar: boolean;
     /** Offered scopes in their fixed order, never empty (REQ QB-2). */
     scope: ListScope[];
     /** One of `scope` (REQ QB-4). */
     defaultScope: ListScope;
   };
-  ring: { enabled: boolean; animation: RingAnimation };
+  ring: { enabled: boolean; animation: RingAnimation; solar: boolean };
   view: {
     /** Offered means in their fixed order, never empty; only "current"
      *  without power, as nothing is averaged then (REQ QB-2, QB-5). */
@@ -397,6 +459,14 @@ export interface Config {
     energyDefault: boolean;
     /** "power" or one of `energyPeriods` (REQ QB-4). */
     defaultEnergy: EnergyChoice;
+    /** Scales of the PV ring on offer, in their fixed order; empty = no ring (REQ PV-6). */
+    pvScales: PvScale[];
+    /** One of `pvScales` when there are any (REQ PV-6). */
+    defaultPvScale: PvScale;
+    /** How the quick buttons look (REQ QB-9). */
+    quickStyle: QuickStyle;
+    /** The quick buttons showing all their values, each once (REQ QB-10). */
+    expanded: QuickName[];
   };
   flow: {
     minW: number;
@@ -409,6 +479,8 @@ export interface Config {
     fastS: number;
     animation: AnimationMode;
     inactiveLines: InactiveLines;
+    /** Curved or straight, by default after the arrangement (AN-2). */
+    lines: LineForm;
     /**
      * One colour for every dot on the card, whatever the connection (P-13).
      * Unset - and that is the default - a dot carries the colour of the flow
@@ -541,8 +613,23 @@ export class ConfigError extends Error {
 
 /** A single measured quantity. `available: false` renders as an em dash (REQ K-9). */
 export type Reading =
-  | { available: true; w: number; entity?: string; derived: boolean }
-  | { available: false; entity?: string; derived: boolean };
+  | {
+      available: true;
+      w: number;
+      entity?: string;
+      derived: boolean;
+      /** Sources that were delivering and are gone - a partial sum (REQ PV-2). */
+      missing?: string[];
+      /** A measured house with sources outside it added (REQ PV-3). */
+      corrected?: boolean;
+    }
+  | {
+      available: false;
+      entity?: string;
+      derived: boolean;
+      missing?: string[];
+      corrected?: boolean;
+    };
 
 /**
  * A quantity that flows both ways. `positive`/`negative` are magnitudes (>= 0);
@@ -558,12 +645,15 @@ export type Signed =
       entityPositive?: string;
       entityNegative?: string;
       derived: boolean;
+      /** Derived from a partial PV sum (REQ PV-2). */
+      missing?: string[];
     }
   | {
       available: false;
       entityPositive?: string;
       entityNegative?: string;
       derived: boolean;
+      missing?: string[];
     };
 
 export interface ConsumerReading {
@@ -577,8 +667,22 @@ export interface ConsumerReading {
   charge?: ChargeState & { entity: string; show: ChargeShow };
 }
 
+/** One PV source as read now (REQ PV-2). */
+export interface SolarSourceReading {
+  key: string;
+  entity: string;
+  name: string;
+  color: string;
+  icon?: string;
+  kwp?: number;
+  excluded: boolean;
+  reading: Reading;
+}
+
 export interface Model {
   solar: Reading;
+  /** The sources behind `solar`; empty for one entity (REQ PV-2). */
+  solarSources: SolarSourceReading[];
   /** positive = import from grid, negative = export */
   grid: Signed;
   /** positive = discharging, negative = charging. `null` when no battery configured. */

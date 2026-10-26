@@ -29,6 +29,7 @@ function consumer(name: string, w: number | null, minW?: number): ConsumerReadin
 function model(house: Reading, consumers: ConsumerReading[]): Model {
   return {
     solar: unavailable,
+    solarSources: [],
     grid: { available: false, derived: false },
     battery: null,
     soc: unavailable,
@@ -46,6 +47,8 @@ function config(
   } = {},
 ) {
   const cfg: Config = {
+    layout: "cross",
+    solarSources: [],
     sources: {
       solar: { kind: "absent" },
       grid: { kind: "absent" },
@@ -60,10 +63,11 @@ function config(
       enabled: true,
       restLabel: over.restLabel,
       alwaysBelow: false,
+      solar: false,
       scope: ["filtered", "full"],
       defaultScope: "filtered",
     },
-    ring: { enabled: true, animation: "overtake" },
+    ring: { enabled: true, animation: "overtake", solar: true },
     view: {
       modes: ["current", "avg_short", "avg_long"],
       defaultMode: "current",
@@ -74,6 +78,10 @@ function config(
       energyPeriods: [],
       energyDefault: false,
       defaultEnergy: "power",
+      pvScales: [],
+      defaultPvScale: "share",
+      quickStyle: "segment",
+      expanded: [],
     },
     flow: {
       minW: over.flowMinW ?? 10,
@@ -86,6 +94,7 @@ function config(
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      lines: "curved",
       design: "none",
       dotSize: 100,
       lineWidth: 100,

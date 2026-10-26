@@ -2,7 +2,7 @@
 :page-key: quick
 :nav-order: 8
 
-Im Kopf der Karte gibt es bis zu drei Quick-Buttons; jeder Tipp schaltet zum
+Im Kopf der Karte gibt es bis zu vier Quick-Buttons; jeder Tipp schaltet zum
 nächsten Wert:
 
 [cols=",,,",options="header",]
@@ -10,14 +10,32 @@ nächsten Wert:
 |Quick-Button |Werte |Schlüssel |Standard
 |*Glättung* |Jetzt, kurzer Mittelwert, langer Mittelwert |`view.modes`: `current`, `avg_short`, `avg_long` |alle drei
 |*Leistung/Energie* |Leistung, Energie über einen Zeitraum |`view.energy_periods`: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d` |`power`, `today`, `24h`, `week` - siehe unten
+|*PV-Skala* |Anteile am Ring, Leistung im Verhältnis zur Spitzenleistung – nur mit mehreren PV-Quellen |`view.pv_scales`: `share`, `peak` |beide, soweit möglich – `peak` braucht `kwp` an jeder Quelle
 |*Listenumfang* |gefilterte Liste, alle Verbraucher |`list.scope`: `filtered`, `full` |beide
 |===
+
+So sehen sie im Standard aus – zum Ausprobieren, jeder Tipp schaltet weiter
+(die Karte darunter ist hier weggelassen):
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded=""></div>
+++++
 
 Eingetragen wird, was ein Quick-Button anbieten soll. *Ein Wert heißt fest*:
 Der Knopf entfällt, und die Karte zeigt immer diesen Wert - auf jedem Gerät, für
 jeden Nutzer. Eine als Energie-Karte eingerichtete Karte bleibt also eine. Feste
 Werte außer der Augenblicksansicht nennt der Kopf („Ø 15 min“, „Energie:
 Monat“), damit niemand sie für einen Live-Wert hält.
+
+Im Editor hat jeder Quick-Button einen Teil in der Gruppe *Quick-Buttons*: die
+Häkchen der Werte und den Schalter *Aufklappen*; ganz oben steht die
+*Darstellung* für alle zusammen.
+
+[.only-light]
+image::editor-quick-de-light.png["Die Gruppe Quick-Buttons",490]
+
+[.only-dark]
+image::editor-quick-de-dark.png["Die Gruppe Quick-Buttons",490]
 
 [source,yaml]
 ----
@@ -28,21 +46,48 @@ list:
   scope: [full]                    # immer alle Verbraucher
 ----
 
-Ein Quick-Button mit mehreren Werten startet mit seinem Startwert -
-`view.default_mode`, `view.default_energy`, `list.default_scope` -, außer der
-Browser hat sich den letzten gemerkt (`view.remember`). Jede Karte merkt sich
-das für sich: Der Editor gibt ihr eine `memory_id`, damit zwei Exemplare
+Ein Quick-Button mit mehreren Werten startet mit dem zuletzt gewählten Wert,
+beim allerersten Öffnen mit dem ersten. Jede Karte merkt sich das für sich: Der Editor gibt ihr eine `memory_id`, damit zwei Exemplare
 derselben Karte nebeneinander Verschiedenes zeigen können. Eine zweite Karte mit
 derselben Kennung in derselben Ansicht (eine duplizierte) merkt sich ebenfalls
 ihre eigenen Werte; eine Kopie in einer anderen Ansicht oder einem anderen
 Dashboard ist ohnehin getrennt. Karten, die nur in YAML stehen und keine
 `memory_id` haben, teilen sich wie bisher, was sie sich merken - ein beliebiger
-eigener Name trennt sie. Nach dem Update startet eine Karte mit Kennung einmal
-mit ihren Startwerten; was sie sich merkt, hängt an der Ansicht: In eine andere
+eigener Name trennt sie. Was sie sich merkt, hängt an der Ansicht: In eine andere
 Ansicht verschoben, nach Umbenennen der Ansicht oder - bei einer Ansicht ohne
-eigenen `path` - nach dem Umsortieren der Ansichten startet sie einmal neu.
+eigenen `path` - nach dem Umsortieren der Ansichten startet sie einmal von vorn.
 Mittelwerte gibt es nur für die Leistung: Ohne `power` in `energy_periods`
 mittelt die Karte nie. In einem Zeitraum ist die Glättung ausgegraut.
+
+*Aufklappen und Darstellung.* Statt eines Buttons, der bei jedem Tipp
+weiterschaltet, kann jeder Quick-Button alle seine Werte nebeneinander zeigen:
+im Editor in seinem Teil der Schalter *Aufklappen*, in YAML
+`view.expanded: ++[++modes, energy_periods, pv_scales, scope++]++`. Ein Tipp wählt dann
+den Wert direkt. Unter *Alle Quick-Buttons* bestimmt *Darstellung*, wie sie
+aussehen: *Segment-Buttons* (eine Leiste je Quick-Button, der gewählte Wert
+gefüllt), *Segment-Buttons kompakt* (dieselbe Leiste, flacher – auch die
+Buttons zum Durchschalten) oder *Einzel-Buttons* (jeder Wert ein eigener
+Button, ein dünner Rahmen um den Quick-Button). Reicht der Platz nicht,
+brechen die Quick-Buttons um, immer als Ganzes.
+
+Segment-Buttons, alle aufgeklappt:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
+
+Segment-Buttons kompakt, nur Glättung und Leistung/Energie aufgeklappt – die
+beiden anderen schalten weiter:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="segment_compact" data-expanded="modes,energy_periods"></div>
+++++
+
+Einzel-Buttons, alle aufgeklappt:
+
+++++
+<div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+++++
 
 *Der Energie-Standard.* Ist `energy_periods` nicht gesetzt, bietet die Karte
 Leistung, Heute, 24 h und Woche an - aber nur, wenn PV, Netz, Batterie und Haus
@@ -52,5 +97,5 @@ Browser-Konsole, warum. `energy_periods: ++[++power++]++` schaltet den Energie-M
 
 Der Editor hat je Quick-Button eine Gruppe; das letzte Häkchen lässt sich nicht
 abwählen. Das ältere `view.show_selector: false` gilt weiter und heißt: jeder
-Quick-Button fest auf seinem Startwert. Der Editor macht beim Öffnen die Listen
-oben daraus.
+Quick-Button fest auf einem Wert. Der Editor macht beim Öffnen die Listen oben
+daraus.

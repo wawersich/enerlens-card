@@ -12,6 +12,30 @@ Eine über das Dashboard neu angelegte Karte rät deine Sensoren nicht: Sie
 startet mit den Platzhaltern `sensor.solar_power` und `sensor.grid_power` und
 zeigt gekennzeichnete Beispielwerte, bis du deine eigenen auswählst.
 
+== Im Editor
+
+Unter *Basis-Entitäten* wählst du für PV, Netz, Haus und Batterie je die
+Leistungs-Entität. Die Auswahl darüber legt die Form fest: *Eine Entität*,
+*Zwei Entitäten*, *Abgeleitet aus den anderen Größen* oder bei der PV *Mehrere
+Quellen (je Wechselrichter)*. Mit Batterie kommt der *Ladezustand* dazu.
+
+[.only-light]
+image::editor-entities-de-light.png["Der Abschnitt Basis-Entitäten",490]
+
+[.only-dark]
+image::editor-entities-de-dark.png["Der Abschnitt Basis-Entitäten",490]
+
+Die Verbraucher stehen in einer eigenen Liste darunter: *Verbraucher
+hinzufügen*, Entität wählen, fertig. Jeder Eintrag klappt auf für Name, Icon,
+eine eigene Schwelle und den Ladestand eines Autos; die Reihenfolge lässt sich
+durch Ziehen ändern.
+
+[.only-light]
+image::editor-consumers-de-light.png["Die Verbraucherliste",490]
+
+[.only-dark]
+image::editor-consumers-de-dark.png["Die Verbraucherliste",490]
+
 == Minimal
 
 [source,yaml]
@@ -66,6 +90,15 @@ entities:
     invert: true
 ----
 
+Im Editor ist das der Schalter *Vorzeichen umdrehen* bei der Entität, bei
+getrennten Sensoren die Auswahl *Zwei Entitäten*:
+
+[.only-light]
+image::editor-signs-de-light.png["Netz mit zwei Entitäten, Batterie mit umgedrehtem Vorzeichen",490]
+
+[.only-dark]
+image::editor-signs-de-dark.png["Netz mit zwei Entitäten, Batterie mit umgedrehtem Vorzeichen",490]
+
 Wer statt eines signierten Sensors getrennte Sensoren je Richtung hat, nennt
 beide. Erwartet werden Werte ab null:
 
@@ -88,7 +121,9 @@ den Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von
 gestern Abend überhaupt nicht vorkommt.
 
 Gibt es keinen vorzeichenbehafteten Sensor, baut ein Helfer _Template → Sensor_
-einen (Einheit `W`, Geräteklasse `power`, Statusklasse `measurement`):
+einen (Einheit `W`, Geräteklasse `power`, Zustandsklasse `measurement` - ohne
+sie keine Statistik und keine Energiewerte, siehe
+link:energy.html#zustandsklasse[Energie]):
 
 [source,jinja]
 ----

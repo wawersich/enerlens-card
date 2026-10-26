@@ -48,6 +48,7 @@ import type {
   RawConfig,
   RingAnimation,
   SocStop,
+  SolarSourceConfig,
 } from "./types";
 
 /** Power sensors, plus anything measured in W or kW - many template sensors
@@ -66,6 +67,63 @@ const QUANTITIES = ["solar", "grid", "house", "battery"] as const;
 
 /** Where the consumer panel goes between the form pieces (REQ E-4). */
 const CONSUMERS_SLOT = "consumers_slot";
+/** Where the PV sources' panel goes, right after the quantities (PV-9). */
+const SOLAR_SLOT = "solar_slot";
+
+/** The fields of one PV source (PV-1, PV-3, PV-9); its colour lives in YAML. */
+function sourceSchema() {
+  return [
+    { name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } },
+    { name: "name", selector: { text: {} } },
+    {
+      name: "kwp",
+      selector: { number: { ...limitsOf("entities.solar.kwp"), step: 0.01, mode: "box" } },
+    },
+    { name: "icon", selector: { icon: {} } },
+    { name: "excluded", selector: { boolean: {} } },
+  ];
+}
+
+/**
+ * A PV source as the form holds it (PV-3, PV-9): `house: excluded` as a tick.
+ * Its own type, so a form row can never be converted again as if it were YAML
+ * - that turned the tick off once (25.10.2026). Half-filled rows have no
+ * entity yet.
+ */
+type SourceFormRow = Omit<Partial<SolarSourceConfig>, "house"> & { excluded: boolean };
+
+/** YAML -> form, once, when the editor opens (toFlat). */
+function sourceForm(row: string | SolarSourceConfig): SourceFormRow {
+  if (typeof row === "string") return { entity: row, excluded: false };
+  const { house, ...rest } = row;
+  return { ...rest, excluded: house === "excluded" };
+}
+
+/**
+ * The PV sources for the YAML (PV-1, PV-9): a row without an entity stays in
+ * the form only (E-1), and a single source with nothing else said is written
+ * as the plain entity it always was.
+ */
+function cleanSources(
+  value: unknown,
+): EntityRef | (string | Record<string, unknown>)[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const rows = value.flatMap((row) => {
+    const entry = typeof row === "string" ? { entity: row } : isRecord(row) ? row : {};
+    if (!nonEmpty(entry.entity)) return [];
+    const { excluded, ...rest } = entry as Record<string, unknown>;
+    const out = prune({
+      ...rest,
+      kwp: num(rest.kwp),
+      invert: rest.invert === true ? true : undefined,
+      house: excluded === true ? "excluded" : undefined,
+    }) as Record<string, unknown>;
+    return [out];
+  });
+  if (rows.length === 0) return undefined;
+  if (rows.length === 1 && Object.keys(rows[0]).length === 1) return rows[0].entity as string;
+  return rows;
+}
 
 /** An entity that answers on/off rather than with states of its own. */
 function isOnOff(entityId: string): boolean {
@@ -136,11 +194,12 @@ type Quantity = (typeof QUANTITIES)[number];
 /** The four nodes plus the rest row, which has an icon but no entity. */
 const ICON_KEYS = [...QUANTITIES, "rest"] as const;
 
-/** How a quantity gets its value. "none" exists only for the battery (REQ A-5). */
-type Source = "entity" | "split" | "derived" | "none";
+/** How a quantity gets its value. "none" exists only for the battery (REQ A-5),
+ *  "sources" only for the PV (PV-1). */
+type Source = "entity" | "split" | "derived" | "none" | "sources";
 
 const SOURCES: Record<Quantity, Source[]> = {
-  solar: ["entity", "derived"],
+  solar: ["entity", "sources", "derived"],
   grid: ["entity", "split", "derived"],
   house: ["entity", "derived"],
   battery: ["none", "entity", "split", "derived"],
@@ -161,9 +220,13 @@ const SPLIT_KEYS: Partial<Record<Quantity, [string, string]>> = {
 /** ha-form works on a flat object; the card config is nested. */
 interface FlatConfig {
   title?: string;
+  layout?: string;
+  flow_lines?: string;
   solar_source?: Source;
   solar?: string;
   solar_invert?: boolean;
+  /** Several PV sources as the form holds them (PV-9). */
+  solar_sources?: SourceFormRow[];
   grid_source?: Source;
   grid?: string;
   grid_invert?: boolean;
@@ -189,7 +252,9 @@ interface FlatConfig {
   appearance?: string;
   list_enabled?: boolean;
   list_always_below?: boolean;
+  list_solar?: boolean;
   ring_enabled?: boolean;
+  ring_solar?: boolean;
   ring_animation?: string;
   power_unit?: string;
   power_decimals?: number;
@@ -202,6 +267,13 @@ interface FlatConfig {
   default_energy?: string;
   scope?: string[];
   default_scope?: string;
+  pv_scales?: string[];
+  default_pv_scale?: string;
+  quick_style?: string;
+  expanded_modes?: boolean;
+  expanded_energy_periods?: boolean;
+  expanded_pv_scales?: boolean;
+  expanded_scope?: boolean;
   inactive_lines?: string;
   animation?: string;
   design?: string;
@@ -270,6 +342,7 @@ const isAbsent = (ref: EntityRef | null | undefined): ref is undefined =>
 
 function sourceOf(quantity: Quantity, ref: EntityRef | undefined): Source {
   if (ref === "derived") return "derived";
+  if (quantity === "solar" && Array.isArray(ref)) return "sources";
   if (typeof ref === "string" && !isAbsent(ref)) return "entity";
   if (isRecord(ref) && "entity" in ref) return "entity";
   const keys = SPLIT_KEYS[quantity];
@@ -283,6 +356,16 @@ function sourceOf(quantity: Quantity, ref: EntityRef | undefined): Source {
 function flattenQuantity(quantity: Quantity, ref: EntityRef | undefined, out: FlatRecord): void {
   const source = sourceOf(quantity, ref);
   out[`${quantity}_source`] = source;
+  if (source === "sources") {
+    // The one conversion to the form (PV-9); YAML is untyped, so a row that is
+    // neither entity nor object becomes an empty one, which is never written.
+    out[`${quantity}_sources`] = (ref as unknown as unknown[]).map((row) =>
+      sourceForm(
+        typeof row === "string" || isRecord(row) ? (row as unknown as SolarSourceConfig) : "",
+      ),
+    );
+    return;
+  }
   if (typeof ref === "string") {
     if (source === "entity") out[quantity] = ref;
     return;
@@ -437,6 +520,8 @@ function toFlat(config: RawConfig): FlatConfig {
   const statusRecord = typeof status === "object" && status !== null ? status : undefined;
   const out: FlatRecord = {
     title: config.title,
+    layout: config.layout,
+    flow_lines: config.flow?.lines,
     battery_soc: e.battery_soc,
     grid_status: typeof status === "string" ? status : statusRecord?.entity,
     grid_status_outage: statusRecord?.outage,
@@ -480,7 +565,16 @@ function toFlat(config: RawConfig): FlatConfig {
     slow_s: config.flow?.slow_s,
     fast_s: config.flow?.fast_s,
   };
-  for (const quantity of QUANTITIES) flattenQuantity(quantity, e[quantity], out);
+  for (const quantity of QUANTITIES)
+    flattenQuantity(quantity, e[quantity] as EntityRef | undefined, out);
+  out.pv_scales = names(config.view?.pv_scales);
+  out.quick_style = config.view?.quick_style;
+  // One switch per quick button; a single name counts as a list (QB-14).
+  const expanded = expandedList(config.view?.expanded);
+  for (const q of QUICK_NAMES) out[`expanded_${q}`] = expanded.includes(q) ? true : undefined;
+  out.default_pv_scale = config.view?.default_pv_scale;
+  out.list_solar = config.list?.solar;
+  out.ring_solar = config.ring?.solar;
   const colors = (config.colors ?? {}) as Record<string, unknown>;
   for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
   out.soc_stops = colors.soc_stops;
@@ -511,6 +605,8 @@ function buildRef(quantity: Quantity, flat: FlatRecord): EntityRef | undefined {
       if (!nonEmpty(entity)) return undefined;
       return flat[`${quantity}_invert`] === true ? { entity, invert: true } : entity;
     }
+    case "sources":
+      return cleanSources(flat[`${quantity}_sources`]) as EntityRef | undefined;
     case "split": {
       const fields = SPLIT_FIELDS[quantity];
       const keys = SPLIT_KEYS[quantity];
@@ -583,6 +679,8 @@ function cleanCharge(value: unknown): Record<string, unknown> | undefined {
   const text = (v: unknown): string | undefined => (nonEmpty(v) ? v : undefined);
   const plugged = waits ? text(value.plugged) : undefined;
   const charge = prune({
+    // Keys the form has no field for stay as they are (issue #19).
+    ...unknownKeys(value, ["soc", "show", "plugged", "unplugged"]),
     soc: text(value.soc),
     show: text(value.show),
     plugged,
@@ -636,6 +734,7 @@ function energyReady(flat: FlatConfig): boolean {
 // ---------------------------------------------------------------------------
 
 const FLOW_FIELDS = [
+  "flow_lines",
   "inactive_lines",
   "animation",
   "design",
@@ -653,21 +752,59 @@ const FLOW_FIELDS = [
   "fast_s",
 ];
 const VIEW_FIELDS = [
+  "quick_style",
+  "expanded_modes",
+  "expanded_energy_periods",
+  "expanded_pv_scales",
+  "expanded_scope",
   "modes",
   "default_mode",
   "avg_short_minutes",
   "avg_long_minutes",
   "energy_periods",
   "default_energy",
+  "pv_scales",
+  "default_pv_scale",
 ];
+/** The quick buttons by the key of their values, in their fixed order (QB-10). */
+const QUICK_NAMES = ["modes", "energy_periods", "pv_scales", "scope"] as const;
+const QUICK_STYLES = ["segment", "segment_compact", "single"];
+
+/** `view.expanded` as a list - a single name counts as one (QB-14). */
+function expandedList(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  return value === undefined || value === null || value === "" ? [] : [value];
+}
+
+/**
+ * The expanded quick buttons for the YAML, in their fixed order; names the
+ * form does not know stay as written (#19). Nothing when none is left.
+ */
+function expandedOut(flat: FlatRecord, raw: unknown): unknown[] | undefined {
+  const known = new Set<unknown>(QUICK_NAMES);
+  const list = [
+    ...QUICK_NAMES.filter((q) => flat[`expanded_${q}`] === true),
+    ...expandedList(raw).filter((entry) => !known.has(entry)),
+  ];
+  return list.length > 0 ? list : undefined;
+}
+
 /** What each quick button offers, in its fixed order (REQ QB-2, EM-2). */
 const VIEW_MODES = ["current", "avg_short", "avg_long"];
 const ENERGY_CHOICES = ["power", "today", "24h", "week", "7d", "month", "30d"];
 const LIST_SCOPES = ["filtered", "full"];
+const PV_SCALES = ["share", "peak"];
 const ALLOWED = { modes: VIEW_MODES, energy_periods: ENERGY_CHOICES, scope: LIST_SCOPES };
 /** Shown ticked while nothing is set, and then never written (QB-2, QB-6, QB-8). */
 const ENERGY_DEFAULT = ["power", "today", "24h", "week"];
-const OWN_GROUP = ["title", "max_consumers", "min_consumer_w", "update_interval_s", "appearance"];
+const OWN_GROUP = [
+  "title",
+  "layout",
+  "max_consumers",
+  "min_consumer_w",
+  "update_interval_s",
+  "appearance",
+];
 
 /**
  * The part of the YAML a form field writes: a top-level key, a block, or one
@@ -683,6 +820,7 @@ export function fieldOwner(name: string): string | undefined {
     if (
       name === quantity ||
       name === `${quantity}_source` ||
+      name === `${quantity}_sources` ||
       name === `${quantity}_invert` ||
       split.includes(name)
     )
@@ -798,6 +936,8 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       const statusEntity = opt(flat.grid_status);
       return statusEntity
         ? prune({
+            // Keys the form has no field for stay as they are (issue #19).
+            ...unknownKeys(rawEntities.grid_status, ["entity", "outage", "ok"]),
             entity: statusEntity,
             outage: states(flat.grid_status_outage),
             ok: states(flat.grid_status_ok),
@@ -834,6 +974,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       raw.update_interval_s,
     ),
     appearance: part("appearance", () => opt(flat.appearance), raw.appearance),
+    layout: part("layout", () => opt(flat.layout), raw.layout),
     // A rebuilt block keeps the keys the form has no field for - list.title,
     // view.remember and whatever comes next (issue #19).
     list: part(
@@ -846,8 +987,10 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "always_below",
             "scope",
             "default_scope",
+            "solar",
           ]),
           enabled: flat.list_enabled,
+          solar: flat.list_solar,
           rest_label: flat.rest_label,
           always_below: flat.list_always_below,
           scope: choices(flat.scope, LIST_SCOPES),
@@ -859,8 +1002,9 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       "ring",
       () =>
         prune({
-          ...unknownKeys(raw.ring, ["enabled", "animation"]),
+          ...unknownKeys(raw.ring, ["enabled", "animation", "solar"]),
           enabled: flat.ring_enabled,
+          solar: flat.ring_solar,
           animation: opt(flat.ring_animation) as RingAnimation | undefined,
         }),
       raw.ring,
@@ -889,13 +1033,24 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "show_selector",
             "energy_periods",
             "default_energy",
+            "pv_scales",
+            "default_pv_scale",
+            "quick_style",
+            "expanded",
           ]),
+          quick_style: opt(flat.quick_style),
+          expanded: expandedOut(
+            flat as unknown as FlatRecord,
+            isRecord(raw.view) ? raw.view.expanded : undefined,
+          ),
           modes: choices(flat.modes, VIEW_MODES),
           default_mode: offered(flat.default_mode, flat.modes, VIEW_MODES),
           avg_short_minutes: num(flat.avg_short_minutes),
           avg_long_minutes: num(flat.avg_long_minutes),
           energy_periods: choices(flat.energy_periods, ENERGY_CHOICES),
           default_energy: offered(flat.default_energy, flat.energy_periods, ENERGY_CHOICES),
+          pv_scales: choices(flat.pv_scales, PV_SCALES),
+          default_pv_scale: offered(flat.default_pv_scale, flat.pv_scales, PV_SCALES),
         }),
       raw.view,
     ),
@@ -904,6 +1059,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
       () =>
         prune({
           ...rec(previous.flow),
+          lines: flat.flow_lines,
           inactive_lines: flat.inactive_lines,
           animation: flat.animation,
           design: flat.design,
@@ -1107,6 +1263,9 @@ function translateSelector(config: RawConfig): RawConfig | undefined {
   if (card.consumers.length > 0) {
     out.list = { ...(config.list ?? {}), scope: card.list.scope };
   }
+  if (card.view.pvScales.length > 0) {
+    (out.view as Record<string, unknown>).pv_scales = card.view.pvScales;
+  }
   return out;
 }
 
@@ -1164,6 +1323,39 @@ function shownLists(flat: FlatRecord): {
   };
 }
 
+/**
+ * What a switch or a select left out of the YAML means, as the card reads it
+ * (config.ts): shown so, never written while left alone - an unset switch
+ * read as off once, an unset select said nothing at all (25.10.2026).
+ */
+function shownDefaults(flat: FlatRecord): Record<string, unknown> {
+  const consumers =
+    Array.isArray(flat.consumers) &&
+    flat.consumers.some((entry) => isRecord(entry) && nonEmpty(entry.entity));
+  // Only a key really absent takes the default; anything written - a
+  // hand-typed "yes" included - is shown and handed back as it is (#19).
+  const or = (value: unknown, fallback: unknown) =>
+    value === undefined || value === null || value === "" ? fallback : value;
+  const layout = or(flat.layout, "cross");
+  return {
+    list_enabled: or(flat.list_enabled, consumers),
+    ring_enabled: or(flat.ring_enabled, consumers),
+    ring_solar: or(flat.ring_solar, true),
+    quick_style: or(flat.quick_style, "segment"),
+    layout,
+    // Curved for the cross, straight for the others (AN-2).
+    flow_lines: or(flat.flow_lines, layout === "cross" ? "curved" : "straight"),
+    appearance: or(flat.appearance, "auto"),
+    ring_animation: or(flat.ring_animation, "overtake"),
+    power_unit: or(flat.power_unit, "kW"),
+    power_decimals: or(flat.power_decimals, 2),
+    power_digits: or(flat.power_digits, 3),
+    inactive_lines: or(flat.inactive_lines, "show"),
+    animation: or(flat.animation, "auto"),
+    design: or(flat.design, NO_DESIGN),
+  };
+}
+
 /** Which fields and options of a group are locked; a change rebuilds its form. */
 function lockKey(fields: unknown): string {
   const locked: string[] = [];
@@ -1191,34 +1383,23 @@ function tickable(ticked: readonly string[], all: readonly string[], label: (v: 
   }));
 }
 
-/** The start value, among the ticked values only, and only with more than one (QB-6). */
-function startField(
-  name: string,
-  ticked: readonly string[],
-  label: (v: string) => string,
-  disabled: boolean,
-): Record<string, unknown>[] {
-  if (ticked.length < 2) return [];
-  return [
-    {
-      name,
-      disabled,
-      selector: {
-        select: {
-          mode: "dropdown",
-          options: ticked.map((value) => ({ value, label: label(value) })),
-        },
-      },
-    },
-  ];
-}
-
 function schema(hass: HomeAssistant, flat: FlatRecord) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   const shown = shownLists(flat);
   const powerOn = shown.energy_periods.includes("power");
   const hasConsumers = Array.isArray(flat.consumers) && flat.consumers.length > 0;
   const derivedBy = QUANTITIES.filter((q) => flat[`${q}_source`] === "derived");
+  // Several PV sources: their panel, the PV scale, the switches for ring and rows.
+  const sources = flat.solar_source === "sources";
+  const sourceRows = (Array.isArray(flat.solar_sources) ? flat.solar_sources : []).filter(
+    (row) => isRecord(row) && nonEmpty(row.entity),
+  ) as Record<string, unknown>[];
+  // What the card can offer (PV-6): shares need two sources, % kWp every peak.
+  const canShare = sourceRows.length > 1;
+  const canPeak = sourceRows.length > 0 && sourceRows.every((row) => num(row.kwp) !== undefined);
+  const scales = (choices(flat.pv_scales, PV_SCALES) ?? PV_SCALES).filter((s) =>
+    s === "share" ? canShare : canPeak,
+  );
   // One closed section per node, as in "Beschriftung & Zusatzwerte" (E-3):
   // without them the four quantities ran into each other, and what each was
   // about stood only in the small title of its select.
@@ -1264,6 +1445,8 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       title: t("entities"),
       schema: [...entitySections, COLORS_HINT],
     },
+    // Several PV sources have their panel right here, like the consumers (PV-9).
+    ...(sources ? [{ name: SOLAR_SLOT, type: "constant" }] : []),
     {
       name: "nodes",
       type: "expandable",
@@ -1305,6 +1488,33 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
        * written, the bar above it, and how often it refreshes.
        */
       schema: [
+        // Where the nodes stand and how the lines run (AN-1, AN-2, AN-6).
+        {
+          name: "layout",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "cross", label: t("layout_cross") },
+                { value: "square_right", label: t("layout_square_right") },
+                { value: "square_left", label: t("layout_square_left") },
+                { value: "triangle", label: t("layout_triangle") },
+              ],
+            },
+          },
+        },
+        {
+          name: "flow_lines",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "curved", label: t("lines_curved") },
+                { value: "straight", label: t("lines_straight") },
+              ],
+            },
+          },
+        },
         {
           name: "appearance",
           selector: {
@@ -1319,8 +1529,10 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           },
         },
         { name: "list_enabled", selector: { boolean: {} } },
+        ...(sources ? [{ name: "list_solar", selector: { boolean: {} } }] : []),
         { name: "list_always_below", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },
+        ...(sources ? [{ name: "ring_solar", selector: { boolean: {} } }] : []),
         {
           name: "ring_animation",
           selector: {
@@ -1403,6 +1615,23 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
     // offers, and where it starts when it offers more than one value. One
     // group, not three - Markus 22.10.2026: "ist das nicht etwas viel?"
     (() => {
+      // One switch per quick button, once it offers more than one value by the
+      // configuration - the editor checks no statistics (QB-12, QB-14).
+      const expand = (name: string, ticked: readonly unknown[], disabled = false) =>
+        ticked.length > 1
+          ? [{ name: `expanded_${name}`, disabled, selector: { boolean: {} } }]
+          : [];
+      const style = [
+        {
+          name: "quick_style",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: QUICK_STYLES.map((value) => ({ value, label: t(`quick_style_${value}`) })),
+            },
+          },
+        },
+      ];
       const smoothing = [
         {
           name: "modes",
@@ -1416,7 +1645,6 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
           },
         },
-        ...startField("default_mode", shown.modes, (m) => t(MODE_LABELS[m]), !powerOn),
         {
           name: "avg_short_minutes",
           disabled: !powerOn,
@@ -1427,6 +1655,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           disabled: !powerOn,
           selector: { number: { ...limitsOf("view.avg_long_minutes"), mode: "box" } },
         },
+        ...expand("modes", shown.modes, !powerOn),
       ];
       const energy = [
         {
@@ -1441,12 +1670,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
           },
         },
-        ...startField(
-          "default_energy",
-          shown.energy_periods,
-          (p) => t(`energy_${p}`),
-          !energyReady(flat),
-        ),
+        ...expand("energy_periods", shown.energy_periods, !energyReady(flat)),
       ];
       const scope = hasConsumers
         ? [
@@ -1460,16 +1684,52 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 },
               },
             },
-            ...startField("default_scope", shown.scope, (v) => t(`scope_${v}`), false),
+            ...expand("scope", shown.scope),
           ]
         : [];
+      // The PV scale (PV-6): only with sources and their ring. A scale the
+      // sources cannot give is locked, and the red note says why (QB-5 style).
+      const ringOn = flat.ring_solar !== false;
+      const scaleShown = sources && ringOn && (canShare || canPeak);
+      const pvScale = scaleShown
+        ? [
+            {
+              name: "pv_scales",
+              selector: {
+                select: {
+                  multiple: true,
+                  mode: "list",
+                  options: tickable(scales, PV_SCALES, (v) => t(`pv_scale_${v}`)).map((o) =>
+                    (o.value === "share" && !canShare) || (o.value === "peak" && !canPeak)
+                      ? { ...o, disabled: true }
+                      : o,
+                  ),
+                },
+              },
+            },
+            // What the card offers: ticked and possible (PV-6).
+            ...expand(
+              "pv_scales",
+              scales.filter((v) => (v === "share" ? canShare : canPeak)),
+            ),
+          ]
+        : [];
+      const pvNotice = !scaleShown
+        ? undefined
+        : !canPeak
+          ? localize("editor_help.pv_scale_peak_locked", hass)
+          : !canShare
+            ? localize("editor_help.pv_scale_share_locked", hass)
+            : undefined;
       return {
         name: "quick_buttons",
         type: "expandable",
         flatten: true,
         title: t("quick_buttons"),
-        schema: [...smoothing, ...energy, ...scope],
+        schema: [...style, ...smoothing, ...energy, ...pvScale, ...scope],
         parts: [
+          // For all quick buttons at once (QB-9, QB-12).
+          { title: t("group_quick_style"), schema: style },
           {
             title: t("group_smoothing"),
             // In red right above the locked boxes, saying why (Markus 21.10.2026).
@@ -1477,6 +1737,9 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             schema: smoothing,
           },
           { title: t("group_energy"), schema: energy },
+          ...(scaleShown
+            ? [{ title: t("group_pv_scale"), notice: pvNotice, schema: pvScale }]
+            : []),
           ...(hasConsumers ? [{ title: t("group_scope"), schema: scope }] : []),
         ],
       };
@@ -1781,7 +2044,7 @@ class EnerLensCardEditor extends LitElement {
   private _shownFlat(): FlatConfig {
     const flat = (this._flat ?? {}) as FlatRecord;
     if (this._shown?.from !== flat)
-      this._shown = { from: flat, data: { ...flat, ...shownLists(flat) } };
+      this._shown = { from: flat, data: { ...flat, ...shownLists(flat), ...shownDefaults(flat) } };
     return this._shown.data as FlatConfig;
   }
   private _shown?: { from: FlatRecord; data: FlatRecord };
@@ -1797,6 +2060,13 @@ class EnerLensCardEditor extends LitElement {
     for (const key of ["modes", "energy_periods", "scope"] as const) {
       const set = choices(before[key], ALLOWED[key]) !== undefined;
       if (!set && same(value[key], shown[key])) value[key] = undefined;
+    }
+    // The same for a switch or a select: its default shown, written only
+    // when changed. A key set before stays written, even at the default.
+    const defaults = shownDefaults(before);
+    for (const [key, shownValue] of Object.entries(defaults)) {
+      const unset = before[key] === undefined || before[key] === null || before[key] === "";
+      if (unset && same(value[key], shownValue)) value[key] = undefined;
     }
     this._emit(value as FlatConfig);
   }
@@ -1968,12 +2238,19 @@ class EnerLensCardEditor extends LitElement {
   private _renderConsumerColors(): TemplateResult {
     // A cleared list comes back as "" from the object selector, not as [] (REQ E-1).
     const raw = (this._flat as FlatRecord | undefined)?.consumers;
-    const rows = (Array.isArray(raw) ? raw : []).filter((entry) => isRecord(entry));
+    // Numbered in the full list, entries the card skips included: the write
+    // (_setConsumerColor) and the card's palette (config.ts) count that way,
+    // and a count without them put every colour on the next consumer (C-4).
+    const rows = (Array.isArray(raw) ? raw : [])
+      .map((entry, index) => ({ entry, index }))
+      .filter((row): row is { entry: Record<string, unknown>; index: number } =>
+        isRecord(row.entry),
+      );
     if (rows.length === 0) return html``;
     const palette = DEFAULT_CONSUMER_PALETTE;
     return html`
       ${this._group(localize("editor.colors_consumers", this.hass))}
-      ${rows.map((entry, index) => {
+      ${rows.map(({ entry, index }) => {
         const name =
           (typeof entry.name === "string" && entry.name.trim()) ||
           (typeof entry.entity === "string" ? entry.entity : `#${index + 1}`);
@@ -2582,8 +2859,21 @@ class EnerLensCardEditor extends LitElement {
     // and the colours keep the place they always had, between the flow
     // settings and the icons. All form pieces carry the same data, so any one
     // of them may report any field.
+    const solarAt = all.findIndex((item) => item.name === SOLAR_SLOT);
     const slot = all.findIndex((item) => item.name === CONSUMERS_SLOT);
     const head = slot === -1 ? all : all.slice(0, slot);
+    if (solarAt !== -1) {
+      const before = head.slice(0, solarAt);
+      const after = head.slice(solarAt + 1);
+      const fields = slot === -1 ? [] : all.slice(slot + 1);
+      const cut = fields.findIndex((item) => item.name === "icons");
+      const split = cut === -1 ? fields.length : cut;
+      return html`${this._renderPieces(before)}${this._renderSources()}${this._renderPieces(
+        after,
+      )}${this._renderConsumers()}${this._renderPieces(fields.slice(0, split))}${this._renderColors()}${this._renderPieces(
+        fields.slice(split),
+      )}`;
+    }
     const fields = slot === -1 ? [] : all.slice(slot + 1);
     const cut = fields.findIndex((item) => item.name === "icons");
     const split = cut === -1 ? fields.length : cut;
@@ -2730,6 +3020,83 @@ class EnerLensCardEditor extends LitElement {
       </ha-expansion-panel>
     `;
   }
+
+  // --- PV sources (PV-1, PV-3, PV-9) -------------------------------------------
+
+  /** The sources as the form holds them, half-filled ones included. */
+  private _sourceRows(): SourceFormRow[] {
+    const raw = (this._flat as FlatRecord | undefined)?.solar_sources;
+    return Array.isArray(raw) ? (raw as SourceFormRow[]) : [];
+  }
+
+  private _writeSources(rows: SourceFormRow[]): void {
+    if (!this._flat) return;
+    this._emit({ ...(this._flat as FlatRecord), solar_sources: rows } as FlatConfig);
+  }
+
+  /**
+   * One form per source, under each other - no sorting: the card orders them
+   * by power anyway (PV-7). A new row stays in the form until it has an
+   * entity; the YAML only gets it then (E-1).
+   */
+  private _renderSources(): TemplateResult {
+    const t = (key: string) => localize(`editor.${key}`, this.hass);
+    const rows = this._sourceRows();
+    return html`
+      <ha-expansion-panel outlined expanded class="consumers-panel sources-panel">
+        <div slot="header" role="heading" aria-level="3">${t("solar_sources")}</div>
+        <div class="consumers">
+          <p class="hint">${localize("editor_help.solar_sources", this.hass)}</p>
+          ${rows.map(
+            (raw, index) => html`<div class="source">
+              <ha-form
+                .hass=${this.hass}
+                .data=${raw}
+                .schema=${sourceSchema()}
+                .computeLabel=${this._sourceLabel}
+                .computeHelper=${this._sourceHelper}
+                @value-changed=${(ev: CustomEvent<{ value: SourceFormRow }>) => {
+                  ev.stopPropagation();
+                  const next = [...this._sourceRows()];
+                  next[index] = ev.detail.value;
+                  this._writeSources(next);
+                }}
+              ></ha-form>
+              <button
+                class="remove"
+                type="button"
+                aria-label=${t("source_remove")}
+                title=${t("source_remove")}
+                @click=${() => {
+                  const next = [...this._sourceRows()];
+                  next.splice(index, 1);
+                  this._writeSources(next);
+                }}
+              >
+                <ha-icon icon="mdi:close"></ha-icon>
+              </button>
+            </div>`,
+          )}
+          <button
+            class="add-consumer"
+            type="button"
+            @click=${() => this._writeSources([...this._sourceRows(), { excluded: false }])}
+          >
+            <ha-icon icon="mdi:plus"></ha-icon>${t("source_add")}
+          </button>
+        </div>
+      </ha-expansion-panel>
+    `;
+  }
+
+  private _sourceLabel = (item: { name: string }): string =>
+    localize(`editor.pv_source_${item.name}`, this.hass);
+
+  private _sourceHelper = (item: { name: string }): string => {
+    const key = `editor_help.pv_source_${item.name}`;
+    const text = localize(key, this.hass);
+    return text === key ? "" : text;
+  };
 
   // --- consumers (REQ E-4, L-15) -----------------------------------------------
 
@@ -2950,6 +3317,19 @@ class EnerLensCardEditor extends LitElement {
   }
 
   static styles: CSSResultGroup = css`
+    /* One PV source: its form, the remove button beside it (PV-9). */
+    .source {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .source ha-form {
+      flex: 1;
+    }
+
     /*
      * One gap between the panels, whoever draws them.
      *

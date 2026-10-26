@@ -19,6 +19,8 @@ export const styles = css`
     --el-label-size: 12px;
     --el-list-size: 12px;
     --el-line: var(--divider-color, rgba(127, 127, 127, 0.3));
+    /* The free rest of the PV ring under "% kWp" (PV-5): fainter than a line. */
+    --el-pv-free: rgba(127, 127, 127, 0.22);
     /* Grid outage (REQ NS-4, NS-5). A theme that defines --error-color wins;
        only the fallback differs per scheme, because the default dark red
        disappears on a dark ground. */
@@ -185,6 +187,10 @@ export const styles = css`
   /* Title left, mode chips right. Below about 400 px the chips drop onto their
      own line rather than squeezing the title (REQ V-2). */
   .header {
+    /* Above the body that follows: the tap areas of the last row of quick
+       buttons reach a few pixels below the header (QB-14). */
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -203,12 +209,172 @@ export const styles = css`
     white-space: nowrap;
   }
 
-  /* Mode chips and the list filter share one row at the right of the header. */
+  /* Mode chips and the list filter share one row at the right of the header.
+     Too many for one row - expanded quick buttons (QB-11) - they wrap, a whole
+     quick button at a time, and stay on the right. */
   .controls {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: 8px;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-left: auto;
+  }
+
+  /* --- Expanded quick buttons (REQ QB-9, QB-10, QB-14) ------------------- */
+
+  /* A quick button never breaks apart - unless it alone is wider than the
+     card (QB-14, B). */
+  .quick-group {
+    display: inline-flex;
+    flex-wrap: wrap;
     flex: none;
+    max-width: 100%;
+    align-items: stretch;
+  }
+
+  .quick-option {
+    position: relative;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    --mdc-icon-size: 18px;
+  }
+
+  /* The tap area of a segment is 36 px whatever is drawn (I-3, QB-14): the
+     bar's own border is no target, so the segment reaches past it. */
+  .controls:not(.qs-single) .quick-option::after {
+    content: "";
+    position: absolute;
+    inset: -1px 0;
+  }
+
+  /* Inside, so a segment's rounding cannot cut it off (QB-14). */
+  .quick-option:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -3px;
+  }
+
+  /* Segment buttons: one bar per quick button, the chosen value filled.
+     36 px tall, the segments touch (QB-9, QB-14). */
+  .controls:not(.qs-single) .quick-group {
+    border: 1px solid var(--primary-color);
+    border-radius: 18px;
+  }
+  .controls:not(.qs-single) .quick-option {
+    min-height: 34px;
+    padding: 0 11px;
+  }
+  .controls:not(.qs-single) .quick-option + .quick-option {
+    border-left: 1px solid var(--primary-color);
+  }
+  .controls:not(.qs-single) .quick-option:first-child {
+    border-radius: 17px 0 0 17px;
+  }
+  .controls:not(.qs-single) .quick-option:last-child {
+    border-radius: 0 17px 17px 0;
+  }
+  .controls:not(.qs-single) .quick-option.selected {
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+  }
+
+  /* Compact: 28 px, the same type; the tap area stays 36 px (I-3, QB-14):
+     every target reaches 4 px beyond what is drawn, rows 10 px apart. */
+  .controls.qs-segment-compact {
+    row-gap: 10px;
+  }
+  .controls.qs-segment-compact .quick-option {
+    min-height: 26px;
+    padding: 0 8px;
+  }
+  .controls.qs-segment-compact .quick-option:first-child {
+    border-radius: 13px 0 0 13px;
+  }
+  .controls.qs-segment-compact .quick-option:last-child {
+    border-radius: 0 13px 13px 0;
+  }
+  .controls.qs-segment-compact .mode-chip {
+    min-height: 28px;
+    padding: 0 10px;
+  }
+  .controls.qs-segment-compact .filter-toggle {
+    width: 28px;
+    height: 28px;
+  }
+  .controls.qs-segment-compact .quick-option::after,
+  .controls.qs-segment-compact .mode-chip::after,
+  .controls.qs-segment-compact .filter-toggle::after {
+    content: "";
+    position: absolute;
+    /* From the padding box: 26 px inside the border, 36 px with this. */
+    inset: -5px 0;
+  }
+  .controls.qs-segment-compact .mode-chip,
+  .controls.qs-segment-compact .filter-toggle {
+    position: relative;
+  }
+
+  /* Single buttons: each value round on its own, a thin frame around the
+     quick button (QB-9). */
+  .controls.qs-single .quick-group {
+    gap: 4px;
+    padding: 3px;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    border-radius: 22px;
+  }
+  .controls.qs-single .quick-option {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 0 12px;
+    border-radius: 18px;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+  }
+  .controls.qs-single .quick-option.selected {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  /* Counted from a late start: amber, the date only in the tooltip (EM-9, QB-14). */
+  .quick-option.late {
+    color: var(--el-warn2);
+  }
+  .controls:not(.qs-single) .quick-option.late.selected {
+    background: var(--el-warn2);
+    color: var(--text-primary-color, #fff);
+  }
+  .controls.qs-single .quick-option.late {
+    color: var(--el-warn2);
+  }
+  .controls.qs-single .quick-option.late.selected {
+    border-color: var(--el-warn2);
+  }
+
+  /* The smoothing in an energy period: all grey, the remembered value
+     filled light grey, nothing to tap (QB-5, QB-14, A). */
+  .controls .quick-group.off,
+  .controls .quick-group.off .quick-option + .quick-option {
+    border-color: var(--divider-color, rgba(127, 127, 127, 0.3));
+  }
+  .quick-group.off .quick-option {
+    color: var(--disabled-text-color, var(--secondary-text-color));
+    cursor: default;
+  }
+  .quick-group.off .quick-option.selected {
+    background: var(--divider-color, rgba(127, 127, 127, 0.3));
+    border-color: var(--divider-color, rgba(127, 127, 127, 0.3));
+    color: var(--secondary-text-color);
   }
 
   /* A round chip: same height and border as the mode chip beside it. */
@@ -296,6 +462,12 @@ export const styles = css`
     stroke-width: 2.4;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+
+  .node .value.figure .arrow.diagonal {
+    width: 1em;
+    height: 1em;
+    margin-block: -0.1em;
   }
 
   .node .value.figure .arrow.vertical {
@@ -659,12 +831,30 @@ export const styles = css`
 
   /* 10 px clears the house ring, which reaches 5.5 px beyond the contour; the
      same distance everywhere keeps the labels of one row aligned. */
-  .node.solar .label {
+  /* Outside: the upper row's labels above, all others below (AN-5). */
+  .node.label-above .label {
     bottom: calc(100% + 10px);
   }
 
-  .node:not(.solar) .label {
+  .node:not(.label-above) .label {
     top: calc(100% + 10px);
+  }
+
+  /* Triangle: the house's label lies on the lines below it - on a ground of the
+     card's own colour, so it stays readable, transparent card or not (AN-5). */
+  .node.label-ground .label {
+    background: var(--ha-card-background, var(--card-background-color, #fff));
+    border-radius: 4px;
+    padding: 0 4px;
+    z-index: 2;
+  }
+
+  /* The triangle is tall - 1.4 times its width: never wider than 320 px, below
+     the list too, or it takes a phone's whole screen (24.10.2026). */
+  .body.layout-triangle .cross,
+  .body.layout-triangle.stacked .cross,
+  .body.layout-triangle.no-list .cross {
+    max-width: min(320px, 100%);
   }
 
   .label .derived {
@@ -801,10 +991,29 @@ export const styles = css`
     max-width: 55%;
   }
 
-  .list:not(.stacked) .rows {
-    width: max-content;
-    max-width: 100%;
-    margin-left: auto;
+  /* Beside the drawing the blocks share one column, as wide as the widest
+     row of both and pushed to the right: PV rows and consumers then have
+     their marks, names and values one below the other (PV-7). A grid, not a
+     block per row width - and only the width: the blocks keep their heights
+     and their gap, the vertical placement (L-17) is untouched. */
+  .list:not(.stacked) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+  }
+
+  .list:not(.stacked) > * {
+    grid-column: 2;
+  }
+
+  /* The title keeps the whole width, as before, and does not widen the rows'
+     column: an item spanning a flexible track does not size the others. */
+  .list:not(.stacked) > .list-title {
+    grid-column: 1 / -1;
+  }
+
+  .list:not(.stacked) .rows,
+  .list:not(.stacked) .pv-rows {
+    min-width: 0;
   }
 
   .list-title {
@@ -948,7 +1157,9 @@ export const styles = css`
      takes everything that is left - on a phone three times what a fixed width
      would give it. Browsers without subgrid keep the flex rows. */
   @supports (grid-template-columns: subgrid) {
-    .list.stacked .rows {
+    /* The columns belong to the list, so the PV rows and the consumers share
+       them (PV-7): the longest name of both decides. */
+    .list.stacked {
       display: grid;
       /* The longest name decides: its column is as wide as it needs, the value
          column as wide as the widest figure, and the lane takes the rest. */
@@ -958,6 +1169,16 @@ export const styles = css`
         minmax(0, max-content)
         max-content;
       column-gap: 6px;
+    }
+
+    .list.stacked > * {
+      grid-column: 1 / -1;
+    }
+
+    .list.stacked .rows,
+    .list.stacked .pv-rows {
+      display: grid;
+      grid-template-columns: subgrid;
     }
 
     .list.stacked .row {
@@ -976,8 +1197,43 @@ export const styles = css`
      the house they come from. Absolute, so it stays out of the row grid, and
      only in this layout - beside the cross the house node itself is the
      starting point. */
-  .list.stacked .rows {
+  .list.stacked .rows,
+  .list.stacked .pv-rows {
     position: relative;
+  }
+
+  /* Square, solar left (AN-3): the PV rows on their own left of the drawing,
+     mirrored - value, name, mark, the mark towards the drawing. Both lists grow
+     alike, so the drawing stands in the middle and both fans are equally wide
+     ("breiter aber symmetrischer Aufbau"). Too narrow for that, both lists go
+     below (the card measures it, _checkStacked). */
+  .body.split .cross {
+    max-width: min(320px, 44%);
+  }
+
+  .list.pv-side {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  }
+
+  .list.pv-side > * {
+    grid-column: 1;
+  }
+
+  .list.pv-side .pv-rows {
+    margin-bottom: 0;
+  }
+
+  .list.pv-side .row {
+    flex-direction: row-reverse;
+  }
+
+  .list.pv-side .row .name {
+    text-align: right;
+  }
+
+  /* The PV rows above the consumers, 10 px apart (PV-7, L-17). */
+  .pv-rows {
+    margin-bottom: 10px;
   }
 
   .list.stacked {

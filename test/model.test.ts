@@ -43,6 +43,8 @@ function configOf(
   consumers: NormalizedConsumer[] = [],
 ): Config {
   return {
+    layout: "cross",
+    solarSources: [],
     sources: {
       solar: single("sensor.solar"),
       grid: single("sensor.grid"),
@@ -57,10 +59,11 @@ function configOf(
     list: {
       enabled: true,
       alwaysBelow: false,
+      solar: false,
       scope: ["filtered", "full"],
       defaultScope: "filtered",
     },
-    ring: { enabled: true, animation: "overtake" },
+    ring: { enabled: true, animation: "overtake", solar: true },
     view: {
       modes: ["current", "avg_short", "avg_long"],
       defaultMode: "current",
@@ -71,6 +74,10 @@ function configOf(
       energyPeriods: [],
       energyDefault: false,
       defaultEnergy: "power",
+      pvScales: [],
+      defaultPvScale: "share",
+      quickStyle: "segment",
+      expanded: [],
     },
     flow: {
       minW: 10,
@@ -83,6 +90,7 @@ function configOf(
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      lines: "curved",
       design: "none",
       dotSize: 100,
       lineWidth: 100,

@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Search"></div>
   <a class="lang" href="../de/quick.html" hreflang="de">Deutsch</a>
   <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Setup</a></li>
 <li><a href="derive.html">Deriving a missing quantity</a></li>
 <li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="layout.html">Arrangements</a></li>
 <li><a href="ev.html">Wallbox and EV</a></li>
 <li><a href="extras.html">Extra values at the nodes</a></li>
 <li class="current"><a href="quick.html">Quick buttons</a></li>
@@ -41,7 +52,7 @@
   <main data-pagefind-body>
     <h1>Quick buttons</h1>
 <div class="paragraph">
-<p>The header has up to three quick buttons; each tap steps to the next value:</p>
+<p>The header has up to four quick buttons; each tap steps to the next value:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -72,6 +83,12 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>power</code>, <code>today</code>, <code>24h</code>, <code>week</code> - see below</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>PV scale</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">shares on the ring, power relative to peak power - only with several PV sources</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view.pv_scales</code>: <code>share</code>, <code>peak</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">both, as far as possible - <code>peak</code> needs <code>kwp</code> on every source</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><strong>List scope</strong></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">filtered list, every consumer</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.scope</code>: <code>filtered</code>, <code>full</code></p></td>
@@ -80,11 +97,31 @@
 </tbody>
 </table>
 <div class="paragraph">
+<p>This is how they look by default - try them, each tap steps on (the card
+below them is left out here):</p>
+</div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded=""></div>
+<div class="paragraph">
 <p>List the values a button should offer. <strong>One value means fixed</strong>: the button is
 gone and the card always shows that value, on every device and for every user -
 a card set up for energy stays one. Fixed values other than the live view are
 named in the header ("Ø 15 min", "Energy: Month"), so nobody takes them for a
 live reading.</p>
+</div>
+<div class="paragraph">
+<p>In the editor each quick button has a part in the group <strong>Quick buttons</strong>: the
+ticks of its values and the switch <strong>Expand</strong>; at the top, <strong>Style</strong> for all of
+them.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-quick-en-light.png" alt="The Quick buttons group" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-quick-en-dark.png" alt="The Quick buttons group" width="490">
+</div>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -96,20 +133,42 @@ list:
 </div>
 </div>
 <div class="paragraph">
-<p>A button with several values starts with its start value - <code>view.default_mode</code>,
-<code>view.default_energy</code>, <code>list.default_scope</code> - unless the browser remembers the
-last one (<code>view.remember</code>). Each card remembers for itself: the editor gives it
+<p>A button with several values starts with the value last chosen, on the very
+first opening with the first one. Each card remembers for itself: the editor gives it
 a <code>memory_id</code>, so two copies of the same card side by side can show different
 things. A second card with the same id in the same view (a duplicate) keeps its
 own values as well; a copy in another view or dashboard is apart anyway. Cards
 written in YAML without a <code>memory_id</code> share what they remember, as before - add
-any name of your own to separate them. After the update a card with an id starts
-once with its start values; what it remembers is tied to the view, so moving it
+any name of your own to separate them. What it remembers is tied to the view, so moving it
 to another view, renaming the view or - for a view without a <code>path</code> of its own -
 reordering the views starts it afresh once. Averages exist for power only:
 without <code>power</code> in <code>energy_periods</code> the card never averages. In a period the
 smoothing button is greyed out.</p>
 </div>
+<div class="paragraph">
+<p><strong>Expand and style.</strong> Instead of one button that steps on with every tap,
+each quick button can show all its values side by side: in the editor the
+switch <strong>Expand</strong> in its part, in YAML
+<code>view.expanded: [modes, energy_periods, pv_scales, scope]</code>. A tap then picks a
+value directly. Under <strong>All quick buttons</strong>, <strong>Style</strong> sets how they look:
+<strong>Segment buttons</strong> (one bar per quick button, the chosen value filled),
+<strong>Segment buttons, compact</strong> (the same bar, flatter - the cycling buttons too)
+or <strong>Single buttons</strong> (every value its own button, a thin frame around the quick
+button). Short of room, the quick buttons wrap, always as a whole.</p>
+</div>
+<div class="paragraph">
+<p>Segment buttons, all expanded:</p>
+</div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+<div class="paragraph">
+<p>Segment buttons compact, only smoothing and power/energy expanded - the other
+two step on:</p>
+</div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment_compact" data-expanded="modes,energy_periods"></div>
+<div class="paragraph">
+<p>Single buttons, all expanded:</p>
+</div>
+<div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
 <div class="paragraph">
 <p><strong>The energy default.</strong> With no <code>energy_periods</code> set, the card offers power,
 today, 24 h and week - but only when solar, grid, battery and house all have
@@ -120,13 +179,13 @@ readings); otherwise it stays with power and says why in the browser console.
 <div class="paragraph">
 <p>The editor has a group per quick button; the last ticked value cannot be
 unticked. The older <code>view.show_selector: false</code> still works and means every
-quick button fixed on its start value; the editor turns it into the lists
-above when it opens.</p>
+quick button fixed on one value; the editor turns it into the lists above when
+it opens.</p>
 </div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

@@ -331,3 +331,67 @@ describe("warning tiers (EM-11)", () => {
     expect(warnTier(0.11)).toBe(2);
   });
 });
+
+describe("several PV sources (PV-2, energy mode)", () => {
+  /** Two sources instead of one PV series; the house takes what they give. */
+  function sources(patch: Partial<EnergyQuery> = {}): EnergyQuery {
+    const day = (w: number) => hours(T0 - 24 * H, Array(27).fill(w));
+    const q = query(patch);
+    return {
+      ...q,
+      roles: { ...q.roles, solar: "#pv" },
+      solarSources: ["roof", "balcony"],
+      hourly: {
+        ...q.hourly,
+        pv: [],
+        roof: day(300),
+        balcony: day(100),
+        imp: day(100),
+        house: day(500),
+        ...patch.hourly,
+      },
+    };
+  }
+
+  it("the PV is the sum of the sources, each one counted on its own", () => {
+    const r = integrateEnergy(sources());
+    expect(r.main.solar?.wh).toBe(1200);
+    expect(r.sources?.roof?.wh).toBe(900);
+    expect(r.sources?.balcony?.wh).toBe(300);
+    expect(r.main.solar?.filledShare).toBe(0);
+  });
+
+  it("a gap in one source is filled from the day before, never from the balance", () => {
+    const day = hours(T0 - 24 * H, Array(27).fill(100));
+    const gap = day.filter((row) => row.start !== T0 + H);
+    // The day before at that hour: 250 W; the balance would say 100 W.
+    const balcony = gap.map((row) => (row.start === T0 + H - 24 * H ? { ...row, mean: 250 } : row));
+    const r = integrateEnergy(sources({ hourly: { balcony } as never }));
+    expect(r.sources?.balcony?.wh).toBe(100 + 250 + 100);
+    expect(r.sources?.balcony?.filledShare).toBeCloseTo(1 / 3);
+    expect(r.main.solar?.wh).toBe(900 + 450);
+  });
+
+  it("a source dark the hour before counts 0 in its gap (night rule per source)", () => {
+    const dark = hours(T0 - 24 * H, [...Array(24).fill(0), 0, null, 0]);
+    const r = integrateEnergy(sources({ hourly: { balcony: dark } as never }));
+    expect(r.sources?.balcony?.wh).toBe(0);
+    expect(r.sources?.balcony?.filledShare).toBe(0);
+  });
+
+  it("a new source shortens nothing: it counts from its own start (like EM-12)", () => {
+    const fresh = hours(T0 + H, [100, 100]);
+    const r = integrateEnergy(sources({ hourly: { balcony: fresh } as never }));
+    expect(r.from).toBe(T0);
+    expect(r.lateStart).toBe(false);
+    expect(r.sources?.balcony?.wh).toBe(200);
+    expect(r.sources?.balcony?.since).toBe(T0 + H);
+    expect(r.main.solar?.wh).toBe(900 + 200);
+  });
+
+  it("a source without any statistics is left out of the sum", () => {
+    const r = integrateEnergy(sources({ hourly: { balcony: [] } as never }));
+    expect(r.sources?.balcony).toBeNull();
+    expect(r.main.solar?.wh).toBe(900);
+  });
+});

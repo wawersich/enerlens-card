@@ -101,6 +101,17 @@ export class DotLayer {
    * Hands over a new measure of the WebKit zoom bug (issue #7, path-zoom.ts).
    * Only the path changes; the animations run on and keep their phase.
    */
+  /** The arrangement's lines (AN-1); the dots move to them at once. */
+  setPaths(paths: Record<ConnectionId, string>): void {
+    if (paths === this.paths) return;
+    this.paths = paths;
+    for (const [connection, link] of this.links) {
+      for (const dot of link.dots) dot.el.style.offsetPath = this.offsetPath(connection);
+    }
+  }
+
+  private paths: Record<ConnectionId, string> = PATHS;
+
   setPathZoom(zoom: number): void {
     if (zoom === this.pathZoom) return;
     this.pathZoom = zoom;
@@ -271,7 +282,7 @@ export class DotLayer {
 
   /** The path a dot rides, corrected for the WebKit zoom bug (issue #7). */
   private offsetPath(connection: ConnectionId): string {
-    return `path("${unzoomPath(PATHS[connection], this.pathZoom)}")`;
+    return `path("${unzoomPath(this.paths[connection], this.pathZoom)}")`;
   }
 
   /** Current position of a dot as a fraction of one lap, 0..1. */

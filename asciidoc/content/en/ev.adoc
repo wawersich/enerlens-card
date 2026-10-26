@@ -18,6 +18,16 @@ consumers:
       plugged: binary_sensor.car_charge_cable
 ----
 
+In the editor the consumer unfolds; under *State of charge* are the *State of
+charge entity (%)*, when it shows - *While charging*, *While plugged in* or
+*Always* - and, for *While plugged in*, the cable:
+
+[.only-light]
+image::editor-ev-en-light.png["Wallbox with the car's state of charge",490]
+
+[.only-dark]
+image::editor-ev-en-dark.png["Wallbox with the car's state of charge",490]
+
 A thin ring around the icon shows the charge. While the car charges, the row
 shows the power; otherwise it shows the charge instead, so the row needs no
 extra room. With `show: plugged` the row stays in the list as long as the car

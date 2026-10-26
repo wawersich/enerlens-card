@@ -62,6 +62,13 @@ export function renderRing(
   mode: RingAnimation = "overtake",
   /** Whether the card moves at all (P-7) - only then do colours blend. */
   fading = false,
+  /**
+   * "share": segments with gaps from twelve o'clock, as the house ring.
+   * "peak": the PV ring measured against its peak (PV-5) - the parts close
+   * together, centred on twelve o'clock, the rest of the ring the free part
+   * that comes last in `allSegments`.
+   */
+  layout: "share" | "peak" = "share",
 ): TemplateResult | typeof nothing {
   // Entries at 0 W (only there with the filter lifted, REQ L-12) would each
   // still claim a gap; a ring of gaps says nothing, so they are skipped here.
@@ -70,7 +77,8 @@ export function renderRing(
 
   const { r, strokeWidth } = ringGeometry(nodePx);
   const circumference = 2 * Math.PI * r;
-  const gap = circumference * GAP_FRACTION;
+  const peak = layout === "peak";
+  const gap = peak ? 0 : circumference * GAP_FRACTION;
   const minArc = circumference * MIN_ARC_FRACTION;
   // A single segment gets no gap - a full circle should close (REQ R-2).
   const gaps = segments.length > 1 ? segments.length * gap : 0;
@@ -90,7 +98,13 @@ export function renderRing(
     lengths[biggest] = Math.max(minArc, lengths[biggest] - borrowed);
   }
 
-  let offset = 0;
+  // Under "% kWp" the parts sit together, centred on twelve o'clock; the free
+  // rest follows them round. The start may lie below zero: a dash offset is
+  // a length, and gliding from one to the next must not wrap round the ring.
+  const parts = peak
+    ? lengths.reduce((sum, length, i) => (segments[i].isRest ? sum : sum + length), 0)
+    : 0;
+  let offset = peak ? -parts / 2 : 0;
   const arcs = segments.map((segment, index) => {
     const arc = { segment, index, length: lengths[index], offset };
     offset += arc.length + (segments.length > 1 ? gap : 0);

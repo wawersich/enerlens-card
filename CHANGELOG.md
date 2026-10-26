@@ -7,15 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Several PV sources** (#13, #14). `entities.solar` takes a list - one entry
+  per inverter or string, with name, peak power (`kwp`) and icon. The PV node
+  shows their sum, a ring around it each source's share (`ring.solar`), and
+  on request each source has its own row above the consumers with a fan of
+  its own (`list.solar`). No sum helper needed: sources asleep at night count
+  as 0; one that drops out while producing turns the sum amber and its
+  tooltip says which.
+- **Balcony plants: `house: excluded`.** A source feeding in behind the meter
+  is missing from a hybrid inverter's house value; marked so, the card adds
+  it and the house reads "calculated".
+- **PV scale quick button.** With peak power on every source: *100%* shows the
+  shares on the ring, *% kWp* the power relative to the total peak power.
+- **Arrangements** (`layout`). Besides the cross: *square · solar right*,
+  *square · solar left* (PV rows left of the drawing, consumers right) and
+  *triangle*. `flow.lines` chooses curved or straight connections; the
+  energy mode's arrows point the right way in each.
+- **Quick buttons expanded** (#21). Each quick button can show all its values
+  side by side instead of one button that cycles (`view.expanded`), and
+  `view.quick_style` sets how all of them look: *segment buttons*, *segment
+  buttons, compact* or *single buttons*. Short of room they wrap, never a
+  quick button split in two.
 - **A website with the full documentation**, in English and German:
   <https://wawersich.github.io/enerlens-card/>. Its cards are not pictures but
   the real card running in the browser with invented values - the view, energy
   and filter buttons can be tried, and the grid outage, extra values and
   narrow layout each have a card of their own. Light and dark, searchable.
+  On the start page and under *Arrangements* switches above the card change
+  arrangement, line form, PV rows and consumer list, with the YAML that
+  amounts to below it. The energy chapter says plainly that every power
+  sensor, helpers included, needs the state class *Measurement* - without it
+  there are no statistics and no energy.
+- **The documentation site has a logo and a favicon.**
+- **Pictures of the editor** on every page where something is set up there,
+  in English and German, light and dark - fewer YAML listings to read.
 
 ### Changed
 - **The README is short again:** what the card does, installation, a first
   step and links into the website, instead of every chapter twice.
+- **No start value fields in the editor** (#22). A card remembers its last
+  value anyway; the start value only counted on the very first opening.
+  The YAML keys keep working.
+- **Quick buttons stay on the right** when they move below the title on a
+  narrow card; they used to stand on the left. Too many for one row, they
+  wrap instead of reaching out of the card.
+- **"Show ring" is now "Show consumer ring"**, next to the new "Show PV ring".
+
+### Fixed
+- **The editor showed "Show list" and "Show ring" off** for a card with
+  consumers and nothing set in the YAML, although both were on. It now shows
+  what the card does and still writes nothing until the switch is turned.
+- **A consumer colour picked in the editor could land on the next consumer**
+  when the YAML held an entry the card skips (`- sensor.x` instead of
+  `- entity: sensor.x`).
+- **Editing a consumer's charge or the grid status dropped keys** the editor
+  has no field for; they now stay as written.
 
 ## [0.11.0] - 2026-10-22
 

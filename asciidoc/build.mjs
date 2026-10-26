@@ -13,6 +13,7 @@
  */
 import asciidoctorFactory from "@asciidoctor/core";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,6 +85,13 @@ function pages(lang) {
 const ICON_THEME =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg>';
 
+/* The logo, inlined so it follows the page's own light/dark switch: without
+ * the file's <style> (which follows only the system) it draws in currentColor. */
+const LOGO = readFileSync(join(here, "assets", "brand", "logo-lupe.svg"), "utf8")
+  .replace(/<style>[\s\S]*?<\/style>\s*/, "")
+  .replace(/ width="\d+" height="\d+"/, ' aria-hidden="true"')
+  .trim();
+
 function layout(lang, page, all, others) {
   const ui = UI[lang];
   const other = LANGS.find((l) => l !== lang);
@@ -102,12 +110,15 @@ function layout(lang, page, all, others) {
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html">${LOGO}Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="${ui.search}"></div>
   <a class="lang" href="../${other}/${twin.file}" hreflang="${other}">${ui.other}</a>
   <button class="theme" type="button" title="${ui.theme}" aria-label="${ui.theme}">${ICON_THEME}</button>
@@ -147,10 +158,11 @@ for (const lang of LANGS) {
 writeFileSync(
   join(out, "index.html"),
   `<!doctype html><meta charset="utf-8"><title>EnerLens Card</title>
+<link rel="icon" href="assets/brand/favicon-lupe.svg" type="image/svg+xml">
 <script>location.replace((navigator.language || "en").startsWith("de") ? "de/index.html" : "en/index.html");</script>
 <a href="en/index.html">English</a> · <a href="de/index.html">Deutsch</a>`,
 );
-cpSync(join(here, "assets"), join(out, "assets"), { recursive: true });
+cpSync(join(here, "assets"), join(out, "assets"), { recursive: true, filter: (f) => !/\.bak\./.test(f) });
 cpSync(join(here, "demo"), join(out, "demo"), { recursive: true });
 cpSync(CARD, join(out, "demo", "enerlens-card.js"));
 // The demo's icons, served from here: every mdi name the demo files or the
@@ -171,6 +183,40 @@ cpSync(CARD, join(out, "demo", "enerlens-card.js"));
   writeFileSync(join(out, "demo", "icons.json"), JSON.stringify(icons));
   const missing = [...names].filter((n) => !icons[n]);
   console.log(`Symbole: ${Object.keys(icons).length}` + (missing.length ? `, nicht gefunden: ${missing.join(", ")}` : ""));
+}
+// A version in every address the pages load, from the content: a browser
+// keeps these files for weeks (Home Assistant's /local for 31 days), and an
+// old card would draw a new arrangement as the cross. Inside out, so a change
+// to the card renews every address that leads to it.
+{
+  const version = (file) => createHash("sha256").update(readFileSync(file)).digest("hex").slice(0, 8);
+  const stamp = (file, pairs) => {
+    let text = readFileSync(file, "utf8");
+    for (const [from, to] of pairs) {
+      if (!text.includes(from)) throw new Error(`${file}: ${from} nicht gefunden`);
+      text = text.replaceAll(from, to);
+    }
+    writeFileSync(file, text);
+  };
+  const demo = join(out, "demo");
+  stamp(join(demo, "demo.js"), [
+    ['"./enerlens-card.js"', `"./enerlens-card.js?v=${version(join(demo, "enerlens-card.js"))}"`],
+    ['"./shared.js"', `"./shared.js?v=${version(join(demo, "shared.js"))}"`],
+    ['"./icons.json"', `"./icons.json?v=${version(join(demo, "icons.json"))}"`],
+  ]);
+  stamp(join(out, "assets", "site.js"), [
+    ['"../demo/demo.js"', `"../demo/demo.js?v=${version(join(demo, "demo.js"))}"`],
+  ]);
+  const site = version(join(out, "assets", "site.js"));
+  const css = version(join(out, "assets", "style.css"));
+  for (const lang of LANGS) {
+    for (const page of readdirSync(join(out, lang)).filter((f) => f.endsWith(".html"))) {
+      stamp(join(out, lang, page), [
+        ['"../assets/site.js"', `"../assets/site.js?v=${site}"`],
+        ['"../assets/style.css"', `"../assets/style.css?v=${css}"`],
+      ]);
+    }
+  }
 }
 // GitHub Pages would otherwise run the folder through Jekyll.
 writeFileSync(join(out, ".nojekyll"), "");

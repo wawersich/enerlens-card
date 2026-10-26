@@ -17,7 +17,7 @@ step() {
 }
 
 step "Typen" npm run typecheck
-step "Lint" npx biome check src test
+step "Lint" npx biome check src test gui-test
 step "Tests" npx vitest run
 step "Build" npm run build
 

@@ -20,6 +20,14 @@ entities:
   battery: derived        # kein Sensor für die Batterieleistung
 ----
 
+Im Editor heißt das bei der Größe *Abgeleitet aus den anderen Größen*:
+
+[.only-light]
+image::editor-derive-de-light.png["Haus abgeleitet aus den anderen Größen",490]
+
+[.only-dark]
+image::editor-derive-de-dark.png["Haus abgeleitet aus den anderen Größen",490]
+
 Genau eine Größe darf abgeleitet werden — zwei Unbekannte lassen sich aus einer
 Gleichung nicht bestimmen, und die Karte sagt das, statt zu raten. Abgeleitete
 Knoten sind gekennzeichnet und nicht anklickbar, weil keine Entität dahinter
@@ -28,7 +36,8 @@ steht, deren Verlauf man zeigen könnte.
 *Verlauf für den abgeleiteten Wert?* Ein abgeleiteter Knoten hat keine
 Entität, also kann ein Tipp darauf keinen Verlauf öffnen. Wer den will, lässt
 Home Assistant dieselbe Summe rechnen: Helfer _Template → Sensor_ (Einheit `W`,
-Geräteklasse `power`, Statusklasse `measurement`) mit
+Geräteklasse `power`, Zustandsklasse `measurement` - ohne sie keine Statistik
+und keine Energiewerte, siehe link:energy.html#zustandsklasse[Energie]) mit
 
 [source,jinja]
 ----

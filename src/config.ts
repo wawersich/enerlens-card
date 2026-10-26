@@ -25,13 +25,19 @@ import {
   type InactiveLines,
   type InsideField,
   type LabelField,
+  type LayoutName,
+  type LineForm,
   type ListScope,
   type NodeKey,
   type NodeOptions,
   type NormalizedCharge,
   type NormalizedConsumer,
+  type NormalizedSolarSource,
   type PowerFormat,
   type PowerUnit,
+  type PvScale,
+  type QuickName,
+  type QuickStyle,
   type RawConfig,
   type RingAnimation,
   type SocStop,
@@ -62,6 +68,7 @@ const ENERGY_CHOICES: readonly EnergyChoice[] = ["power", ...ENERGY_PERIODS];
 /** Offered without any configuration, once the statistics are there (QB-8). */
 const ENERGY_DEFAULT: readonly EnergyChoice[] = ["power", "today", "24h", "week"];
 const LIST_SCOPES: readonly ListScope[] = ["filtered", "full"];
+const PV_SCALES: readonly PvScale[] = ["share", "peak"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
 const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
@@ -85,6 +92,7 @@ export const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "appearance",
   "nodes",
   "memory_id",
+  "layout",
 ]);
 
 /**
@@ -231,6 +239,7 @@ export const NUMBER_LIMITS: Readonly<
   "flow.dot_size": { min: 40, max: 150 },
   "flow.line_width": { min: 30, max: 150 },
   "consumers.min_w": { min: 0 },
+  "entities.solar.kwp": { min: 0.01, max: 10000 },
   "nodes.size": { min: 60, max: 150 },
 };
 
@@ -340,6 +349,53 @@ function readEnum<T extends string>(
 }
 
 /**
+ * An enum that falls back with a warning instead of an error card: a value
+ * this build does not know draws the card the way it always looked (AN-1).
+ */
+function readLenient<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  field: string,
+  fallback: T,
+  hass?: HomeAssistant,
+): T {
+  if (isUnset(value)) return fallback;
+  if (typeof value === "string" && allowed.includes(value as T)) return value as T;
+  console.warn(
+    localize("error.config.unknown_value", hass, { field, allowed: allowed.join(", ") }),
+  );
+  return fallback;
+}
+
+const LAYOUTS: readonly LayoutName[] = ["cross", "square_right", "square_left", "triangle"];
+const LINE_FORMS: readonly LineForm[] = ["curved", "straight"];
+const QUICK_STYLES: readonly QuickStyle[] = ["segment", "segment_compact", "single"];
+const QUICK_NAMES: readonly QuickName[] = ["modes", "energy_periods", "pv_scales", "scope"];
+
+/**
+ * The expanded quick buttons (REQ QB-10, QB-14): a list, or one name as text;
+ * each once; an unknown name warns and is left out - never an error card.
+ */
+function readExpanded(value: unknown, hass?: HomeAssistant): QuickName[] {
+  if (isUnset(value)) return [];
+  const list = Array.isArray(value) ? value : [value];
+  const out: QuickName[] = [];
+  for (const entry of list) {
+    if (typeof entry === "string" && QUICK_NAMES.includes(entry as QuickName)) {
+      if (!out.includes(entry as QuickName)) out.push(entry as QuickName);
+    } else {
+      console.warn(
+        localize("error.config.unknown_value", hass, {
+          field: "view.expanded",
+          allowed: QUICK_NAMES.join(", "),
+        }),
+      );
+    }
+  }
+  return out;
+}
+
+/**
  * The values a quick button offers, in their fixed order, each once (QB-2).
  * Undefined = not set; an empty list counts as not set too, with a warning
  * rather than an error card (QB-6, E-1).
@@ -371,6 +427,8 @@ function readQuickButtons(
   rawList: Record<string, unknown>,
   grid: SourceSpec,
   battery: SourceSpec,
+  /** The PV sources and whether their ring is on (PV-4, PV-6). */
+  solar: { sources: NormalizedSolarSource[]; ring: boolean },
   hass?: HomeAssistant,
 ) {
   const fixed = !readBoolean(rawView.show_selector, "view.show_selector", true, hass);
@@ -419,6 +477,33 @@ function readQuickButtons(
     readChoices(rawList.scope, LIST_SCOPES, "list.scope", hass) ??
     (fixed ? [startScope] : [...LIST_SCOPES]);
 
+  // PV scale (PV-6): "100 %" needs two sources to share, "% kWp" the peak of
+  // every source. With one source and its peak only "% kWp" is left - a ring
+  // always full would say nothing. No ring, no scale.
+  const startScale = readEnum(
+    rawView.default_pv_scale,
+    PV_SCALES,
+    "view.default_pv_scale",
+    "share",
+    hass,
+  );
+  const sources = solar.sources;
+  const offered = PV_SCALES.filter((s) =>
+    s === "share"
+      ? sources.length > 1
+      : sources.length > 0 && sources.every((x) => x.kwp !== undefined),
+  );
+  const wanted =
+    readChoices(rawView.pv_scales, PV_SCALES, "view.pv_scales", hass) ??
+    (fixed ? [startScale] : [...PV_SCALES]);
+  let pvScales = solar.ring ? wanted.filter((s) => offered.includes(s)) : [];
+  if (solar.ring && pvScales.length === 0 && offered.length > 0) {
+    // Asked for "% kWp" without every peak: the shares instead, never an
+    // error card (E-1).
+    console.warn(localize("error.config.pv_scale", hass, { field: "view.pv_scales" }));
+    pvScales = [offered[0]];
+  }
+
   return {
     modes,
     defaultMode: modes.includes(startMode) ? startMode : modes[0],
@@ -428,6 +513,8 @@ function readQuickButtons(
     defaultEnergy: energy.includes(startEnergy) ? startEnergy : energy[0],
     scope,
     defaultScope: scope.includes(startScope) ? startScope : scope[0],
+    pvScales,
+    defaultPvScale: pvScales.includes(startScale) ? startScale : (pvScales[0] ?? "share"),
   };
 }
 
@@ -544,6 +631,67 @@ function readGridStatus(
     return undefined;
   }
   return { entity, outage, ok };
+}
+
+/**
+ * Orange tones for PV sources without a colour of their own (REQ PV-10): six,
+ * dark and light in turn so that neighbours stay apart, repeating after that.
+ */
+export const SOLAR_PALETTE: readonly string[] = Object.freeze([
+  "#e65100",
+  "#ffc107",
+  "#ff9800",
+  "#ffd54f",
+  "#f4511e",
+  "#ffb74d",
+]);
+
+/**
+ * The PV sources of a list under `entities.solar` (REQ PV-1). Like the
+ * consumers, a row without an entity or a sensor picked twice is an ordinary
+ * editor state: skipped with a warning, never an error card (E-1).
+ */
+function readSolarSources(value: unknown[], hass?: HomeAssistant): NormalizedSolarSource[] {
+  const seen = new Set<string>();
+  const sources: NormalizedSolarSource[] = [];
+  value.forEach((raw, i) => {
+    const field = `entities.solar[${i}]`;
+    const entry: unknown = typeof raw === "string" ? { entity: raw } : raw;
+    if (!isRecord(entry) || typeof entry.entity !== "string" || entry.entity.trim() === "") {
+      console.warn(localize("error.config.consumer_entity", hass, { field, index: i }));
+      return;
+    }
+    const entity = entry.entity.trim();
+    // Derived needs the other three quantities; a sum of sources is measured.
+    if (entity === "derived") throw fail("error.config.mixed_form", field, hass);
+    if (seen.has(entity)) {
+      console.warn(localize("error.config.duplicate_consumer", hass, { field, entity }));
+      return;
+    }
+    seen.add(entity);
+    const invert = entry.invert;
+    if (!isUnset(invert) && typeof invert !== "boolean") {
+      throw fail("error.config.boolean", `${field}.invert`, hass);
+    }
+    const house = readString(entry.house, `${field}.house`, hass);
+    if (house !== undefined && house !== "excluded") {
+      console.warn(localize("error.config.solar_house", hass, { field: `${field}.house` }));
+    }
+    sources.push({
+      key: entity,
+      entity,
+      name: readString(entry.name, `${field}.name`, hass),
+      kwp: isUnset(entry.kwp)
+        ? undefined
+        : readLimited(entry.kwp, `${field}.kwp`, 1, hass, NUMBER_LIMITS["entities.solar.kwp"]),
+      icon: readString(entry.icon, `${field}.icon`, hass),
+      color:
+        readString(entry.color, `${field}.color`, hass) ?? SOLAR_PALETTE[i % SOLAR_PALETTE.length],
+      invert: invert === true,
+      excluded: house === "excluded",
+    });
+  });
+  return sources;
 }
 
 function requireConfigured(spec: SourceSpec, field: string, hass?: HomeAssistant): void {
@@ -951,7 +1099,15 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   }
   const rawEntities = requireRecord(rawRecord.entities, "entities", hass);
 
-  const solar = parseSource(rawEntities.solar, "entities.solar", undefined, hass);
+  // A list: the PV is the sum of its sources (REQ PV-1); an empty one is no PV.
+  const solarSources = Array.isArray(rawEntities.solar)
+    ? readSolarSources(rawEntities.solar, hass)
+    : [];
+  const solar: SourceSpec = Array.isArray(rawEntities.solar)
+    ? solarSources.length > 0
+      ? { kind: "sum" }
+      : { kind: "absent" }
+    : parseSource(rawEntities.solar, "entities.solar", undefined, hass);
   const grid = parseSource(rawEntities.grid, "entities.grid", GRID_SPLIT, hass);
   const battery = parseSource(rawEntities.battery, "entities.battery", BATTERY_SPLIT, hass);
   const parsedHouse = parseSource(rawEntities.house, "entities.house", undefined, hass);
@@ -1079,9 +1235,18 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     }
   }
 
-  const buttons = readQuickButtons(rawView, rawList, grid, battery, hass);
+  const layout = readLenient(rawRecord.layout, LAYOUTS, "layout", "cross", hass);
+  const buttons = readQuickButtons(
+    rawView,
+    rawList,
+    grid,
+    battery,
+    { sources: solarSources, ring: readBoolean(rawRing.solar, "ring.solar", true, hass) },
+    hass,
+  );
 
   return {
+    layout,
     title: readString(rawRecord.title, "title", hass),
     // A number is a name too ("memory_id: 1" in YAML).
     memoryId:
@@ -1090,6 +1255,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
         : readString(rawRecord.memory_id, "memory_id", hass),
     sources: { solar, grid, battery, house, batterySoc },
     gridStatus,
+    solarSources,
     consumers,
     minConsumerW,
     maxConsumers,
@@ -1099,12 +1265,15 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       restLabel: readString(rawList.rest_label, "list.rest_label", hass),
       title: readString(rawList.title, "list.title", hass),
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
+      // Off by default: existing boards must not change on their own (PV-7).
+      solar: readBoolean(rawList.solar, "list.solar", false, hass),
       scope: buttons.scope,
       defaultScope: buttons.defaultScope,
     },
     ring: {
       enabled: readBoolean(rawRing.enabled, "ring.enabled", hasConsumers, hass),
       animation: readEnum(rawRing.animation, RING_ANIMATIONS, "ring.animation", "overtake", hass),
+      solar: readBoolean(rawRing.solar, "ring.solar", true, hass),
     },
     view: {
       modes: buttons.modes,
@@ -1116,6 +1285,16 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       energyPeriods: buttons.energyPeriods,
       energyDefault: buttons.energyDefault,
       defaultEnergy: buttons.defaultEnergy,
+      pvScales: buttons.pvScales,
+      defaultPvScale: buttons.defaultPvScale,
+      quickStyle: readLenient(
+        rawView.quick_style,
+        QUICK_STYLES,
+        "view.quick_style",
+        "segment",
+        hass,
+      ),
+      expanded: readExpanded(rawView.expanded, hass),
     },
     flow: {
       minW: minWFixed,
@@ -1142,6 +1321,14 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
           : undefined,
       dotSize: readLimited(rawFlow.dot_size, "flow.dot_size", 100, hass),
       lineWidth: readLimited(rawFlow.line_width, "flow.line_width", 100, hass),
+      // The cross is curved, the others straight - each may be switched (AN-2).
+      lines: readLenient(
+        rawFlow.lines,
+        LINE_FORMS,
+        "flow.lines",
+        layout === "cross" ? "curved" : "straight",
+        hass,
+      ),
       inactiveLines: readEnum(
         rawFlow.inactive_lines,
         INACTIVE_LINES,
@@ -1186,6 +1373,7 @@ export function collectEntityIds(config: Config): string[] {
       add(spec.negative);
     }
   }
+  for (const source of config.solarSources) add(source.entity);
   add(config.sources.batterySoc);
   add(config.gridStatus?.entity);
   for (const consumer of config.consumers) add(consumer.entity);

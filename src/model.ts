@@ -12,6 +12,7 @@ import type {
   NormalizedCharge,
   Reading,
   Signed,
+  SolarSourceReading,
   SourceSpec,
 } from "./types";
 
@@ -116,6 +117,37 @@ function measure(spec: SourceSpec, read: ValueOf): SignedValue | null {
   return null;
 }
 
+/**
+ * The PV as the sum of its sources (REQ PV-2). A source that is gone counts
+ * 0 - silently when it was quiet before (below `flow.min_w`, a micro inverter
+ * off for the night) or never seen since the card loaded, named when it was
+ * delivering. With none available the PV is unavailable, unless one of them
+ * is known to be quiet: a night with every inverter off still reads 0.
+ */
+function sumOf(
+  sources: SolarSourceReading[],
+  config: Config,
+  lastSeen?: ReadonlyMap<string, number>,
+): { value: SignedValue | null; missing?: string[] } {
+  const quietBelow = config?.flow?.minW ?? 0;
+  let total = 0;
+  let known = false;
+  const missing: string[] = [];
+  for (const source of sources) {
+    if (source.reading.available) {
+      total += source.reading.w;
+      known = true;
+      continue;
+    }
+    const last = lastSeen?.get(source.entity);
+    if (last === undefined) continue;
+    if (last >= quietBelow) missing.push(source.name);
+    else known = true;
+  }
+  if (!known) return { value: null };
+  return { value: splitSigned(total), missing: missing.length > 0 ? missing : undefined };
+}
+
 interface Endpoints {
   positive?: string;
   negative?: string;
@@ -154,9 +186,20 @@ function readSoc(hass: HomeAssistant, entityId: string | undefined): Reading {
   return makeReading(stateObj ? parseNumber(stateObj.state) : null, entityId, false);
 }
 
-/** Builds the model for the current instant. Never throws (REQ N-5). */
-export function buildModel(hass: HomeAssistant, config: Config, chargeOf?: ChargeOf): Model {
-  return buildModelFrom(hass, config, (entityId) => readPowerW(hass, entityId), chargeOf);
+/**
+ * Builds the model for the current instant. Never throws (REQ N-5).
+ *
+ * `lastSeen` holds the last available value per PV source, in W: a source that
+ * goes away after delivering makes the sum partial and is named, one that was
+ * quiet (a micro inverter switching off at night) simply counts 0 (REQ PV-2).
+ */
+export function buildModel(
+  hass: HomeAssistant,
+  config: Config,
+  chargeOf?: ChargeOf,
+  lastSeen?: ReadonlyMap<string, number>,
+): Model {
+  return buildModelFrom(hass, config, (entityId) => readPowerW(hass, entityId), chargeOf, lastSeen);
 }
 
 /** The state of charge of a consumer that has one (REQ L-15); read live, never averaged. */
@@ -174,6 +217,7 @@ export function buildModelFrom(
   // biome-ignore lint/suspicious/noShadowRestrictedNames: documented API parameter name.
   valueOf: (entityId: string) => number | null,
   chargeOf?: ChargeOf,
+  lastSeen?: ReadonlyMap<string, number>,
 ): Model {
   const safeValueOf: ValueOf = (entityId) => {
     try {
@@ -192,10 +236,42 @@ export function buildModelFrom(
   const houseIsDerived = houseSpec.kind === "derived" || houseSpec.kind === "absent";
   const batteryIsAbsent = batterySpec.kind === "absent";
 
-  const solarMeasured = measure(solarSpec, safeValueOf);
+  // Several PV sources: each read on its own, the PV their sum (REQ PV-2).
+  const solarSources: SolarSourceReading[] = (config?.solarSources ?? []).map((source) => {
+    const raw = safeValueOf(source.entity);
+    return {
+      key: source.key,
+      entity: source.entity,
+      name:
+        source.name ?? hass?.states?.[source.entity]?.attributes?.friendly_name ?? source.entity,
+      color: source.color,
+      icon: source.icon,
+      kwp: source.kwp,
+      excluded: source.excluded,
+      reading: makeReading(raw === null ? null : source.invert ? -raw : raw, source.entity, false),
+    };
+  });
+  const sum = solarSpec.kind === "sum" ? sumOf(solarSources, config, lastSeen) : undefined;
+  const missing = sum?.missing;
+
+  const solarMeasured = sum ? sum.value : measure(solarSpec, safeValueOf);
   const gridMeasured = measure(gridSpec, safeValueOf);
   const batteryMeasured = batteryIsAbsent ? null : measure(batterySpec, safeValueOf);
-  const houseMeasured = houseIsDerived ? null : measure(houseSpec, safeValueOf);
+  const houseRaw = houseIsDerived ? null : measure(houseSpec, safeValueOf);
+  // Sources outside the measured house value are added to it (REQ PV-3); a
+  // derived house holds every source already. An unavailable one adds 0.
+  const excluded = houseIsDerived ? [] : solarSources.filter((source) => source.excluded);
+  const corrected = excluded.length > 0;
+  const houseMeasured =
+    houseRaw && corrected
+      ? splitSigned(
+          houseRaw.net +
+            excluded.reduce(
+              (w, source) => w + (source.reading.available ? source.reading.w : 0),
+              0,
+            ),
+        )
+      : houseRaw;
 
   // Inputs of the one derived quantity (REQ A-2). Unavailable stays null, which
   // makes the result unavailable too (REQ A-4); an absent battery counts as 0 W
@@ -235,23 +311,30 @@ export function buildModelFrom(
       ? derive(houseIn, solarIn, gridIn, (h, pv, grid) => h - pv - grid)
       : null;
 
+  /** A value built on a partial PV sum carries its names (REQ PV-2). */
+  const mark = <T extends Reading | Signed>(value: T): T =>
+    missing ? { ...value, missing } : value;
+
   const solar: Reading =
     solarSpec.kind === "derived"
       ? makeReading(derivedSolar, undefined, true)
-      : makeReading(solarMeasured?.net ?? null, entitiesOf(solarSpec).positive, false);
+      : mark(makeReading(solarMeasured?.net ?? null, entitiesOf(solarSpec).positive, false));
 
-  const house: Reading = houseIsDerived
-    ? makeReading(derivedHouse, undefined, true)
+  const houseReading = houseIsDerived
+    ? mark(makeReading(derivedHouse, undefined, true))
     : makeReading(houseMeasured?.net ?? null, entitiesOf(houseSpec).positive, false);
+  const house: Reading = corrected ? { ...houseReading, corrected: true } : houseReading;
 
   const grid: Signed =
     gridSpec.kind === "derived"
-      ? makeSigned(derivedGrid === null ? null : splitSigned(derivedGrid), {}, true)
+      ? mark(makeSigned(derivedGrid === null ? null : splitSigned(derivedGrid), {}, true))
       : makeSigned(gridMeasured, entitiesOf(gridSpec), false);
 
   let battery: Signed | null = null;
   if (batterySpec.kind === "derived") {
-    battery = makeSigned(derivedBattery === null ? null : splitSigned(derivedBattery), {}, true);
+    battery = mark(
+      makeSigned(derivedBattery === null ? null : splitSigned(derivedBattery), {}, true),
+    );
   } else if (!batteryIsAbsent) {
     battery = makeSigned(batteryMeasured, entitiesOf(batterySpec), false);
   }
@@ -284,6 +367,7 @@ export function buildModelFrom(
 
   return {
     solar,
+    solarSources,
     grid,
     battery,
     soc: readSoc(hass, sources.batterySoc),

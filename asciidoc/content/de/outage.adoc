@@ -15,6 +15,15 @@ entities:
     ok: [ok]
 ----
 
+Im Editor: *Netzausfall (optional)*. Die Zustände bietet er aus der Entität zur
+Auswahl an:
+
+[.only-light]
+image::editor-outage-de-light.png["Der Abschnitt Netzausfall",490]
+
+[.only-dark]
+image::editor-outage-de-dark.png["Der Abschnitt Netzausfall",490]
+
 `outage` ist Pflicht, und daran wird nichts geraten: Jede Integration benennt
 ihre Zustände anders, ein aus einer Anlage übernommener Standard wäre öfter
 falsch als richtig. Eine bloße Entitäts-ID ohne Zustandsnamen wird ignoriert,

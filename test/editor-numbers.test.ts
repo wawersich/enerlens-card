@@ -112,7 +112,9 @@ describe("every number field, whatever is typed (E-1 checklist)", () => {
     );
   });
 
-  it("never brings the card to refuse its configuration", async () => {
+  // Every number field of the form, several values each: about 3 s alone,
+  // past the default 5 s while the other files run alongside (25.10.2026).
+  it("never brings the card to refuse its configuration", { timeout: 60000 }, async () => {
     const el = await mount(BASE);
     for (const field of numberFields(el)) {
       const values = new Set<number>([-1, 0, 0.5, 1, 1.5, 1e9, ...steps("120"), ...steps("0.5")]);

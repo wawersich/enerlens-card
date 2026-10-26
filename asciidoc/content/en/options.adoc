@@ -6,7 +6,8 @@
 |===
 |Option |Default |Meaning
 |`title` |— |Card heading
-|`entities.solar` |required |PV power, W or kW
+|`layout` |`cross` |Arrangement of the nodes: `cross`, `square_right` (square · solar right), `square_left` (square · solar left), `triangle` — see _Arrangements_
+|`entities.solar` |required |PV power, W or kW: one entity or a list of sources `++{++entity, name, kwp, icon, color, invert, house}` — see _Balcony solar and more PV_
 |`entities.grid` |required |Grid power, signed
 |`entities.house` |derived |House consumption
 |`entities.battery` |— |Battery power, signed
@@ -22,25 +23,28 @@
 |`list.enabled` |on with consumers |Show the list
 |`list.rest_label` |localised |Name of the remainder
 |`list.title` |— |Heading above the list
-|`list.always_below` |`false` |Keep the list under the cross even when there is room beside it
-|`ring.enabled` |on with consumers |Show the ring
-|`ring.animation` |`overtake` |How the ring follows a reordered list. `overtake`: every segment travels to its new place, one moving forward passes on an inner lane. `fade`: the places stay, their colours blend into the new order. `jump`: the ring does not move, new values show at once - dots and list keep moving
+|`list.solar` |`false` |PV rows above the consumers, one per source (with several sources)
+|`list.always_below` |`false` |Keep the list under the drawing even when there is room beside it
+|`ring.enabled` |on with consumers |Show the consumer ring at the house
+|`ring.solar` |`true` |PV ring at the PV node: each source's share (with several sources)
+|`ring.animation` |`overtake` |How the consumer ring follows a reordered list. `overtake`: every segment travels to its new place, one moving forward passes on an inner lane. `fade`: the places stay, their colours blend into the new order. `jump`: the ring does not move, new values show at once - dots and list keep moving
 |`view.modes` |all three |Quick button smoothing: `current`, `avg_short`, `avg_long`; one = fixed
-|`view.default_mode` |`current` |Start value of the smoothing
 |`view.avg_short_minutes` |`2` |Short averaging window
 |`view.avg_long_minutes` |`15` |Long averaging window
 |`view.remember` |`true` |Remember the last value of each quick button in this browser
 |`memory_id` |set by the editor |What the card remembers is kept under this id, per view; any name will do. Without it, cards share it
 |`view.energy_periods` |`power`, `today`, `24h`, `week` if the statistics are there |Quick button power/energy: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; one = fixed, `++[++power++]++` = no energy. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing
-|`view.default_energy` |`power` |Start value of power/energy
+|`view.pv_scales` |both, as far as possible |Quick button PV scale: `share` (100%, shares on the ring), `peak` (% kWp, needs `kwp` on every source); one = fixed
 |`list.scope` |both |Quick button list scope: `filtered`, `full`; one = fixed
-|`list.default_scope` |`filtered` |Start value of the list scope
-|`view.show_selector` |— |Deprecated: `false` fixes every quick button on its start value
+|`view.quick_style` |`segment` |Style of all quick buttons: `segment` (segment buttons), `segment_compact` (segment buttons, compact - flatter), `single` (single buttons)
+|`view.expanded` |— |Expanded quick buttons, every value its own button: `modes`, `energy_periods`, `pv_scales`, `scope`
+|`view.show_selector` |— |Deprecated: `false` fixes every quick button on one value
 |`appearance` |`auto` |`auto`, `light` or `dark` - shows *this one card* light or dark whatever the theme says, and settles the flow design's value set with it
 |`flow.design` |`none` |`none`, or the id of a design from `flow-designs.json`
 |`flow.dot_color` |empty |Empty: each dot in the colour of its flow. Set: every dot on the card in this colour, while the lines keep theirs
 |`flow.dot_size` |`100` |Dot size in percent, 40–150. 100 is the dot of the design on a card with large nodes; smaller cards draw somewhat smaller dots on their own
 |`flow.line_width` |`100` |Line width in percent, 30–150 - 100 is 3 px for the connections and 2 px for the lines to the list on a card with large nodes, thinner on smaller cards
+|`flow.lines` |`curved` for the cross, otherwise `straight` |Line form of the connections: `curved` or `straight`
 |`flow.inactive_lines` |`show` |`show`, `dim` or `hide`
 |`flow.animation` |`auto` |`auto`, `on` or `off`
 |`flow.min_w` |`10` |Below this no dots move. In the cross it also turns the line grey and drops the state word; for a consumer row the colour and the ring segment follow the list instead

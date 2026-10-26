@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Search"></div>
   <a class="lang" href="../de/index.html" hreflang="de">Deutsch</a>
   <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Setup</a></li>
 <li><a href="derive.html">Deriving a missing quantity</a></li>
 <li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="layout.html">Arrangements</a></li>
 <li><a href="ev.html">Wallbox and EV</a></li>
 <li><a href="extras.html">Extra values at the nodes</a></li>
 <li><a href="quick.html">Quick buttons</a></li>
@@ -43,18 +54,26 @@
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>An energy flow card for Home Assistant. The familiar cross of PV, grid, house
-and battery — plus a breakdown of what the house figure is actually made of.</p>
+<p>A <strong>highly configurable</strong> energy flow card for Home Assistant. Solar, grid,
+house and battery in four arrangements — plus a breakdown of what the house
+figure is actually made of.</p>
 </div>
 <div class="paragraph">
-<p>The card here is not a recording but the real card with invented values – try the filter button or tap “Now”.</p>
+<p>The card here is not a recording but the real card with invented values – try
+the switches above it and the quick buttons in its header.</p>
 </div>
-<div class="card-demo"></div>
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list" data-expanded="modes,energy_periods,pv_scales" data-yaml="off"></div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="what-it-does-differently"><a class="anchor" href="#what-it-does-differently"></a>What it does differently</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p><strong>Four arrangements.</strong> Solar, grid, house and battery stand in a cross, in one of
+two squares turned by 45° or in a triangle, with curved or straight lines. The
+lists move to their nodes: with Square · solar left the PV rows stand left of
+the drawing and the consumers right of it (see <a href="layout.html">Arrangements</a>).</p>
+</div>
 <div class="paragraph">
 <p><strong>Consumers are optional.</strong> If individual consumers are measured (a heat pump,
 say, or a device behind a Shelly), their entities can be added. The list beside
@@ -82,22 +101,31 @@ period</a>).</p>
 </div>
 <div class="card-demo" data-demo="energy"></div>
 <div class="paragraph">
-<p><strong>Quick buttons in the header.</strong> Up to three buttons switch the view with one
-tap: now or average, power or energy, short or full consumer list. Which values
-a button offers is up to you; with a single value it disappears and the card
-shows the same on every device. Every card remembers where it was left (see
+<p><strong>Quick buttons in the header.</strong> Up to four quick buttons switch the view with
+one tap: now or average, power or energy, the PV scale, short or full consumer
+list. Each one steps on with every tap or, expanded, shows all its values side
+by side. For all of them together there are three styles: <strong>Segment buttons</strong>,
+<strong>Segment buttons compact</strong> and <strong>Single buttons</strong>. Which values a quick button
+offers is up to you; with a single value it disappears and the card shows the
+same on every device. Every card remembers where it was left (see
 <a href="quick.html">Quick buttons</a>).</p>
 </div>
-<div class="imageblock only-light">
-<div class="content">
-<img src="../images/card-en-light-quick.svg" alt="The quick buttons: now, kW and the filter button" width="215">
+<div class="paragraph">
+<p>Segment buttons, stepping on:</p>
 </div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded=""></div>
+<div class="paragraph">
+<p>Segment buttons, expanded:</p>
 </div>
-<div class="imageblock only-dark">
-<div class="content">
-<img src="../images/card-en-dark-quick.svg" alt="The quick buttons: now, kW and the filter button" width="215">
+<div class="card-demo header-only" data-demo="quick" data-style="segment" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+<div class="paragraph">
+<p>Segment buttons compact, expanded:</p>
 </div>
+<div class="card-demo header-only" data-demo="quick" data-style="segment_compact" data-expanded="modes,energy_periods,pv_scales,scope"></div>
+<div class="paragraph">
+<p>Single buttons, expanded:</p>
 </div>
+<div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
 <div class="paragraph">
 <p><strong>The consumer list sorts itself and glides.</strong> Rows reorder by power on a fixed
 beat and slide to their new position. A small filter button at the top shows
@@ -106,11 +134,10 @@ a device that has just gone quiet.</p>
 </div>
 <div class="paragraph">
 <p><strong>The ring follows along.</strong> When the order changes, its segments travel to
-their new places and overtake on an inner lane — or, with
-<code>ring.animation: fade</code>, keep their places and blend their colours, as shown
-here:</p>
+their new places and overtake on an inner lane — to be seen in every card on
+this page. With <code>ring.animation: fade</code> they keep their places and blend their
+colours.</p>
 </div>
-<div class="card-demo" data-demo="fade"></div>
 <div class="paragraph">
 <p><strong>The flow is yours to tune.</strong> The dots show the power: the more flows, the
 faster and the more of them. When they start, how fast they get and how many
@@ -159,6 +186,6 @@ the card already uses.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

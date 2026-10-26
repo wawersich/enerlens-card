@@ -9,12 +9,22 @@
   // Before the first paint, so a dark page never flashes light.
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
 </script>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
 <link rel="stylesheet" href="../pagefind/pagefind-ui.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">Ener<span>Lens</span></a>
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
   <div id="search" class="search" data-placeholder="Search"></div>
   <a class="lang" href="../de/derive.html" hreflang="de">Deutsch</a>
   <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
@@ -28,6 +38,7 @@
 <li><a href="setup.html">Setup</a></li>
 <li class="current"><a href="derive.html">Deriving a missing quantity</a></li>
 <li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="layout.html">Arrangements</a></li>
 <li><a href="ev.html">Wallbox and EV</a></li>
 <li><a href="extras.html">Extra values at the nodes</a></li>
 <li><a href="quick.html">Quick buttons</a></li>
@@ -62,6 +73,19 @@ name it explicitly:</p>
 </div>
 </div>
 <div class="paragraph">
+<p>In the editor that is <strong>Derived from the other quantities</strong> at the quantity:</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-derive-en-light.png" alt="House derived from the other quantities" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-derive-en-dark.png" alt="House derived from the other quantities" width="490">
+</div>
+</div>
+<div class="paragraph">
 <p>Exactly one quantity may be derived — two unknowns cannot be solved from one
 equation, and the card says so rather than guessing. Derived nodes are labelled
 and are not clickable, because there is no entity behind them to show.</p>
@@ -70,7 +94,8 @@ and are not clickable, because there is no entity behind them to show.</p>
 <p><strong>Want a history for the derived value?</strong> A derived node has no entity, so
 tapping it cannot open Home Assistant&#8217;s history. If you want that, let Home
 Assistant do the same sum: create a <em>Template → Sensor</em> helper (unit <code>W</code>,
-device class <code>power</code>, state class <code>measurement</code>) with</p>
+device class <code>power</code>, state class <code>measurement</code> - without it no statistics and
+no energy, see <a href="energy.html#state-class">Energy</a>) with</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -102,6 +127,6 @@ more PV</em>.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js"></script>
+<script type="module" src="../assets/site.js?v=ac70f23c"></script>
 </body>
 </html>

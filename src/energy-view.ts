@@ -65,6 +65,8 @@ interface Roles {
 /** The series a signed sensor is split into; never an entity id. */
 const POSITIVE = "#positive";
 const NEGATIVE = "#negative";
+/** The solar role when it is the sum of several sources (PV-2); never an entity id. */
+const SOLAR_SUM = "#pv-sum";
 
 function rolesOf(config: Config): Roles {
   const roles: Partial<Record<EnergyRole, string>> = {};
@@ -77,6 +79,10 @@ function rolesOf(config: Config): Roles {
   };
   const { solar, grid, battery, house } = config.sources;
   single("solar", solar);
+  if (solar.kind === "sum") {
+    roles.solar = SOLAR_SUM;
+    for (const source of config.solarSources) if (source.invert) inverted.add(source.entity);
+  }
   single("house", house);
   const twoWay = (positive: EnergyRole, negative: EnergyRole, spec: SourceSpec) => {
     if (spec.kind === "split") {
@@ -97,10 +103,14 @@ function rolesOf(config: Config): Roles {
 
 /** Every entity to ask the recorder for: a signed sensor once, by its own id. */
 function entityIds(roles: Roles, config: Config): string[] {
-  const ids = Object.values(roles.roles).map((id) =>
-    id.endsWith(POSITIVE) || id.endsWith(NEGATIVE) ? id.slice(0, id.lastIndexOf("#")) : id,
-  );
-  return [...new Set([...ids, ...config.consumers.map((c) => c.entity)])];
+  const ids = Object.values(roles.roles)
+    .filter((id) => id !== SOLAR_SUM)
+    .map((id) =>
+      id.endsWith(POSITIVE) || id.endsWith(NEGATIVE) ? id.slice(0, id.lastIndexOf("#")) : id,
+    );
+  const sources =
+    config.sources.solar.kind === "sum" ? config.solarSources.map((s) => s.entity) : [];
+  return [...new Set([...ids, ...sources, ...config.consumers.map((c) => c.entity)])];
 }
 
 /** The main sensors (PV, grid, battery, house), each once, sorted (QB-8). */
@@ -173,6 +183,7 @@ export function energyKey(config: Config): string {
   return JSON.stringify([
     roles,
     [...inverted],
+    config.solarSources.map((s) => s.entity),
     config.consumers.map((c) => c.entity),
     config.flow.minW,
   ]);
@@ -332,6 +343,8 @@ export async function fetchEnergy(
     fiveMin: splitSigned(fiveMinRows, signed),
     pvZeroBelowW: config.flow.minW,
     since: sinceOf(splitSigned(rowsOf(daily, ids, inverted), signed), from - DAY),
+    solarSources:
+      roles.solar === SOLAR_SUM ? config.solarSources.map((source) => source.entity) : undefined,
   });
   return toView(result, period, roles, inverted, hass, now, periodKey(period, from), signed);
 }
@@ -371,6 +384,11 @@ export function toView(
     wh.set(id, value === undefined ? null : inverted.has(id) ? -value : value);
   }
   for (const [id, value] of Object.entries(result.consumers)) wh.set(id, value?.wh ?? null);
+  // PV sources: in their own sign, as the model reads them (PV-2).
+  for (const [id, value] of Object.entries(result.sources ?? {})) {
+    const own = value?.wh;
+    wh.set(id, own === undefined ? null : inverted.has(id) ? -own : own);
+  }
   // A signed sensor reads its balance - exact, unlike the two halves (EM-3).
   for (const [id, pair] of signed) {
     const positive = wh.get(pair.positive);
@@ -406,6 +424,24 @@ export function toView(
     consumers[id] = mark;
     restTier = Math.max(restTier, mark.tier) as 0 | 1 | 2;
     if (mark.tier === 2) restNotes.push(id);
+  }
+  // A PV source as a consumer row: filled time, a late start, or nothing at
+  // all (EM-11, EM-12); the sum carries the highest tier of its sources (PV-2).
+  if (result.sources) {
+    let worst: EnergyMark = { tier: 0, note: "" };
+    for (const [id, r] of Object.entries(result.sources)) {
+      let mark: EnergyMark;
+      if (!r) mark = { tier: 2, note: localize("energy.none", hass) };
+      else if (r.since !== undefined) {
+        mark = {
+          tier: 2,
+          note: localize("energy.since", hass, { date: formatDay(r.since, hass) }),
+        };
+      } else mark = filled(r.filledShare);
+      consumers[id] = mark;
+      if (mark.tier > worst.tier) worst = mark;
+    }
+    roleMarks.solar = worst;
   }
   // A consumer counted only in part, or not at all, leaves its share in the
   // remainder (EM-12).

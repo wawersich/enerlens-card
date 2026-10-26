@@ -1,8 +1,8 @@
 # EnerLens Card
 
-Eine Energiefluss-Karte für Home Assistant. Das bekannte Kreuz aus PV, Netz,
-Haus und Batterie — dazu eine Aufschlüsselung, woraus der Hauswert eigentlich
-besteht.
+Eine **hoch-konfigurative** Energiefluss-Karte für Home Assistant. PV, Netz,
+Haus und Batterie in vier Anordnungen — dazu eine Aufschlüsselung, woraus der
+Hauswert eigentlich besteht.
 
 **Dokumentation und Live-Demo: <https://wawersich.github.io/enerlens-card/de/index.html>**
 
@@ -15,12 +15,19 @@ besteht.
 
 ## Was sie anders macht
 
+- **Vier Anordnungen:** Kreuz, zwei um 45° gedrehte Quadrate oder Dreieck,
+  mit geschwungenen oder geraden Linien.
+- **Mehrere PV-Quellen:** Dach, West, Balkon — jede mit eigenem Anteil am Ring
+  und auf Wunsch eigener Zeile; kein Summen-Helfer nötig.
 - **Verbraucher als Aufschlüsselung:** Liste und Ring zeigen, woraus der
   Hauswert besteht; der Rest fasst zusammen, was nicht einzeln gemessen wird.
 - **Mittelwerte:** 2 und 15 Minuten, frei einstellbar, beruhigen das Bild,
   ohne die Zahlen zu verfälschen.
 - **Energie statt Leistung:** Heute, 24 h, Woche, 7 Tage, Monat, 30 Tage —
   aus der Statistik der Leistungssensoren, ohne Energie-Sensoren.
+- **Quick-Buttons im Kopf:** Glättung, Leistung/Energie, PV-Skala und
+  Listenumfang mit einem Tipp — zum Weiterschalten oder aufgeklappt, in drei
+  Darstellungen.
 - **E-Auto an der Wallbox:** Ein Ring um das Symbol zeigt den Ladestand.
 - **Zusatzwerte an den Knoten:** Tagesertrag, Autarkie, Restenergie und alles
   andere, was eine Entität hergibt.

@@ -6,7 +6,7 @@
  */
 import { type TemplateResult, html, nothing } from "lit";
 import { localize } from "../localize";
-import type { Config, HomeAssistant, ViewMode } from "../types";
+import type { Config, HomeAssistant, QuickName, ViewMode } from "../types";
 
 export function modeLabel(mode: ViewMode, config: Config, hass: HomeAssistant): string {
   if (mode === "current") return localize("view.now", hass);
@@ -88,6 +88,10 @@ export interface EnergyChip {
   waiting: boolean;
   title: string;
   onCycle: () => void;
+  /** Expanded (QB-10): every offered value, the shown one, a direct pick. */
+  options: { label: string; late: boolean; title: string }[];
+  selected: number;
+  onSelect: (index: number) => void;
 }
 
 function renderEnergyChip(chip: EnergyChip): TemplateResult {
@@ -111,6 +115,106 @@ function renderEnergyChip(chip: EnergyChip): TemplateResult {
   </button>`;
 }
 
+/** The PV scale chip (PV-6): steps through its scales, as wide as the widest. */
+export interface ScaleChip {
+  labels: string[];
+  active: string;
+  ariaLabel: string;
+  title: string;
+  onCycle: () => void;
+  /** Expanded (QB-10): each scale's own tooltip, the shown one, a direct pick. */
+  titles: string[];
+  selected: number;
+  onSelect: (index: number) => void;
+}
+
+/** One value of an expanded quick button (REQ QB-10). */
+interface Choice {
+  label: TemplateResult | string;
+  aria: string;
+  title?: string;
+  /** Counted from a late start: amber (EM-9, QB-14). */
+  late?: boolean;
+}
+
+/**
+ * An expanded quick button: every value its own button, a tap picks it
+ * (REQ QB-10). A radio group (QB-14): one tab stop - the checked value -,
+ * arrow keys and Home/End pick within; a tap on the checked one does
+ * nothing. Greyed out it stays focusable and says why (QB-5).
+ */
+function renderChoices(
+  name: QuickName,
+  label: string,
+  choices: Choice[],
+  selected: number,
+  onSelect: (index: number) => void,
+  off = false,
+  offTitle = "",
+): TemplateResult {
+  const pick = (index: number) => {
+    if (!off && index !== selected) onSelect(index);
+  };
+  const key = (ev: KeyboardEvent, index: number) => {
+    const n = choices.length;
+    const to =
+      ev.key === "ArrowRight" || ev.key === "ArrowDown"
+        ? (index + 1) % n
+        : ev.key === "ArrowLeft" || ev.key === "ArrowUp"
+          ? (index - 1 + n) % n
+          : ev.key === "Home"
+            ? 0
+            : ev.key === "End"
+              ? n - 1
+              : -1;
+    if (to < 0) return;
+    ev.preventDefault();
+    if (off) return;
+    const group = (ev.currentTarget as HTMLElement).parentElement;
+    pick(to);
+    // The focus follows the pick once the group is drawn again.
+    setTimeout(() => group?.querySelectorAll<HTMLElement>('[role="radio"]')[to]?.focus(), 0);
+  };
+  return html`<div
+    class="quick-group ${off ? "off" : ""}"
+    role="radiogroup"
+    data-quick=${name}
+    aria-label=${label}
+    aria-disabled=${off ? "true" : "false"}
+    title=${off ? offTitle : ""}
+  >
+    ${choices.map(
+      (c, i) => html`<button
+        class="quick-option ${i === selected ? "selected" : ""} ${c.late ? "late" : ""}"
+        role="radio"
+        aria-checked=${i === selected ? "true" : "false"}
+        tabindex=${i === (selected < 0 ? 0 : selected) ? 0 : -1}
+        aria-label=${c.aria}
+        title=${off ? offTitle : (c.title ?? "")}
+        @click=${() => pick(i)}
+        @keydown=${(ev: KeyboardEvent) => key(ev, i)}
+      >
+        ${c.label}
+      </button>`,
+    )}
+  </div>`;
+}
+
+function renderScaleChip(chip: ScaleChip): TemplateResult {
+  return html`<button
+    class="mode-chip energy-chip pv-scale-chip"
+    aria-label=${chip.ariaLabel}
+    title=${chip.title}
+    @click=${chip.onCycle}
+  >
+    ${chip.labels.map(
+      (l) => html`<span class="mode-label ${l === chip.active ? "active" : ""}" aria-hidden="true"
+        >${l}</span
+      >`,
+    )}
+  </button>`;
+}
+
 export function renderHeader(
   config: Config,
   hass: HomeAssistant,
@@ -122,6 +226,8 @@ export function renderHeader(
   showAll?: boolean,
   onToggleAll?: () => void,
   energy?: EnergyChip,
+  /** The PV scale (PV-6); undefined when fixed or there is no PV ring. */
+  pvScale?: ScaleChip,
 ): TemplateResult | typeof nothing {
   // A quick button offering one value is no button: that value is fixed
   // (QB-3). What is fixed and not the plain live view is named instead, so
@@ -141,11 +247,38 @@ export function renderHeader(
     : !smoothing && mode !== "current"
       ? html`<div class="mode-note">${modeLabel(mode, config, hass)}</div>`
       : nothing;
-  if (!title && !smoothing && !energyButton && !hasToggle && note === nothing) return nothing;
+  // Expanded, the energy button waits unseen (QB-14, C): it keeps no header.
+  const energyShown =
+    energyButton && !(config.view.expanded.includes("energy_periods") && energy?.waiting);
+  if (!title && !smoothing && !energyShown && !pvScale && !hasToggle && note === nothing)
+    return nothing;
 
+  // Expanded quick buttons and the style for all of them (QB-9, QB-10).
+  const expanded = new Set(config.view.expanded);
+  const group = (key: string) => localize(`editor.${key}`, hass);
   const toggleLabel = localize(showAll ? "list.filter_on" : "list.show_all", hass);
-  const toggle = hasToggle
-    ? html`<button
+  const toggle = !hasToggle
+    ? nothing
+    : expanded.has("scope")
+      ? renderChoices(
+          "scope",
+          group("group_scope"),
+          [
+            {
+              label: html`<ha-icon .icon=${"mdi:filter-outline"}></ha-icon>`,
+              aria: localize("editor.scope_filtered", hass),
+              title: localize("editor.scope_filtered", hass),
+            },
+            {
+              label: html`<ha-icon .icon=${"mdi:filter-off-outline"}></ha-icon>`,
+              aria: localize("editor.scope_full", hass),
+              title: localize("editor.scope_full", hass),
+            },
+          ],
+          showAll ? 1 : 0,
+          () => onToggleAll?.(),
+        )
+      : html`<button
         class="filter-toggle ${showAll ? "on" : ""}"
         aria-pressed=${showAll ? "true" : "false"}
         aria-label=${toggleLabel}
@@ -153,20 +286,69 @@ export function renderHeader(
         @click=${onToggleAll}
       >
         <ha-icon .icon=${showAll ? "mdi:filter-off-outline" : "mdi:filter-outline"}></ha-icon>
-      </button>`
-    : nothing;
+      </button>`;
+  const modes = config.view.modes;
+  const smoothingChip = !smoothing
+    ? nothing
+    : expanded.has("modes")
+      ? renderChoices(
+          "modes",
+          group("group_smoothing"),
+          modes.map((m) => ({
+            label: modeLabel(m, config, hass),
+            aria: modeLabel(m, config, hass),
+            title: m === mode && since ? localize("view.since", hass, { time: since }) : "",
+          })),
+          modes.indexOf(mode),
+          (i) => onMode(modes[i]),
+          inPeriod,
+          localize("view.off_in_period", hass),
+        )
+      : renderModeChip(config, hass, mode, since, onMode, inPeriod);
+  // Expanded, the energy button waits unseen: no room kept (QB-14, C).
+  const energyChip =
+    !energyButton || !energy
+      ? nothing
+      : !expanded.has("energy_periods")
+        ? renderEnergyChip(energy)
+        : energy.waiting
+          ? nothing
+          : renderChoices(
+              "energy_periods",
+              group("group_energy"),
+              energy.options.map((o) => ({
+                label: o.label,
+                aria: o.label,
+                title: o.title,
+                late: o.late,
+              })),
+              energy.selected,
+              energy.onSelect,
+            );
+  const scaleChip = !pvScale
+    ? nothing
+    : expanded.has("pv_scales")
+      ? renderChoices(
+          "pv_scales",
+          group("group_pv_scale"),
+          pvScale.labels.map((l, i) => ({ label: l, aria: l, title: pvScale.titles[i] })),
+          pvScale.selected,
+          pvScale.onSelect,
+        )
+      : renderScaleChip(pvScale);
 
   return html`
     <div class="header">
       ${title ? html`<div class="title">${title}</div>` : html`<span></span>`}
-      <div class="controls">
+      <div class="controls qs-${config.view.quickStyle.replace("_", "-")}">
         ${
           // A period's figures are energies; a mean of them is no view (EM-2):
           // the chip stays, greyed out.
-          smoothing ? renderModeChip(config, hass, mode, since, onMode, inPeriod) : nothing
+          smoothingChip
         }
         ${note}
-        ${energyButton && energy ? renderEnergyChip(energy) : nothing}
+        ${energyChip}
+        ${scaleChip}
         ${toggle}
       </div>
     </div>

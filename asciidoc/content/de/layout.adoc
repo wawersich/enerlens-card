@@ -1,0 +1,63 @@
+= Anordnungen
+:page-key: layout
+:nav-order: 5.5
+
+Wo PV, Netz, Haus und Batterie stehen, ist wählbar: das Kreuz, zwei um 45°
+gedrehte Quadrate und ein Dreieck. Was die Karte zeigt, bleibt in jeder
+Anordnung gleich – Werte, Ringe, Punkte, Listen. Die Karte auf dieser Seite
+läuft mit erfundenen Werten und drei PV-Quellen.
+
+Zum Ausprobieren: Die Schalter über der Karte stellen um, was du im Editor
+umstellen würdest; darunter steht, was davon in YAML landet.
+
+++++
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list"></div>
+++++
+
+== Kreuz
+
+PV oben, Netz links, Haus rechts, Batterie unten – die Anordnung, mit der die
+Karte angefangen hat, und der Standard. Die Verbindungen sind geschwungen.
+
+== Quadrat · PV rechts
+
+Um 45° gedreht: PV oben rechts, Haus unten rechts, Netz oben links, Batterie
+unten links. Beide Listen stehen rechts, die PV-Zeilen auf Höhe der PV, die
+Verbraucher auf Höhe des Hauses.
+
+== Quadrat · PV links
+
+In die andere Richtung gedreht: PV oben links, Haus oben rechts, Netz unten
+links, Batterie unten rechts. Die PV-Zeilen stehen links der Zeichnung, die
+Verbraucher rechts – jeder Fächer läuft zu seinem Knoten. Dafür braucht die
+Karte etwa 590 px Breite; ist sie schmaler, etwa auf dem Handy oder in einer
+Spalte der Abschnitte-Ansicht, stehen beide Listen darunter.
+
+== Dreieck
+
+PV, Haus und Batterie übereinander, das Netz links vom Haus. Das Dreieck ist
+höher als breit und wird darum nie breiter als 320 px. Ohne Batterie entfällt
+das untere Drittel.
+
+== Einstellen
+
+Im Editor unter *Darstellung* stehen ganz oben *Anordnung* und *Linienform*.
+Die Linienform ist beim Kreuz geschwungen, bei den anderen Anordnungen gerade;
+beides lässt sich umstellen.
+
+[.only-light]
+image::editor-layout-de-light.png["Anordnung und Linienform im Abschnitt Darstellung",490]
+
+[.only-dark]
+image::editor-layout-de-dark.png["Anordnung und Linienform im Abschnitt Darstellung",490]
+
+Im Energie-Modus zeigen die Pfeile an Netz und Batterie in jeder Anordnung
+zur Mitte der Zeichnung, wenn Energie bezogen oder entladen wurde, und von ihr
+weg beim Einspeisen und Laden.
+
+[source,yaml]
+----
+layout: square_left        # cross | square_right | square_left | triangle
+flow:
+  lines: curved            # curved | straight
+----

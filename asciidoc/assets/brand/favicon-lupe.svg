@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<style>.fg{color:#1d1e21}@media (prefers-color-scheme:dark){.fg{color:#e3e3e3}}</style>
+<g class="fg">
+<path d="M41 41 L58 58" stroke="currentColor" stroke-width="11" stroke-linecap="round"/>
+<circle cx="26" cy="26" r="20" fill="none" stroke="currentColor" stroke-width="8"/>
+</g>
+<circle cx="26" cy="26" r="10" fill="#ff9800"/>
+</svg>
