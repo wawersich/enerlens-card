@@ -1,4 +1,4 @@
-# EnerLens Card
+<h1><img src="docs/assets/brand/logo-lupe.svg" alt="" width="40" height="40"> EnerLens Card</h1>
 
 A **highly configurable** energy flow card for Home Assistant. Solar, grid,
 house and battery in four arrangements — plus, optionally, a breakdown of what

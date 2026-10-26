@@ -1,4 +1,4 @@
-# EnerLens Card
+<h1><img src="docs/assets/brand/logo-lupe.svg" alt="" width="40" height="40"> EnerLens Card</h1>
 
 Eine **hoch-konfigurative** Energiefluss-Karte für Home Assistant. PV, Netz,
 Haus und Batterie in vier Anordnungen — dazu optional eine Aufschlüsselung,
