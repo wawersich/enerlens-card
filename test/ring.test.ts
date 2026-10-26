@@ -255,6 +255,32 @@ describe("the ring in motion (R-4)", () => {
     expect(drawn(host).find((a) => a.key === "pv2")?.transform, "still under").toBeNull();
   });
 
+  it("keeps the free part of % kWp in a circle of its own when fading (#25)", () => {
+    // Fading, the circles are places. The free part counted as the last one:
+    // when a source dropped out it moved onto that source's circle, which
+    // grew over the whole ring and blended from orange to grey.
+    const { host, show } = stage();
+    const free = { ...segment("__pv_free__", 0.9), isRest: true };
+    show([segment("balcony", 0.06), segment("roof", 0.04), free], true, NODE_PX, "fade", "peak");
+    const before = host.querySelector('circle[data-key="__pv_free__"]');
+    show([segment("balcony", 0.06), { ...free, share: 0.94 }], true, NODE_PX, "fade", "peak");
+    expect(host.querySelector('circle[data-key="__pv_free__"]')).toBe(before);
+  });
+
+  it("jumps when % kWp switches between overtaking and fading (#25)", () => {
+    // Sharing the free part's circle across the modes, the sources were born
+    // anew and grew out of twelve o'clock; no circle in common jumps.
+    const { host, show } = stage();
+    const parts = [
+      segment("roof", 0.3),
+      segment("west", 0.2),
+      { ...segment("__pv_free__", 0.5), isRest: true },
+    ];
+    show(parts, true, NODE_PX, "overtake", "peak");
+    show(parts, true, NODE_PX, "fade", "peak");
+    expect(atTarget(host)).toBe(true);
+  });
+
   it("gets 95 % of the way in 1.5 s", () => {
     const { host, time, show } = stage();
     show([segment("a", 0.8), segment("b", 0.2)]);

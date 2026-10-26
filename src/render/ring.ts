@@ -135,7 +135,17 @@ export function renderRing(
   return html`<svg class="ring ${byPlace && fading ? "fade" : ""}" viewBox="0 0 100 100" aria-hidden="true">
     <g transform="rotate(-90 50 50)">${repeat(
       arcs,
-      (arc) => (byPlace ? `slot-${arc.index}` : arc.segment.key),
+      // The free part of "% kWp" is no place: it keeps its own circle and
+      // stays grey, or it would take over a source's circle whenever one
+      // comes or goes and blend a whole ring from orange (#25). A key of its
+      // own per mode, so a switch between the modes shares no circle and
+      // jumps, as it always did.
+      (arc) =>
+        !byPlace
+          ? arc.segment.key
+          : peak && arc.segment.isRest
+            ? `fade-${arc.segment.key}`
+            : `slot-${arc.index}`,
       (arc) => svg`<circle
         class="ring-seg"
         data-key=${arc.segment.key}

@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   lane of the ring** until the card was hidden, and kept the animation
   running (#24). It now comes back up as soon as it no longer covers the one
   it passed.
+- **Fading under "% kWp", the whole PV ring flashed in a source's colour**
+  when a source came or went, as if there were a lot of power (#25). The
+  free part now keeps a circle of its own and stays grey.
 
 ## [1.0.0] - 2026-10-26
 
