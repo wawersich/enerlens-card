@@ -11,13 +11,13 @@ export const NAMES = {
     title: "Energie", c1: "Wärmepumpe", c2: "Waschmaschine", c3: "Klima", c4: "Kühlschränke", wb: "Wallbox",
     q1: "Trockner", q2: "Router", q3: "Fernseher",
     forecast: "Prognose", imported: "Bezug", autarky: "Autarkie", left: "Rest",
-    roof: "Dach", west: "West", balcony: "Balkon", shed: "Gartenhaus",
+    roof: "Dach", west: "West", balcony: "Balkon", shed: "Gartenhaus", exported: "Einspeisung", today: "Heute",
   },
   en: {
     title: "Energy", c1: "Heat pump", c2: "Washing machine", c3: "Air conditioning", c4: "Fridges", wb: "Wallbox",
     q1: "Dryer", q2: "Router", q3: "TV",
     forecast: "Forecast", imported: "Import", autarky: "Autarky", left: "Left",
-    roof: "Roof", west: "West", balcony: "Balcony", shed: "Shed",
+    roof: "Roof", west: "West", balcony: "Balcony", shed: "Shed", exported: "Export", today: "Today",
   },
 };
 

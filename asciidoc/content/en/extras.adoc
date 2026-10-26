@@ -7,6 +7,17 @@ energy drawn from the grid today, a self-sufficiency rate at the house, the
 battery's remaining energy. It can be any entity - the card shows its state
 the way Home Assistant does and computes nothing itself.
 
+Try it: the switches change the same extra values at all four nodes - in the
+circle a figure for today, with the label a second one with a prefix. The
+battery has no value in the circle. Below is the YAML for it; in the editor
+each node is set on its own.
+
+++++
+<div class="card-demo" data-demo="nodes" data-controls="inside,label,weight,size,name,word"></div>
+++++
+
+Different at each node, for example:
+
 [source,yaml]
 ----
 nodes:

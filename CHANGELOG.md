@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **More cards with switches on the website:** the extra values (place,
+  prefix, weight, size, name, state word) and the energy chapter, whose
+  time-of-day slider moves the card's clock - *Today* then runs up to the time
+  set. The invented PV sources each follow their own day (south, west,
+  morning).
+
 ### Fixed
 - **A PV source that overtook another one under "% kWp" stayed on the inner
   lane of the ring** until the card was hidden, and kept the animation

@@ -70,13 +70,57 @@ const TAP = {
 const now0 = new Date();
 const SHIFT = (12.5 - (now0.getHours() + now0.getMinutes() / 60)) * 3600e3;
 
+/*
+ * The time-of-day slider moves the card's own clock, not only the values:
+ * "today" in the energy mode then runs from midnight to the time set. The
+ * page's Date is replaced by one running `offset` ahead - one clock for the
+ * page, which only a page with a slider does. The clock never runs back: a
+ * time earlier than now is that time tomorrow, so the card sees a new day and
+ * asks for its figures again (it asks only every five minutes or per day).
+ */
+const RealDate = Date;
+let offset = 0;
+function shiftClock() {
+  if (globalThis.Date !== RealDate) return;
+  offset = SHIFT;
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super(RealDate.now() + offset);
+      else super(...args);
+    }
+    static now() {
+      return RealDate.now() + offset;
+    }
+  };
+}
+function setTimeOfDay(hours) {
+  const now = Date.now();
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  let target = midnight.getTime() + hours * 3600e3;
+  if (target <= now) target += 86400e3;
+  offset += target - now;
+}
+
 function powers(t, scene, shift = SHIFT) {
   const d = new Date(t + shift);
   const h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
   const s = t / 1000; // seconds, for the small live wobble
   const wave = (period, amp, phase = 0) => amp * Math.sin((s / period) * 2 * Math.PI + phase);
   const fast = scene === "fade" ? 0.45 : 1; // the fade scene re-sorts more often
-  let pv = h > 6 && h < 20 ? 11000 * Math.sin((Math.PI * (h - 6)) / 14) + wave(29, 300) : 0;
+  // Each PV source has its own day by where it faces (PV-4): the roof faces
+  // south, west catches the afternoon, the balcony the morning and is held to
+  // the 800 W of its inverter. The node shows their sum.
+  const sun = (from, to) => (h > from && h < to ? Math.sin((Math.PI * (h - from)) / (to - from)) : 0);
+  const lit = (from, to, peak, wobble) => (sun(from, to) > 0 ? Math.max(0, peak * sun(from, to) + wobble) : 0);
+  const dim = scene === "outage" ? 0.35 : 1;
+  const pv1 = dim * lit(6, 20, 7500, wave(29, 200));
+  const pv2 = dim * lit(9, 21, 3500, wave(31, 100, 1));
+  const pv3 = dim * Math.min(800, lit(5.5, 17.5, 900, wave(23, 30, 2)));
+  // A fourth, shaded source of a few watts, which only the complete list
+  // shows; it is part of the arrangement scene only.
+  const pv4 = scene === "arrange" ? lit(9, 16, 8, 0) : 0;
+  const pv = pv1 + pv2 + pv3 + pv4;
   const c1 = (h < 7 || h > 21 ? 1500 : 2300) + wave(23 * fast, 900);
   const c2 = h >= 9 && h < 15 ? 1700 + wave(17 * fast, 1100, 2) : 0;
   const c3 = h >= 12 && h < 18 ? 850 + wave(11, 150, 1) : 0;
@@ -87,10 +131,7 @@ function powers(t, scene, shift = SHIFT) {
   const q1 = 0;
   const q2 = 8;
   const q3 = 3;
-  if (scene === "outage") {
-    pv *= 0.35;
-    wb = 0;
-  }
+  if (scene === "outage") wb = 0;
   const house = 450 + c1 + c2 + c3 + c4 + wb + q1 + q2 + q3;
   const surplus = pv - house;
   let battery;
@@ -109,11 +150,7 @@ function powers(t, scene, shift = SHIFT) {
     "sensor.c1": c1, "sensor.c2": c2, "sensor.c3": c3, "sensor.c4": c4, "sensor.wb": wb,
     "sensor.q1": q1, "sensor.q2": q2, "sensor.q3": q3,
     // Three PV sources summing to the PV above (REQ 2.17).
-    "sensor.pv1": Math.max(pv, 0) * 0.62, "sensor.pv2": Math.max(pv, 0) * 0.28,
-    // A fourth, shaded source of a few watts, which only the complete list
-    // shows; it is part of the arrangement scene only.
-    "sensor.pv3": Math.max(pv, 0) * (scene === "arrange" ? 0.0993 : 0.1),
-    "sensor.pv4": Math.max(pv, 0) * (scene === "arrange" ? 0.0007 : 0),
+    "sensor.pv1": pv1, "sensor.pv2": pv2, "sensor.pv3": pv3, "sensor.pv4": pv4,
   };
 }
 
@@ -138,6 +175,8 @@ function statesAt(t, scene, shift = SHIFT) {
   out["sensor.import_today"] = entity("sensor.import_today", 1.24, "kWh", "energy");
   out["sensor.autarky"] = entity("sensor.autarky", 92, "%");
   out["sensor.battery_left"] = entity("sensor.battery_left", 7.9, "kWh", "energy");
+  out["sensor.export_today"] = entity("sensor.export_today", 12.83, "kWh", "energy");
+  out["sensor.house_today"] = entity("sensor.house_today", 18.61, "kWh", "energy");
   return out;
 }
 
@@ -212,9 +251,9 @@ function config(scene, t, data = {}) {
     entities: {
       ...split,
       solar: [
-        { entity: "sensor.pv1", name: t.roof, kwp: 7 },
-        { entity: "sensor.pv2", name: t.west, kwp: 3.5 },
-        { entity: "sensor.pv3", name: t.balcony, kwp: 0.8 },
+        { entity: "sensor.pv1", name: t.roof, kwp: 10 },
+        { entity: "sensor.pv2", name: t.west, kwp: 5 },
+        { entity: "sensor.pv3", name: t.balcony, kwp: 1.2 },
       ],
     },
     list: { solar: true },
@@ -252,6 +291,20 @@ function config(scene, t, data = {}) {
         list: { solar: data.pvRows, enabled: data.list },
         ...(data.expanded ? { view: { ...base.view, expanded: data.expanded.split(",") } } : {}),
       };
+    case "period":
+      // The energy chapter: PV sources with peak power, so "% kWp" shows the
+      // capacity factor of the period; starts on today and % kWp.
+      return {
+        ...base,
+        ...sources,
+        view: {
+          ...base.view,
+          pv_scales: ["share", "peak"],
+          default_energy: "today",
+          default_pv_scale: "peak",
+          expanded: ["energy_periods", "pv_scales"],
+        },
+      };
     case "energy":
       return {
         ...base,
@@ -278,6 +331,10 @@ function config(scene, t, data = {}) {
           battery: { label: { entity: "sensor.battery_left", prefix: t.left, decimals: 1 } },
         },
       };
+    case "nodes":
+      // Driven by the switches above the card (data-controls): the same extra
+      // values at every node, placed and styled as switched.
+      return { ...base, nodes: extraNodes(t, data) };
     case "fade":
       return { ...base, ring: { animation: "fade" }, update_interval_s: 2 };
     case "below":
@@ -285,6 +342,37 @@ function config(scene, t, data = {}) {
     default:
       return base;
   }
+}
+
+/** The extra values of the "nodes" scene, as the switches set them (Z-1 ff.). */
+function extraNodes(t, data) {
+  const values = {
+    solar: [{ entity: "sensor.pv_today", decimals: 1 }, { entity: "sensor.pv_forecast", prefix: t.forecast, decimals: 1 }],
+    grid: [{ entity: "sensor.import_today", decimals: 1 }, { entity: "sensor.export_today", prefix: t.exported, decimals: 1 }],
+    house: [{ entity: "sensor.autarky", decimals: 0 }, { entity: "sensor.house_today", prefix: t.today, decimals: 1 }],
+    // The battery has no value in the circle: it shows two there already.
+    battery: [undefined, { entity: "sensor.battery_left", prefix: t.left, decimals: 1 }],
+  };
+  const style = {
+    ...(data.weight && data.weight !== "normal" ? { weight: data.weight } : {}),
+    ...(data.size && data.size !== "100" ? { size: Number(data.size) } : {}),
+  };
+  const nodes = {};
+  for (const [key, [inside, label]] of Object.entries(values)) {
+    const node = {};
+    if (data.name === "off") node.show_name = false;
+    // Only grid and battery have a state word ("Einspeisung", "lädt").
+    if (data.word === "off" && (key === "grid" || key === "battery")) node.show_state = false;
+    if (inside && data.inside !== "off") {
+      node.inside = { ...inside, ...(data.inside === "below" ? { position: "below" } : {}), ...style };
+    }
+    if (data.label !== "off") {
+      const { entity, prefix, decimals } = label;
+      node.label = { entity, ...(data.label === "prefix" ? { prefix } : {}), decimals, ...style };
+    }
+    if (Object.keys(node).length) nodes[key] = node;
+  }
+  return nodes;
 }
 
 /* ------------------------------------------------------------- start */
@@ -298,8 +386,15 @@ function start(host, { dark, lang }) {
     for (const [k, v] of Object.entries({ ...THEME[scheme], ...ENERGY_COLOURS })) host.style.setProperty(k, v);
   };
   paint();
-  const clock = { shift: SHIFT };
-  const set = (data) => card.setConfig(config(scene, t, data));
+  // With a slider the page's clock carries the shift (shiftClock), the values not.
+  const sliding = (host.dataset.controls ?? "").split(",").includes("time");
+  if (sliding) shiftClock();
+  const clock = { shift: sliding ? 0 : SHIFT };
+  const set = (data) => {
+    const c = config(scene, t, data);
+    card.setConfig(c);
+    return c;
+  };
   set(host.dataset);
   // class="header-only": the page shows the card's header, nothing below it.
   if (host.classList.contains("header-only")) {
@@ -366,18 +461,38 @@ const WORDS = {
     triangle: "Dreieck", lines: "Linienform", curved: "Geschwungen", straight: "Gerade",
     pvrows: "PV-Zeilen in der Liste", list: "Verbraucher-Liste", on: "An", off: "Aus", time: "Tageszeit (erfundener Tag)",
     yaml: "So sieht das in YAML aus:", none: "# alles Standard - nichts einzutragen",
+    inside: "Zusatzwert im Kreis", above: "über dem Icon", below: "unter dem Wert",
+    label: "Zusatzwert beim Text", plain: "ohne Vorsatz", prefix: "mit Vorsatz",
+    weight: "Schriftstärke", normal: "normal", medium: "mittel", bold: "fett",
+    size: "Größe", 80: "80 %", 100: "100 %", 130: "130 %",
+    name: "Name anzeigen", word: "Zustandswort anzeigen",
   },
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
     triangle: "Triangle", lines: "Line form", curved: "Curved", straight: "Straight",
     pvrows: "PV rows in the list", list: "Consumer list", on: "On", off: "Off", time: "Time of day (invented day)",
     yaml: "This is the YAML:", none: "# all defaults - nothing to set",
+    inside: "Extra value in the circle", above: "above the icon", below: "below the value",
+    label: "Extra value with the label", plain: "without prefix", prefix: "with prefix",
+    weight: "Font weight", normal: "normal", medium: "medium", bold: "bold",
+    size: "Size", 80: "80%", 100: "100%", 130: "130%",
+    name: "Show name", word: "Show state word",
   },
 };
 
 function controls(host, card, lang, { set, feed, clock }) {
   const w = WORDS[lang] ?? WORDS.en;
-  const state = { layout: "cross", lines: undefined, pvRows: true, list: true, expanded: host.dataset.expanded };
+  const state = {
+    layout: "cross", lines: undefined, pvRows: true, list: true, expanded: host.dataset.expanded,
+    inside: "above", label: "prefix", weight: "normal", size: "100", name: "on", word: "on",
+  };
+  // The extra-value switches: name, values, the state key they set.
+  const EXTRAS = [
+    ["inside", ["off", "above", "below"]], ["label", ["off", "plain", "prefix"]],
+    ["weight", ["normal", "medium", "bold"]], ["size", ["80", "100", "130"]],
+    ["name", ["on", "off"]], ["word", ["on", "off"]],
+  ];
+  let shown;
   // The card in a frame of its own, apart from the switches and the YAML.
   host.classList.add("with-controls");
   const frame = document.createElement("div");
@@ -393,7 +508,7 @@ function controls(host, card, lang, { set, feed, clock }) {
   if (host.dataset.yaml !== "off") host.appendChild(yaml);
 
   const apply = () => {
-    set(state);
+    shown = set(state);
     feed();
     draw();
   };
@@ -421,15 +536,14 @@ function controls(host, card, lang, { set, feed, clock }) {
   const time = () => {
     const g = document.createElement("label");
     g.className = "demo-group demo-time";
-    const now = new Date(Date.now() + clock.shift);
+    const now = new Date();
     const h = Math.round((now.getHours() + now.getMinutes() / 60) * 4) / 4;
     const text = (x) => `${String(Math.floor(x)).padStart(2, "0")}:${String(Math.round((x % 1) * 60)).padStart(2, "0")}`;
     g.innerHTML = `<span class="demo-label">${w.time} <output>${text(h)}</output></span>`;
     const r = document.createElement("input");
     Object.assign(r, { type: "range", min: 0, max: 23.75, step: 0.25, value: h });
     r.addEventListener("input", () => {
-      const real = new Date();
-      clock.shift = (Number(r.value) - (real.getHours() + real.getMinutes() / 60)) * 3600e3;
+      setTimeOfDay(Number(r.value));
       g.querySelector("output").textContent = text(Number(r.value));
       feed();
     });
@@ -464,18 +578,39 @@ function controls(host, card, lang, { set, feed, clock }) {
             state.list = v === "on";
             apply();
           }),
+        ...EXTRAS.filter(([key]) => want.includes(key)).map(([key, values]) =>
+          choice(w[key], values, state[key], (v) => {
+            state[key] = v;
+            apply();
+          }),
+        ),
         slider,
       ].filter(Boolean),
     );
     const out = [];
+    if (shown.nodes) out.push(...nodesYaml(shown.nodes));
+    // Only the keys this card has switches for.
+    const pvRows = want.includes("pvrows") && state.pvRows;
+    const noList = want.includes("list") && !state.list;
     if (state.layout !== "cross") out.push(`layout: ${state.layout}`);
     if (state.lines) out.push("flow:", `  lines: ${state.lines}`);
-    if (state.pvRows || !state.list) out.push("list:");
-    if (!state.list) out.push("  enabled: false");
-    if (state.pvRows) out.push("  solar: true");
+    if (pvRows || noList) out.push("list:");
+    if (noList) out.push("  enabled: false");
+    if (pvRows) out.push("  solar: true");
     if (state.expanded) out.push("view:", `  expanded: [${state.expanded.split(",").join(", ")}]`);
     yaml.innerHTML = `<span class="demo-label">${w.yaml}</span><pre><code></code></pre>`;
     yaml.querySelector("code").textContent = out.length ? out.join("\n") : w.none;
   }
   apply();
+}
+
+/** The nodes block as the docs write it: one line per field, flow style. */
+function nodesYaml(nodes) {
+  const flow = (o) => `{ ${Object.entries(o).map(([k, v]) => `${k}: ${v}`).join(", ")} }`;
+  const out = ["nodes:"];
+  for (const [key, node] of Object.entries(nodes)) {
+    out.push(`  ${key}:`);
+    for (const [k, v] of Object.entries(node)) out.push(`    ${k}: ${typeof v === "object" ? flow(v) : v}`);
+  }
+  return out.length > 1 ? out : [];
 }

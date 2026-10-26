@@ -7,6 +7,17 @@ PV-Leistung, den Netzbezug von heute, eine Autarkiequote am Haus, die
 Restenergie der Batterie. Es kann jede Entität sein – die Karte zeigt ihren
 Zustand so, wie Home Assistant es tut, und rechnet selbst nichts aus.
 
+Zum Ausprobieren: Die Schalter stellen an allen vier Knoten dieselben
+Zusatzwerte um – im Kreis den Tageswert, beim Text einen zweiten mit Vorsatz.
+Die Batterie hat keinen Wert im Kreis. Darunter steht das YAML dazu; im Editor
+ist es je Knoten einzeln einstellbar.
+
+++++
+<div class="card-demo" data-demo="nodes" data-controls="inside,label,weight,size,name,word"></div>
+++++
+
+Je Knoten verschieden, etwa so:
+
 [source,yaml]
 ----
 nodes:
