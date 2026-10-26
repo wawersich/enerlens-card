@@ -155,9 +155,10 @@ describe("the ring in motion (R-4)", () => {
         animate = true,
         px = size,
         mode: RingAnimation = "overtake",
+        layout: "share" | "peak" = "share",
       ) {
         size = px;
-        render(renderRing(segments, true, px, mode, animate), host);
+        render(renderRing(segments, true, px, mode, animate, layout), host);
         ring.update(host, animate, px);
       },
     };
@@ -212,6 +213,46 @@ describe("the ring in motion (R-4)", () => {
     for (const gap of checked) expect(Math.abs(gap - GAP)).toBeLessThan(0.02);
     expect(atTarget(host)).toBe(true);
     expect(time.pending, "the loop stops once it has arrived").toBe(false);
+  });
+
+  // Issue #24: under "% kWp" the PV parts touch - no gap. An overtaker waiting
+  // for half a gap behind it stayed on the inner lane for good, and the loop
+  // asked for frames for ever.
+  for (const layout of ["share", "peak"] as const) {
+    it(`brings an overtaker back up when it has arrived (${layout}, R-4)`, () => {
+      const { host, time, show } = stage();
+      const free = layout === "peak" ? [{ ...segment("__pv_free__", 0.7), isRest: true }] : [];
+      show([segment("pv1", 0.2), segment("pv2", 0.1), ...free], true, NODE_PX, "overtake", layout);
+      // pv2 passes pv1, which ends up right behind it.
+      show([segment("pv2", 0.2), segment("pv1", 0.1), ...free], true, NODE_PX, "overtake", layout);
+      time.play(10_000);
+      expect(atTarget(host)).toBe(true);
+      expect(
+        drawn(host).find((a) => a.key === "pv2")?.transform,
+        "still on the inner lane",
+      ).toBeNull();
+      expect(time.pending, "the loop stops once it has arrived").toBe(false);
+    });
+  }
+
+  it("surfaces under % kWp while new values keep arriving (#24)", () => {
+    // The ring never comes to rest here, so only the overtaker's own
+    // clearance can bring it up - no part of the parts' gap to wait for.
+    const { host, time, show } = stage();
+    const free = { ...segment("__pv_free__", 0.7), isRest: true };
+    show([segment("pv1", 0.2), segment("pv2", 0.1), free], true, NODE_PX, "overtake", "peak");
+    for (let i = 0; i < 30; i++) {
+      const wobble = 0.01 * Math.sin(i);
+      show(
+        [segment("pv2", 0.2 + wobble), segment("pv1", 0.1), { ...free, share: 0.7 - wobble }],
+        true,
+        NODE_PX,
+        "overtake",
+        "peak",
+      );
+      time.play(300);
+    }
+    expect(drawn(host).find((a) => a.key === "pv2")?.transform, "still under").toBeNull();
   });
 
   it("gets 95 % of the way in 1.5 s", () => {

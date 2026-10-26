@@ -148,6 +148,7 @@ export function renderRing(
         data-length=${arc.length.toFixed(2)}
         data-offset=${arc.offset.toFixed(2)}
         data-circ=${circumference.toFixed(2)}
+        data-gap=${(segments.length > 1 ? gap : 0).toFixed(2)}
       ></circle>`,
     )}</g>
   </svg>`;
@@ -181,6 +182,10 @@ const OMEGA = 4.74 / (RING_GLIDE_MS / 1000);
  * after anything visible has changed, and live values arrive every second.
  */
 const SETTLED = 0.05;
+/** Overlap an overtaker may still have when it starts to surface, in ring
+ *  units: under half a pixel, so nobody sees it, and enough that a part
+ *  without a gap behind it (PV-5) need not wait for the last frames (#24). */
+const TOUCH = 0.4;
 /**
  * Longest step taken at once. The step is exact, so no size of it can
  * overshoot; the cap only stops the ring from leaping after a stalled main
@@ -209,6 +214,8 @@ interface Drawn {
   len: Axis;
   off: Axis;
   circ: number;
+  /** The gap drawn between neighbours - none under "% kWp" (PV-5, #24). */
+  gap: number;
   dive?: Dive;
   /** What was last written, so an unchanged frame writes nothing. */
   written?: string;
@@ -279,6 +286,7 @@ export class RingAnimator {
         len: Number(el.dataset.length),
         off: Number(el.dataset.offset),
         circ: Number(el.dataset.circ),
+        gap: Number(el.dataset.gap ?? 0),
       }))
       .sort((a, b) => a.index - b.index);
     this.lane = laneScale(nodePx);
@@ -300,7 +308,7 @@ export class RingAnimator {
     const resized = kept.some((t) => this.drawn.get(t.el)?.circ !== t.circ);
     if (!animate || !this.clock || kept.length === 0 || resized) {
       for (const t of targets) {
-        this.drawn.set(t.el, { len: axis(t.len), off: axis(t.off), circ: t.circ });
+        this.drawn.set(t.el, { len: axis(t.len), off: axis(t.off), circ: t.circ, gap: t.gap });
       }
       this.halt();
       return;
@@ -314,6 +322,7 @@ export class RingAnimator {
       }
       drawn.len.to = t.len;
       drawn.off.to = t.off;
+      drawn.gap = t.gap;
       const was = rankBefore.get(t.el) ?? 0;
       const is = rankNow.get(t.el) ?? 0;
       // Whom it passes now: in front of it before, behind it now.
@@ -367,7 +376,7 @@ export class RingAnimator {
    * Then its gaps follow the same spring as all others.
    */
   private born(
-    targets: Array<{ el: SVGCircleElement; len: number; off: number; circ: number }>,
+    targets: Array<{ el: SVGCircleElement; len: number; off: number; circ: number; gap: number }>,
     i: number,
   ): Drawn {
     const t = targets[i];
@@ -387,7 +396,7 @@ export class RingAnimator {
     // without a gap - lends none; a gap each would put the last of them over
     // the segment after.
     const room = next ? (wraps ? t.circ : 0) + next.off.x - prevEnd : 0;
-    const gap = prev ? Math.min(t.circ * GAP_FRACTION, Math.max(0, room)) : 0;
+    const gap = prev ? Math.min(t.gap, Math.max(0, room)) : 0;
     const speed = prev ? prev.off.v + prev.len.v : 0;
     // Not clamped at zero - the motion has to stay linear to keep the gaps;
     // draw() never paints a negative length.
@@ -401,6 +410,7 @@ export class RingAnimator {
       len: { x: 0, v: nextSpeed - speed, to: t.len },
       off: { x: prevEnd + gap, v: speed, to: t.off },
       circ: t.circ,
+      gap: t.gap,
       dive,
     };
   }
@@ -451,8 +461,12 @@ export class RingAnimator {
     if (!moving) {
       for (const el of this.shown) {
         const drawn = this.drawn.get(el);
-        // The dive is left alone: it surfaces on its own spring.
+        // The dive is left alone: it surfaces on its own spring. With every
+        // part home nobody overlaps anybody, so nobody is passed any more.
+        // A guard only - dip() lets every overtaker up before this (#24) -
+        // so that no geometry can keep one under and the loop running.
         if (drawn) Object.assign(drawn, { len: axis(drawn.len.to), off: axis(drawn.off.to) });
+        if (drawn?.dive) drawn.dive.passing = [];
       }
     }
     for (const el of this.shown) {
@@ -466,13 +480,13 @@ export class RingAnimator {
 
   /** Under while it is not yet clear of those it passes, then back up. */
   private dip(el: SVGCircleElement, drawn: Drawn, dive: Dive, dt: number): void {
-    const gap = drawn.circ * GAP_FRACTION;
     const end = drawn.off.x + drawn.len.x;
-    // Clear of one when its own end, plus half a gap, lies before that one's
-    // start: the gap between them is back.
+    // Clear of one when its own end, plus half the gap drawn there, lies
+    // before that one's start: the gap between them is back. Under "% kWp"
+    // there is none (PV-5) - touching is clear, give or take TOUCH (#24).
     dive.passing = dive.passing.filter((o) => {
       const other = this.shown.includes(o) ? this.drawn.get(o) : undefined;
-      return other !== undefined && o !== el && end + gap / 2 > other.off.x;
+      return other !== undefined && o !== el && end + drawn.gap / 2 - TOUCH > other.off.x;
     });
     dive.scale.to = dive.passing.length > 0 ? this.lane : 1;
     step(dive.scale, dt, DIVE_OMEGA);

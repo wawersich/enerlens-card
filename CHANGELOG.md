@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **A PV source that overtook another one under "% kWp" stayed on the inner
+  lane of the ring** until the card was hidden, and kept the animation
+  running (#24). It now comes back up as soon as it no longer covers the one
+  it passed.
+
 ## [1.0.0] - 2026-10-26
 
 ### Added
