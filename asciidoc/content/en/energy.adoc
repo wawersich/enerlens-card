@@ -7,12 +7,13 @@ was bought this week, what the heat pump used this month. It needs no energy
 sensors for that - it adds up the long-term statistics Home Assistant keeps of
 the power sensors that are already configured.
 
-Try it: the card starts on *Today* and *% kWp*. The slider sets the time of
-the invented day, and *Today* counts from midnight up to it. With *% kWp* the
-PV ring shows the average power over the period against the peak power of all
-sources, night hours included: it grows during the morning and shrinks again
-in the evening, because the hours without sun count too. *100%* shows the
-sources' shares instead, *kW* the power at this moment.
+Try it: the card starts on *kW* and *% kWp*, the slider sets the time of the
+invented day. The PV ring shows the power against the peak power of all
+sources: it grows with the sun and gets smaller towards the evening, and the
+shares move from the balcony in the morning over the roof to west in the
+evening. With *Today* the card counts from midnight up to the time set, and
+the ring shows the average power since, night hours included. *100%* shows the
+sources' shares instead.
 
 ++++
 <div class="card-demo" data-demo="period" data-controls="time" data-yaml="off"></div>

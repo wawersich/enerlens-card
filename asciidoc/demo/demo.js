@@ -293,14 +293,16 @@ function config(scene, t, data = {}) {
       };
     case "period":
       // The energy chapter: PV sources with peak power, so "% kWp" shows the
-      // capacity factor of the period; starts on today and % kWp.
+      // ring grow and shrink with the sun - in power first, the capacity
+      // factor of a period a tap away. Colours blend rather than overtake:
+      // calmer while the slider moves.
       return {
         ...base,
         ...sources,
+        ring: { animation: "fade" },
         view: {
           ...base.view,
           pv_scales: ["share", "peak"],
-          default_energy: "today",
           default_pv_scale: "peak",
           expanded: ["energy_periods", "pv_scales"],
         },

@@ -58,12 +58,13 @@ sensors for that - it adds up the long-term statistics Home Assistant keeps of
 the power sensors that are already configured.</p>
 </div>
 <div class="paragraph">
-<p>Try it: the card starts on <strong>Today</strong> and <strong>% kWp</strong>. The slider sets the time of
-the invented day, and <strong>Today</strong> counts from midnight up to it. With <strong>% kWp</strong> the
-PV ring shows the average power over the period against the peak power of all
-sources, night hours included: it grows during the morning and shrinks again
-in the evening, because the hours without sun count too. <strong>100%</strong> shows the
-sources' shares instead, <strong>kW</strong> the power at this moment.</p>
+<p>Try it: the card starts on <strong>kW</strong> and <strong>% kWp</strong>, the slider sets the time of the
+invented day. The PV ring shows the power against the peak power of all
+sources: it grows with the sun and gets smaller towards the evening, and the
+shares move from the balcony in the morning over the roof to west in the
+evening. With <strong>Today</strong> the card counts from midnight up to the time set, and
+the ring shows the average power since, night hours included. <strong>100%</strong> shows the
+sources' shares instead.</p>
 </div>
 <div class="card-demo" data-demo="period" data-controls="time" data-yaml="off"></div>
 <div id="state-class" class="admonitionblock important">
@@ -277,6 +278,6 @@ statistics (a sensor without a state class) is listed last with a dash.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=efa05e99"></script>
+<script type="module" src="../assets/site.js?v=5af6f436"></script>
 </body>
 </html>

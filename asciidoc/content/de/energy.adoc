@@ -8,13 +8,13 @@ hat. Energie-Sensoren braucht sie dafür nicht - sie summiert die
 Langzeitstatistik, die Home Assistant von den schon eingetragenen
 Leistungssensoren führt.
 
-Zum Ausprobieren: Die Karte startet bei *Heute* und *% kWp*. Der Schieber
-stellt die Uhrzeit des erfundenen Tags, und *Heute* zählt von Mitternacht bis
-dahin. Mit *% kWp* zeigt der PV-Ring die mittlere Leistung im Zeitraum gegen
-die Spitzenleistung aller Quellen, Nachtstunden eingerechnet: Am Vormittag
-wächst er, am Abend schrumpft er wieder, weil die Stunden ohne Sonne mitzählen.
-*100 %* zeigt stattdessen die Anteile der Quellen, *kW* die Leistung im
-Augenblick.
+Zum Ausprobieren: Die Karte startet bei *kW* und *% kWp*, der Schieber stellt
+die Uhrzeit des erfundenen Tags. Der PV-Ring zeigt die Leistung gegen die
+Spitzenleistung aller Quellen: Er wächst mit der Sonne und wird zum Abend
+wieder kleiner, und die Anteile wandern vom Balkon am Morgen über das Dach zu
+West am Abend. Mit *Heute* zählt die Karte von Mitternacht bis zur
+eingestellten Zeit, und der Ring zeigt die mittlere Leistung seither,
+Nachtstunden eingerechnet. *100 %* zeigt stattdessen die Anteile der Quellen.
 
 ++++
 <div class="card-demo" data-demo="period" data-controls="time" data-yaml="off"></div>
