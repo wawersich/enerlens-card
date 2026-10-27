@@ -4,40 +4,26 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] - 2026-10-27
 
 ### Added
-- **Solar and wallbox in detail (#28, #29):** solar with several
-  sources opens a window with the sources stacked and their sum; a consumer
-  with a state of charge, such as a wallbox, shows its power with the car's
-  charge below.
-- **Every row in detail:** a tap on a consumer, a PV source or the rest in the
-  list opens the window with its history, in a period its kWh as in the row -
-  the rest as the house minus the consumers shown.
-- **Own label for the charge (#31):** `charge.label` names the ring's value -
-  "Print progress" for a 3D printer, say - in its tooltip and in the detail
-  window.
+- **More in detail (#28, #29):** solar with several sources, the house, the
+  rest and every row of the list open the detail window; a wallbox shows the
+  car's charge below its power.
+- **Own label for the charge (#31):** `charge.label`, e.g. "Print progress".
 - **Triangle · battery centre:** a second triangle with house and battery
-  swapped - the PV rows at the top, the consumers at the bottom.
+  swapped.
 
 ### Changed
-- The editor's labels and extra values of the main entities come right after
-  them, now named so; a house corrected by PV past its meter no longer reads
-  "calculated" - only the value matters.
-- **Arrows red and green:** the arrows at grid and battery are now red for
-  import and discharge, green for export and charge, in the theme's colours.
-  `colors.arrows: direction` brings back the direction's colour.
-- In both triangles the line from solar to the lower node now leaves and meets
-  its circles straight from the centre.
+- **Arrows red and green** at grid and battery; `colors.arrows: direction`
+  keeps the old colours.
+- A house corrected by a balcony plant no longer reads "calculated".
 
 ### Fixed
-- **House with a balcony plant (#30):** a tap on the house opened the measured
-  sensor, not the calculated value the node shows; it now opens a window with
-  exactly that value.
-- With a balcony plant, an hour the house sensor missed was filled in with the
-  plant counted twice; it is now counted once.
-- The dots on the PV lines no longer travel backwards: their lighter side now
-  leads, into the solar node.
+- **House with a balcony plant (#30):** a tap showed the measured sensor, not
+  the node's value.
+- A balcony plant was counted twice in hours the house sensor missed.
+- The dots on the PV lines travelled backwards.
 
 ## [1.1.0] - 2026-10-27
 

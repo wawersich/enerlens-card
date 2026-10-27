@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=52ffc95b");
+await import("./enerlens-card.js?v=3392f9be");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {

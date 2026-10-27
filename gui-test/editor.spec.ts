@@ -67,7 +67,12 @@ function changed(before: object, after: object): string[] {
  * Fields that by design write nothing until another field of their form is
  * set: a consumer's state of charge needs its entity first (E-4).
  */
-const NEEDS: Record<string, string> = { show: "soc", plugged: "soc", unplugged: "soc" };
+const NEEDS: Record<string, string> = {
+  show: "soc",
+  label: "soc",
+  plugged: "soc",
+  unplugged: "soc",
+};
 
 /** Fields whose change rebuilds the form around them: tested on their own. */
 const STRUCTURE = (f: Field) => f.name.endsWith("_source");

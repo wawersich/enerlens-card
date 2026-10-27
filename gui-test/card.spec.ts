@@ -107,10 +107,11 @@ async function readCard() {
 test("GT-6: the figures - PV the sum of its sources, the house measured plus the balcony (PV-3)", async () => {
   await mountCard(CONFIG, 900);
   const card = await readCard();
-  // 3.0 + 1.0 + 0.5 kW PV; 2.8 kW measured + 0.5 kW balcony, "calculated".
+  // 3.0 + 1.0 + 0.5 kW PV; 2.8 kW measured + 0.5 kW balcony - without
+  // "calculated" since 27.10.2026: only the value matters (PV-3).
   expect(card.text.solar).toMatch(/4[,.]50 kW/);
   expect(card.text.house).toMatch(/3[,.]30 kW/);
-  expect(card.text.house).toMatch(/berechnet|calculated/);
+  expect(card.text.house).not.toMatch(/berechnet|calculated/);
   expect(card.text.grid).toMatch(/0[,.]20 kW/);
   expect(card.text.battery).toMatch(/1[,.]40 kW/);
   expect(card.text.battery).toMatch(/64 %/);

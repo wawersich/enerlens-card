@@ -6,7 +6,7 @@ export const EDITOR_NAME = "enerlens-card-editor";
 /** The detail window for grid and battery, opened through HA's dialog manager (DF-2). */
 export const DETAIL_NAME = "enerlens-card-detail";
 export const CARD_LABEL = "EnerLens Card";
-export const CARD_VERSION = "1.1.0";
+export const CARD_VERSION = "1.2.0";
 export const REPO_URL = "https://github.com/wawersich/enerlens-card";
 /**
  * What a new card starts with (REQ E-5): placeholders, not guesses. Picking
