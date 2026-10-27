@@ -44,6 +44,11 @@ colors:
   battery_discharge: "#e53935"
 ----
 
+The arrows at grid and battery are red and green on their own: red for import
+and discharge, green for export and charge, in the theme's colours
+(`--error-color`, `--success-color`). To have them in their direction's colour
+instead, untick *Colours → Arrows*, in YAML `colors.arrows: direction`.
+
 == Transparent background (card-mod)
 
 To let a dashboard wallpaper show through, the card can be made transparent

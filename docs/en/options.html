@@ -74,7 +74,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>layout</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>cross</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Arrangement of the nodes: <code>cross</code>, <code>square_right</code> (square · solar right), <code>square_left</code> (square · solar left), <code>triangle</code> — see <em>Arrangements</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Arrangement of the nodes: <code>cross</code>, <code>square_right</code> (square · solar right), <code>square_left</code> (square · solar left), <code>triangle</code> (triangle · house centre), <code>triangle_battery</code> (triangle · battery centre) — see <em>Arrangements</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.solar</code></p></td>
@@ -337,6 +337,11 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock">Cycled through consumers without a colour of their own</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.arrows</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>red_green</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Arrows at grid and battery: <code>red_green</code> (import and discharge red, export and charge green) or <code>direction</code> (their direction&#8217;s colour)</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>icons.*</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">mdi defaults</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Per-node icon; <code>icons.rest</code> gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with <code>mdi:cloud-question</code> there; delete it for the colour dot</p></td>
@@ -381,6 +386,6 @@ energy flows.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=cc92ea2c"></script>
+<script type="module" src="../assets/site.js?v=7160e23e"></script>
 </body>
 </html>

@@ -295,6 +295,8 @@ interface FlatConfig {
   color_grid_export?: string;
   color_battery_charge?: string;
   color_battery_discharge?: string;
+  /** The arrows red and green, or each in its direction's colour (C-8). */
+  color_arrows?: string;
   color_rest?: string;
   icon_solar?: string;
   icon_grid?: string;
@@ -577,6 +579,7 @@ function toFlat(config: RawConfig): FlatConfig {
   out.ring_solar = config.ring?.solar;
   const colors = (config.colors ?? {}) as Record<string, unknown>;
   for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
+  out.color_arrows = colors.arrows;
   out.soc_stops = colors.soc_stops;
   flattenNodes(config, out);
   const icons = (config.icons ?? {}) as Record<string, unknown>;
@@ -1088,6 +1091,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
           // Only once they have been touched - an absent key must not overwrite
           // what the YAML already says.
           ...(f.soc_stops !== undefined ? { soc_stops: f.soc_stops } : {}),
+          arrows: f.color_arrows,
           ...extraColors(f, withBattery),
         }),
       raw.colors,
@@ -1499,6 +1503,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 { value: "square_right", label: t("layout_square_right") },
                 { value: "square_left", label: t("layout_square_left") },
                 { value: "triangle", label: t("layout_triangle") },
+                { value: "triangle_battery", label: t("layout_triangle_battery") },
               ],
             },
           },
@@ -2137,7 +2142,8 @@ class EnerLensCardEditor extends LitElement {
           <p class="hint">${localize("editor_help.color", this.hass)}</p>
           ${COLOR_KEYS.map((key) => this._renderNodeColor(key))}
           ${this._renderExtraColors()}
-          ${this._renderDotColor()} ${this._renderConsumerColors()} ${this._renderSocStops()}
+          ${this._renderDotColor()} ${this._renderArrowColors()} ${this._renderConsumerColors()}
+          ${this._renderSocStops()}
         </div>
       </ha-expansion-panel>
     `;
@@ -2230,6 +2236,30 @@ class EnerLensCardEditor extends LitElement {
             })
           : nothing
       }
+    `;
+  }
+
+  /**
+   * The direction arrows red and green, or each in its direction's colour
+   * (C-8). Ticked is the default and writes nothing; unticked writes
+   * `direction`.
+   */
+  private _renderArrowColors(): TemplateResult {
+    const raw = (this._flat as FlatRecord | undefined)?.color_arrows;
+    return html`
+      ${this._group(localize("editor.colors_arrows", this.hass))}
+      <label class="switch">
+        <input
+          class="arrow-colors"
+          type="checkbox"
+          .checked=${raw !== "direction"}
+          @change=${(ev: Event) => {
+            const red = (ev.target as HTMLInputElement).checked;
+            this._setFlat("color_arrows", red ? "" : "direction");
+          }}
+        />
+        <span>${localize("editor.arrow_colors_red_green", this.hass)}</span>
+      </label>
     `;
   }
 

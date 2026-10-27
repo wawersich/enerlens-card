@@ -56,7 +56,7 @@
 <div class="sectionbody">
 <div class="paragraph">
 <p>Wo PV, Netz, Haus und Batterie stehen, ist wählbar: das Kreuz, zwei um 45°
-gedrehte Quadrate und ein Dreieck. Was die Karte zeigt, bleibt in jeder
+gedrehte Quadrate und zwei Dreiecke. Was die Karte zeigt, bleibt in jeder
 Anordnung gleich – Werte, Ringe, Punkte, Listen. Die Karte auf dieser Seite
 läuft mit erfundenen Werten und drei PV-Quellen.</p>
 </div>
@@ -99,12 +99,24 @@ Spalte der Abschnitte-Ansicht, stehen beide Listen darunter.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="dreieck"><a class="anchor" href="#dreieck"></a>Dreieck</h2>
+<h2 id="dreieck-haus-mitte"><a class="anchor" href="#dreieck-haus-mitte"></a>Dreieck · Haus Mitte</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>PV, Haus und Batterie übereinander, das Netz links vom Haus. Das Dreieck ist
 höher als breit und wird darum nie breiter als 320 px. Ohne Batterie entfällt
 das untere Drittel.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dreieck-batterie-mitte"><a class="anchor" href="#dreieck-batterie-mitte"></a>Dreieck · Batterie Mitte</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Haus und Batterie vertauscht: PV oben, die Batterie in der Mitte mit dem Netz
+links daneben, das Haus unten. Die Listen stehen so symmetrisch – die
+PV-Zeilen oben auf Höhe der PV, die Verbraucher unten auf Höhe des Hauses. Die
+Linie von PV zum Haus schwingt links an der Batterie vorbei. Ohne Batterie
+sieht es aus wie das Dreieck · Haus Mitte.</p>
 </div>
 </div>
 </div>
@@ -127,13 +139,13 @@ beides lässt sich umstellen.</p>
 </div>
 </div>
 <div class="paragraph">
-<p>Im Energie-Modus zeigen die Pfeile an Netz und Batterie in jeder Anordnung
-zur Mitte der Zeichnung, wenn Energie bezogen oder entladen wurde, und von ihr
-weg beim Einspeisen und Laden.</p>
+<p>Im Energie-Modus zeigen die Pfeile an Netz und Batterie zur Mitte der
+Zeichnung, wenn Energie bezogen oder entladen wurde, und von ihr weg beim
+Einspeisen und Laden. In beiden Dreiecken stehen sie wie beim Kreuz.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlight"><code class="language-yaml" data-lang="yaml">layout: square_left        # cross | square_right | square_left | triangle
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">layout: square_left        # cross | square_right | square_left | triangle | triangle_battery
 flow:
   lines: curved            # curved | straight</code></pre>
 </div>
@@ -144,6 +156,6 @@ flow:
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=cc92ea2c"></script>
+<script type="module" src="../assets/site.js?v=7160e23e"></script>
 </body>
 </html>

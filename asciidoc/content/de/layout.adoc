@@ -3,7 +3,7 @@
 :nav-order: 5.5
 
 Wo PV, Netz, Haus und Batterie stehen, ist wählbar: das Kreuz, zwei um 45°
-gedrehte Quadrate und ein Dreieck. Was die Karte zeigt, bleibt in jeder
+gedrehte Quadrate und zwei Dreiecke. Was die Karte zeigt, bleibt in jeder
 Anordnung gleich – Werte, Ringe, Punkte, Listen. Die Karte auf dieser Seite
 läuft mit erfundenen Werten und drei PV-Quellen.
 
@@ -33,11 +33,19 @@ Verbraucher rechts – jeder Fächer läuft zu seinem Knoten. Dafür braucht die
 Karte etwa 590 px Breite; ist sie schmaler, etwa auf dem Handy oder in einer
 Spalte der Abschnitte-Ansicht, stehen beide Listen darunter.
 
-== Dreieck
+== Dreieck · Haus Mitte
 
 PV, Haus und Batterie übereinander, das Netz links vom Haus. Das Dreieck ist
 höher als breit und wird darum nie breiter als 320 px. Ohne Batterie entfällt
 das untere Drittel.
+
+== Dreieck · Batterie Mitte
+
+Haus und Batterie vertauscht: PV oben, die Batterie in der Mitte mit dem Netz
+links daneben, das Haus unten. Die Listen stehen so symmetrisch – die
+PV-Zeilen oben auf Höhe der PV, die Verbraucher unten auf Höhe des Hauses. Die
+Linie von PV zum Haus schwingt links an der Batterie vorbei. Ohne Batterie
+sieht es aus wie das Dreieck · Haus Mitte.
 
 == Einstellen
 
@@ -51,13 +59,13 @@ image::editor-layout-de-light.png["Anordnung und Linienform im Abschnitt Darstel
 [.only-dark]
 image::editor-layout-de-dark.png["Anordnung und Linienform im Abschnitt Darstellung",490]
 
-Im Energie-Modus zeigen die Pfeile an Netz und Batterie in jeder Anordnung
-zur Mitte der Zeichnung, wenn Energie bezogen oder entladen wurde, und von ihr
-weg beim Einspeisen und Laden.
+Im Energie-Modus zeigen die Pfeile an Netz und Batterie zur Mitte der
+Zeichnung, wenn Energie bezogen oder entladen wurde, und von ihr weg beim
+Einspeisen und Laden. In beiden Dreiecken stehen sie wie beim Kreuz.
 
 [source,yaml]
 ----
-layout: square_left        # cross | square_right | square_left | triangle
+layout: square_left        # cross | square_right | square_left | triangle | triangle_battery
 flow:
   lines: curved            # curved | straight
 ----

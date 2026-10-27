@@ -106,6 +106,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
         { at: 100, color: "#43a047" },
       ],
       consumerPalette: ["#7e57c2"],
+      arrows: "red_green" as const,
     },
     icons: {},
     power: { unit: "kW", decimals: 2, digits: 3 },

@@ -95,7 +95,7 @@ export function nodePercent(key: NodeKey): { left: string; top: string } {
 // The arrangements (REQ AN-1, AN-2, AN-5)
 // ---------------------------------------------------------------------------
 
-export type Layout = "cross" | "square_right" | "square_left" | "triangle";
+export type Layout = "cross" | "square_right" | "square_left" | "triangle" | "triangle_battery";
 export type LineForm = "curved" | "straight";
 
 interface Point {
@@ -112,6 +112,8 @@ export interface Geometry {
   paths: Record<ConnectionId, string>;
   /** A label above its node - the upper row's - or below it (AN-5). */
   labelAbove: Record<NodeKey, boolean>;
+  /** The triangle's middle node: its label lies on the lines below it (AN-5). */
+  ground: NodeKey | null;
 }
 
 const r2 = (v: number) => v.toFixed(2);
@@ -157,10 +159,12 @@ const cache = new Map<string, Geometry>();
  * The geometry of an arrangement (AN-1). The cross is the one the card always
  * drew; turned right or left it is the same cross turned by 45 degrees; the
  * triangle stands PV, house and battery in a line with the grid beside the
- * house - 400 x 560, or 400 x 350 without a battery (decided 24.10.2026).
- * Lines `curved` are the cross's curves (turned with it), `straight` run edge
- * to edge (AN-2). In the triangle PV to battery always bows left past the house:
- * straight it would run through it.
+ * house - 400 x 560, or 400 x 350 without a battery (decided 24.10.2026); the
+ * battery-centre triangle swaps house and battery, the grid beside the battery
+ * (27.10.2026), and is the triangle without a battery. Lines `curved` are the
+ * cross's curves (turned with it), `straight` run edge to edge (AN-2). In both
+ * triangles PV to the lower node always bows left past the middle one: straight
+ * it would run through it.
  */
 export function geometryFor(layout: Layout, lines: LineForm, withBattery: boolean): Geometry {
   const key = `${layout}|${lines}|${withBattery}`;
@@ -169,6 +173,10 @@ export function geometryFor(layout: Layout, lines: LineForm, withBattery: boolea
 
   let nodePos: Record<NodeKey, Point> = { ...NODE_POS };
   let viewH = VIEW_H;
+  const triangle = layout === "triangle" || layout === "triangle_battery";
+  // Battery in the middle, house below - only with a battery to swap with.
+  const swap = layout === "triangle_battery" && withBattery;
+  const mid: NodeKey = swap ? "battery" : "house";
   if (layout === "square_right" || layout === "square_left") {
     const sign = layout === "square_right" ? 1 : -1;
     nodePos = {
@@ -177,12 +185,12 @@ export function geometryFor(layout: Layout, lines: LineForm, withBattery: boolea
       house: turn(NODE_POS.house, sign),
       battery: turn(NODE_POS.battery, sign),
     };
-  } else if (layout === "triangle") {
+  } else if (triangle) {
     viewH = withBattery ? 560 : 350;
     nodePos = {
       solar: { x: COLUMN_X, y: 70 },
-      house: { x: COLUMN_X, y: 280 },
-      battery: { x: COLUMN_X, y: 490 },
+      house: { x: COLUMN_X, y: swap ? 490 : 280 },
+      battery: { x: COLUMN_X, y: swap ? 280 : 490 },
       grid: { x: COLUMN_GRID_X, y: 280 },
     };
   }
@@ -197,18 +205,14 @@ export function geometryFor(layout: Layout, lines: LineForm, withBattery: boolea
       Object.entries(PATHS).map(([id, d]) => [id, turnPath(d, sign)]),
     ) as Record<ConnectionId, string>;
   } else {
+    const bows = triangle && lines === "curved";
     const gridBattery =
-      layout === "triangle" && lines === "curved"
-        ? outward(nodePos, "grid", "battery")
-        : line("grid", "battery");
+      bows && !swap ? outward(nodePos, "grid", "battery", mid) : line("grid", "battery");
     paths = {
-      solar_house: line("solar", "house"),
-      solar_grid:
-        layout === "triangle" && lines === "curved"
-          ? outward(nodePos, "solar", "grid")
-          : line("solar", "grid"),
-      solar_battery: layout === "triangle" ? bow(nodePos) : line("solar", "battery"),
-      grid_house: line("grid", "house"),
+      solar_house: swap ? bow(nodePos, "house") : line("solar", "house"),
+      solar_grid: bows ? outward(nodePos, "solar", "grid", mid) : line("solar", "grid"),
+      solar_battery: triangle && !swap ? bow(nodePos, "battery") : line("solar", "battery"),
+      grid_house: bows && swap ? outward(nodePos, "grid", "house", mid) : line("grid", "house"),
       grid_battery: gridBattery,
       battery_grid: gridBattery,
       battery_house: line("battery", "house"),
@@ -220,29 +224,45 @@ export function geometryFor(layout: Layout, lines: LineForm, withBattery: boolea
   const labelAbove = Object.fromEntries(
     (Object.keys(nodePos) as NodeKey[]).map((k) => [
       k,
-      layout === "triangle" ? k === "solar" : nodePos[k].y < middle - 1,
+      triangle ? k === "solar" : nodePos[k].y < middle - 1,
     ]),
   ) as Record<NodeKey, boolean>;
 
-  const geometry: Geometry = { layout, viewW: VIEW_W, viewH, nodePos, paths, labelAbove };
+  const geometry: Geometry = {
+    layout,
+    viewW: VIEW_W,
+    viewH,
+    nodePos,
+    paths,
+    labelAbove,
+    ground: triangle ? mid : null,
+  };
   cache.set(key, geometry);
   return geometry;
 }
 
-/** Triangle: PV leaves down-left, passes between grid and house, enters the
- *  battery from the upper left - never through the house. */
-function bow(p: Record<NodeKey, Point>): string {
-  const s = { x: p.solar.x - 0.6 * NODE_R, y: p.solar.y + 0.8 * NODE_R };
-  const e = { x: p.battery.x - 0.6 * NODE_R, y: p.battery.y - 0.8 * NODE_R };
-  const cx = p.house.x - 128;
-  return `M${r2(s.x)},${r2(s.y)} C${r2(cx)},${r2(s.y + 70)} ${r2(cx)},${r2(e.y - 70)} ${r2(e.x)},${r2(e.y)}`;
+/** Triangles: PV leaves down-left, passes between the grid and the middle
+ *  node, enters the lower node `to` from the upper left - never through the
+ *  middle one. */
+function bow(p: Record<NodeKey, Point>, to: NodeKey): string {
+  // Radial at both ends - as if the line came from the circle's middle - and
+  // bowing well clear of the middle node.
+  const dx = -0.6;
+  const dy = 0.8;
+  const reach = 160;
+  const at = (n: Point, sy: number, k: number) => ({ x: n.x + dx * k, y: n.y + sy * dy * k });
+  const s = at(p.solar, 1, NODE_R);
+  const c1 = at(p.solar, 1, NODE_R + reach);
+  const c2 = at(p[to], -1, NODE_R + reach);
+  const e = at(p[to], -1, NODE_R);
+  return `M${r2(s.x)},${r2(s.y)} C${r2(c1.x)},${r2(c1.y)} ${r2(c2.x)},${r2(c2.y)} ${r2(e.x)},${r2(e.y)}`;
 }
 
-/** Triangle, curved: a slanted line to the grid bows outwards, away from the house. */
-function outward(p: Record<NodeKey, Point>, a: NodeKey, b: NodeKey): string {
+/** Triangles, curved: a slanted line to the grid bows outwards, away from the middle node `past`. */
+function outward(p: Record<NodeKey, Point>, a: NodeKey, b: NodeKey, past: NodeKey): string {
   const from = p[a];
   const to = p[b];
-  const h = p.house;
+  const h = p[past];
   const mx = (from.x + to.x) / 2;
   const my = (from.y + to.y) / 2;
   const dl = Math.hypot(mx - h.x, my - h.y) || 1;

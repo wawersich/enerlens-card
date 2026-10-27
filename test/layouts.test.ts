@@ -78,8 +78,36 @@ describe("AN-1: where the nodes stand", () => {
     }
   });
 
+  it("triangle, battery centre: PV, battery, house one above the other, grid left of the battery", () => {
+    const g = geometryFor("triangle_battery", "straight", true);
+    expect(g.viewH).toBe(560);
+    const p = g.nodePos;
+    expect(p.solar.x).toBe(p.battery.x);
+    expect(p.battery.x).toBe(p.house.x);
+    expect(p.solar.y).toBeLessThan(p.battery.y);
+    expect(p.battery.y).toBeLessThan(p.house.y);
+    expect(p.grid.y).toBe(p.battery.y);
+    expect(p.grid.x).toBeLessThan(p.battery.x);
+  });
+
+  it("triangle, battery centre, without a battery: the same drawing as the triangle", () => {
+    for (const lines of ["curved", "straight"] as const) {
+      const a = geometryFor("triangle_battery", lines, false);
+      const b = geometryFor("triangle", lines, false);
+      expect(a.viewH).toBe(b.viewH);
+      expect(a.nodePos).toEqual(b.nodePos);
+      expect(a.paths).toEqual(b.paths);
+    }
+  });
+
   it("every node inside the drawing, in every arrangement", () => {
-    for (const layout of ["cross", "square_right", "square_left", "triangle"] as const) {
+    for (const layout of [
+      "cross",
+      "square_right",
+      "square_left",
+      "triangle",
+      "triangle_battery",
+    ] as const) {
       const g = geometryFor(layout, "straight", true);
       for (const p of Object.values(g.nodePos)) {
         expect(p.x - NODE_R).toBeGreaterThanOrEqual(0);
@@ -92,7 +120,13 @@ describe("AN-1: where the nodes stand", () => {
 });
 
 describe("AN-2: the lines", () => {
-  for (const layout of ["cross", "square_right", "square_left", "triangle"] as const) {
+  for (const layout of [
+    "cross",
+    "square_right",
+    "square_left",
+    "triangle",
+    "triangle_battery",
+  ] as const) {
     for (const lines of ["curved", "straight"] as const) {
       it(`${layout}, ${lines}: every line runs from the edge of one circle to the edge of the other`, () => {
         const g = geometryFor(layout, lines, true);
@@ -116,6 +150,55 @@ describe("AN-2: the lines", () => {
     }
   });
 
+  it("triangle, battery centre: PV to house passes the battery on its left, straight lines or not", () => {
+    for (const lines of ["curved", "straight"] as const) {
+      const g = geometryFor("triangle_battery", lines, true);
+      const battery = g.nodePos.battery;
+      for (const pt of samplePath(g.paths.solar_house)) {
+        expect(near(pt, battery)).toBeGreaterThan(NODE_R);
+      }
+    }
+  });
+
+  // The bow from PV to the lower node: radial at both ends, as if it came from
+  // the circle's middle, and clear of the grid and the middle node alike (27.10.2026).
+  const bows = [
+    ["triangle", "solar_battery", "battery", "house"],
+    ["triangle_battery", "solar_house", "house", "battery"],
+  ] as const;
+  for (const [layout, id, to, mid] of bows) {
+    it(`${layout}: the bow leaves PV and meets the ${to} radially`, () => {
+      const g = geometryFor(layout, "curved", true);
+      const n = (g.paths[id].match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+      const [s, c1, c2, e] = [0, 2, 4, 6].map((i) => ({ x: n[i], y: n[i + 1] }));
+      const radial = (centre: { x: number; y: number }, at: typeof s, towards: typeof s) => {
+        const r = { x: at.x - centre.x, y: at.y - centre.y };
+        const t = { x: towards.x - at.x, y: towards.y - at.y };
+        const cross = (r.x * t.y - r.y * t.x) / (Math.hypot(r.x, r.y) * Math.hypot(t.x, t.y));
+        expect(Math.abs(cross)).toBeLessThan(0.01);
+        expect(r.x * t.x + r.y * t.y).toBeGreaterThan(0);
+      };
+      radial(g.nodePos.solar, s, c1);
+      radial(g.nodePos[to], e, c2);
+    });
+
+    it(`${layout}: the bow keeps clear of the grid and the ${mid} alike`, () => {
+      const g = geometryFor(layout, "curved", true);
+      const gap = (k: NodeKey) =>
+        Math.min(...samplePath(g.paths[id]).map((pt) => near(pt, g.nodePos[k]))) - NODE_R;
+      expect(gap("grid")).toBeGreaterThan(40);
+      expect(gap(mid)).toBeGreaterThan(40);
+      expect(Math.abs(gap("grid") - gap(mid))).toBeLessThan(10);
+    });
+  }
+
+  it("triangle, battery centre, curved: the slants to the grid bow outwards, grid to battery straight", () => {
+    const g = geometryFor("triangle_battery", "curved", true);
+    expect(g.paths.solar_grid).toContain(" Q");
+    expect(g.paths.grid_house).toContain(" Q");
+    expect(g.paths.grid_battery).toMatch(/^M[\d.]+,[\d.]+ L[\d.]+,[\d.]+$/);
+  });
+
   it("straight means straight: one segment between two circles", () => {
     const g = geometryFor("square_right", "straight", true);
     expect(g.paths.solar_house).toMatch(/^M[\d.]+,[\d.]+ L[\d.]+,[\d.]+$/);
@@ -128,7 +211,9 @@ describe("AN-2: the lines", () => {
 });
 
 describe("AN-5: labels stand outside", () => {
-  const above = (layout: "cross" | "square_right" | "square_left" | "triangle") =>
+  const above = (
+    layout: "cross" | "square_right" | "square_left" | "triangle" | "triangle_battery",
+  ) =>
     (Object.entries(geometryFor(layout, "straight", true).labelAbove) as [NodeKey, boolean][])
       .filter(([, up]) => up)
       .map(([key]) => key)
@@ -149,6 +234,19 @@ describe("AN-5: labels stand outside", () => {
   it("triangle: only PV above; the house's label below, over the lines", () => {
     expect(above("triangle")).toEqual(["solar"]);
   });
+
+  it("triangle, battery centre: only PV above", () => {
+    expect(above("triangle_battery")).toEqual(["solar"]);
+  });
+
+  it("the middle node's label lies on the lines - house or battery, nothing beside the triangles", () => {
+    expect(geometryFor("triangle", "straight", true).ground).toBe("house");
+    expect(geometryFor("triangle_battery", "straight", true).ground).toBe("battery");
+    expect(geometryFor("triangle_battery", "straight", false).ground).toBe("house");
+    for (const layout of ["cross", "square_right", "square_left"] as const) {
+      expect(geometryFor(layout, "curved", true).ground).toBeNull();
+    }
+  });
 });
 
 describe("AN-1, AN-2: the options", () => {
@@ -163,7 +261,7 @@ describe("AN-1, AN-2: the options", () => {
 
   it("the other arrangements straight by default, switchable", async () => {
     const { normalizeConfig } = await import("../src/config");
-    for (const layout of ["square_right", "square_left", "triangle"] as const) {
+    for (const layout of ["square_right", "square_left", "triangle", "triangle_battery"] as const) {
       expect(normalizeConfig({ ...base, layout }).flow.lines).toBe("straight");
       expect(normalizeConfig({ ...base, layout, flow: { lines: "curved" } }).flow.lines).toBe(
         "curved",
@@ -196,6 +294,7 @@ describe("AN-4: the energy mode's arrows per arrangement", () => {
     const { arrowsFor } = await import("../src/render/cross");
     expect(arrowsFor("cross")).toEqual({ import: "→", export: "←", discharge: "↑", charge: "↓" });
     expect(arrowsFor("triangle")).toEqual(arrowsFor("cross"));
+    expect(arrowsFor("triangle_battery")).toEqual(arrowsFor("cross"));
     expect(arrowsFor("square_right")).toEqual({
       import: "↘",
       export: "↖",
@@ -213,8 +312,8 @@ describe("AN-4: the energy mode's arrows per arrangement", () => {
   it("every arrow has a drawing of its own - none falls back to '→'", async () => {
     const { ARROWS, arrowsFor } = await import("../src/render/cross");
     const used = new Set(
-      (["cross", "square_right", "square_left", "triangle"] as const).flatMap((l) =>
-        Object.values(arrowsFor(l)),
+      (["cross", "square_right", "square_left", "triangle", "triangle_battery"] as const).flatMap(
+        (l) => Object.values(arrowsFor(l)),
       ),
     );
     expect(used.size).toBe(8);

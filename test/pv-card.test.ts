@@ -255,12 +255,32 @@ describe("square, solar left: the PV rows left of the drawing (REQ AN-3)", () =>
   });
 
   it("the other arrangements keep both lists on the right", async () => {
-    for (const layout of ["cross", "square_right", "triangle"]) {
+    for (const layout of ["cross", "square_right", "triangle", "triangle_battery"]) {
       const el = await mount({ layout, list: { solar: true }, consumers: CONSUMERS });
       expect(el.shadowRoot?.querySelector(".pv-side")).toBeNull();
       expect(el.shadowRoot?.querySelectorAll(".list .pv-rows .row")).toHaveLength(2);
       el.remove();
     }
+  });
+
+  it("battery centre: the battery's label on its ground, not the house's; the triangle's width cap (AN-1, AN-5)", async () => {
+    const el = await mount(
+      {
+        layout: "triangle_battery",
+        entities: {
+          solar: SOURCES,
+          grid: "sensor.grid",
+          house: "sensor.house",
+          battery: "sensor.battery",
+        },
+      },
+      { ...STATES, "sensor.battery": "-300" },
+    );
+    const root = el.shadowRoot as ShadowRoot;
+    expect(root.querySelector(".node.battery")?.classList.contains("label-ground")).toBe(true);
+    expect(root.querySelector(".node.house")?.classList.contains("label-ground")).toBe(false);
+    expect(root.querySelector(".body")?.classList.contains("layout-triangle-battery")).toBe(true);
+    el.remove();
   });
 
   it("too narrow: both lists below, PV rows above the consumers", async () => {

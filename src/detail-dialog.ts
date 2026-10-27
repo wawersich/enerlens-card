@@ -7,7 +7,7 @@
  */
 import { LitElement, type PropertyValues, css, html, nothing } from "lit";
 import { fetchHistory } from "./averaging";
-import { swatchHex } from "./colors";
+import { arrowColor, swatchHex } from "./colors";
 import { DETAIL_NAME } from "./const";
 import {
   type EnergyBar,
@@ -22,7 +22,7 @@ import { formatEnergy, formatPower, localeFor } from "./format";
 import { localize } from "./localize";
 import { type DetailNode, arrowsFor, openMoreInfo } from "./render/cross";
 import { radioStep } from "./render/header";
-import type { ColorKey, Config, EnergyPeriod, HomeAssistant } from "./types";
+import type { Config, DirectionKey, EnergyPeriod, HomeAssistant } from "./types";
 
 /** Sent by a card that leaves the page: its window closes with it (DF-2). */
 export const CARD_GONE = "enerlens-card-gone";
@@ -78,7 +78,7 @@ interface Side {
   role: EnergyRole;
   entity: string;
   name: string;
-  color: ColorKey;
+  color: DirectionKey;
   arrow: string;
   sign: 1 | -1;
 }
@@ -89,8 +89,8 @@ function sidesOf(node: DetailNode, config: Config, hass?: HomeAssistant): Side[]
   const arrows = arrowsFor(config.layout);
   const [up, down] =
     node === "grid" ? (["import", "export"] as const) : (["discharge", "charge"] as const);
-  const color = (role: string): ColorKey =>
-    (node === "grid" ? `grid_${role}` : `battery_${role}`) as ColorKey;
+  const color = (role: string): DirectionKey =>
+    (node === "grid" ? `grid_${role}` : `battery_${role}`) as DirectionKey;
   return [
     {
       role: up,
@@ -931,7 +931,7 @@ export class EnerLensDetail extends LitElement {
               name: figure ? `${side.name} ${figure}` : side.name,
             })}
             @click=${more(side.entity)}
-          ><span style="color:${state.config.colors[side.color]}">${side.arrow}</span> ${side.name}${
+          ><span style="color:${arrowColor(state.config, side.color)}">${side.arrow}</span> ${side.name}${
             figure ? html` <b>${figure}</b>` : nothing
           }</button>`;
         })}

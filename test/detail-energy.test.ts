@@ -196,6 +196,18 @@ describe("the detail window in a period (REQ DF-3)", () => {
     expect(chips(d).map((c) => c.getAttribute("aria-checked"))).toEqual(["true", "false"]);
   });
 
+  it("the sums' arrows red in, green out, as at the node (C-8)", async () => {
+    const el = await mount();
+    const d = await open(el, "grid");
+    const arrows = [...(d.shadowRoot?.querySelectorAll<HTMLElement>(".sum > span") ?? [])].map(
+      (s) => s.getAttribute("style") ?? "",
+    );
+    expect(arrows).toEqual([
+      "color:var(--error-color, #db4437)",
+      "color:var(--success-color, #43a047)",
+    ]);
+  });
+
   it("totals the card's own figures (DF-3)", async () => {
     const el = await mount();
     cardChip(el)?.click();

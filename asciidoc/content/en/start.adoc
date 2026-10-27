@@ -3,7 +3,7 @@
 :nav-order: 1
 
 A *highly configurable* energy flow card for Home Assistant. Solar, grid,
-house and battery in four arrangements — plus, optionally, a breakdown of what
+house and battery in five arrangements — plus, optionally, a breakdown of what
 the house figure and the PV shares are actually made of.
 
 The card here is not a recording but the real card with invented values – try
@@ -15,8 +15,8 @@ the switches above it and the quick buttons in its header.
 
 == What it does differently
 
-*Four arrangements.* Solar, grid, house and battery stand in a cross, in one of
-two squares turned by 45° or in a triangle, with curved or straight lines. The
+*Five arrangements.* Solar, grid, house and battery stand in a cross, in one of
+two squares turned by 45° or in one of two triangles, with curved or straight lines. The
 lists move to their nodes: with Square · solar left the PV rows stand left of
 the drawing and the consumers right of it (see link:layout.html[Arrangements]).
 

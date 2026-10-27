@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Triangle · battery centre:** a second triangle with house and battery
+  swapped - the PV rows at the top, the consumers at the bottom.
+
+### Changed
+- **Arrows red and green:** the arrows at grid and battery are now red for
+  import and discharge, green for export and charge, in the theme's colours.
+  `colors.arrows: direction` brings back the direction's colour.
+- In both triangles the line from solar to the lower node now leaves and meets
+  its circles straight from the centre.
+
+### Fixed
+- The dots on the PV lines no longer travel backwards: their lighter side now
+  leads, into the solar node.
+
 ## [1.1.0] - 2026-10-27
 
 ### Added

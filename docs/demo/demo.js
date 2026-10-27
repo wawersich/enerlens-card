@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=8040f02c");
+await import("./enerlens-card.js?v=85d3c087");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {
@@ -249,17 +249,28 @@ function config(scene, t, data = {}) {
     type: "custom:enerlens-card",
     entities: split,
     consumers,
-    flow: { design: "electron", inactive_lines: "dim" },
+    // Grid and battery as a traffic light: import and discharge red, export
+    // and charge green (Markus, 27.10.2026); Home Assistant's own energy
+    // colours stay the card's default.
+    colors: {
+      grid_import: "#e51414",
+      grid_export: "#42af38",
+      battery_discharge: "#e51414",
+      battery_charge: "#42af38",
+    },
+    flow: { design: "neutrino", inactive_lines: "dim" },
     // Nothing remembered: several cards on one page must not share a view.
     view: { energy_periods: ["power", "today", "24h", "week"], remember: false },
     update_interval_s: 3,
   };
   // Several PV sources with their rows (PV-7), for the PV and arrangement scenes.
+  // Their peaks: at most about 12 kW of 18 kWp at any hour, so "% kWp" always
+  // leaves a third of the ring grey (Markus, 27.10.2026: at least a quarter).
   const sources = {
     entities: {
       ...split,
       solar: [
-        { entity: "sensor.pv1", name: t.roof, kwp: 10 },
+        { entity: "sensor.pv1", name: t.roof, kwp: 12 },
         { entity: "sensor.pv2", name: t.west, kwp: 5 },
         { entity: "sensor.pv3", name: t.balcony, kwp: 1.2 },
       ],
@@ -272,6 +283,7 @@ function config(scene, t, data = {}) {
     case "square_right":
     case "square_left":
     case "triangle":
+    case "triangle_battery":
       return { ...base, ...sources, layout: scene };
     case "quick":
       // The quick buttons alone, in one style; data-expanded names the ones
@@ -506,7 +518,7 @@ export function startDemos(env) {
 const WORDS = {
   de: {
     layout: "Anordnung", cross: "Kreuz", square_right: "Quadrat · PV rechts", square_left: "Quadrat · PV links",
-    triangle: "Dreieck", lines: "Linienform", curved: "Geschwungen", straight: "Gerade",
+    triangle: "Dreieck · Haus Mitte", triangle_battery: "Dreieck · Batterie Mitte", lines: "Linienform", curved: "Geschwungen", straight: "Gerade",
     pvrows: "PV-Zeilen in der Liste", list: "Verbraucher-Liste", on: "An", off: "Aus", time: "Tageszeit (erfundener Tag)",
     yaml: "So sieht das in YAML aus:", none: "# alles Standard - nichts einzutragen",
     inside: "Zusatzwert im Kreis", above: "über dem Icon", below: "unter dem Wert",
@@ -521,7 +533,7 @@ const WORDS = {
   },
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
-    triangle: "Triangle", lines: "Line form", curved: "Curved", straight: "Straight",
+    triangle: "Triangle · house centre", triangle_battery: "Triangle · battery centre", lines: "Line form", curved: "Curved", straight: "Straight",
     pvrows: "PV rows in the list", list: "Consumer list", on: "On", off: "Off", time: "Time of day (invented day)",
     yaml: "This is the YAML:", none: "# all defaults - nothing to set",
     inside: "Extra value in the circle", above: "above the icon", below: "below the value",
@@ -641,7 +653,7 @@ function controls(host, card, lang, { set, feed, clock }) {
     bar.replaceChildren(
       ...[
         want.includes("layout") &&
-          choice(w.layout, ["cross", "square_right", "square_left", "triangle"], state.layout, (v) => {
+          choice(w.layout, ["cross", "square_right", "square_left", "triangle", "triangle_battery"], state.layout, (v) => {
             state.layout = v;
             apply();
           }),

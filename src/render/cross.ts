@@ -3,12 +3,13 @@
  * (REQ K-1 to K-6, ENT-20).
  */
 import { type TemplateResult, html, nothing, svg } from "lit";
-import { resolveCssColor, socColor } from "../colors";
+import { arrowColor, resolveCssColor, socColor } from "../colors";
 import { formatExtra, formatPower, formatSoc } from "../format";
 import { localize } from "../localize";
 import type {
   ColorKey,
   Config,
+  DirectionKey,
   EnergyMark,
   ExtraColorKey,
   ExtraField,
@@ -494,13 +495,13 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
   const unavailable = localize("state.unavailable", hass);
   const fig = (
     arrow: string,
-    color: ColorKey,
+    color: DirectionKey,
     w: number | null,
     role: string,
     entity?: string,
   ): Figure => ({
     arrow,
-    color: config.colors[color],
+    color: arrowColor(config, color),
     text: w === null ? unavailable : formatPower(w, hass, config.power),
     entity,
     mark: marks[role],
@@ -737,8 +738,8 @@ export function renderCross(
           return html`
           <div
             class="node ${v.key} ${ringShown ? "has-ring" : ""} ${above ? "label-above" : ""} ${
-              // Triangle: the house's label sits on the lines below it (AN-5).
-              g.layout === "triangle" && v.key === "house" ? "label-ground" : ""
+              // Triangle: the middle node's label sits on the lines below it (AN-5).
+              g.ground === v.key ? "label-ground" : ""
             } ${v.outage ? "outage" : ""} ${config.energy ? "in-period" : ""}"
             style="left:${pos.left};top:${pos.top};border-color:${
               // With segments to show, the ring is the contour (REQ K-14).

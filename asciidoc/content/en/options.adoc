@@ -6,7 +6,7 @@
 |===
 |Option |Default |Meaning
 |`title` |— |Card heading
-|`layout` |`cross` |Arrangement of the nodes: `cross`, `square_right` (square · solar right), `square_left` (square · solar left), `triangle` — see _Arrangements_
+|`layout` |`cross` |Arrangement of the nodes: `cross`, `square_right` (square · solar right), `square_left` (square · solar left), `triangle` (triangle · house centre), `triangle_battery` (triangle · battery centre) — see _Arrangements_
 |`entities.solar` |required |PV power, W or kW: one entity or a list of sources `++{++entity, name, kwp, icon, color, invert, house}` — see _Balcony solar and more PV_
 |`entities.grid` |required |Grid power, signed
 |`entities.house` |derived |House consumption
@@ -59,6 +59,7 @@
 |`colors.++*++` |HA energy colours |Any CSS value, including `var(--…)`
 |`colors.soc_stops` |red → yellow → green |Gradient for the charge level
 |`colors.consumer_palette` |10 colours |Cycled through consumers without a colour of their own
+|`colors.arrows` |`red_green` |Arrows at grid and battery: `red_green` (import and discharge red, export and charge green) or `direction` (their direction's colour)
 |`icons.++*++` |mdi defaults |Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with `mdi:cloud-question` there; delete it for the colour dot
 |`nodes.++<++node++>++.show_name` |`true` |Show the node's name (`solar`, `grid`, `house`, `battery`)
 |`nodes.++<++node++>++.show_state` |`true` |Show the state word - `grid` and `battery` only

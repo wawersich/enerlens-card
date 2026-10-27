@@ -259,6 +259,30 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(node(el, "battery")?.querySelector(".fill")).toBeNull();
   });
 
+  it("colours the arrows red in, green out - or each its direction's (C-8)", async () => {
+    const colours = async (config: Record<string, unknown>) => {
+      const { el } = await mount(config);
+      await tap(el);
+      const out = ["grid", "battery"].flatMap((key) =>
+        [...(node(el, key)?.querySelectorAll<SVGElement>(".value.figure .arrow") ?? [])].map(
+          (a) => a.getAttribute("style") ?? "",
+        ),
+      );
+      el.remove();
+      return out;
+    };
+    const red = "color:var(--error-color, #db4437)";
+    const green = "color:var(--success-color, #43a047)";
+    // Import, export, discharge, charge.
+    expect(await colours(CONFIG)).toEqual([red, green, red, green]);
+    const own = await colours({
+      ...CONFIG,
+      colors: { arrows: "direction", grid_import: "#123456" },
+    });
+    expect(own[0]).toBe("color:#123456");
+    expect(own[1]).toContain("--energy-grid-return-color");
+  });
+
   it("drops state words and keeps the extra field's room unseen (EM-6)", async () => {
     const { el } = await mount();
     await tap(el);

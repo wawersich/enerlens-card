@@ -214,8 +214,13 @@ export interface SocStop {
   color: string;
 }
 
+/** How the direction arrows are coloured (REQ C-8). */
+export type ArrowColors = "red_green" | "direction";
+/** The four directions of grid and battery, each with an arrow (EM-5, C-8). */
+export type DirectionKey = "grid_import" | "grid_export" | "battery_charge" | "battery_discharge";
+
 /** The arrangement of the four nodes (REQ AN-1). */
-export type LayoutName = "cross" | "square_right" | "square_left" | "triangle";
+export type LayoutName = "cross" | "square_right" | "square_left" | "triangle" | "triangle_battery";
 /** How the lines between the nodes run (REQ AN-2). */
 export type LineForm = "curved" | "straight";
 /** How the quick buttons look (REQ QB-9). */
@@ -308,6 +313,8 @@ export interface RawConfig extends LovelaceCardConfig {
   colors?: Partial<Record<ColorKey | ExtraColorKey, string>> & {
     soc_stops?: SocStop[];
     consumer_palette?: string[];
+    /** The direction arrows: red in, green out, or each its direction's (C-8). */
+    arrows?: ArrowColors;
   };
   icons?: Partial<Record<IconKey, string>>;
   /** Extra values and label switches per node (REQ Z-1 to Z-10). */
@@ -494,7 +501,11 @@ export interface Config {
   };
   /** Which half of a flow design applies (REQ P-10). */
   appearance: Appearance;
-  colors: Record<ColorKey, string> & { socStops: SocStop[]; consumerPalette: string[] };
+  colors: Record<ColorKey, string> & {
+    socStops: SocStop[];
+    consumerPalette: string[];
+    arrows: ArrowColors;
+  };
   icons: Partial<Record<IconKey, string>>;
   power: PowerFormat;
   /** Only while the energy mode shows a period (REQ EM-5, EM-11). */

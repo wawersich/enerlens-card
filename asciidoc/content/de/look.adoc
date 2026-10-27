@@ -48,6 +48,12 @@ colors:
   battery_discharge: "#e53935"
 ----
 
+Die Pfeile an Netz und Batterie sind von sich aus schon rot und grün: rot für
+Bezug und Entladen, grün für Einspeisen und Laden, in den Farben des Themes
+(`--error-color`, `--success-color`). Wer sie lieber in der Farbe ihrer
+Richtung hat, nimmt unter *Farben → Pfeile* den Haken heraus, in YAML
+`colors.arrows: direction`.
+
 == Transparenter Hintergrund (card-mod)
 
 Soll das Hintergrundbild des Dashboards durchscheinen, lässt sich die Karte mit

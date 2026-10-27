@@ -1,7 +1,7 @@
 <h1><img src="docs/assets/brand/logo-lupe.svg" alt="" width="40" height="40"> EnerLens Card</h1>
 
 A **highly configurable** energy flow card for Home Assistant. Solar, grid,
-house and battery in four arrangements — plus, optionally, a breakdown of what
+house and battery in five arrangements — plus, optionally, a breakdown of what
 the house figure and the PV shares are actually made of.
 
 **Full documentation and many live demos: <https://wawersich.github.io/enerlens-card/en/index.html>**
@@ -15,7 +15,7 @@ the house figure and the PV shares are actually made of.
 
 ## What it does differently
 
-- **Four arrangements:** a cross, two squares turned by 45° or a triangle,
+- **Five arrangements:** a cross, two squares turned by 45° or two triangles,
   with curved or straight lines.
 - **Several PV sources:** roof, west, balcony — each with its own share of the
   ring and, on request, a row of its own; no sum helper needed.

@@ -8,6 +8,7 @@ import { normalizeState, warnUnusable } from "./outage";
 import {
   type AnimationMode,
   type Appearance,
+  type ArrowColors,
   type ChargeShow,
   type ColorKey,
   type Config,
@@ -367,7 +368,13 @@ function readLenient<T extends string>(
   return fallback;
 }
 
-const LAYOUTS: readonly LayoutName[] = ["cross", "square_right", "square_left", "triangle"];
+const LAYOUTS: readonly LayoutName[] = [
+  "cross",
+  "square_right",
+  "square_left",
+  "triangle",
+  "triangle_battery",
+];
 const LINE_FORMS: readonly LineForm[] = ["curved", "straight"];
 const QUICK_STYLES: readonly QuickStyle[] = ["segment", "segment_compact", "single"];
 const QUICK_NAMES: readonly QuickName[] = ["modes", "energy_periods", "pv_scales", "scope"];
@@ -777,17 +784,21 @@ function readExtraColors(value: unknown, hass?: HomeAssistant): Record<ExtraColo
   return colors;
 }
 
+const ARROW_COLORS: readonly ArrowColors[] = ["red_green", "direction"];
+
 function readColors(value: unknown, hass?: HomeAssistant): Config["colors"] {
   const colors: Config["colors"] = {
     ...DEFAULT_COLORS,
     socStops: DEFAULT_SOC_STOPS.map((stop) => ({ ...stop })),
     consumerPalette: [...DEFAULT_CONSUMER_PALETTE],
+    arrows: "red_green",
   };
   const raw = readBlock(value, "colors", hass);
   for (const key of COLOR_KEYS) {
     const colour = readString(raw[key], `colors.${key}`, hass);
     if (colour) colors[key] = colour;
   }
+  colors.arrows = readLenient(raw.arrows, ARROW_COLORS, "colors.arrows", "red_green", hass);
   if (!isUnset(raw.soc_stops)) colors.socStops = readSocStops(raw.soc_stops, hass);
   if (!isUnset(raw.consumer_palette)) {
     colors.consumerPalette = readPalette(raw.consumer_palette, hass);

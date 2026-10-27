@@ -3,7 +3,7 @@
 :nav-order: 1
 
 Eine *hoch-konfigurative* Energiefluss-Karte für Home Assistant. PV, Netz,
-Haus und Batterie in vier Anordnungen — dazu optional eine Aufschlüsselung,
+Haus und Batterie in fünf Anordnungen — dazu optional eine Aufschlüsselung,
 woraus der Hauswert und die PV-Anteile eigentlich bestehen.
 
 Die Karte hier ist keine Aufnahme, sondern die echte Karte mit ausgedachten
@@ -15,8 +15,8 @@ Werten – probier die Schalter darüber und die Quick-Buttons im Kopf der Karte
 
 == Was sie anders macht
 
-*Vier Anordnungen.* PV, Netz, Haus und Batterie stehen im Kreuz, in einem von
-zwei um 45° gedrehten Quadraten oder im Dreieck, mit geschwungenen oder geraden
+*Fünf Anordnungen.* PV, Netz, Haus und Batterie stehen im Kreuz, in einem von
+zwei um 45° gedrehten Quadraten oder in einem von zwei Dreiecken, mit geschwungenen oder geraden
 Linien. Die Listen rücken jeweils an ihren Knoten: beim Quadrat · PV links
 stehen die PV-Zeilen links der Zeichnung, die Verbraucher rechts (siehe
 link:layout.html[Anordnungen]).

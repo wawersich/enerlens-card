@@ -478,4 +478,31 @@ describe("F: a select left out of the YAML shows the card's default (E-1)", () =
     expect(saved.layout).toBe("triangle");
     expect(saved.flow).toEqual({ animation: "off" });
   });
+
+  it("the arrows' colours: left alone nothing is written, switched off 'direction' (C-8)", async () => {
+    const el = await mount(BARE);
+    const form = forms(el)[0];
+    expect((echo(el, form, { ...form.data }) as Record<string, unknown>)?.colors).toBeUndefined();
+    const box = el.shadowRoot?.querySelector<HTMLInputElement>("input.arrow-colors");
+    expect(box?.checked).toBe(true);
+    let saved: RawConfig | undefined;
+    el.addEventListener("config-changed", (ev) => {
+      saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+    });
+    box?.click();
+    expect(saved?.colors?.arrows).toBe("direction");
+  });
+
+  it("the battery-centre triangle can be picked and is written as such (AN-6)", async () => {
+    const el = await mount(BARE);
+    const form = forms(el)[0];
+    const saved = echo(el, form, { ...form.data, layout: "triangle_battery" }) as Record<
+      string,
+      unknown
+    >;
+    expect(saved.layout).toBe("triangle_battery");
+    expect(
+      forms(await mount({ ...BARE, layout: "triangle_battery" } as RawConfig))[0].data.layout,
+    ).toBe("triangle_battery");
+  });
 });

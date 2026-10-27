@@ -58,11 +58,11 @@ if (scene === "extras" || scene === "nobatt") document.getElementById("host").st
 // the card has drawn and measured, with no re-render of its own and no state
 // update after it: the fill's own change has to make the card measure (K-16).
 const clear = scene === "clear" || scene === "clearring" || scene === "clearlate";
-// right, left, triangle: the other arrangements (AN-1, AN-5), with several PV
+// right, left, triangle, trianglebatt: the other arrangements (AN-1, AN-5), with several PV
 // sources and their rows and fan (PV-7) - at 640 px, so square_left has its PV
 // rows on the left (AN-3). quick: every quick button expanded, compact, on a
 // phone (QB-9 to QB-14).
-const LAYOUT = { right: "square_right", left: "square_left", triangle: "triangle", quick: "cross" }[scene];
+const LAYOUT = { right: "square_right", left: "square_left", triangle: "triangle", trianglebatt: "triangle_battery", quick: "cross" }[scene];
 if (LAYOUT) document.getElementById("host").style.width = scene === "quick" ? "380px" : "640px";
 const ringOff = scene === "clear" || scene === "clearlate";
 

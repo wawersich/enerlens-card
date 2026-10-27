@@ -840,7 +840,7 @@ export const styles = css`
     top: calc(100% + 10px);
   }
 
-  /* Triangle: the house's label lies on the lines below it - on a ground of the
+  /* Triangles: the middle node's label lies on the lines below it - on a ground of the
      card's own colour, so it stays readable, transparent card or not (AN-5). */
   .node.label-ground .label {
     background: var(--ha-card-background, var(--card-background-color, #fff));
@@ -853,7 +853,10 @@ export const styles = css`
      the list too, or it takes a phone's whole screen (24.10.2026). */
   .body.layout-triangle .cross,
   .body.layout-triangle.stacked .cross,
-  .body.layout-triangle.no-list .cross {
+  .body.layout-triangle.no-list .cross,
+  .body.layout-triangle-battery .cross,
+  .body.layout-triangle-battery.stacked .cross,
+  .body.layout-triangle-battery.no-list .cross {
     max-width: min(320px, 100%);
   }
 

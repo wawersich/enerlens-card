@@ -74,7 +74,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>layout</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>cross</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Anordnung der Knoten: <code>cross</code> (Kreuz), <code>square_right</code> (Quadrat · PV rechts), <code>square_left</code> (Quadrat · PV links), <code>triangle</code> (Dreieck) — siehe <em>Anordnungen</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Anordnung der Knoten: <code>cross</code> (Kreuz), <code>square_right</code> (Quadrat · PV rechts), <code>square_left</code> (Quadrat · PV links), <code>triangle</code> (Dreieck · Haus Mitte), <code>triangle_battery</code> (Dreieck · Batterie Mitte) — siehe <em>Anordnungen</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>entities.solar</code></p></td>
@@ -337,6 +337,11 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock">Reihum für Verbraucher ohne eigene Farbe</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>colors.arrows</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>red_green</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pfeile an Netz und Batterie: <code>red_green</code> (Bezug und Entladen rot, Einspeisung und Laden grün) oder <code>direction</code> (Farbe der Richtung)</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>icons.*</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">mdi-Standard</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Icon je Knoten; <code>icons.rest</code> gibt auch der Rest-Zeile eines, statt des Farbpunkts. Eine über das Dashboard neu angelegte Karte bringt dort <code>mdi:cloud-question</code> mit; wird es gelöscht, erscheint wieder der Farbpunkt</p></td>
@@ -381,6 +386,6 @@ Linie.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=cc92ea2c"></script>
+<script type="module" src="../assets/site.js?v=7160e23e"></script>
 </body>
 </html>

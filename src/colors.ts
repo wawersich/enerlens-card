@@ -2,7 +2,7 @@
  * Palette, state-of-charge gradient, CSS variable resolution.
  * Owner: agent 4. REQ 4.7, C-1 - C-4.
  */
-import type { ColorKey, Config, SocStop } from "./types";
+import type { ColorKey, Config, DirectionKey, SocStop } from "./types";
 
 /**
  * Node colours out of the box. Theme variables rather than fixed values, so the
@@ -272,4 +272,16 @@ export function hsvToHsl({ h, s, v }: Hsv): Hsl {
 export function hslToHsv({ h, s, l }: Hsl): Hsv {
   const v = l + s * Math.min(l, 1 - l);
   return { h, s: v === 0 ? 0 : 2 * (1 - l / v), v };
+}
+
+/**
+ * A direction arrow's colour (REQ C-8): red for what comes in through the
+ * meter or out of the battery, green for what goes out or into it - the
+ * theme's own error and success colours. `direction`: the direction's colour.
+ */
+export function arrowColor(config: Config, key: DirectionKey): string {
+  if (config.colors.arrows === "direction") return config.colors[key];
+  return key === "grid_import" || key === "battery_discharge"
+    ? "var(--error-color, #db4437)"
+    : "var(--success-color, #43a047)";
 }

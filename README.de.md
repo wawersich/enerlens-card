@@ -1,7 +1,7 @@
 <h1><img src="docs/assets/brand/logo-lupe.svg" alt="" width="40" height="40"> EnerLens Card</h1>
 
 Eine **hoch-konfigurative** Energiefluss-Karte für Home Assistant. PV, Netz,
-Haus und Batterie in vier Anordnungen — dazu optional eine Aufschlüsselung,
+Haus und Batterie in fünf Anordnungen — dazu optional eine Aufschlüsselung,
 woraus der Hauswert und die PV-Anteile eigentlich bestehen.
 
 **Ausführliche Dokumentation und viele Live-Demos: <https://wawersich.github.io/enerlens-card/de/index.html>**
@@ -15,7 +15,7 @@ woraus der Hauswert und die PV-Anteile eigentlich bestehen.
 
 ## Was sie anders macht
 
-- **Vier Anordnungen:** Kreuz, zwei um 45° gedrehte Quadrate oder Dreieck,
+- **Fünf Anordnungen:** Kreuz, zwei um 45° gedrehte Quadrate oder zwei Dreiecke,
   mit geschwungenen oder geraden Linien.
 - **Mehrere PV-Quellen:** Dach, West, Balkon — jede mit eigenem Anteil am Ring
   und auf Wunsch eigener Zeile; kein Summen-Helfer nötig.

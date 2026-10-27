@@ -195,7 +195,9 @@ export class FanLayer {
         // The line is drawn from `d` as it is; only the dots get the path
         // corrected for the WebKit zoom bug (issue #7).
         dot.style.offsetPath = `path("${dotPath}")`;
-        dot.style.offsetRotate = "auto";
+        // Run backwards (the PV fan, into its node), a dot is turned round too:
+        // `auto` alone faces the drawn way, and its lighter side would trail.
+        dot.style.offsetRotate = this.reverse ? "auto 180deg" : "auto";
 
         // Same guard as the list: no Web Animations must not crash (REQ N-5).
         // The card asks for no dots where they cannot move (P-7), so this

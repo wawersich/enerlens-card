@@ -147,6 +147,12 @@ const PLACES: Record<string, (n: Record<string, Box>) => boolean[]> = {
     n.solar.y < n.house.y && n.house.y < n.battery.y,
     n.grid.x < n.house.x && Math.abs(n.grid.y - n.house.y) < 2,
   ],
+  triangle_battery: (n) => [
+    Math.abs(n.solar.x - n.battery.x) < 2,
+    Math.abs(n.battery.x - n.house.x) < 2,
+    n.solar.y < n.battery.y && n.battery.y < n.house.y,
+    n.grid.x < n.battery.x && Math.abs(n.grid.y - n.battery.y) < 2,
+  ],
 };
 
 for (const layout of Object.keys(PLACES)) {
