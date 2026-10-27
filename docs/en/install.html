@@ -67,15 +67,38 @@ you; if the card does not appear, check <em>Settings → Dashboards → Resource
 </div>
 </div>
 <div class="sect1">
-<h2 id="manually"><a class="anchor" href="#manually"></a>Manually</h2>
+<h2 id="update"><a class="anchor" href="#update"></a>Update</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>HACS only checks for new releases now and then. To get one at once:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>Open HACS, on <em>EnerLens Card</em> choose ⋮ → <em>Update information</em></li>
+<li>The update appears under <em>Settings → Updates</em> (or in HACS at the card) →
+install it</li>
+<li>After installing, be sure to reload the browser. A card runs in the browser,
+not in Home Assistant itself; without a reload the browser keeps showing the
+old version from its cache. In the Home Assistant app, pull the page down until
+it reloads, or restart the app</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="without-hacs"><a class="anchor" href="#without-hacs"></a>Without HACS</h2>
 <div class="sectionbody">
 <div class="olist arabic">
 <ol class="arabic">
 <li>Download <code>enerlens-card.js</code> from the latest release</li>
 <li>Copy it to <code>config/www/</code></li>
 <li>Add the resource under <em>Settings → Dashboards → Resources</em>:
-<code>/local/enerlens-card.js</code> as <em>JavaScript module</em></li>
+<code>/local/enerlens-card.js?v=1</code> as <em>JavaScript module</em></li>
 </ol>
+</div>
+<div class="paragraph">
+<p>With every update replace the file and raise the number after <code>?v=</code> - otherwise
+the browser keeps loading the old file from its cache.</p>
 </div>
 </div>
 </div>
@@ -83,6 +106,6 @@ you; if the card does not appear, check <em>Settings → Dashboards → Resource
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=753d16ee"></script>
+<script type="module" src="../assets/site.js?v=cc92ea2c"></script>
 </body>
 </html>

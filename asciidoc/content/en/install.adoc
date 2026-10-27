@@ -11,10 +11,26 @@ type _Dashboard_
 . HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
 you; if the card does not appear, check _Settings → Dashboards → Resources_
 
-== Manually
+== Update
+
+HACS only checks for new releases now and then. To get one at once:
+
+[arabic]
+. Open HACS, on _EnerLens Card_ choose ⋮ → _Update information_
+. The update appears under _Settings → Updates_ (or in HACS at the card) →
+install it
+. After installing, be sure to reload the browser. A card runs in the browser,
+not in Home Assistant itself; without a reload the browser keeps showing the
+old version from its cache. In the Home Assistant app, pull the page down until
+it reloads, or restart the app
+
+== Without HACS
 
 [arabic]
 . Download `enerlens-card.js` from the latest release
 . Copy it to `config/www/`
 . Add the resource under _Settings → Dashboards → Resources_:
-`/local/enerlens-card.js` as _JavaScript module_
+`/local/enerlens-card.js?v=1` as _JavaScript module_
+
+With every update replace the file and raise the number after `?v=` - otherwise
+the browser keeps loading the old file from its cache.

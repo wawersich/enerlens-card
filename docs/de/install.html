@@ -68,15 +68,39 @@ Ressourcen</em> nachsehen</li>
 </div>
 </div>
 <div class="sect1">
-<h2 id="von-hand"><a class="anchor" href="#von-hand"></a>Von Hand</h2>
+<h2 id="update"><a class="anchor" href="#update"></a>Update</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>HACS sieht nur in Abständen nach, ob es ein neues Release gibt. Sofort geht es
+so:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>HACS öffnen, bei <em>EnerLens Card</em> auf ⋮ → <em>Informationen aktualisieren</em></li>
+<li>Das Update erscheint unter <em>Einstellungen → Updates</em> (oder in HACS bei der
+Karte) → installieren</li>
+<li>Nach der Installation unbedingt den Browser neu laden. Eine Karte läuft im
+Browser, nicht in Home Assistant selbst; ohne Neuladen zeigt er weiter die
+alte Version aus seinem Zwischenspeicher. In der App von Home Assistant die
+Seite nach unten ziehen, bis sie neu lädt, oder die App neu starten</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ohne-hacs"><a class="anchor" href="#ohne-hacs"></a>Ohne HACS</h2>
 <div class="sectionbody">
 <div class="olist arabic">
 <ol class="arabic">
 <li><code>enerlens-card.js</code> aus dem letzten Release herunterladen</li>
 <li>Nach <code>config/www/</code> kopieren</li>
 <li>Unter <em>Einstellungen → Dashboards → Ressourcen</em> eintragen:
-<code>/local/enerlens-card.js</code> als <em>JavaScript-Modul</em></li>
+<code>/local/enerlens-card.js?v=1</code> als <em>JavaScript-Modul</em></li>
 </ol>
+</div>
+<div class="paragraph">
+<p>Bei jedem Update die Datei ersetzen und die Zahl hinter <code>?v=</code> erhöhen - sonst
+lädt der Browser die alte Datei aus seinem Zwischenspeicher.</p>
 </div>
 </div>
 </div>
@@ -84,6 +108,6 @@ Ressourcen</em> nachsehen</li>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=753d16ee"></script>
+<script type="module" src="../assets/site.js?v=cc92ea2c"></script>
 </body>
 </html>

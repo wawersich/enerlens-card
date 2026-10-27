@@ -25,6 +25,9 @@ woraus der Hauswert und die PV-Anteile eigentlich bestehen.
   ohne die Zahlen zu verfälschen.
 - **Energie statt Leistung:** Heute, 24 h, Woche, 7 Tage, Monat, 30 Tage —
   aus der Statistik der Leistungssensoren, ohne Energie-Sensoren.
+- **Beide Richtungen auf einen Blick:** Ein Tipp auf Netz oder Batterie zeigt
+  Bezug und Einspeisung bzw. Entladen und Laden in einem Diagramm, bei der
+  Batterie mit dem Ladestand darunter.
 - **Quick-Buttons im Kopf:** Glättung, Leistung/Energie, PV-Skala und
   Listenumfang mit einem Tipp — zum Weiterschalten oder aufgeklappt, in drei
   Darstellungen.

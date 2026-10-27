@@ -25,6 +25,9 @@ the house figure and the PV shares are actually made of.
   without falsifying the numbers.
 - **Energy instead of power:** today, 24 h, week, 7 days, month, 30 days —
   from the statistics of the power sensors, no energy sensors needed.
+- **Both directions at a glance:** a tap on grid or battery shows import and
+  export, or discharge and charge, in one chart - for the battery with its
+  state of charge below.
 - **Quick buttons in the header:** smoothing, power/energy, PV scale and list
   scope with one tap — stepping on or expanded, in three styles.
 - **Motion to taste:** dots in seven designs, their number, size and speed
