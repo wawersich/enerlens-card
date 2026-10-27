@@ -42,6 +42,9 @@ const STATES: Record<string, [string, string]> = {
   "sensor.car": ["55", "%"],
   "sensor.plug": ["150", "W"],
   "sensor.car2": ["40", "%"],
+  "sensor.house2": ["2000", "W"],
+  "sensor.c1": ["400", "W"],
+  "sensor.c2": ["5", "W"],
 };
 
 /** What the recorder keeps: power from 06:00, the state of charge from 10:00 only. */
@@ -84,6 +87,19 @@ const FIVE: Record<string, [number, number, number, number][]> = {
     [MIDNIGHT + 6 * H + 300_000, -2000, -3000, -1000],
   ],
   "sensor.balcony": [[MIDNIGHT + 6 * H, 50, 40, 60]],
+  "sensor.house2": [
+    [MIDNIGHT + 6 * H, 1000, 900, 1100],
+    [MIDNIGHT + 6 * H + 300_000, 2000, 1900, 2100],
+  ],
+  "sensor.c1": [
+    [MIDNIGHT + 6 * H, 400, 400, 400],
+    [MIDNIGHT + 6 * H + 300_000, 600, 600, 600],
+  ],
+  // Below the threshold, so in the rest: never taken off it.
+  "sensor.c2": [
+    [MIDNIGHT + 6 * H, 100, 100, 100],
+    [MIDNIGHT + 6 * H + 300_000, 100, 100, 100],
+  ],
   "sensor.wallbox": [
     [MIDNIGHT + 6 * H, 3700, 3600, 3800],
     [MIDNIGHT + 6 * H + 300_000, 1000, 0, 3700],
@@ -477,5 +493,45 @@ describe("a consumer with a state of charge: power and charge in one window (REQ
     el.addEventListener("hass-more-info", (ev) => more.push((ev as CustomEvent).detail.entityId));
     await openRow(el, "sensor.plug");
     expect(more).toEqual(["sensor.plug"]);
+  });
+});
+
+describe("the rest: the house minus the consumers shown, as its row (REQ DF-18)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const WITH_REST = {
+    ...CONFIG,
+    entities: { ...CONFIG.entities, house: "sensor.house2" },
+    consumers: [
+      { entity: "sensor.c1", name: "Eins" },
+      { entity: "sensor.c2", name: "Klein" },
+    ],
+  };
+
+  it("one line: house minus the shown consumer only, the label without a link", async () => {
+    const el = await mount(WITH_REST);
+    let params: unknown;
+    el.addEventListener("show-dialog", (ev) => {
+      params = (ev as CustomEvent).detail.dialogParams;
+    });
+    el.shadowRoot?.querySelector<HTMLElement>(".row.rest .row-hit")?.click();
+    expect((params as { node: string }).node).toBe("rest");
+    const d = document.createElement(DETAIL_NAME) as Dialog;
+    document.body.appendChild(d);
+    await d.showDialog(params);
+    await settle(d);
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Rest");
+    const series = chart(d, "power")?.data ?? [];
+    expect(series.map((s) => s.name)).toEqual(["Rest · berechnet"]);
+    expect(values(series[0])).toEqual([600, 1400]);
+    expect(d.shadowRoot?.querySelector(".sums button")).toBeNull();
+  });
+
+  it("no rest window with a derived house: the row stays without a target", async () => {
+    const el = await mount({ ...WITH_REST, entities: { ...WITH_REST.entities, house: "derived" } });
+    expect(el.shadowRoot?.querySelector(".row.rest .row-hit")).toBeNull();
   });
 });

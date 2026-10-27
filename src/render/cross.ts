@@ -49,7 +49,7 @@ function moreInfoEntity(value: Signed, minW: number): string | undefined {
 
 /** The nodes with a detail window (REQ DF-1). */
 /** Which window a target opens (REQ DF-1, DF-14). */
-export type DetailNode = "grid" | "battery" | "house" | "solar" | `consumer:${string}`;
+export type DetailNode = "grid" | "battery" | "house" | "solar" | "rest" | `consumer:${string}`;
 
 /** What a tap on a node with a detail window asks the card for (REQ DF-1). */
 export interface DetailRequest {

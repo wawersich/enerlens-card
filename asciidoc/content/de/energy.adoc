@@ -103,8 +103,8 @@ Ladestand darunter; wo Home Assistant den einzelnen Verlauf nicht mehr
 aufhebt (Standard 10 Tage), zeigt eine blasse Fläche den kleinsten und
 größten Wert je Stunde bzw. Tag.
 
-*PV, Haus und Wallbox im Detail.* Dasselbe Fenster gibt es an drei weiteren
-Stellen, jeweils mit Leistung und Energie:
+*PV, Haus, Wallbox und Rest im Detail.* Dasselbe Fenster gibt es an vier
+weiteren Stellen, jeweils mit Leistung und Energie:
 
 * *PV* mit mehreren Quellen: jede Quelle eine Fläche bzw. ein Balken in ihrer
   Farbe, übereinander gestapelt, darüber eine dünne graue Linie für die Summe.
@@ -117,6 +117,9 @@ Stellen, jeweils mit Leistung und Energie:
 * *Verbraucher mit Ladestand*, etwa die Wallbox (siehe
   link:ev.html[Wallbox und E-Auto]): die Leistung, darunter der Ladestand des
   Autos.
+* *Rest* in der Liste: der Hauswert minus die gerade angezeigten Verbraucher,
+  genau wie in der Zeile – so sieht man, wann der nicht einzeln gemessene
+  Verbrauch hoch war. Braucht einen gemessenen Hauswert.
 
 [.only-light]
 image::detail-energy-de-light.png["Das Fenster des Netzes über 7 Tage",560]

@@ -220,7 +220,12 @@ function renderRow(
     // power the way out (DF-15, Markus: "Wir machen alle gleich"). Without
     // the window each part opens what it shows (REQ L-15).
     const detail: DetailNode | undefined =
-      charge && entry.entity && !solar ? `consumer:${entry.key}` : undefined;
+      charge && entry.entity && !solar
+        ? `consumer:${entry.key}`
+        : // The rest's history needs a measured house (DF-18).
+          entry.isRest && config.sources.house.kind === "single"
+          ? "rest"
+          : undefined;
     const socHit = (part: string) =>
       charge
         ? html`<button
@@ -261,7 +266,7 @@ function renderRow(
                 >${value}${percent ? socHit("value") : nothing}</span
               >
               ${
-                entry.entity
+                entry.entity || detail
                   ? html`<button
                     class="row-hit"
                     title=${mark?.note ?? ""}
@@ -269,7 +274,7 @@ function renderRow(
                       // The row opens the power, so it names the power.
                       entry.powerUnknown ? "—" : formatPower(entry.w, hass, config.power)
                     }`}
-                    @click=${(ev: Event) => onEntry(entry.entity as string, ev, detail)}
+                    @click=${(ev: Event) => onEntry(entry.entity ?? "", ev, detail)}
                   ></button>`
                   : nothing
               }

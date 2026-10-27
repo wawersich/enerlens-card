@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   sources opens a window with the sources stacked and their sum; a consumer
   with a state of charge, such as a wallbox, shows its power with the car's
   charge below.
+- **Rest in detail:** a tap on the rest in the list shows its history - the
+  house minus the consumers shown, exactly as in the row.
 - **Triangle · battery centre:** a second triangle with house and battery
   swapped - the PV rows at the top, the consumers at the bottom.
 

@@ -59,7 +59,13 @@ interface SocData {
 /** What the window asks of the card that opened it. */
 export interface DetailCard extends HTMLElement {
   hass?: HomeAssistant;
-  detailState(): { config: Config; period: EnergyPeriod | null; periods: EnergyPeriod[] } | null;
+  detailState(): {
+    config: Config;
+    period: EnergyPeriod | null;
+    periods: EnergyPeriod[];
+    /** The consumers the list shows now (DF-18). */
+    shown?: string[];
+  } | null;
   detailEnergy(period: EnergyPeriod): Promise<EnergyView>;
 }
 
@@ -96,6 +102,8 @@ interface Part {
   invert: boolean;
   /** No reading counts as 0, as the node counts it - else a gap (DF-17). */
   quiet: boolean;
+  /** Taken off rather than added: the consumers in the rest (DF-18). */
+  minus?: boolean;
 }
 
 /** What a window shows (DF-1): its title, its series, a state of charge below. */
@@ -114,7 +122,12 @@ interface Plan {
   parts?: Part[];
 }
 
-function planOf(node: DetailNode, config: Config, hass?: HomeAssistant): Plan {
+function planOf(
+  node: DetailNode,
+  config: Config,
+  hass?: HomeAssistant,
+  shown: string[] = [],
+): Plan {
   if (node.startsWith("consumer:")) {
     // Power and the car's charge in one (DF-15): the consumer's own series.
     const consumer = config.consumers.find((c) => `consumer:${c.key}` === node);
@@ -155,6 +168,34 @@ function planOf(node: DetailNode, config: Config, hass?: HomeAssistant): Plan {
         invert: source.invert,
         quiet: true,
       })),
+    };
+  }
+  if (node === "rest") {
+    // The house as the node counts it, minus the consumers the list shows -
+    // the rest as its row has it (DF-18).
+    const house = config.sources.house;
+    const title = config.list.restLabel || localize("list.rest", hass);
+    if (house.kind !== "single") return { title, series: [], layout: "total" };
+    const past = config.solarSources.filter((source) => source.excluded);
+    return {
+      title,
+      layout: "total",
+      series: [
+        {
+          entity: house.entity,
+          name: `${title} ${localize("node.derived_suffix", hass)}`,
+          // The rest's own colour is a faint list mark; as a line it would
+          // hardly show (Markus 27.10.2026: grey).
+          color: "var(--secondary-text-color)",
+          sign: 1,
+          role: "house",
+        },
+      ],
+      parts: [
+        { entity: house.entity, invert: house.invert, quiet: false },
+        ...past.map((source) => ({ entity: source.entity, invert: source.invert, quiet: true })),
+        ...shown.map((entity) => ({ entity, invert: false, quiet: true, minus: true })),
+      ],
     };
   }
   if (node === "house") {
@@ -322,8 +363,9 @@ function totalMean(parts: Part[], view?: EnergyView): number | null | undefined 
       if (part.quiet) continue;
       return null;
     }
-    known = true;
-    sum += part.invert ? -mean : mean;
+    if (!part.minus) known = true;
+    const own = part.invert ? -mean : mean;
+    sum += part.minus ? -own : own;
   }
   // No source known at all: no figure, as the node shows none (PV-2).
   return known ? sum : null;
@@ -356,6 +398,11 @@ export class EnerLensDetail extends LitElement {
   private _view?: EnergyView;
   private _busy = false;
   private _ticket = 0;
+  /**
+   * The consumers the list showed when the figures were asked for: fetch,
+   * drawing and header all take the rest from the same selection (DF-18).
+   */
+  private _shown: string[] = [];
   /** Whether anything was drawn yet: a later failure keeps it up (DF-7). */
   private _loaded = false;
   private _chart?: ChartElement;
@@ -624,7 +671,8 @@ export class EnerLensDetail extends LitElement {
       // Seite", then the curves).
       const energy = !this._power && this._period;
       const range = this._powerRange(hass);
-      const plan = planOf(params.node, state.config, hass);
+      this._shown = state.shown ?? [];
+      const plan = planOf(params.node, state.config, hass, this._shown);
       const figures = energy
         ? params.card.detailEnergy(energy)
         : fiveMinutes(
@@ -753,7 +801,7 @@ export class EnerLensDetail extends LitElement {
     const hass = this._hass;
     const state = params?.card.detailState();
     if (!params || !hass || !state) return;
-    const plan = planOf(params.node, state.config, hass);
+    const plan = planOf(params.node, state.config, hass, this._shown);
     if (plan.layout === "total" && plan.parts) {
       this._drawTotal(plan, plan.parts, range, rows);
       return;
@@ -935,7 +983,8 @@ export class EnerLensDetail extends LitElement {
           if (part.quiet) continue;
           return [t, null];
         }
-        sum += part.invert ? -v : v;
+        const own = part.invert ? -v : v;
+        sum += part.minus ? -own : own;
       }
       return [t, sum];
     });
@@ -1082,7 +1131,7 @@ export class EnerLensDetail extends LitElement {
     const detail = view.detail;
     if (!params || !hass || !state || !detail) return;
     const tz = timeZoneOf(hass);
-    const plan = planOf(params.node, state.config, hass);
+    const plan = planOf(params.node, state.config, hass, this._shown);
     const sides = plan.series;
     // The card's own sum, bucket by bucket: the house's bars and those of the
     // sources past its meter, already turned (DF-14, DF-17).
@@ -1092,22 +1141,26 @@ export class EnerLensDetail extends LitElement {
       }
       if (plan.layout !== "total" || !plan.parts) return detail.bars[side.role] ?? [];
       const sum = new Map<number, EnergyBar>();
+      // Buckets the house has a bar for: elsewhere a gap, never a bar of the
+      // other parts alone (DF-8, DF-18).
+      let held: Set<number> | undefined;
       for (const part of plan.parts) {
         const found =
           part.entity === side.entity ? detail.bars[side.role] : detail.entityBars[part.entity];
         // The house without statistics: no bars, as its figure is "—" (DF-8).
         if (!found && !part.quiet) return [];
         const own = found ?? [];
+        if (!part.quiet) held = new Set(own.map((bar) => bar.start));
         for (const bar of own) {
           const was = sum.get(bar.start);
           sum.set(bar.start, {
             start: bar.start,
-            wh: (was?.wh ?? 0) + bar.wh,
+            wh: (was?.wh ?? 0) + (part.minus ? -bar.wh : bar.wh),
             filledShare: Math.max(was?.filledShare ?? 0, bar.filledShare),
           });
         }
       }
-      return [...sum.values()];
+      return [...sum.values()].filter((bar) => !held || held.has(bar.start));
     };
     // Every bucket of the axis, the ones without figures empty: a single bar
     // would otherwise make the chart widen its axis around it.
@@ -1216,7 +1269,7 @@ export class EnerLensDetail extends LitElement {
     const hass = this._hass;
     if (!params || !hass) return nothing;
     const view = this._power ? undefined : this._view;
-    const plan = planOf(params.node, state.config, hass);
+    const plan = planOf(params.node, state.config, hass, this._shown);
     const sides = plan.series;
     const marks = view?.marks.roles;
     const soc = plan.soc;
@@ -1271,7 +1324,10 @@ export class EnerLensDetail extends LitElement {
           const mark =
             plan.layout === "stacked" || plan.layout === "single"
               ? view?.marks.consumers[side.entity]
-              : marks?.[side.role];
+              : // The rest's own warning, as its row shows it (EM-11).
+                params.node === "rest"
+                ? view?.marks.rest
+                : marks?.[side.role];
           // The card's own sum: no entity carries it, so no link - the raw
           // sensor's would show another figure (DF-14, Markus 27.10.2026).
           if (plan.layout === "total") {
@@ -1336,7 +1392,7 @@ export class EnerLensDetail extends LitElement {
     const hass = this._hass;
     const state = this._params.card.detailState();
     const title = state
-      ? planOf(this._params.node, state.config, hass).title
+      ? planOf(this._params.node, state.config, hass, this._shown).title
       : localize(`node.${this._params.node}`, hass);
     return html`
       <ha-adaptive-dialog

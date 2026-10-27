@@ -90,6 +90,7 @@ import {
   type NormalizedCharge,
   type OutageState,
   type PvScale,
+  REST_KEY,
   type RawConfig,
   type Sample,
   type ViewMode,
@@ -508,10 +509,17 @@ class EnerLensCard extends LitElement {
    * What the detail window needs from the card (DF-3): the configuration,
    * the period it shows (null = the power view) and the periods it offers.
    */
-  detailState(): { config: Config; period: EnergyPeriod | null; periods: EnergyPeriod[] } | null {
+  detailState(): {
+    config: Config;
+    period: EnergyPeriod | null;
+    periods: EnergyPeriod[];
+    shown: string[];
+  } | null {
     if (!this._config) return null;
     return {
       config: this._config,
+      // The consumers the list shows now: the rest is the house without them (DF-18).
+      shown: [...(this._lastEntries?.keys() ?? [])].filter((key) => key !== REST_KEY),
       // A period tapped to but still loading is the one the card is going to.
       period: this._energyPending !== undefined ? this._energyPending : this._period,
       periods: this._energyOffer(this._config).filter((p): p is EnergyPeriod => p !== null),
@@ -1986,7 +1994,7 @@ class EnerLensCard extends LitElement {
     // A consumer with a state of charge opens the window (DF-15).
     const openEntry = (entity: string, ev: Event, detail?: DetailNode) =>
       detail
-        ? openDetail(ev.currentTarget as EventTarget, { node: detail, entity })
+        ? openDetail(ev.currentTarget as EventTarget, { node: detail, entity: entity || undefined })
         : openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`

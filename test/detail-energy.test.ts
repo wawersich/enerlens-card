@@ -38,6 +38,7 @@ const STATES: Record<string, string> = {
   "sensor.roof": "0",
   "sensor.wallbox": "0",
   "sensor.car": "60",
+  "sensor.c1": "200",
 };
 
 /** Mornings bought, afternoons sold: both directions on one day. */
@@ -51,6 +52,7 @@ const MEANS: Record<string, (t: number) => number> = {
   "sensor.balcony": (t) => (new Date(t).getUTCHours() >= 8 ? 200 : 0),
   "sensor.roof": (t) => (new Date(t).getUTCHours() >= 8 ? 2800 : 0),
   "sensor.wallbox": (t) => (new Date(t).getUTCHours() === 9 ? 3700 : 0),
+  "sensor.c1": () => 200,
 };
 
 /** A month's request waits for this, or fails while `failMonth` is set. */
@@ -351,6 +353,29 @@ describe("the detail window in a period (REQ DF-3)", () => {
     const d = await open(el, "solar");
     const head = text(d.shadowRoot?.querySelector(".sums > .total"));
     expect(head).toBe("PV —");
+  });
+
+  it("the rest: house minus the shown consumers, its total that of its row (DF-18)", async () => {
+    const el = await mount({ ...CONFIG, consumers: [{ entity: "sensor.c1", name: "Eins" }] });
+    cardChip(el)?.click();
+    await settle(el);
+    const row = text(el.shadowRoot?.querySelector(".row.rest .row-value"));
+    let params: unknown;
+    el.addEventListener("show-dialog", (ev) => {
+      params = (ev as CustomEvent).detail.dialogParams;
+    });
+    el.shadowRoot?.querySelector<HTMLElement>(".row.rest .row-hit")?.click();
+    const d = document.createElement(DETAIL_NAME) as Dialog;
+    document.body.appendChild(d);
+    await d.showDialog(params);
+    await settle(d);
+    const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+    const bars = (c?.data[0].data ?? [])
+      .map((p) => (Array.isArray(p) ? p[1] : (p as { value: [number, number] }).value[1]))
+      .filter((v) => v !== null);
+    // 500 W house, 200 W shown: 0.3 kWh each hour.
+    expect(bars.every((v) => v === 0.3)).toBe(true);
+    expect(text(d.shadowRoot?.querySelector(".sum b"))).toBe(row);
   });
 
   it("totals the card's own figures (DF-3)", async () => {

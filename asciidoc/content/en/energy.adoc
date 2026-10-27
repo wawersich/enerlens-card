@@ -98,7 +98,7 @@ paler. For the battery the state of charge stands below; where Home Assistant
 no longer keeps the single readings (10 days by default), a faint band shows
 the lowest and highest value per hour or day.
 
-*Solar, house and wallbox in detail.* The same window opens in three more
+*Solar, house, wallbox and rest in detail.* The same window opens in four more
 places, each with power and energy:
 
 * *Solar* with several sources: each source an area or bar in its colour,
@@ -111,6 +111,9 @@ places, each with power and energy:
   the house sensor's history as before.
 * *Consumers with a state of charge*, such as the wallbox (see
   link:ev.html[Wallbox and EV]): the power, with the car's charge below.
+* *Rest* in the list: the house value minus the consumers shown, exactly as in
+  its row – so you see when the consumption not measured on its own was high.
+  Needs a measured house value.
 
 [.only-light]
 image::detail-energy-en-light.png["The grid's window over 7 days",560]
