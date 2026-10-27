@@ -448,6 +448,22 @@ describe("F: a select left out of the YAML shows the card's default (E-1)", () =
     });
   });
 
+  it("the labels of the main entities come right after them, the PV sources next (Z-10)", async () => {
+    const el = await mount({
+      ...BARE,
+      entities: { ...BARE.entities, solar: [{ entity: "sensor.a" }, { entity: "sensor.b" }] },
+    } as unknown as RawConfig);
+    const headings = [
+      ...(el.shadowRoot?.querySelectorAll("ha-expansion-panel > [slot=header]") ?? []),
+    ].map((h) => h.textContent?.trim());
+    expect(headings.slice(0, 4)).toEqual([
+      "Basis-Entitäten",
+      "Basis-Entitäten: Beschriftung & Zusatzwerte",
+      "PV-Quellen",
+      "Verbraucher",
+    ]);
+  });
+
   it("the line form follows the arrangement: straight beside the cross", async () => {
     const data = forms(await mount({ ...BARE, layout: "triangle" } as RawConfig))[0].data;
     expect(data.flow_lines).toBe("straight");

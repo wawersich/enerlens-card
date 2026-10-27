@@ -94,6 +94,8 @@ interface Series {
   sign: 1 | -1;
   /** Which of the card's energy figures it is (DF-3). */
   role: EnergyRole;
+  /** Turned, as the card turns it (DF-17): a PV source mounted the other way. */
+  invert?: boolean;
 }
 
 /** One sensor of a figure the card adds up (PV-3): turned, and 0 when quiet. */
@@ -112,6 +114,8 @@ interface Plan {
   series: Series[];
   /** The state of charge below the chart (DF-5). */
   soc?: string;
+  /** Its own name instead of "State of charge" (issue #31). */
+  socLabel?: string;
   /**
    * How the series lie: a pair mirrored at zero (DF-3), the parts of a sum
    * stacked (DF-13), or one series that is the card's own sum of `parts` -
@@ -135,14 +139,41 @@ function planOf(
       ? (hass?.states?.[consumer.entity]?.attributes?.friendly_name as string | undefined)
       : undefined;
     const title = consumer?.name ?? friendly ?? consumer?.entity ?? "";
-    if (!consumer?.charge) return { title, series: [], layout: "single" };
+    if (!consumer) return { title, series: [], layout: "single" };
     return {
       title,
       layout: "single",
       series: [
         { entity: consumer.entity, name: title, color: consumer.color, sign: 1, role: "house" },
       ],
-      soc: consumer.charge.soc,
+      soc: consumer.charge?.soc,
+      socLabel: consumer.charge?.label,
+    };
+  }
+  if (node.startsWith("source:")) {
+    // One PV source of the list, as its row shows it (DF-19).
+    const source = config.solarSources.find((s) => `source:${s.key}` === node);
+    const title =
+      source?.name ??
+      (source
+        ? (hass?.states?.[source.entity]?.attributes?.friendly_name as string | undefined)
+        : undefined) ??
+      source?.entity ??
+      "";
+    if (!source) return { title, series: [], layout: "single" };
+    return {
+      title,
+      layout: "single",
+      series: [
+        {
+          entity: source.entity,
+          name: title,
+          color: source.color,
+          sign: 1,
+          role: "solar",
+          invert: source.invert,
+        },
+      ],
     };
   }
   const title = localize(`node.${node}`, hass);
@@ -183,7 +214,7 @@ function planOf(
       series: [
         {
           entity: house.entity,
-          name: `${title} ${localize("node.derived_suffix", hass)}`,
+          name: title,
           // The rest's own colour is a faint list mark; as a line it would
           // hardly show (Markus 27.10.2026: grey).
           color: "var(--secondary-text-color)",
@@ -208,7 +239,7 @@ function planOf(
       series: [
         {
           entity: house.entity,
-          name: `${title} ${localize("node.derived_suffix", hass)}`,
+          name: title,
           color: config.colors.house,
           sign: 1,
           role: "house",
@@ -812,9 +843,22 @@ export class EnerLensDetail extends LitElement {
     }
     const sides = plan.series;
     const power = state.config.power;
-    const watts = (v: number) => formatPower(Math.abs(v), hass, power);
+    const mirrored = plan.layout === "mirrored";
+    // A mirrored pair's lower half has no minus (DF-3); anything else keeps its sign.
+    const watts = (v: number) =>
+      `${!mirrored && v < 0 ? "−" : ""}${formatPower(Math.abs(v), hass, power)}`;
     const series = sides.flatMap((side) => {
-      const own = rows[side.entity] ?? [];
+      // Turned where the card turns it: the largest reading becomes the smallest.
+      const own = (rows[side.entity] ?? []).map((r) =>
+        side.invert
+          ? {
+              ...r,
+              mean: r.mean === null ? null : -r.mean,
+              min: r.max === null ? null : -r.max,
+              max: r.min === null ? null : -r.min,
+            }
+          : r,
+      );
       const color = this._paint(side.color);
       // Mirrored, the band's lower edge is the largest reading.
       const signed = (v: number) => (v === 0 ? 0 : side.sign * v);
@@ -875,7 +919,9 @@ export class EnerLensDetail extends LitElement {
               return `${side.name}: ${watts(mean)}`;
             }
             // Smallest first, also on the mirrored side.
-            const [a, b] = [Math.abs(low), Math.abs(low + span)].sort((x, y) => x - y);
+            const [a, b] = mirrored
+              ? [Math.abs(low), Math.abs(low + span)].sort((x, y) => x - y)
+              : [low, low + span];
             return `${side.name}: ${watts(mean)} (${watts(a)} – ${watts(b)})`;
           });
           return tipLines([points[0]?.axisValueLabel ?? "", ...lines]);
@@ -910,7 +956,8 @@ export class EnerLensDetail extends LitElement {
         return v === undefined || v === null ? 0 : part.invert ? -v : v;
       }),
     );
-    const watts = (v: number) => formatPower(Math.abs(v), hass, state.config.power);
+    const watts = (v: number) =>
+      `${v < 0 ? "−" : ""}${formatPower(Math.abs(v), hass, state.config.power)}`;
     const grey = this._paint("var(--secondary-text-color)");
     const chart = this._chartFor("_chart", "power");
     chart.options = {
@@ -922,8 +969,7 @@ export class EnerLensDetail extends LitElement {
         trigger: "axis",
         confine: true,
         // In its sign: a source's standby below zero shows as such.
-        valueFormatter: (v: unknown) =>
-          typeof v === "number" ? `${v < 0 ? "−" : ""}${watts(v)}` : "—",
+        valueFormatter: (v: unknown) => (typeof v === "number" ? watts(v) : "—"),
       },
     };
     chart.data = [
@@ -988,7 +1034,8 @@ export class EnerLensDetail extends LitElement {
       }
       return [t, sum];
     });
-    const watts = (v: number) => formatPower(Math.abs(v), hass, state.config.power);
+    const watts = (v: number) =>
+      `${v < 0 ? "−" : ""}${formatPower(Math.abs(v), hass, state.config.power)}`;
     const color = this._paint(own.color);
     const chart = this._chartFor("_chart", "power");
     chart.options = {
@@ -1000,8 +1047,7 @@ export class EnerLensDetail extends LitElement {
         trigger: "axis",
         confine: true,
         // In its sign: a source's standby below zero shows as such.
-        valueFormatter: (v: unknown) =>
-          typeof v === "number" ? `${v < 0 ? "−" : ""}${watts(v)}` : "—",
+        valueFormatter: (v: unknown) => (typeof v === "number" ? watts(v) : "—"),
       },
     };
     chart.data = [
@@ -1024,7 +1070,11 @@ export class EnerLensDetail extends LitElement {
   private _drawSoc(data: SocData, min: number, max: number): void {
     const hass = this._hass;
     if (!hass) return;
-    const name = localize("detail.soc", hass);
+    const params = this._params;
+    const state = params?.card.detailState();
+    const own = params && state ? planOf(params.node, state.config, hass, this._shown) : undefined;
+    // In the tooltip under its own name, where it has one (issue #31).
+    const name = own?.socLabel || localize("detail.soc", hass);
     const line = this._paint("var(--secondary-text-color)");
     const fill = this._paint("var(--divider-color)");
     const percent = (v: number) => `${Math.round(v)} %`;
@@ -1196,7 +1246,8 @@ export class EnerLensDetail extends LitElement {
     });
     // HA's number format, as the totals above (DF-12).
     const format = new Intl.NumberFormat(localeFor(hass), { maximumFractionDigits: 1 });
-    const number = (v: number) => format.format(Math.abs(v));
+    const mirrored = plan.layout === "mirrored";
+    const number = (v: number) => format.format(mirrored ? Math.abs(v) : v);
     const chart = this._chartFor("_chart", "energy");
     chart.options = {
       xAxis: { type: "time", min: detail.axisFrom, max: detail.axisTo },
@@ -1208,7 +1259,9 @@ export class EnerLensDetail extends LitElement {
         // Inside the chart: the dialog's edge cuts off what reaches past it.
         confine: true,
         valueFormatter: (v: unknown) =>
-          typeof v === "number" ? formatEnergy(Math.abs(v) * 1000, hass) : "",
+          typeof v === "number"
+            ? `${!mirrored && v < 0 ? "−" : ""}${formatEnergy(Math.abs(v) * 1000, hass)}`
+            : "",
       },
     };
     chart.data = series;
@@ -1314,11 +1367,16 @@ export class EnerLensDetail extends LitElement {
               ? totalMean(plan.parts, view)
               : plan.layout === "stacked"
                 ? turned(side.entity, plan.parts, view)
-                : view?.meanW(side.entity);
+                : side.invert
+                  ? turned(side.entity, [{ entity: side.entity, invert: true, quiet: true }], view)
+                  : view?.meanW(side.entity);
           const figure = this._power
             ? undefined
             : view && mean !== null && mean !== undefined
-              ? formatEnergy(Math.max(0, mean * view.hours), hass)
+              ? // A row is not clamped: its window's figure neither (DF-19).
+                plan.layout === "single"
+                ? `${mean < 0 ? "−" : ""}${formatEnergy(Math.abs(mean * view.hours), hass)}`
+                : formatEnergy(Math.max(0, mean * view.hours), hass)
               : "—";
           // A source's own warning, not the sum's (EM-11).
           const mark =
@@ -1377,9 +1435,11 @@ export class EnerLensDetail extends LitElement {
           soc && this._socChart
             ? html`<button
                 class="sum soc-name"
-                aria-label=${localize("detail.open", hass, { name: localize("detail.soc", hass) })}
+                aria-label=${localize("detail.open", hass, {
+                  name: plan.socLabel || localize("detail.soc", hass),
+                })}
                 @click=${more(soc)}
-              >${localize("detail.soc", hass)}</button>
+              >${plan.socLabel || localize("detail.soc", hass)}</button>
               ${this._socChart}`
             : nothing
         }

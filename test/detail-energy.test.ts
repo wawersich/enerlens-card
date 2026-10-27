@@ -230,7 +230,7 @@ describe("the detail window in a period (REQ DF-3)", () => {
     const node = text(el.shadowRoot?.querySelector(".node.house .value"));
     const d = await open(el, "house");
     const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
-    expect(c?.data.map((s) => s.name)).toEqual(["Haus · berechnet"]);
+    expect(c?.data.map((s) => s.name)).toEqual(["Haus"]);
     const bars = (c?.data[0].data ?? [])
       .map((p) => (Array.isArray(p) ? p[1] : (p as { value: [number, number] }).value[1]))
       .filter((v) => v !== null);

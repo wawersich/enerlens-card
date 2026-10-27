@@ -57,7 +57,7 @@ those always look as in Home Assistant. And a node's own power entity used
 as an extra value is written the way Home Assistant writes it ("3800 W"),
 not the way the card does ("3.80 kW").
 
-In the editor: _Labels & extra values_, one section per node - here solar,
+In the editor: _Main entities: labels & extra values_, one section per node - here solar,
 with today's yield in the circle and the forecast beside it:
 
 [.only-light]

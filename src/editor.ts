@@ -155,6 +155,8 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
     .map((option) => ({ value: option, label: option }));
   const chargeFields: Record<string, unknown>[] = [
     { name: "soc", selector: { entity: { filter: BATTERY_FILTER } } },
+    // Its own name, e.g. a printer's progress (issue #31).
+    { name: "label", selector: { text: {} } },
     {
       name: "show",
       selector: {
@@ -683,8 +685,9 @@ function cleanCharge(value: unknown): Record<string, unknown> | undefined {
   const plugged = waits ? text(value.plugged) : undefined;
   const charge = prune({
     // Keys the form has no field for stay as they are (issue #19).
-    ...unknownKeys(value, ["soc", "show", "plugged", "unplugged"]),
+    ...unknownKeys(value, ["soc", "show", "plugged", "unplugged", "label"]),
     soc: text(value.soc),
+    label: text(value.label),
     show: text(value.show),
     plugged,
     unplugged: plugged && !isOnOff(plugged) ? states(value.unplugged) : undefined,
@@ -1449,8 +1452,6 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       title: t("entities"),
       schema: [...entitySections, COLORS_HINT],
     },
-    // Several PV sources have their panel right here, like the consumers (PV-9).
-    ...(sources ? [{ name: SOLAR_SLOT, type: "constant" }] : []),
     {
       name: "nodes",
       type: "expandable",
@@ -1464,6 +1465,9 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         COLORS_HINT,
       ],
     },
+    // Several PV sources have their panel here, like the consumers (PV-9) -
+    // after the main entities' labels, which belong to those (Markus 27.10.2026).
+    ...(sources ? [{ name: SOLAR_SLOT, type: "constant" }] : []),
     // The consumers have a panel of their own, drawn between the form pieces
     // (REQ E-4): the object selector could not unfold a section inside an entry
     // or react to the entity chosen in it. Marked here so render() knows where.

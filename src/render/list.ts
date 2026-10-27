@@ -86,12 +86,18 @@ function chargeRing(soc: number | undefined): TemplateResult {
 
 /** The tooltip on the mark: the charge, and how old it is when it is old. */
 function chargeTitle(charge: NonNullable<ListEntry["charge"]>, hass: HomeAssistant): string {
-  if (charge.soc === undefined) return localize("list.charge_unknown", hass);
+  // An own name - a printer's progress, say - instead of "State of charge" (issue #31).
+  const label = charge.label || localize("list.charge_label", hass);
+  if (charge.soc === undefined) return localize("list.charge_unknown", hass, { label });
   const value = formatPercent(charge.soc, hass);
   if (charge.stale && charge.since !== undefined) {
-    return localize("list.charge_stale", hass, { value, time: formatClock(charge.since, hass) });
+    return localize("list.charge_stale", hass, {
+      label,
+      value,
+      time: formatClock(charge.since, hass),
+    });
   }
-  return localize("list.charge", hass, { value });
+  return localize("list.charge", hass, { label, value });
 }
 
 /**
@@ -219,13 +225,17 @@ function renderRow(
     // Power and charge in one window: every part of the row opens it, the
     // power the way out (DF-15, Markus: "Wir machen alle gleich"). Without
     // the window each part opens what it shows (REQ L-15).
-    const detail: DetailNode | undefined =
-      charge && entry.entity && !solar
-        ? `consumer:${entry.key}`
-        : // The rest's history needs a measured house (DF-18).
-          entry.isRest && config.sources.house.kind === "single"
-          ? "rest"
-          : undefined;
+    // Every row opens its window: a consumer's, a PV source's, the rest's -
+    // the last needs a measured house (DF-18, DF-19).
+    const detail: DetailNode | undefined = entry.isRest
+      ? config.sources.house.kind === "single"
+        ? "rest"
+        : undefined
+      : entry.entity
+        ? solar
+          ? `source:${entry.key}`
+          : `consumer:${entry.key}`
+        : undefined;
     const socHit = (part: string) =>
       charge
         ? html`<button

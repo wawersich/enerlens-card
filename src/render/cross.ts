@@ -49,7 +49,14 @@ function moreInfoEntity(value: Signed, minW: number): string | undefined {
 
 /** The nodes with a detail window (REQ DF-1). */
 /** Which window a target opens (REQ DF-1, DF-14). */
-export type DetailNode = "grid" | "battery" | "house" | "solar" | "rest" | `consumer:${string}`;
+export type DetailNode =
+  | "grid"
+  | "battery"
+  | "house"
+  | "solar"
+  | "rest"
+  | `consumer:${string}`
+  | `source:${string}`;
 
 /** What a tap on a node with a detail window asks the card for (REQ DF-1). */
 export interface DetailRequest {
@@ -446,9 +453,9 @@ export function buildNodeViews(
     icon: config.icons.house ?? DEFAULT_ICONS.house,
     color: config.colors.house,
     label: localize("node.house", hass),
-    // Corrected by sources outside the measured value: "calculated", but
-    // still the measured entity behind it, so a tap opens it (PV-3).
-    derived: model.house.derived || model.house.corrected === true,
+    // Corrected by sources outside the measured value: no "calculated" - only
+    // the value matters (PV-3, Markus 27.10.2026); derived it is said (A-3).
+    derived: model.house.derived,
     value: readingValue(model.house, hass, config),
     available: model.house.available,
     entity: model.house.derived ? undefined : model.house.entity,

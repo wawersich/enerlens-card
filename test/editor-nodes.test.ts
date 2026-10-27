@@ -273,7 +273,7 @@ describe("editor - nodes (REQ Z-10)", () => {
     expect(sub(el, "house")?.title).toBe("Haus");
     // Not "Knoten": the entities belong to the nodes just as much (Markus, 17.10.2026).
     expect(group(el, "entities")?.title).toBe("Basis-Entitäten");
-    expect(group(el, "nodes")?.title).toBe("Beschriftung & Zusatzwerte");
+    expect(group(el, "nodes")?.title).toBe("Basis-Entitäten: Beschriftung & Zusatzwerte");
   });
 
   it("never turns an empty decimals from the YAML into text the card refuses (REQ E-1)", async () => {

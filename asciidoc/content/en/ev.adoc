@@ -38,4 +38,7 @@ charge is shown grey. Hover the icon for the value; a tap on the row opens a
 window with the power and the charge below it (see
 link:energy.html#detail[Energy]); in
 the editor it is under the consumer, _State of charge_. It is not limited to
-cars - a power station works the same way.
+cars - a power station works the same way, and so does a 3D printer with its
+print progress. "State of charge" does not fit there: under _Label_ (in YAML
+`charge.label`) put e.g. "Print progress" instead - in the tooltip and in the
+detail window.

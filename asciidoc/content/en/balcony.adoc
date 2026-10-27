@@ -32,8 +32,7 @@ the meter shows up in its house value as _less consumption_, not as
 production – the house value is too small by exactly its power.
 
 For this each source has the switch *Not part of the house value*. The card
-adds that source's power to the measured house value, and the house then reads
-"· calculated". A tap on the house opens a window with the history of exactly
+adds that source's power to the measured house value. A tap on the house opens a window with the history of exactly
 this calculated value (see link:energy.html#detail[Energy]).
 
 `grid` needs no correction as long as the grid sensor measures at the service

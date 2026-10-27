@@ -1505,12 +1505,12 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
 
   it("asks for the plug only where the display waits for it", async () => {
     const el = await mountList(BASE);
-    expect(chargeFields(el, 0)).toEqual(["soc", "show"]);
+    expect(chargeFields(el, 0)).toEqual(["soc", "label", "show"]);
     await setRow(el, 0, {
       entity: "sensor.wallbox",
       charge: { soc: "sensor.car", show: "plugged" },
     });
-    expect(chargeFields(el, 0)).toEqual(["soc", "show", "plugged"]);
+    expect(chargeFields(el, 0)).toEqual(["soc", "label", "show", "plugged"]);
   });
 
   it("offers the states of an enum plug entity, and none for on/off", async () => {
@@ -1529,7 +1529,7 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
       entity: "sensor.wallbox",
       charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
     });
-    expect(chargeFields(el, 0)).toEqual(["soc", "show", "plugged"]);
+    expect(chargeFields(el, 0)).toEqual(["soc", "label", "show", "plugged"]);
   });
 
   it("marks an entry that has a state of charge", async () => {

@@ -166,7 +166,7 @@ describe("PV ring and scale on the card (PV-4 to PV-6)", () => {
 });
 
 describe("partial sum and corrected house (PV-2, PV-3)", () => {
-  it("a corrected house says 'calculated' and still opens its entity", async () => {
+  it("a corrected house shows its value without 'calculated' and stays a target (PV-3)", async () => {
     const el = await mount({
       entities: {
         solar: [SOURCES[0], { ...SOURCES[1], house: "excluded" }],
@@ -175,7 +175,8 @@ describe("partial sum and corrected house (PV-2, PV-3)", () => {
       },
     });
     const house = el.shadowRoot?.querySelector(".node.house") as HTMLElement;
-    expect(house.textContent).toContain("berechnet");
+    // Only the value matters (Markus 27.10.2026): no "calculated" for a correction.
+    expect(house.textContent).not.toContain("berechnet");
     expect(house.textContent).toContain("4,50 kW");
     expect(house.querySelector(".hit:not([disabled])")).toBeTruthy();
   });
@@ -235,14 +236,14 @@ describe("PV rows on the card (PV-7, PV-8)", () => {
     expect(pvKeys(el)).toEqual(["sensor.roof"]);
   });
 
-  it("a row opens its source", async () => {
+  it("a row opens its source's window, its entity the way out (DF-19)", async () => {
     const el = await mount({ list: { solar: true } });
-    let opened = "";
-    el.addEventListener("hass-more-info", (e) => {
-      opened = (e as CustomEvent).detail.entityId;
+    let opened: { node?: string; entity?: string } = {};
+    el.addEventListener("show-dialog", (e) => {
+      opened = (e as CustomEvent).detail.dialogParams;
     });
     (el.shadowRoot?.querySelector(".pv-rows .row .row-hit") as HTMLButtonElement).click();
-    expect(opened).toBe("sensor.roof");
+    expect([opened.node, opened.entity]).toEqual(["source:sensor.roof", "sensor.roof"]);
   });
 });
 

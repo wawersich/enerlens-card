@@ -68,6 +68,12 @@ describe("charge config (REQ L-15)", () => {
     expect(collectChargeIds(config)).toEqual(["sensor.car", "sensor.status"]);
   });
 
+  it("reads an own label for the charge, e.g. a printer's progress (issue #31)", () => {
+    const config = normalizeConfig(raw({ soc: "sensor.printer", label: "Druckfortschritt" }));
+    expect(config.consumers[0].charge?.label).toBe("Druckfortschritt");
+    expect(normalizeConfig(raw({ soc: "sensor.car" })).consumers[0].charge?.label).toBeUndefined();
+  });
+
   it("defaults show to charging and needs nothing else", () => {
     const config = normalizeConfig(raw({ soc: "sensor.car" }));
     expect(config.consumers[0].charge).toEqual({
@@ -306,10 +312,46 @@ describe("the row with a state of charge (REQ L-15)", () => {
     ]);
   });
 
-  it("a row without a charge opens its power as before (DF-15)", () => {
+  it("a row without a charge opens the window too (DF-19)", () => {
     const { host, onEntry } = draw({ ...base, charge: undefined });
     (host.querySelector(".row-hit") as HTMLButtonElement).click();
-    expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([["sensor.wallbox", undefined]]);
+    expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([
+      ["sensor.wallbox", "consumer:sensor.wallbox"],
+    ]);
+  });
+
+  it("a PV row opens its source's window (DF-19)", () => {
+    const onEntry = vi.fn();
+    const host = document.createElement("div");
+    const source = {
+      ...base,
+      key: "sensor.roof",
+      entity: "sensor.roof",
+      name: "Dach",
+      charge: undefined,
+    };
+    render(
+      renderList({ entries: [], segments: [] }, config, hass, onEntry, false, [source], false),
+      host,
+    );
+    (host.querySelector(".row.pv .row-hit") as HTMLButtonElement).click();
+    expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([
+      ["sensor.roof", "source:sensor.roof"],
+    ]);
+  });
+
+  it("names the charge by its own label where one is set (issue #31)", () => {
+    const { host } = draw({
+      ...base,
+      charge: { entity: "sensor.printer", soc: 87, stale: false, label: "Druckfortschritt" },
+    });
+    expect(host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe(
+      "Druckfortschritt 87 %",
+    );
+    const unknown = draw({ ...base, charge: { entity: "sensor.p", stale: false, label: "Druck" } });
+    expect(unknown.host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe(
+      "Druck unbekannt",
+    );
   });
 
   it("greys a last known value and says how old it is", () => {

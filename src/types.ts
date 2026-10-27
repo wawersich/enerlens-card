@@ -207,6 +207,8 @@ export interface ChargeConfig {
   plugged?: string;
   /** States of an enum `plugged` entity that mean "not plugged in". */
   unplugged?: string[];
+  /** What the value is called instead of "State of charge" (issue #31). */
+  label?: string;
 }
 
 export interface SocStop {
@@ -400,6 +402,8 @@ export interface NormalizedCharge {
   plugged?: string;
   /** Lower-case; empty means the entity is on/off. */
   unplugged: string[];
+  /** What the value is called instead of "State of charge" (issue #31). */
+  label?: string;
 }
 
 /**
@@ -675,7 +679,7 @@ export interface ConsumerReading {
   minW?: number;
   icon?: string;
   reading: Reading;
-  charge?: ChargeState & { entity: string; show: ChargeShow };
+  charge?: ChargeState & { entity: string; show: ChargeShow; label?: string };
 }
 
 /** One PV source as read now (REQ PV-2). */
@@ -732,7 +736,7 @@ export interface ListEntry {
   threshold: number;
   isRest: boolean;
   /** State of charge shown with the row (REQ L-15). */
-  charge?: { entity: string; soc?: number; stale: boolean; since?: number };
+  charge?: { entity: string; soc?: number; stale: boolean; since?: number; label?: string };
   /**
    * False for a row kept by its charge while its power is unavailable: `w` is
    * then 0 for sorting and the rest, but no figure may be shown for it (rule 8).

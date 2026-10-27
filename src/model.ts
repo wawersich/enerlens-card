@@ -360,6 +360,7 @@ export function buildModelFrom(
               ...chargeOf(consumer.charge),
               entity: consumer.charge.soc,
               show: consumer.charge.show,
+              label: consumer.charge.label,
             }
           : undefined,
     };

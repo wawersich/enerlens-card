@@ -184,6 +184,20 @@ describe("editor: clearing fields never yields an invalid configuration (REQ E-1
     }
   });
 
+  it("an own label for the charge is written, a cleared one removed (issue #31)", async () => {
+    const el = await mount(FULL);
+    const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;
+    const saved = emit(el, {
+      ...data,
+      consumers: [
+        { entity: "sensor.c", charge: { soc: "sensor.car", label: "Druckfortschritt" } },
+        { entity: "sensor.d", charge: { soc: "sensor.car", label: "" } },
+      ],
+    }) as { consumers: { charge?: Record<string, unknown> }[] };
+    expect(saved.consumers[0].charge?.label).toBe("Druckfortschritt");
+    expect(saved.consumers[1].charge).not.toHaveProperty("label");
+  });
+
   it("everything optional cleared at once", async () => {
     const el = await mount(FULL);
     const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;

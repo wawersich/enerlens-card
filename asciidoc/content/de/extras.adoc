@@ -59,7 +59,7 @@ stehen immer so da wie in Home Assistant. Und die eigene Leistungs-Entität
 eines Knotens als Zusatzwert erscheint im Format von Home Assistant
 („3800 W“), nicht in dem der Karte („3,80 kW“).
 
-Im Editor: _Beschriftung & Zusatzwerte_, ein Abschnitt je Knoten – hier die
+Im Editor: _Basis-Entitäten: Beschriftung & Zusatzwerte_, ein Abschnitt je Knoten – hier die
 PV mit dem Ertrag im Kreis und der Prognose am Kreis:
 
 [.only-light]

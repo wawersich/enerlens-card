@@ -11,12 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   sources opens a window with the sources stacked and their sum; a consumer
   with a state of charge, such as a wallbox, shows its power with the car's
   charge below.
-- **Rest in detail:** a tap on the rest in the list shows its history - the
-  house minus the consumers shown, exactly as in the row.
+- **Every row in detail:** a tap on a consumer, a PV source or the rest in the
+  list opens the window with its history, in a period its kWh as in the row -
+  the rest as the house minus the consumers shown.
+- **Own label for the charge (#31):** `charge.label` names the ring's value -
+  "Print progress" for a 3D printer, say - in its tooltip and in the detail
+  window.
 - **Triangle · battery centre:** a second triangle with house and battery
   swapped - the PV rows at the top, the consumers at the bottom.
 
 ### Changed
+- The editor's labels and extra values of the main entities come right after
+  them, now named so; a house corrected by PV past its meter no longer reads
+  "calculated" - only the value matters.
 - **Arrows red and green:** the arrows at grid and battery are now red for
   import and discharge, green for export and charge, in the theme's colours.
   `colors.arrows: direction` brings back the direction's colour.

@@ -397,11 +397,11 @@ describe("the house window: the node's figure as a history (REQ DF-14, DF-17)", 
     const d = await open(el, "house");
     expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Haus");
     const series = chart(d, "power")?.data ?? [];
-    expect(series.map((s) => s.name)).toEqual(["Haus · berechnet"]);
+    expect(series.map((s) => s.name)).toEqual(["Haus"]);
     expect(values(series[0])).toEqual([1050, 2000]);
     // The sum's line over the area, no band (DF-13, DF-14).
     expect(series[0].stack).toBeUndefined();
-    expect(text(d.shadowRoot?.querySelector(".sums"))).toBe("Haus · berechnet");
+    expect(text(d.shadowRoot?.querySelector(".sums"))).toBe("Haus");
     // No entity carries the figure: a label, not a link to the raw sensor (DF-14).
     expect(d.shadowRoot?.querySelector(".sums button")).toBeNull();
   });
@@ -487,6 +487,21 @@ describe("a consumer with a state of charge: power and charge in one window (REQ
     expect(text(d.shadowRoot?.querySelector(".soc-name"))).toBe("Ladestand");
   });
 
+  it("the charge chart under its own label (issue #31)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      consumers: [
+        {
+          entity: "sensor.wallbox",
+          name: "Drucker",
+          charge: { soc: "sensor.car", show: "always", label: "Druckfortschritt" },
+        },
+      ],
+    });
+    const d = await openRow(el, "sensor.wallbox");
+    expect(text(d.shadowRoot?.querySelector(".soc-name"))).toBe("Druckfortschritt");
+  });
+
   it("no statistics for its power: more-info of the power, no empty window", async () => {
     const el = await mount(WITH_CAR);
     const more: string[] = [];
@@ -525,7 +540,7 @@ describe("the rest: the house minus the consumers shown, as its row (REQ DF-18)"
     await settle(d);
     expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Rest");
     const series = chart(d, "power")?.data ?? [];
-    expect(series.map((s) => s.name)).toEqual(["Rest · berechnet"]);
+    expect(series.map((s) => s.name)).toEqual(["Rest"]);
     expect(values(series[0])).toEqual([600, 1400]);
     expect(d.shadowRoot?.querySelector(".sums button")).toBeNull();
   });
@@ -533,5 +548,61 @@ describe("the rest: the house minus the consumers shown, as its row (REQ DF-18)"
   it("no rest window with a derived house: the row stays without a target", async () => {
     const el = await mount({ ...WITH_REST, entities: { ...WITH_REST.entities, house: "derived" } });
     expect(el.shadowRoot?.querySelector(".row.rest .row-hit")).toBeNull();
+  });
+});
+
+describe("every row opens its window (REQ DF-19)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  async function openRow(el: Card, selector: string) {
+    let params: unknown;
+    el.addEventListener("show-dialog", (ev) => {
+      params = (ev as CustomEvent).detail.dialogParams;
+    });
+    el.shadowRoot?.querySelector<HTMLElement>(selector)?.click();
+    const dialog = document.createElement(DETAIL_NAME) as Dialog;
+    document.body.appendChild(dialog);
+    await dialog.showDialog(params);
+    await settle(dialog);
+    return dialog;
+  }
+
+  it("a consumer without a charge: its mean and band, no charge below", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, house: "sensor.house2" },
+      consumers: [{ entity: "sensor.c1", name: "Eins" }],
+    });
+    const d = await openRow(el, '.row[data-key="sensor.c1"] .row-hit');
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Eins");
+    const mean = (chart(d, "power")?.data ?? []).find((s) => s.name === "Eins") as Series;
+    expect(values(mean)).toEqual([400, 600]);
+    expect(chart(d, "soc")).toBeFalsy();
+  });
+
+  it("a PV source, turned by its invert as the node turns it", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: {
+        ...CONFIG.entities,
+        solar: [
+          { entity: "sensor.roof", name: "Dach" },
+          { entity: "sensor.west", name: "West", invert: true },
+        ],
+      },
+      list: { solar: true },
+    });
+    const d = await openRow(el, '.row.pv[data-key="sensor.west"] .row-hit');
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("West");
+    const series = chart(d, "power")?.data ?? [];
+    const mean = series.find((s) => s.name === "West") as Series;
+    expect(values(mean)).toEqual([300, 400]);
+    // The band turned too: the largest reading becomes the smallest.
+    expect(values(series.find((s) => s.name === "solar-low") as Series)).toEqual([250, 350]);
+    expect(values(series.find((s) => s.name === "solar-span") as Series)).toEqual([100, 100]);
   });
 });

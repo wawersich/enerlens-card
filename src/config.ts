@@ -870,6 +870,7 @@ function readCharge(
     soc,
     show,
     plugged,
+    label: readString(raw.label, `${field}.label`, hass),
     // An on/off plug answers on or off; states listed for it would turn every
     // "off" into "plugged in" (REQ L-15).
     unplugged: /^(binary_sensor|input_boolean)\./.test(plugged ?? "")

@@ -104,7 +104,13 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
 function chargeOfEntry(consumer: ConsumerReading): ListEntry["charge"] {
   const charge = consumer.charge;
   if (!charge) return undefined;
-  return { entity: charge.entity, soc: charge.soc, stale: charge.stale, since: charge.since };
+  return {
+    entity: charge.entity,
+    soc: charge.soc,
+    stale: charge.stale,
+    since: charge.since,
+    label: charge.label,
+  };
 }
 
 /**
