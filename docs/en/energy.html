@@ -201,6 +201,24 @@ paler. For the battery the state of charge stands below; where Home Assistant
 no longer keeps the single readings (10 days by default), a faint band shows
 the lowest and highest value per hour or day.</p>
 </div>
+<div class="paragraph">
+<p><strong>Solar, house and wallbox in detail.</strong> The same window opens in three more
+places, each with power and energy:</p>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>Solar</strong> with several sources: each source an area or bar in its colour,
+stacked, with a thin grey line for the sum on top. The header shows the sum
+first – the node&#8217;s figure – then each source; a tap on a source opens its
+history.</li>
+<li><strong>House</strong>, when a balcony plant feeds in past the house meter (see
+<a href="balcony.html">Balcony solar</a>): one line or bars of the calculated house
+value, exactly the figure in the circle. Without a balcony plant a tap opens
+the house sensor&#8217;s history as before.</li>
+<li><strong>Consumers with a state of charge</strong>, such as the wallbox (see
+<a href="ev.html">Wallbox and EV</a>): the power, with the car&#8217;s charge below.</li>
+</ul>
+</div>
 <div class="imageblock only-light">
 <div class="content">
 <img src="../images/detail-energy-en-light.png" alt="The grid&#8217;s window over 7 days" width="560">
@@ -300,6 +318,6 @@ statistics (a sensor without a state class) is listed last with a dash.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=7160e23e"></script>
+<script type="module" src="../assets/site.js?v=563218b9"></script>
 </body>
 </html>

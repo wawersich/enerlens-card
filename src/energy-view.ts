@@ -55,6 +55,8 @@ export interface EnergyView {
   detail?: {
     step: "hour" | "day";
     bars: Partial<Record<EnergyRole, EnergyBar[]>>;
+    /** Per PV source and consumer, adding up to its figure (DF-17). */
+    entityBars: Record<string, EnergyBar[]>;
     /** The period as asked for - before a late start - to its end (DF-3). */
     axisFrom: number;
     axisTo: number;
@@ -364,11 +366,15 @@ export async function fetchEnergy(
     since: sinceOf(splitSigned(rowsOf(daily, ids, inverted), signed), from - DAY),
     solarSources:
       roles.solar === SOLAR_SUM ? config.solarSources.map((source) => source.entity) : undefined,
+    houseExcluded: config.solarSources
+      .filter((source) => source.excluded)
+      .map((source) => source.entity),
   });
   const view = toView(result, period, roles, inverted, hass, now, periodKey(period, from), signed);
   view.detail = {
     step,
     bars: result.bars ?? {},
+    entityBars: result.entityBars ?? {},
     axisFrom: bucketStart(from, step, tz),
     axisTo: periodEnd(period, from, now, tz),
   };

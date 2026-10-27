@@ -73,42 +73,135 @@ export interface DetailParams {
   entity?: string;
 }
 
-/** One side of the pair: up, or mirrored below zero (DF-3). */
-interface Side {
-  role: EnergyRole;
+/**
+ * One series of the window: a sensor, its name and colour, and which way it
+ * is drawn - up, or mirrored below zero (DF-3).
+ */
+interface Series {
   entity: string;
   name: string;
-  color: DirectionKey;
-  arrow: string;
+  /** Its colour, a CSS value as configured (DF-6). */
+  color: string;
+  /** Direction arrow in the header, and its colour (EM-5, C-8). */
+  arrow?: string;
+  arrowColor?: string;
   sign: 1 | -1;
+  /** Which of the card's energy figures it is (DF-3). */
+  role: EnergyRole;
 }
 
-function sidesOf(node: DetailNode, config: Config, hass?: HomeAssistant): Side[] {
+/** One sensor of a figure the card adds up (PV-3): turned, and 0 when quiet. */
+interface Part {
+  entity: string;
+  invert: boolean;
+  /** No reading counts as 0, as the node counts it - else a gap (DF-17). */
+  quiet: boolean;
+}
+
+/** What a window shows (DF-1): its title, its series, a state of charge below. */
+interface Plan {
+  title: string;
+  series: Series[];
+  /** The state of charge below the chart (DF-5). */
+  soc?: string;
+  /**
+   * How the series lie: a pair mirrored at zero (DF-3), the parts of a sum
+   * stacked (DF-13), or one series that is the card's own sum of `parts` -
+   * the corrected house (DF-14).
+   */
+  layout: "mirrored" | "stacked" | "total" | "single";
+  /** The sensors the card adds up to the node's figure (PV-3, DF-17). */
+  parts?: Part[];
+}
+
+function planOf(node: DetailNode, config: Config, hass?: HomeAssistant): Plan {
+  if (node.startsWith("consumer:")) {
+    // Power and the car's charge in one (DF-15): the consumer's own series.
+    const consumer = config.consumers.find((c) => `consumer:${c.key}` === node);
+    const friendly = consumer
+      ? (hass?.states?.[consumer.entity]?.attributes?.friendly_name as string | undefined)
+      : undefined;
+    const title = consumer?.name ?? friendly ?? consumer?.entity ?? "";
+    if (!consumer?.charge) return { title, series: [], layout: "single" };
+    return {
+      title,
+      layout: "single",
+      series: [
+        { entity: consumer.entity, name: title, color: consumer.color, sign: 1, role: "house" },
+      ],
+      soc: consumer.charge.soc,
+    };
+  }
+  const title = localize(`node.${node}`, hass);
+  const none: Plan = { title, series: [], layout: "mirrored" };
+  if (node === "solar") {
+    const sources = config.solarSources;
+    if (config.sources.solar.kind !== "sum" || sources.length < 2) return none;
+    return {
+      title,
+      layout: "stacked",
+      series: sources.map((source) => ({
+        entity: source.entity,
+        name:
+          source.name ??
+          (hass?.states?.[source.entity]?.attributes?.friendly_name as string | undefined) ??
+          source.entity,
+        color: source.color,
+        sign: 1,
+        role: "solar",
+      })),
+      parts: sources.map((source) => ({
+        entity: source.entity,
+        invert: source.invert,
+        quiet: true,
+      })),
+    };
+  }
+  if (node === "house") {
+    const house = config.sources.house;
+    const past = config.solarSources.filter((source) => source.excluded);
+    if (house.kind !== "single" || past.length === 0) return none;
+    return {
+      title,
+      layout: "total",
+      series: [
+        {
+          entity: house.entity,
+          name: `${title} ${localize("node.derived_suffix", hass)}`,
+          color: config.colors.house,
+          sign: 1,
+          role: "house",
+        },
+      ],
+      parts: [
+        { entity: house.entity, invert: house.invert, quiet: false },
+        ...past.map((source) => ({ entity: source.entity, invert: source.invert, quiet: true })),
+      ],
+    };
+  }
   const spec = node === "grid" ? config.sources.grid : config.sources.battery;
-  if (spec.kind !== "split") return [];
+  if (spec.kind !== "split") return none;
   const arrows = arrowsFor(config.layout);
   const [up, down] =
     node === "grid" ? (["import", "export"] as const) : (["discharge", "charge"] as const);
-  const color = (role: string): DirectionKey =>
-    (node === "grid" ? `grid_${role}` : `battery_${role}`) as DirectionKey;
-  return [
-    {
-      role: up,
-      entity: spec.positive,
-      name: localize(`detail.${up}`, hass),
-      color: color(up),
-      arrow: arrows[up],
-      sign: 1,
-    },
-    {
-      role: down,
-      entity: spec.negative,
-      name: localize(`detail.${down}`, hass),
-      color: color(down),
-      arrow: arrows[down],
-      sign: -1,
-    },
-  ];
+  const side = (role: typeof up | typeof down, entity: string, sign: 1 | -1): Series => {
+    const key = (node === "grid" ? `grid_${role}` : `battery_${role}`) as DirectionKey;
+    return {
+      entity,
+      name: localize(`detail.${role}`, hass),
+      color: config.colors[key],
+      arrow: arrows[role],
+      arrowColor: arrowColor(config, key),
+      sign,
+      role,
+    };
+  };
+  return {
+    title,
+    layout: "mirrored",
+    series: [side(up, spec.positive, 1), side(down, spec.negative, -1)],
+    soc: node === "battery" ? config.sources.batterySoc : undefined,
+  };
 }
 
 /**
@@ -215,6 +308,41 @@ async function fiveMinutes(
   }
 }
 
+/**
+ * The mean of a figure the card adds up over a period, as the node takes it:
+ * each sensor turned, a quiet one 0, a missing other one no figure (PV-3).
+ */
+function totalMean(parts: Part[], view?: EnergyView): number | null | undefined {
+  if (!view) return undefined;
+  let sum = 0;
+  let known = false;
+  for (const part of parts) {
+    const mean = view.meanW(part.entity);
+    if (mean === null) {
+      if (part.quiet) continue;
+      return null;
+    }
+    known = true;
+    sum += part.invert ? -mean : mean;
+  }
+  // No source known at all: no figure, as the node shows none (PV-2).
+  return known ? sum : null;
+}
+
+/** A part's mean in the card's sign: turned where it is inverted (PV-2). */
+function turned(entity: string, parts: Part[] | undefined, view?: EnergyView) {
+  const mean = view?.meanW(entity);
+  if (mean === null || mean === undefined) return mean;
+  return parts?.find((part) => part.entity === entity)?.invert ? -mean : mean;
+}
+
+/** A mean over the period as its energy, as the card writes it (EM-5). */
+function energyOf(mean: number | null | undefined, view: EnergyView, hass: HomeAssistant) {
+  return mean === null || mean === undefined
+    ? "—"
+    : formatEnergy(Math.max(0, mean * view.hours), hass);
+}
+
 export class EnerLensDetail extends LitElement {
   /** Set by HA's dialog manager, which keeps it current. */
   hass?: HomeAssistant;
@@ -305,6 +433,16 @@ export class EnerLensDetail extends LitElement {
     .sum b {
       font-weight: 500;
     }
+    .sum.total {
+      cursor: default;
+    }
+    .swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      margin-right: 6px;
+    }
     .sum.warn1 b {
       color: var(--el-warn1, #6b8aa6);
     }
@@ -319,9 +457,8 @@ export class EnerLensDetail extends LitElement {
       font-size: 12px;
       color: var(--secondary-text-color);
     }
+    /* As big as the header's entries: it is a link like them (Markus 27.10.2026). */
     .soc-name {
-      font-size: 13px;
-      color: var(--secondary-text-color);
       align-self: flex-start;
     }
     .charts {
@@ -449,7 +586,7 @@ export class EnerLensDetail extends LitElement {
     const state = params?.card.detailState();
     const entity =
       params?.entity ??
-      (params && state ? sidesOf(params.node, state.config)[0]?.entity : undefined);
+      (params && state ? planOf(params.node, state.config).series[0]?.entity : undefined);
     if (!helpers || !entity) return;
     const probe = helpers.createCardElement({
       type: "statistics-graph",
@@ -487,12 +624,12 @@ export class EnerLensDetail extends LitElement {
       // Seite", then the curves).
       const energy = !this._power && this._period;
       const range = this._powerRange(hass);
-      const sides = sidesOf(params.node, state.config, hass);
+      const plan = planOf(params.node, state.config, hass);
       const figures = energy
         ? params.card.detailEnergy(energy)
         : fiveMinutes(
             hass,
-            sides.map((s) => s.entity),
+            (plan.parts ?? plan.series).map((s) => s.entity),
             range.from,
             Date.now(),
           );
@@ -512,6 +649,15 @@ export class EnerLensDetail extends LitElement {
       if (energy) {
         const view = (await figures) as EnergyView;
         if (!current()) return;
+        // A consumer's power without statistics: its more-info, not an empty window (DF-15).
+        if (
+          !this._loaded &&
+          plan.layout === "single" &&
+          view.meanW(plan.series[0]?.entity ?? "") === null
+        ) {
+          this._giveWay();
+          return;
+        }
         this._view = view;
         this._drawEnergy(view);
         const d = view.detail;
@@ -523,12 +669,20 @@ export class EnerLensDetail extends LitElement {
       } else {
         const rows = (await figures) as Record<string, StatRow5[]>;
         if (!current()) return;
+        if (
+          !this._loaded &&
+          plan.layout === "single" &&
+          !rows[plan.series[0]?.entity ?? ""]?.length
+        ) {
+          this._giveWay();
+          return;
+        }
         drawn.power = { range, rows };
         this._drawPower(range, rows);
         axis = { ...range, min: range.from, max: range.to };
       }
-      const soc = state.config.sources.batterySoc;
-      if (params.node === "battery" && soc && axis) {
+      const soc = plan.soc;
+      if (soc && axis) {
         const data = await socData(hass, soc, axis.from, Math.min(axis.to, Date.now()), step);
         if (!current()) return;
         drawn.soc = { data, min: axis.min, max: axis.max };
@@ -599,12 +753,21 @@ export class EnerLensDetail extends LitElement {
     const hass = this._hass;
     const state = params?.card.detailState();
     if (!params || !hass || !state) return;
-    const sides = sidesOf(params.node, state.config, hass);
+    const plan = planOf(params.node, state.config, hass);
+    if (plan.layout === "total" && plan.parts) {
+      this._drawTotal(plan, plan.parts, range, rows);
+      return;
+    }
+    if (plan.layout === "stacked" && plan.parts) {
+      this._drawStacked(plan, plan.parts, range, rows);
+      return;
+    }
+    const sides = plan.series;
     const power = state.config.power;
     const watts = (v: number) => formatPower(Math.abs(v), hass, power);
     const series = sides.flatMap((side) => {
       const own = rows[side.entity] ?? [];
-      const color = this._paint(state.config.colors[side.color]);
+      const color = this._paint(side.color);
       // Mirrored, the band's lower edge is the largest reading.
       const signed = (v: number) => (v === 0 ? 0 : side.sign * v);
       const low = (r: StatRow5) =>
@@ -672,6 +835,139 @@ export class EnerLensDetail extends LitElement {
       },
     };
     chart.data = series;
+    this.requestUpdate();
+  }
+
+  /**
+   * The parts of a sum stacked, each its five-minute mean turned as the card
+   * turns it, a quiet one 0 - their top the node's figure - and the sum as a
+   * thin grey line (DF-13, Markus: "mit dünner grauen Summenlinie"). No band.
+   */
+  private _drawStacked(
+    plan: Plan,
+    parts: Part[],
+    range: { from: number; to: number },
+    rows: Record<string, StatRow5[]>,
+  ): void {
+    const hass = this._hass;
+    const state = this._params?.card.detailState();
+    if (!hass || !state) return;
+    const means = parts.map(
+      (part) => new Map((rows[part.entity] ?? []).map((r) => [r.start, r.mean])),
+    );
+    const starts = [...new Set(means.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
+    const own = parts.map((part, i) =>
+      starts.map((t) => {
+        const v = means[i].get(t);
+        return v === undefined || v === null ? 0 : part.invert ? -v : v;
+      }),
+    );
+    const watts = (v: number) => formatPower(Math.abs(v), hass, state.config.power);
+    const grey = this._paint("var(--secondary-text-color)");
+    const chart = this._chartFor("_chart", "power");
+    chart.options = {
+      xAxis: { type: "time", min: range.from, max: range.to },
+      yAxis: { type: "value", axisLabel: { formatter: watts } },
+      legend: { show: false },
+      grid: { left: 64, right: 16, top: 16, bottom: 28, containLabel: false },
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        // In its sign: a source's standby below zero shows as such.
+        valueFormatter: (v: unknown) =>
+          typeof v === "number" ? `${v < 0 ? "−" : ""}${watts(v)}` : "—",
+      },
+    };
+    chart.data = [
+      ...plan.series.map((side, i) => {
+        const color = this._paint(side.color);
+        return {
+          id: side.entity,
+          name: side.name,
+          type: "line",
+          stack: "pv",
+          showSymbol: false,
+          lineStyle: { width: 0 },
+          itemStyle: { color },
+          areaStyle: { color, opacity: 0.85 },
+          data: starts.map((t, k) => [t, own[i][k]]),
+        };
+      }),
+      {
+        id: "sum",
+        name: plan.title,
+        type: "line",
+        showSymbol: false,
+        z: 10,
+        lineStyle: { width: 0.8, color: grey },
+        itemStyle: { color: grey },
+        data: starts.map((t, k) => [t, own.reduce((sum, v) => sum + v[k], 0)]),
+      },
+    ];
+    this.requestUpdate();
+  }
+
+  /**
+   * A figure the card adds up, as one line: each five minutes the parts'
+   * means, turned as the card turns them, a quiet part 0 - as the node counts
+   * it (DF-14, DF-17). No band: the span of a sum cannot be told from the
+   * spans of its parts.
+   */
+  private _drawTotal(
+    plan: Plan,
+    parts: Part[],
+    range: { from: number; to: number },
+    rows: Record<string, StatRow5[]>,
+  ): void {
+    const hass = this._hass;
+    const state = this._params?.card.detailState();
+    const own = plan.series[0];
+    if (!hass || !state || !own) return;
+    const means = parts.map(
+      (part) => new Map((rows[part.entity] ?? []).map((r) => [r.start, r.mean])),
+    );
+    const starts = [...new Set(means.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
+    const data = starts.map((t): [number, number | null] => {
+      let sum = 0;
+      for (const [i, part] of parts.entries()) {
+        const v = means[i].get(t);
+        if (v === undefined || v === null) {
+          if (part.quiet) continue;
+          return [t, null];
+        }
+        sum += part.invert ? -v : v;
+      }
+      return [t, sum];
+    });
+    const watts = (v: number) => formatPower(Math.abs(v), hass, state.config.power);
+    const color = this._paint(own.color);
+    const chart = this._chartFor("_chart", "power");
+    chart.options = {
+      xAxis: { type: "time", min: range.from, max: range.to },
+      yAxis: { type: "value", axisLabel: { formatter: watts } },
+      legend: { show: false },
+      grid: { left: 64, right: 16, top: 16, bottom: 28, containLabel: false },
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        // In its sign: a source's standby below zero shows as such.
+        valueFormatter: (v: unknown) =>
+          typeof v === "number" ? `${v < 0 ? "−" : ""}${watts(v)}` : "—",
+      },
+    };
+    chart.data = [
+      {
+        id: own.entity,
+        name: own.name,
+        type: "line",
+        showSymbol: false,
+        // A line in the node's colour, as grid and battery draw their means
+        // (Markus 27.10.2026: "keine Füllung unter der Kurve").
+        lineStyle: { width: 1.5 },
+        itemStyle: { color },
+        data,
+      },
+    ];
     this.requestUpdate();
   }
 
@@ -786,7 +1082,33 @@ export class EnerLensDetail extends LitElement {
     const detail = view.detail;
     if (!params || !hass || !state || !detail) return;
     const tz = timeZoneOf(hass);
-    const sides = sidesOf(params.node, state.config, hass);
+    const plan = planOf(params.node, state.config, hass);
+    const sides = plan.series;
+    // The card's own sum, bucket by bucket: the house's bars and those of the
+    // sources past its meter, already turned (DF-14, DF-17).
+    const barsOf = (side: Series): EnergyBar[] => {
+      if (plan.layout === "stacked" || plan.layout === "single") {
+        return detail.entityBars[side.entity] ?? [];
+      }
+      if (plan.layout !== "total" || !plan.parts) return detail.bars[side.role] ?? [];
+      const sum = new Map<number, EnergyBar>();
+      for (const part of plan.parts) {
+        const found =
+          part.entity === side.entity ? detail.bars[side.role] : detail.entityBars[part.entity];
+        // The house without statistics: no bars, as its figure is "—" (DF-8).
+        if (!found && !part.quiet) return [];
+        const own = found ?? [];
+        for (const bar of own) {
+          const was = sum.get(bar.start);
+          sum.set(bar.start, {
+            start: bar.start,
+            wh: (was?.wh ?? 0) + bar.wh,
+            filledShare: Math.max(was?.filledShare ?? 0, bar.filledShare),
+          });
+        }
+      }
+      return [...sum.values()];
+    };
     // Every bucket of the axis, the ones without figures empty: a single bar
     // would otherwise make the chart widen its axis around it.
     const starts: number[] = [];
@@ -795,22 +1117,23 @@ export class EnerLensDetail extends LitElement {
       t = detail.step === "hour" ? t + HOUR : bucketStart(t + 36 * HOUR, "day", tz);
     }
     const series = sides.map((side) => {
-      const bars = new Map<number, EnergyBar>(
-        (detail.bars[side.role] ?? []).map((b) => [b.start, b]),
-      );
+      const bars = new Map<number, EnergyBar>(barsOf(side).map((b) => [b.start, b]));
       return {
         id: side.entity,
         name: side.name,
         type: "bar",
         stack: "pair",
         barMaxWidth: 28,
-        itemStyle: { color: this._paint(state.config.colors[side.color]), borderRadius: 2 },
+        itemStyle: { color: this._paint(side.color), borderRadius: 2 },
         data: starts.map((t, i) => {
           const bar = bars.get(t);
           const middle = t + ((starts[i + 1] ?? detail.axisTo) - t) / 2;
           if (!bar) return [middle, null];
-          // Never below zero, as the card shows it (model, A-2).
-          const point: [number, number] = [middle, (side.sign * Math.max(0, bar.wh)) / 1000];
+          // A pair's halves never below zero, as the card shows them (model,
+          // A-2); anything else as it is, or the bars would no longer add up
+          // to the figure above them (DF-17).
+          const wh = plan.layout === "mirrored" ? Math.max(0, bar.wh) : bar.wh;
+          const point: [number, number] = [middle, (side.sign * wh) / 1000];
           // Filled in from neighbouring values: paler, as the node's warning (EM-11).
           return warnTier(bar.filledShare) > 0
             ? { value: point, itemStyle: { opacity: 0.45 } }
@@ -893,9 +1216,10 @@ export class EnerLensDetail extends LitElement {
     const hass = this._hass;
     if (!params || !hass) return nothing;
     const view = this._power ? undefined : this._view;
-    const sides = sidesOf(params.node, state.config, hass);
+    const plan = planOf(params.node, state.config, hass);
+    const sides = plan.series;
     const marks = view?.marks.roles;
-    const soc = state.config.sources.batterySoc;
+    const soc = plan.soc;
     const more = (entity: string) => (ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
     return html`
@@ -915,15 +1239,48 @@ export class EnerLensDetail extends LitElement {
             )
       }
       <div class="sums ${this._busy ? "busy" : ""}">
+        ${
+          // The parts' sum first: the node's figure (DF-16).
+          plan.layout === "stacked" && plan.parts
+            ? html`<span class="sum total ${
+                marks?.solar && marks.solar.tier > 0 ? `warn${marks.solar.tier}` : ""
+              }"
+                title=${marks?.solar?.note ?? ""}
+                >${plan.title}${
+                  view
+                    ? html` <b>${energyOf(totalMean(plan.parts, view), view, hass)}</b>`
+                    : nothing
+                }</span
+              >`
+            : nothing
+        }
         ${sides.map((side) => {
           // The power view names the sides; a period adds its totals (DF-3, DF-9).
-          const mean = view?.meanW(side.entity);
+          const mean =
+            plan.layout === "total" && plan.parts
+              ? totalMean(plan.parts, view)
+              : plan.layout === "stacked"
+                ? turned(side.entity, plan.parts, view)
+                : view?.meanW(side.entity);
           const figure = this._power
             ? undefined
             : view && mean !== null && mean !== undefined
               ? formatEnergy(Math.max(0, mean * view.hours), hass)
               : "—";
-          const mark = marks?.[side.role];
+          // A source's own warning, not the sum's (EM-11).
+          const mark =
+            plan.layout === "stacked" || plan.layout === "single"
+              ? view?.marks.consumers[side.entity]
+              : marks?.[side.role];
+          // The card's own sum: no entity carries it, so no link - the raw
+          // sensor's would show another figure (DF-14, Markus 27.10.2026).
+          if (plan.layout === "total") {
+            return html`<span
+              class="sum total ${mark && mark.tier > 0 ? `warn${mark.tier}` : ""}"
+              title=${mark?.note ?? ""}
+              >${side.name}${figure ? html` <b>${figure}</b>` : nothing}</span
+            >`;
+          }
           return html`<button
             class="sum ${mark && mark.tier > 0 ? `warn${mark.tier}` : ""}"
             title=${mark?.note ?? ""}
@@ -931,15 +1288,19 @@ export class EnerLensDetail extends LitElement {
               name: figure ? `${side.name} ${figure}` : side.name,
             })}
             @click=${more(side.entity)}
-          ><span style="color:${arrowColor(state.config, side.color)}">${side.arrow}</span> ${side.name}${
-            figure ? html` <b>${figure}</b>` : nothing
-          }</button>`;
+          >${
+            side.arrow
+              ? html`<span style="color:${side.arrowColor}">${side.arrow}</span> `
+              : plan.layout === "stacked"
+                ? html`<span class="swatch" style="background:${side.color}"></span>`
+                : nothing
+          }${side.name}${figure ? html` <b>${figure}</b>` : nothing}</button>`;
         })}
       </div>
       ${
         // Says what the line is: a mean, its band the readings around it (DF-4).
         this._power
-          ? html`<div class="note">${localize("detail.aggregation", hass)}</div>`
+          ? html`<div class="note">${localize(plan.layout === "mirrored" || plan.layout === "single" ? "detail.aggregation" : "detail.mean", hass)}</div>`
           : nothing
       }
       ${
@@ -957,7 +1318,7 @@ export class EnerLensDetail extends LitElement {
           this._chart ?? html`<div class="loading" role="progressbar" aria-busy="true"></div>`
         }
         ${
-          params.node === "battery" && soc && this._socChart
+          soc && this._socChart
             ? html`<button
                 class="sum soc-name"
                 aria-label=${localize("detail.open", hass, { name: localize("detail.soc", hass) })}
@@ -973,8 +1334,10 @@ export class EnerLensDetail extends LitElement {
   render() {
     if (!this._params) return html``;
     const hass = this._hass;
-    const title = localize(`node.${this._params.node}`, hass);
     const state = this._params.card.detailState();
+    const title = state
+      ? planOf(this._params.node, state.config, hass).title
+      : localize(`node.${this._params.node}`, hass);
     return html`
       <ha-adaptive-dialog
         .hass=${hass}

@@ -35,6 +35,13 @@ const STATES: Record<string, [string, string]> = {
   "sensor.in": ["200", "W"],
   "sensor.soc": ["72", "%"],
   "sensor.house": ["400", "W"],
+  "sensor.roof": ["2900", "W"],
+  "sensor.balcony": ["100", "W"],
+  "sensor.west": ["-300", "W"],
+  "sensor.wallbox": ["3700", "W"],
+  "sensor.car": ["55", "%"],
+  "sensor.plug": ["150", "W"],
+  "sensor.car2": ["40", "%"],
 };
 
 /** What the recorder keeps: power from 06:00, the state of charge from 10:00 only. */
@@ -49,6 +56,7 @@ const HISTORY: Record<string, [number, string][]> = {
   ],
   "sensor.out": [[MIDNIGHT + 6 * H, "0"]],
   "sensor.in": [[MIDNIGHT + 6 * H, "900"]],
+  "sensor.car": [[MIDNIGHT + 6 * H, "30"]],
   "sensor.soc": [
     [MIDNIGHT + 10 * H, "40"],
     [MIDNIGHT + 11 * H, "unavailable"],
@@ -65,6 +73,29 @@ const FIVE: Record<string, [number, number, number, number][]> = {
   "sensor.export": [
     [MIDNIGHT + 6 * H, 0, 0, 0],
     [MIDNIGHT + 10 * H, 1500, 200, 4000],
+  ],
+  // The house, and a balcony plant past its meter that writes no row at night.
+  "sensor.house": [
+    [MIDNIGHT + 6 * H, 1000, 900, 1500],
+    [MIDNIGHT + 6 * H + 300_000, 2000, 1000, 3000],
+  ],
+  "sensor.house_inv": [
+    [MIDNIGHT + 6 * H, -1000, -1500, -900],
+    [MIDNIGHT + 6 * H + 300_000, -2000, -3000, -1000],
+  ],
+  "sensor.balcony": [[MIDNIGHT + 6 * H, 50, 40, 60]],
+  "sensor.wallbox": [
+    [MIDNIGHT + 6 * H, 3700, 3600, 3800],
+    [MIDNIGHT + 6 * H + 300_000, 1000, 0, 3700],
+  ],
+  "sensor.roof": [
+    [MIDNIGHT + 6 * H, 1000, 900, 1100],
+    [MIDNIGHT + 6 * H + 300_000, 2000, 1800, 2200],
+  ],
+  // Mounted the other way round: negative watts, turned by `invert`.
+  "sensor.west": [
+    [MIDNIGHT + 6 * H, -300, -350, -250],
+    [MIDNIGHT + 6 * H + 300_000, -400, -450, -350],
   ],
 };
 
@@ -148,9 +179,9 @@ async function settle(el: { updateComplete: Promise<unknown> }) {
   }
 }
 
-async function mount() {
+async function mount(config: Record<string, unknown> = CONFIG) {
   const el = document.createElement("enerlens-card") as Card;
-  el.setConfig(CONFIG);
+  el.setConfig(config);
   el.hass = fakeHass();
   document.body.appendChild(el);
   await settle(el);
@@ -330,5 +361,121 @@ describe("the state of charge below (REQ DF-5)", () => {
     const c = chart(d, "soc");
     expect(c?.options.xAxis.min).toBe(MIDNIGHT - H / 2);
     expect(c?.options.xAxis.max).toBe(MIDNIGHT + 24 * H + H / 2);
+  });
+});
+
+describe("the house window: the node's figure as a history (REQ DF-14, DF-17)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const SOURCES = [{ entity: "sensor.roof" }, { entity: "sensor.balcony", house: "excluded" }];
+  const corrected = (house: unknown = "sensor.house") => ({
+    ...CONFIG,
+    entities: { ...CONFIG.entities, solar: SOURCES, house },
+  });
+
+  it("one area: house sensor plus the PV past its meter, a missing balcony row 0", async () => {
+    const el = await mount(corrected());
+    const d = await open(el, "house");
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Haus");
+    const series = chart(d, "power")?.data ?? [];
+    expect(series.map((s) => s.name)).toEqual(["Haus · berechnet"]);
+    expect(values(series[0])).toEqual([1050, 2000]);
+    // The sum's line over the area, no band (DF-13, DF-14).
+    expect(series[0].stack).toBeUndefined();
+    expect(text(d.shadowRoot?.querySelector(".sums"))).toBe("Haus · berechnet");
+    // No entity carries the figure: a label, not a link to the raw sensor (DF-14).
+    expect(d.shadowRoot?.querySelector(".sums button")).toBeNull();
+  });
+
+  it("a house sensor with invert, as the card turns it", async () => {
+    const el = await mount(corrected({ entity: "sensor.house_inv", invert: true }));
+    const d = await open(el, "house");
+    expect(values(chart(d, "power")?.data[0] as Series)).toEqual([1050, 2000]);
+  });
+});
+
+describe("the PV window: the sources stacked, their sum on top (REQ DF-13, DF-17)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const SOURCES = [
+    { entity: "sensor.roof", name: "Dach" },
+    { entity: "sensor.west", name: "West", invert: true },
+    { entity: "sensor.balcony", name: "Balkon" },
+  ];
+
+  it("one area per source, stacked, a quiet source 0, the sum as a thin line", async () => {
+    const el = await mount({ ...CONFIG, entities: { ...CONFIG.entities, solar: SOURCES } });
+    const d = await open(el, "solar");
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("PV");
+    const series = chart(d, "power")?.data ?? [];
+    expect(series.map((s) => s.name)).toEqual(["Dach", "West", "Balkon", "PV"]);
+    const [roof, west, balcony, sum] = series;
+    expect(values(roof)).toEqual([1000, 2000]);
+    expect(values(west)).toEqual([300, 400]);
+    // The balcony wrote no row at 06:05: 0, as the node counts it.
+    expect(values(balcony)).toEqual([50, 0]);
+    expect(values(sum)).toEqual([1350, 2400]);
+    for (const s of [roof, west, balcony]) expect(s.stack).toBe("pv");
+    expect(sum.stack).toBeUndefined();
+    // Stacked: no band (DF-13).
+    expect(series.some((s) => s.name.endsWith("-span"))).toBe(false);
+    const heads = [...(d.shadowRoot?.querySelectorAll(".sums > *") ?? [])].map((x) => text(x));
+    expect(heads).toEqual(["PV", "Dach", "West", "Balkon"]);
+  });
+});
+
+describe("a consumer with a state of charge: power and charge in one window (REQ DF-15)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const WITH_CAR = {
+    ...CONFIG,
+    consumers: [
+      { entity: "sensor.wallbox", name: "Wallbox", charge: { soc: "sensor.car", show: "always" } },
+      // Its power has no statistics: more-info instead of an empty window.
+      { entity: "sensor.plug", name: "Plug", charge: { soc: "sensor.car2", show: "always" } },
+    ],
+  };
+
+  async function openRow(el: Card, key: string) {
+    let params: unknown;
+    el.addEventListener("show-dialog", (ev) => {
+      params = (ev as CustomEvent).detail.dialogParams;
+    });
+    const row = el.shadowRoot?.querySelector<HTMLElement>(`.row[data-key="${key}"] .row-hit`);
+    row?.click();
+    const dialog = document.createElement(DETAIL_NAME) as Dialog;
+    document.body.appendChild(dialog);
+    await dialog.showDialog(params);
+    await settle(dialog);
+    return dialog;
+  }
+
+  it("its name as title, its mean with the band, the charge below", async () => {
+    const el = await mount(WITH_CAR);
+    const d = await openRow(el, "sensor.wallbox");
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Wallbox");
+    const series = chart(d, "power")?.data ?? [];
+    const mean = series.find((s) => s.name === "Wallbox") as Series;
+    expect(values(mean)).toEqual([3700, 1000]);
+    expect(series.some((s) => s.name.endsWith("-span"))).toBe(true);
+    expect(chart(d, "soc")).toBeTruthy();
+    expect(text(d.shadowRoot?.querySelector(".soc-name"))).toBe("Ladestand");
+  });
+
+  it("no statistics for its power: more-info of the power, no empty window", async () => {
+    const el = await mount(WITH_CAR);
+    const more: string[] = [];
+    el.addEventListener("hass-more-info", (ev) => more.push((ev as CustomEvent).detail.entityId));
+    await openRow(el, "sensor.plug");
+    expect(more).toEqual(["sensor.plug"]);
   });
 });

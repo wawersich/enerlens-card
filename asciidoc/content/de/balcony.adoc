@@ -36,8 +36,8 @@ genau dessen Leistung zu klein.
 
 Dafür gibt es je Quelle den Schalter *Nicht im Hauswert enthalten*. Die Karte
 addiert die Leistung dieser Quelle zum gemessenen Hauswert, und das Haus heißt
-dann „· berechnet“. Ein Tipp auf das Haus öffnet weiter den Verlauf des
-gemessenen Sensors.
+dann „· berechnet“. Ein Tipp auf das Haus öffnet ein Fenster mit dem Verlauf
+genau dieses berechneten Werts (siehe link:energy.html#detail[Energie]).
 
 `grid` braucht keine Korrektur, solange der Netzsensor am Hausanschluss misst,
 wie es ein Smart Meter oder der Stromwandler des Wechselrichters tut. Er sieht

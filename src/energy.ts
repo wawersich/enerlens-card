@@ -47,6 +47,12 @@ export interface EnergyQuery {
    */
   solarSources?: string[];
   /**
+   * PV sources the house sensor does not see (PV-3). A house hour filled from
+   * the balance holds them; they are taken out again, so the hour reads as the
+   * sensor would - the card adds them to the house afterwards.
+   */
+  houseExcluded?: string[];
+  /**
    * The detail window's bars (DF-3): the start of the bucket - hour or day -
    * a slot belongs to. Without it no bars are collected.
    */
@@ -82,6 +88,8 @@ export interface EnergyResult {
   flows: Flows;
   /** Per role, when `bucketOf` was given: the same slots, bucket by bucket (DF-3). */
   bars?: Partial<Record<EnergyRole, EnergyBar[]>>;
+  /** Per PV source and per consumer, likewise: they add up to its total (DF-17). */
+  entityBars?: Record<string, EnergyBar[]>;
 }
 
 const HOUR = 3_600_000;
@@ -320,6 +328,25 @@ function fromBalance(role: EnergyRole, values: Record<EnergyRole, number>): numb
   return SOURCES.has(role) ? sinks - sources : sources - sinks;
 }
 
+/** Energy, filled and counted time per bucket of one series (DF-3). */
+class Buckets {
+  private readonly own = new Map<number, { wh: number; filled: number; ms: number }>();
+
+  add(key: number, wh: number, ms: number, filled: boolean): void {
+    const b = this.own.get(key) ?? { wh: 0, filled: 0, ms: 0 };
+    b.wh += wh;
+    b.ms += ms;
+    if (filled) b.filled += ms;
+    this.own.set(key, b);
+  }
+
+  bars(): EnergyBar[] {
+    return [...this.own.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([start, b]) => ({ start, wh: b.wh, filledShare: b.ms > 0 ? b.filled / b.ms : 0 }));
+  }
+}
+
 export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const series = new Map<string, Series>();
   const get = (id: string): Series => {
@@ -371,7 +398,9 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   const wh: Record<EnergyRole, number> = { ...ZERO };
   const filledMs: Record<EnergyRole, number> = { ...ZERO };
   // Per role and bucket: energy, filled and counted time (DF-3).
-  const buckets = new Map<EnergyRole, Map<number, { wh: number; filled: number; ms: number }>>();
+  const buckets = new Map<EnergyRole, Buckets>();
+  // Likewise per PV source (DF-17).
+  const sourceBuckets = new Map<string, Buckets>();
   const flows: Flows = {};
   let lastSolar: number | undefined;
   // Per source: energy, filled and counted time, and its last value (PV-2).
@@ -387,6 +416,8 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     const values: Record<EnergyRole, number> = { ...ZERO };
     const filled = new Set<EnergyRole>();
     const missing: EnergyRole[] = [];
+    // This slot's PV past the house meter, for a house filled from the balance.
+    let pastMeter = 0;
 
     for (const role of withData) {
       if (role === "solar" && parts) {
@@ -415,8 +446,14 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
             wasFilled = true;
           }
           own.last = w;
+          if (q.houseExcluded?.includes(id)) pastMeter += w;
           own.wh += w * hours;
           own.counted += slot.end - slot.start;
+          if (q.bucketOf) {
+            const b = sourceBuckets.get(id) ?? new Buckets();
+            sourceBuckets.set(id, b);
+            b.add(q.bucketOf(slot.start), w * hours, slot.end - slot.start, wasFilled);
+          }
           if (wasFilled) {
             own.filledMs += slot.end - slot.start;
             filled.add("solar");
@@ -444,7 +481,8 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     }
 
     if (missing.length === 1 && !derived && complete) {
-      values[missing[0]] = Math.max(0, fromBalance(missing[0], values));
+      const balance = fromBalance(missing[0], values);
+      values[missing[0]] = Math.max(0, missing[0] === "house" ? balance - pastMeter : balance);
       filled.add(missing[0]);
     } else {
       for (const role of missing) {
@@ -469,14 +507,9 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
       wh[role] += add;
       if (filled.has(role)) filledMs[role] += slot.end - slot.start;
       if (q.bucketOf) {
-        const own = buckets.get(role) ?? new Map();
+        const own = buckets.get(role) ?? new Buckets();
         buckets.set(role, own);
-        const key = q.bucketOf(slot.start);
-        const b = own.get(key) ?? { wh: 0, filled: 0, ms: 0 };
-        b.wh += add;
-        b.ms += slot.end - slot.start;
-        if (filled.has(role)) b.filled += slot.end - slot.start;
-        own.set(key, b);
+        own.add(q.bucketOf(slot.start), add, slot.end - slot.start, filled.has(role));
       }
     }
 
@@ -502,7 +535,13 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
   }
 
   const consumers: Record<string, SeriesEnergy | null> = {};
-  for (const id of q.consumers) consumers[id] = consumerEnergy(get(id), list, from, to);
+  const consumerBuckets = new Map<string, Buckets>();
+  const bucketOf = q.bucketOf;
+  for (const id of q.consumers) {
+    const own = bucketOf ? { buckets: new Buckets(), of: bucketOf } : undefined;
+    consumers[id] = consumerEnergy(get(id), list, from, to, own);
+    if (own && consumers[id]) consumerBuckets.set(id, own.buckets);
+  }
 
   const sources = parts
     ? Object.fromEntries(
@@ -520,21 +559,39 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     : undefined;
 
   let bars: EnergyResult["bars"];
+  let entityBars: EnergyResult["entityBars"];
   if (q.bucketOf) {
     bars = {};
     for (const role of ROLES) {
       if (!main[role]) continue;
-      bars[role] = [...(buckets.get(role) ?? new Map()).entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([start, b]) => ({ start, wh: b.wh, filledShare: b.ms > 0 ? b.filled / b.ms : 0 }));
+      bars[role] = buckets.get(role)?.bars() ?? [];
     }
+    entityBars = {};
+    for (const [id, own] of [...sourceBuckets, ...consumerBuckets]) entityBars[id] = own.bars();
   }
 
-  return { from, to, lateStart: from > q.from, main, consumers, sources, flows, bars };
+  return {
+    from,
+    to,
+    lateStart: from > q.from,
+    main,
+    consumers,
+    sources,
+    flows,
+    bars,
+    entityBars,
+  };
 }
 
 /** A consumer counts from its own start and never shortens the period (EM-12). */
-function consumerEnergy(s: Series, list: Slot[], from: number, to: number): SeriesEnergy | null {
+function consumerEnergy(
+  s: Series,
+  list: Slot[],
+  from: number,
+  to: number,
+  /** The detail window's buckets, when asked for (DF-17). */
+  into?: { buckets: Buckets; of: (t: number) => number },
+): SeriesEnergy | null {
   if (!s.exists) return null;
   let wh = 0;
   let filledMs = 0;
@@ -546,6 +603,12 @@ function consumerEnergy(s: Series, list: Slot[], from: number, to: number): Seri
     if (!hit || hit.filled) filledMs += slot.end - slot.start;
     wh += (w * (slot.end - slot.start)) / HOUR;
     counted += slot.end - slot.start;
+    into?.buckets.add(
+      into.of(slot.start),
+      (w * (slot.end - slot.start)) / HOUR,
+      slot.end - slot.start,
+      !hit || hit.filled,
+    );
   }
   const result: SeriesEnergy = { wh, filledShare: counted > 0 ? filledMs / counted : 0 };
   if (s.first > from) result.since = s.first;

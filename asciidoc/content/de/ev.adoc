@@ -35,6 +35,7 @@ solange das Auto angesteckt ist, auch voll und bei 0 W. `plugged` darf auch ein
 Status-Sensor der Wallbox sein; `unplugged: ++[++available, none++]++` nennt dann die
 Zustände, die „nicht angesteckt" bedeuten. Schläft das Auto und ist sein Sensor
 nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
-über dem Icon steht der Wert, ein Tipp darauf öffnet den Verlauf; im Editor
+über dem Icon steht der Wert; ein Tipp auf die Zeile öffnet ein Fenster mit
+der Leistung und darunter dem Ladestand (siehe link:energy.html#detail[Energie]); im Editor
 steht es beim Verbraucher unter _Ladestand_. Das geht nicht nur mit Autos –
 eine Powerstation funktioniert genauso.

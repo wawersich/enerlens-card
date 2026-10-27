@@ -47,10 +47,8 @@ there are not pictures but the real card with invented values.
 
 ### HACS
 
-1. HACS → ⋮ → *Custom repositories* → add `https://github.com/wawersich/enerlens-card`,
-   type *Dashboard*
-2. Search for *EnerLens*, install, reload the browser
-3. HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
+1. In HACS, search for *EnerLens*, install, reload the browser
+2. HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
    you; if the card does not appear, check *Settings → Dashboards → Resources*
 
 ### Manually

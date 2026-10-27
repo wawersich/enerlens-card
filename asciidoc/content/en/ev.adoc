@@ -34,6 +34,8 @@ extra room. With `show: plugged` the row stays in the list as long as the car
 is plugged in - full and at 0 W too. `plugged` can also be a wallbox status
 sensor; `unplugged: ++[++available, none++]++` then lists the states that mean "not
 plugged in". When the car is asleep and its sensor unavailable, the last known
-charge is shown grey. Hover the icon for the value, tap it for its history; in
+charge is shown grey. Hover the icon for the value; a tap on the row opens a
+window with the power and the charge below it (see
+link:energy.html#detail[Energy]); in
 the editor it is under the consumer, _State of charge_. It is not limited to
 cars - a power station works the same way.

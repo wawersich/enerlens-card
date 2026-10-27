@@ -48,7 +48,8 @@ function moreInfoEntity(value: Signed, minW: number): string | undefined {
 }
 
 /** The nodes with a detail window (REQ DF-1). */
-export type DetailNode = "grid" | "battery";
+/** Which window a target opens (REQ DF-1, DF-14). */
+export type DetailNode = "grid" | "battery" | "house" | "solar" | `consumer:${string}`;
 
 /** What a tap on a node with a detail window asks the card for (REQ DF-1). */
 export interface DetailRequest {
@@ -58,7 +59,7 @@ export interface DetailRequest {
 }
 
 /** Asks the card for the detail window; the card decides how (REQ DF-2). */
-function openDetail(target: EventTarget, request: DetailRequest): void {
+export function openDetail(target: EventTarget, request: DetailRequest): void {
   target.dispatchEvent(
     new CustomEvent<DetailRequest>("enerlens-detail", {
       detail: request,
@@ -308,11 +309,12 @@ function renderHits(
         style=${!labelAbove && options.label ? `top:auto;bottom:${bottom};${half}` : `bottom:${bottom}`}
         aria-label=${v.value ? `${v.label} ${v.value}` : v.label}
         @click=${tap(v.entity, v.detail)}
-        ?disabled=${!v.entity}
+        ?disabled=${!v.entity && !v.detail}
       ></button>
     `;
   }
-  if (!v.entity) return "";
+  // A window with no single entity behind it is a target too (DF-13).
+  if (!v.entity && !v.detail) return "";
   // One target for the whole battery names its charge as well (I-2, I-5).
   const charge = v.socValue ? `, ${v.socValue}` : "";
   return html`<button
@@ -393,8 +395,14 @@ export function buildNodeViews(
     derived: model.solar.derived,
     value: readingValue(model.solar, hass, config),
     available: model.solar.available,
-    // Several sources: no one entity behind the sum, so no tap (PV-10).
-    entity: model.solar.derived ? undefined : model.solar.entity,
+    // Several sources: no one entity behind the sum, the window instead; a
+    // list of one is that source (PV-10, DF-13).
+    entity: model.solar.derived
+      ? undefined
+      : (model.solar.entity ??
+        (config.solarSources.length === 1 ? config.solarSources[0].entity : undefined)),
+    detail:
+      config.sources.solar.kind === "sum" && config.solarSources.length > 1 ? "solar" : undefined,
     partial: partialNote(model.solar.missing, config, hass),
   });
 
@@ -445,6 +453,9 @@ export function buildNodeViews(
     available: model.house.available,
     entity: model.house.derived ? undefined : model.house.entity,
     partial: partialNote(model.house.missing, config, hass),
+    // Corrected, the node shows more than the sensor's history: the window
+    // shows the node's figure instead (DF-14, issue #30).
+    detail: model.house.corrected && !model.house.derived ? "house" : undefined,
   });
 
   const bat = model.battery;

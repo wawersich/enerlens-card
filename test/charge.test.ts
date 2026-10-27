@@ -293,11 +293,23 @@ describe("the row with a state of charge (REQ L-15)", () => {
     expect(host.querySelector(".soc-hit.value")).toBeTruthy();
   });
 
-  it("opens the charge from the mark and the power from the row", () => {
-    const { host, onEntry } = draw(base);
-    (host.querySelector(".soc-hit.mark") as HTMLButtonElement).click();
+  it("opens the detail window from every part of the row: power and charge in one (DF-15)", () => {
+    const { host, onEntry } = draw({ ...base, w: 0 });
+    for (const sel of [".soc-hit.mark", ".soc-hit.value", ".row-hit"]) {
+      (host.querySelector(sel) as HTMLButtonElement).click();
+    }
+    // The power entity stays the way out, when the window cannot open (DF-7).
+    expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([
+      ["sensor.wallbox", "consumer:sensor.wallbox"],
+      ["sensor.wallbox", "consumer:sensor.wallbox"],
+      ["sensor.wallbox", "consumer:sensor.wallbox"],
+    ]);
+  });
+
+  it("a row without a charge opens its power as before (DF-15)", () => {
+    const { host, onEntry } = draw({ ...base, charge: undefined });
     (host.querySelector(".row-hit") as HTMLButtonElement).click();
-    expect(onEntry.mock.calls.map((c) => c[0])).toEqual(["sensor.car", "sensor.wallbox"]);
+    expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([["sensor.wallbox", undefined]]);
   });
 
   it("greys a last known value and says how old it is", () => {

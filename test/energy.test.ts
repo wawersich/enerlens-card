@@ -445,4 +445,62 @@ describe("bars for the detail window (REQ DF-3)", () => {
     expect(bars[1].filledShare).toBe(0);
     expect(bars.reduce((sum, b) => sum + b.wh, 0)).toBe(r.main.export?.wh);
   });
+  // DF-13, DF-15, DF-17: bars per PV source and per consumer, out of the same
+  // slots as their totals - so the window's sum is the node's figure.
+  const sum = (bars: { wh: number }[] | undefined) => (bars ?? []).reduce((a, b) => a + b.wh, 0);
+  const twoHours = (t: number) => Math.floor(t / (2 * H)) * (2 * H);
+
+  it("bars per PV source that add up to the source and, together, to the solar bars", () => {
+    const q = query({
+      bucketOf: twoHours,
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+    });
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 1000, 2000, 1500]);
+    // A few watts below zero on standby, as inverters do: never clamped here.
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 300, -4, 200]);
+    const r = integrateEnergy(q);
+    const roof = r.entityBars?.roof ?? [];
+    const balcony = r.entityBars?.balcony ?? [];
+    expect(roof.map((b) => [b.start, b.wh])).toEqual([
+      [T0, 3000],
+      [T0 + 2 * H, 1500],
+    ]);
+    expect(balcony.map((b) => b.wh)).toEqual([296, 200]);
+    expect(sum(roof)).toBe(r.sources?.roof?.wh);
+    expect(sum(balcony)).toBe(r.sources?.balcony?.wh);
+    const solar = r.bars?.solar ?? [];
+    for (const [i, bar] of solar.entries()) expect(roof[i].wh + balcony[i].wh).toBe(bar.wh);
+  });
+
+  it("a house hour filled from the balance leaves out PV past the meter (PV-3, EM-10)", () => {
+    const q = query({
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 2000, 2000, 2000]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 100, 100, 100]);
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(0), 300, 300, 300]);
+    // The house sensor sees no balcony: 1700 where 1800 are used. Its second
+    // hour is missing and comes from the balance - as the sensor would read it.
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), 1700, null, 1700]);
+    const r = integrateEnergy(q);
+    expect(r.main.house?.wh).toBe(3 * 1700);
+  });
+
+  it("bars per consumer that add up to it, none before its own start (EM-12)", () => {
+    const q = query({ bucketOf: twoHours, consumers: ["wallbox"] });
+    // Statistics only from the second hour on.
+    q.hourly.wallbox = hours(T0 + H, [3700, 1000]);
+    const r = integrateEnergy(q);
+    const bars = r.entityBars?.wallbox ?? [];
+    expect(bars.map((b) => [b.start, b.wh])).toEqual([
+      [T0, 3700],
+      [T0 + 2 * H, 1000],
+    ]);
+    expect(sum(bars)).toBe(r.consumers.wallbox?.wh);
+    expect(integrateEnergy(query({ consumers: ["wallbox"] })).entityBars).toBeUndefined();
+  });
 });

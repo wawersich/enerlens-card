@@ -33,8 +33,8 @@ production – the house value is too small by exactly its power.
 
 For this each source has the switch *Not part of the house value*. The card
 adds that source's power to the measured house value, and the house then reads
-"· calculated". A tap on the house still opens the history of the measured
-sensor.
+"· calculated". A tap on the house opens a window with the history of exactly
+this calculated value (see link:energy.html#detail[Energy]).
 
 `grid` needs no correction as long as the grid sensor measures at the service
 connection, as a smart meter or the inverter's current transformer does. It

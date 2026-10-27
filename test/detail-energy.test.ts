@@ -34,6 +34,10 @@ const STATES: Record<string, string> = {
   "sensor.in": "200",
   "sensor.soc": "72",
   "sensor.house": "0",
+  "sensor.balcony": "0",
+  "sensor.roof": "0",
+  "sensor.wallbox": "0",
+  "sensor.car": "60",
 };
 
 /** Mornings bought, afternoons sold: both directions on one day. */
@@ -44,6 +48,9 @@ const MEANS: Record<string, (t: number) => number> = {
   "sensor.out": () => 0,
   "sensor.in": (t) => (new Date(t).getUTCHours() >= 8 ? 1000 : 0),
   "sensor.house": () => 500,
+  "sensor.balcony": (t) => (new Date(t).getUTCHours() >= 8 ? 200 : 0),
+  "sensor.roof": (t) => (new Date(t).getUTCHours() >= 8 ? 2800 : 0),
+  "sensor.wallbox": (t) => (new Date(t).getUTCHours() === 9 ? 3700 : 0),
 };
 
 /** A month's request waits for this, or fails while `failMonth` is set. */
@@ -120,9 +127,9 @@ async function settle(el: { updateComplete: Promise<unknown> }) {
   }
 }
 
-async function mount() {
+async function mount(config: Record<string, unknown> = CONFIG) {
   const el = document.createElement("enerlens-card") as Card;
-  el.setConfig(CONFIG);
+  el.setConfig(config);
   el.hass = fakeHass();
   document.body.appendChild(el);
   await settle(el);
@@ -206,6 +213,144 @@ describe("the detail window in a period (REQ DF-3)", () => {
       "color:var(--error-color, #db4437)",
       "color:var(--success-color, #43a047)",
     ]);
+  });
+
+  it("the corrected house: its bars are house plus balcony, its total the node's (DF-14)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: {
+        ...CONFIG.entities,
+        solar: [{ entity: "sensor.solar" }, { entity: "sensor.balcony", house: "excluded" }],
+      },
+    });
+    cardChip(el)?.click();
+    await settle(el);
+    const node = text(el.shadowRoot?.querySelector(".node.house .value"));
+    const d = await open(el, "house");
+    const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+    expect(c?.data.map((s) => s.name)).toEqual(["Haus · berechnet"]);
+    const bars = (c?.data[0].data ?? [])
+      .map((p) => (Array.isArray(p) ? p[1] : (p as { value: [number, number] }).value[1]))
+      .filter((v) => v !== null);
+    // 500 W all day, 200 W more from 08:00 - one kWh-bar per hour.
+    expect(bars.slice(0, 8).every((v) => v === 0.5)).toBe(true);
+    expect(bars.slice(8).every((v) => v === 0.7)).toBe(true);
+    const sum = text(d.shadowRoot?.querySelector(".sum b"));
+    expect(node).toContain(sum);
+  });
+
+  it("PV: one bar per source, stacked, the sum the node's figure (DF-13)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: {
+        ...CONFIG.entities,
+        solar: [
+          { entity: "sensor.roof", name: "Dach" },
+          { entity: "sensor.balcony", name: "Balkon" },
+        ],
+      },
+    });
+    cardChip(el)?.click();
+    await settle(el);
+    const node = text(el.shadowRoot?.querySelector(".node.solar .value"));
+    const d = await open(el, "solar");
+    const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+    expect(c?.data.map((s) => s.name)).toEqual(["Dach", "Balkon"]);
+    const at8 = (s: { data: unknown[] }) => {
+      const p = s.data[8] as [number, number] | { value: [number, number] };
+      return Array.isArray(p) ? p[1] : p.value[1];
+    };
+    expect(c?.data.map(at8)).toEqual([2.8, 0.2]);
+    const sums = [...(d.shadowRoot?.querySelectorAll(".sums > *") ?? [])].map((x) => text(x));
+    expect(sums[0]).toMatch(/^PV /);
+    expect(node).toContain(sums[0].replace(/^PV /, ""));
+    expect(sums.slice(1).map((x) => x.split(" ")[0])).toEqual(["Dach", "Balkon"]);
+  });
+
+  it("a wallbox with a charge: its own bars, its total as in the list (DF-15)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      consumers: [
+        {
+          entity: "sensor.wallbox",
+          name: "Wallbox",
+          charge: { soc: "sensor.car", show: "always" },
+        },
+      ],
+    });
+    cardChip(el)?.click();
+    await settle(el);
+    let params: unknown;
+    el.addEventListener("show-dialog", (ev) => {
+      params = (ev as CustomEvent).detail.dialogParams;
+    });
+    el.shadowRoot?.querySelector<HTMLElement>('.row[data-key="sensor.wallbox"] .row-hit')?.click();
+    const d = document.createElement(DETAIL_NAME) as Dialog;
+    document.body.appendChild(d);
+    await d.showDialog(params);
+    await settle(d);
+    const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+    expect(c?.data.map((s) => s.name)).toEqual(["Wallbox"]);
+    const bars = (c?.data[0].data ?? []).map((p) =>
+      Array.isArray(p) ? p[1] : (p as { value: [number, number] }).value[1],
+    );
+    expect(bars[9]).toBe(3.7);
+    expect(text(d.shadowRoot?.querySelector(".sum b"))).toBe("3,7 kWh");
+  });
+
+  it("a consumer's standby below zero: bars as they are, adding up to its total (DF-17)", async () => {
+    override = { "sensor.wallbox": (t) => (new Date(t).getUTCHours() === 9 ? 3700 : -10) };
+    try {
+      const el = await mount({
+        ...CONFIG,
+        consumers: [
+          {
+            entity: "sensor.wallbox",
+            name: "Wallbox",
+            charge: { soc: "sensor.car", show: "always" },
+          },
+        ],
+      });
+      cardChip(el)?.click();
+      await settle(el);
+      let params: unknown;
+      el.addEventListener("show-dialog", (ev) => {
+        params = (ev as CustomEvent).detail.dialogParams;
+      });
+      el.shadowRoot
+        ?.querySelector<HTMLElement>('.row[data-key="sensor.wallbox"] .row-hit')
+        ?.click();
+      const d = document.createElement(DETAIL_NAME) as Dialog;
+      document.body.appendChild(d);
+      await d.showDialog(params);
+      await settle(d);
+      const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+      const bars = (c?.data[0].data ?? [])
+        .map((p) => (Array.isArray(p) ? p[1] : (p as { value: [number, number] }).value[1]))
+        .filter((v): v is number => v !== null);
+      expect(bars[0]).toBe(-0.01);
+      const total = bars.reduce((a, v) => a + v, 0);
+      expect(text(d.shadowRoot?.querySelector(".sum b"))).toBe(
+        `${total.toFixed(1).replace(".", ",")} kWh`,
+      );
+    } finally {
+      override = {};
+    }
+  });
+
+  it("PV with no source known at all: no figure, as the node shows none (DF-13)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: {
+        ...CONFIG.entities,
+        solar: [{ entity: "sensor.ghost1" }, { entity: "sensor.ghost2" }],
+      },
+    });
+    cardChip(el)?.click();
+    await settle(el);
+    const d = await open(el, "solar");
+    const head = text(d.shadowRoot?.querySelector(".sums > .total"));
+    expect(head).toBe("PV —");
   });
 
   it("totals the card's own figures (DF-3)", async () => {

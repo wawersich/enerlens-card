@@ -410,6 +410,7 @@
     "periods": "Period",
     "open": "{name}: open history",
     "48h": "48 h",
+    "mean": "Five-minute mean",
     "aggregation": "5-minute mean · band: lowest to highest reading"
   }
 }

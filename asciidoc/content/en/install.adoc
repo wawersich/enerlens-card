@@ -5,9 +5,7 @@
 == HACS
 
 [arabic]
-. HACS → ⋮ → _Custom repositories_ → add `https://github.com/wawersich/enerlens-card`,
-type _Dashboard_
-. Search for _EnerLens_, install, reload the browser
+. In HACS, search for _EnerLens_, install, reload the browser
 . HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
 you; if the card does not appear, check _Settings → Dashboards → Resources_
 
@@ -16,7 +14,7 @@ you; if the card does not appear, check _Settings → Dashboards → Resources_
 HACS only checks for new releases now and then. To get one at once:
 
 [arabic]
-. Open HACS, on _EnerLens Card_ choose ⋮ → _Update information_
+. Open HACS, on _EnerLens_ choose ⋮ → _Update information_
 . The update appears under _Settings → Updates_ (or in HACS at the card) →
 install it
 . After installing, be sure to reload the browser. A card runs in the browser,

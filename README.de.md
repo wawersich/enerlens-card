@@ -48,10 +48,8 @@ Karten dort sind keine Bilder, sondern die echte Karte mit ausgedachten Werten.
 
 ### HACS
 
-1. HACS → ⋮ → *Benutzerdefinierte Repositories* → `https://github.com/wawersich/enerlens-card`
-   hinzufügen, Typ *Dashboard*
-2. Nach *EnerLens* suchen, installieren, Browser neu laden
-3. HACS trägt die Ressource `/hacsfiles/enerlens-card/enerlens-card.js` selbst
+1. In HACS nach *EnerLens* suchen, installieren, Browser neu laden
+2. HACS trägt die Ressource `/hacsfiles/enerlens-card/enerlens-card.js` selbst
    ein; erscheint die Karte nicht, unter *Einstellungen → Dashboards →
    Ressourcen* nachsehen
 

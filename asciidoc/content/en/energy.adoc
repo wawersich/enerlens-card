@@ -98,6 +98,20 @@ paler. For the battery the state of charge stands below; where Home Assistant
 no longer keeps the single readings (10 days by default), a faint band shows
 the lowest and highest value per hour or day.
 
+*Solar, house and wallbox in detail.* The same window opens in three more
+places, each with power and energy:
+
+* *Solar* with several sources: each source an area or bar in its colour,
+  stacked, with a thin grey line for the sum on top. The header shows the sum
+  first – the node's figure – then each source; a tap on a source opens its
+  history.
+* *House*, when a balcony plant feeds in past the house meter (see
+  link:balcony.html[Balcony solar]): one line or bars of the calculated house
+  value, exactly the figure in the circle. Without a balcony plant a tap opens
+  the house sensor's history as before.
+* *Consumers with a state of charge*, such as the wallbox (see
+  link:ev.html[Wallbox and EV]): the power, with the car's charge below.
+
 [.only-light]
 image::detail-energy-en-light.png["The grid's window over 7 days",560]
 

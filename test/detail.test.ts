@@ -59,7 +59,12 @@ const STATES: Record<string, string> = {
   "sensor.house": "1000",
   "sensor.status": "ok",
   "sensor.extra": "12",
+  "sensor.roof": "2900",
+  "sensor.balcony": "100",
 };
+
+/** A roof inverter, and a balcony plant feeding in past the house meter (PV-3). */
+const BYPASS = [{ entity: "sensor.roof" }, { entity: "sensor.balcony", house: "excluded" }];
 
 type Card = HTMLElement & {
   setConfig: (c: unknown) => void;
@@ -167,6 +172,32 @@ describe("the node views behind the targets (REQ DF-1)", () => {
     expect(of(list, "solar")?.detail).toBeUndefined();
     // The entity stays: the fallback when the window cannot open (DF-7).
     expect(of(list, "grid")?.entity).toBe("sensor.export");
+  });
+
+  it("the house corrected by PV past its meter: the window with the node's figure (DF-14)", () => {
+    const list = views({ ...ENTITIES, solar: BYPASS });
+    expect(of(list, "house")?.detail).toBe("house");
+    // The fallback is the house sensor (DF-7).
+    expect(of(list, "house")?.entity).toBe("sensor.house");
+  });
+
+  it("PV with several sources: the window, no single entity behind it (DF-13)", () => {
+    const list = views({ ...ENTITIES, solar: BYPASS });
+    expect(of(list, "solar")?.detail).toBe("solar");
+    // Nothing to give way to: the window closes quietly (DF-7).
+    expect(of(list, "solar")?.entity).toBeUndefined();
+  });
+
+  it("PV as a list of one: that source's more-info, as a single entity (DF-13, PV-10)", () => {
+    const list = views({ ...ENTITIES, solar: [{ entity: "sensor.roof" }] });
+    expect(of(list, "solar")?.detail).toBeUndefined();
+    expect(of(list, "solar")?.entity).toBe("sensor.roof");
+    expect(of(views(ENTITIES), "solar")?.detail).toBeUndefined();
+  });
+
+  it("not a derived house, whatever the sources say: no correction there (DF-14)", () => {
+    const list = views({ ...ENTITIES, solar: BYPASS, house: "derived" });
+    expect(of(list, "house")?.detail).toBeUndefined();
   });
 
   it("not a derived grid (I-4)", () => {

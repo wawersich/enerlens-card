@@ -97,10 +97,17 @@ describe("PV ring and scale on the card (PV-4 to PV-6)", () => {
     expect(el.shadowRoot?.querySelector(".node.house circle[data-key='sensor.roof']")).toBeNull();
   });
 
-  it("the PV node opens nothing: no one entity stands behind the sum (PV-10)", async () => {
+  it("the PV node opens the detail window: no one entity stands behind the sum (PV-10, DF-13)", async () => {
     const el = await mount();
-    const hit = el.shadowRoot?.querySelector(".node.solar .hit") as HTMLButtonElement | null;
-    expect(hit === null || hit.disabled).toBe(true);
+    const seen: { more: string[]; nodes: string[] } = { more: [], nodes: [] };
+    el.addEventListener("hass-more-info", (ev) =>
+      seen.more.push((ev as CustomEvent).detail.entityId),
+    );
+    el.addEventListener("show-dialog", (ev) =>
+      seen.nodes.push((ev as CustomEvent).detail.dialogParams.node),
+    );
+    (el.shadowRoot?.querySelector(".node.solar .hit") as HTMLButtonElement).click();
+    expect(seen).toEqual({ more: [], nodes: ["solar"] });
   });
 
   it("a quick button steps 100 % -> % kWp, and % kWp adds the free grey part", async () => {

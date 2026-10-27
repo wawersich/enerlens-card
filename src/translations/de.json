@@ -410,6 +410,7 @@
     "periods": "Zeitraum",
     "open": "{name}: Verlauf öffnen",
     "48h": "48 h",
+    "mean": "5-Minuten-Mittel",
     "aggregation": "5-Minuten-Mittel · Fläche: kleinster bis größter Wert"
   }
 }

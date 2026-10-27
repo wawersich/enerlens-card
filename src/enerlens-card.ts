@@ -45,7 +45,14 @@ import { computeFlows, dotParams, planDots } from "./flow";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
-import { type DetailRequest, labelRoom, openMoreInfo, renderCross } from "./render/cross";
+import {
+  type DetailNode,
+  type DetailRequest,
+  labelRoom,
+  openDetail,
+  openMoreInfo,
+  renderCross,
+} from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import {
@@ -1976,8 +1983,11 @@ class EnerLensCard extends LitElement {
             layout: this._pvScale,
           }
         : undefined;
-    const openEntry = (entity: string, ev: Event) =>
-      openMoreInfo(ev.currentTarget as EventTarget, entity);
+    // A consumer with a state of charge opens the window (DF-15).
+    const openEntry = (entity: string, ev: Event, detail?: DetailNode) =>
+      detail
+        ? openDetail(ev.currentTarget as EventTarget, { node: detail, entity })
+        : openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`
       <ha-card

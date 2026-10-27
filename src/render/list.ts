@@ -10,7 +10,7 @@ import { repeat } from "lit/directives/repeat.js";
 import { formatClock, formatPercent, formatPower } from "../format";
 import { localize } from "../localize";
 import type { Breakdown, Config, HomeAssistant, ListEntry } from "../types";
-import { DEFAULT_ICONS } from "./cross";
+import { DEFAULT_ICONS, type DetailNode } from "./cross";
 
 function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
   if (!entry.isRest) return entry.name;
@@ -109,7 +109,7 @@ export function renderList(
   breakdown: Breakdown,
   config: Config,
   hass: HomeAssistant,
-  onEntry: (entity: string, ev: Event) => void,
+  onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
   /** The PV rows above the consumers (PV-7); empty when there are none. */
   solarRows: ListEntry[] = [],
@@ -137,7 +137,7 @@ export function renderSolarSide(
   breakdown: Breakdown,
   config: Config,
   hass: HomeAssistant,
-  onEntry: (entity: string, ev: Event) => void,
+  onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   solarRows: ListEntry[],
 ): TemplateResult | typeof nothing {
   if (solarRows.length === 0) return nothing;
@@ -157,7 +157,7 @@ function renderSolarRows(
   solarRows: ListEntry[],
   config: Config,
   hass: HomeAssistant,
-  onEntry: (entity: string, ev: Event) => void,
+  onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
 ): TemplateResult {
   return html`<div class="pv-rows">
@@ -174,7 +174,7 @@ function renderConsumers(
   breakdown: Breakdown,
   config: Config,
   hass: HomeAssistant,
-  onEntry: (entity: string, ev: Event) => void,
+  onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
 ): TemplateResult {
   return html`
@@ -194,7 +194,7 @@ function renderRow(
   entry: ListEntry,
   config: Config,
   hass: HomeAssistant,
-  onEntry: (entity: string, ev: Event) => void,
+  onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
   solar: boolean,
 ): TemplateResult {
@@ -216,15 +216,21 @@ function renderRow(
         : config.energy.consumers[entry.entity ?? ""]
       : undefined;
     const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
-    // Each part opens the history of what it shows (REQ L-15): the mark
-    // and a charge in the value column the charge, the rest the power.
+    // Power and charge in one window: every part of the row opens it, the
+    // power the way out (DF-15, Markus: "Wir machen alle gleich"). Without
+    // the window each part opens what it shows (REQ L-15).
+    const detail: DetailNode | undefined =
+      charge && entry.entity && !solar ? `consumer:${entry.key}` : undefined;
     const socHit = (part: string) =>
       charge
         ? html`<button
                   class="soc-hit ${part}"
                   title=${title}
                   aria-label=${`${rowLabel(entry, hass)}: ${title}`}
-                  @click=${(ev: Event) => onEntry(charge.entity, ev)}
+                  @click=${(ev: Event) =>
+                    detail
+                      ? onEntry(entry.entity as string, ev, detail)
+                      : onEntry(charge.entity, ev)}
                 ></button>`
         : nothing;
     return html`
@@ -263,7 +269,7 @@ function renderRow(
                       // The row opens the power, so it names the power.
                       entry.powerUnknown ? "—" : formatPower(entry.w, hass, config.power)
                     }`}
-                    @click=${(ev: Event) => onEntry(entry.entity as string, ev)}
+                    @click=${(ev: Event) => onEntry(entry.entity as string, ev, detail)}
                   ></button>`
                   : nothing
               }

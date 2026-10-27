@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Solar and wallbox in detail (#28, #29):** solar with several
+  sources opens a window with the sources stacked and their sum; a consumer
+  with a state of charge, such as a wallbox, shows its power with the car's
+  charge below.
 - **Triangle · battery centre:** a second triangle with house and battery
   swapped - the PV rows at the top, the consumers at the bottom.
 
@@ -18,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   its circles straight from the centre.
 
 ### Fixed
+- **House with a balcony plant (#30):** a tap on the house opened the measured
+  sensor, not the calculated value the node shows; it now opens a window with
+  exactly that value.
+- With a balcony plant, an hour the house sensor missed was filled in with the
+  plant counted twice; it is now counted once.
 - The dots on the PV lines no longer travel backwards: their lighter side now
   leads, into the solar node.
 
