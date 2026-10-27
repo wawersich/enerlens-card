@@ -46,6 +46,19 @@ export interface EnergyQuery {
    * balance, and a new one shortens nothing (like a consumer, EM-12).
    */
   solarSources?: string[];
+  /**
+   * The detail window's bars (DF-3): the start of the bucket - hour or day -
+   * a slot belongs to. Without it no bars are collected.
+   */
+  bucketOf?: (t: number) => number;
+}
+
+/** One bar of the detail window: a bucket's energy and how much of it was filled in. */
+export interface EnergyBar {
+  start: number;
+  wh: number;
+  /** Share of the bucket's counted time that was filled in (EM-10, EM-11). */
+  filledShare: number;
 }
 
 export interface SeriesEnergy {
@@ -67,6 +80,8 @@ export interface EnergyResult {
   sources?: Record<string, SeriesEnergy | null>;
   /** Energy per connection in Wh (EM-8). */
   flows: Flows;
+  /** Per role, when `bucketOf` was given: the same slots, bucket by bucket (DF-3). */
+  bars?: Partial<Record<EnergyRole, EnergyBar[]>>;
 }
 
 const HOUR = 3_600_000;
@@ -87,18 +102,26 @@ const ZERO: Readonly<Record<EnergyRole, number>> = {
 // Calendar (EM-1)
 // ---------------------------------------------------------------------------
 
+/** One formatter per zone: making one is slow, and the bars ask per slot (DF-3). */
+const zoneFormats = new Map<string, Intl.DateTimeFormat>();
+
 /** Offset of `tz` from UTC at instant `t`, in ms. */
 function zoneOffset(t: number, tz: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-  }).formatToParts(t);
+  let format = zoneFormats.get(tz);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    });
+    zoneFormats.set(tz, format);
+  }
+  const parts = format.formatToParts(t);
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
   const wall = Date.UTC(
     get("year"),
@@ -156,6 +179,28 @@ export function periodStart(
     return localMidnight(year, month, day - back, tz);
   }
   return localMidnight(year, month, day, tz);
+}
+
+/** Start of the local hour or day `t` lies in, in Home Assistant's zone (DF-3). */
+export function bucketStart(t: number, step: "hour" | "day", tz: string): number {
+  const offset = zoneOffset(t, tz);
+  if (step === "hour") return t - ((((t + offset) % HOUR) + HOUR) % HOUR);
+  const local = new Date(t + offset);
+  return localMidnight(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), tz);
+}
+
+/**
+ * Where the detail window's time axis ends (DF-3): a calendar period with its
+ * last day, the days to come empty; a rolling one now.
+ */
+export function periodEnd(period: EnergyPeriod, start: number, now: number, tz: string): number {
+  if (isRolling(period)) return now;
+  const local = new Date(start + zoneOffset(start, tz));
+  const year = local.getUTCFullYear();
+  const month = local.getUTCMonth();
+  const day = local.getUTCDate();
+  if (period === "month") return localMidnight(year, month + 1, 1, tz);
+  return localMidnight(year, month, day + (period === "week" ? 7 : 1), tz);
 }
 
 /** 0 normal, 1 muted, 2 amber - by the share of filled time (EM-11). */
@@ -325,6 +370,8 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
 
   const wh: Record<EnergyRole, number> = { ...ZERO };
   const filledMs: Record<EnergyRole, number> = { ...ZERO };
+  // Per role and bucket: energy, filled and counted time (DF-3).
+  const buckets = new Map<EnergyRole, Map<number, { wh: number; filled: number; ms: number }>>();
   const flows: Flows = {};
   let lastSolar: number | undefined;
   // Per source: energy, filled and counted time, and its last value (PV-2).
@@ -418,8 +465,19 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     lastSolar = values.solar;
 
     for (const role of ROLES) {
-      wh[role] += (role === derived ? derivedRaw : values[role]) * hours;
+      const add = (role === derived ? derivedRaw : values[role]) * hours;
+      wh[role] += add;
       if (filled.has(role)) filledMs[role] += slot.end - slot.start;
+      if (q.bucketOf) {
+        const own = buckets.get(role) ?? new Map();
+        buckets.set(role, own);
+        const key = q.bucketOf(slot.start);
+        const b = own.get(key) ?? { wh: 0, filled: 0, ms: 0 };
+        b.wh += add;
+        b.ms += slot.end - slot.start;
+        if (filled.has(role)) b.filled += slot.end - slot.start;
+        own.set(key, b);
+      }
     }
 
     if (complete) {
@@ -461,7 +519,18 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
       )
     : undefined;
 
-  return { from, to, lateStart: from > q.from, main, consumers, sources, flows };
+  let bars: EnergyResult["bars"];
+  if (q.bucketOf) {
+    bars = {};
+    for (const role of ROLES) {
+      if (!main[role]) continue;
+      bars[role] = [...(buckets.get(role) ?? new Map()).entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([start, b]) => ({ start, wh: b.wh, filledShare: b.ms > 0 ? b.filled / b.ms : 0 }));
+    }
+  }
+
+  return { from, to, lateStart: from > q.from, main, consumers, sources, flows, bars };
 }
 
 /** A consumer counts from its own start and never shortens the period (EM-12). */

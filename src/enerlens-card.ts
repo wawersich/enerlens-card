@@ -18,6 +18,7 @@ import {
   CARD_LABEL,
   CARD_NAME,
   CARD_VERSION,
+  DETAIL_NAME,
   EDITOR_NAME,
   EXAMPLE_W,
   REPO_URL,
@@ -25,6 +26,7 @@ import {
 } from "./const";
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
+import { CARD_GONE, CARD_GONE_MS } from "./detail-dialog";
 import { periodStart } from "./energy";
 import {
   type EnergyView,
@@ -43,7 +45,7 @@ import { computeFlows, dotParams, planDots } from "./flow";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
-import { labelRoom, openMoreInfo, renderCross } from "./render/cross";
+import { type DetailRequest, labelRoom, openMoreInfo, renderCross } from "./render/cross";
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import {
@@ -495,6 +497,50 @@ class EnerLensCard extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * What the detail window needs from the card (DF-3): the configuration,
+   * the period it shows (null = the power view) and the periods it offers.
+   */
+  detailState(): { config: Config; period: EnergyPeriod | null; periods: EnergyPeriod[] } | null {
+    if (!this._config) return null;
+    return {
+      config: this._config,
+      // A period tapped to but still loading is the one the card is going to.
+      period: this._energyPending !== undefined ? this._energyPending : this._period,
+      periods: this._energyOffer(this._config).filter((p): p is EnergyPeriod => p !== null),
+    };
+  }
+
+  /**
+   * A period's figures for the detail window - the card's own while they are
+   * current, so window and node show the same (DF-3); otherwise fetched once
+   * and kept for the card as well. Never switches what the card shows.
+   */
+  async detailEnergy(period: EnergyPeriod): Promise<EnergyView> {
+    const hass = this._hass;
+    const config = this._config;
+    if (!hass || !config) throw new Error("EnerLens: no configuration");
+    const now = Date.now();
+    const view = this._energyViews.get(period);
+    if (
+      view?.detail &&
+      this._fresh(period, hass, now) &&
+      now - view.fetchedAt < ENERGY_REFRESH_MS
+    ) {
+      return view;
+    }
+    const key = this._energyKey;
+    const fresh = await fetchEnergy(hass, config, period, now);
+    if (key === this._energyKey) {
+      this._energyViews.set(period, fresh);
+      if (this._period === period && this._hass && this._config) {
+        this._tickModel = this._modelForMode(this._hass, this._config);
+        this.requestUpdate();
+      }
+    }
+    return fresh;
+  }
+
   /** A fetched view of the period that is running now. */
   private _fresh(period: EnergyPeriod, hass: HomeAssistant, now: number): boolean {
     const view = this._energyViews.get(period);
@@ -755,6 +801,34 @@ class EnerLensCard extends LitElement {
   /** A tap on an example node would open a dialog for an entity that does not exist. */
   private _onMoreInfo = (ev: Event): void => {
     if (this._example) ev.stopPropagation();
+  };
+
+  /**
+   * Grid or battery with two sensors: Home Assistant's dialog manager opens
+   * the detail window (REQ DF-2). In the editor's preview it would cover the
+   * editor - there the entity of the running direction opens, as before.
+   */
+  private _onDetail = (ev: Event): void => {
+    ev.stopPropagation();
+    if (this._example) return;
+    const request = (ev as CustomEvent<DetailRequest>).detail;
+    const origin = ev.composedPath()[0] as HTMLElement | undefined;
+    if (isPreview(this)) {
+      if (request.entity) openMoreInfo(origin ?? this, request.entity);
+      return;
+    }
+    this.dispatchEvent(
+      new CustomEvent("show-dialog", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          dialogTag: DETAIL_NAME,
+          // The element comes with the bundle (G-4): nothing to load.
+          dialogImport: () => Promise.resolve(),
+          dialogParams: { card: this, node: request.node, origin, entity: request.entity },
+        },
+      }),
+    );
   };
 
   /** The hass Home Assistant handed over, before any example was put in. */
@@ -1804,6 +1878,12 @@ class EnerLensCard extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    // A detail window of this card closes with it (DF-2) - unless the card
+    // only moved: a masonry view takes cards out and puts them back when its
+    // columns change, e.g. when a phone is turned.
+    setTimeout(() => {
+      if (!this.isConnected) window.dispatchEvent(new CustomEvent(CARD_GONE, { detail: this }));
+    }, CARD_GONE_MS);
     LIVE.delete(this);
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
@@ -1900,7 +1980,11 @@ class EnerLensCard extends LitElement {
       openMoreInfo(ev.currentTarget as EventTarget, entity);
 
     return html`
-      <ha-card translate="no" @hass-more-info=${this._onMoreInfo}>
+      <ha-card
+        translate="no"
+        @hass-more-info=${this._onMoreInfo}
+        @enerlens-detail=${this._onDetail}
+      >
         ${renderHeader(
           this._config,
           this._hass,

@@ -487,26 +487,48 @@ describe("battery node", () => {
     expect(fill?.style.height).toBe("72%");
   });
 
-  it("offers two separate tap targets (REQ I-2)", async () => {
-    const el = await mountBattery("50");
-    const hits = el.shadowRoot?.querySelectorAll(".node.battery .hit");
-    expect(hits?.length, "expected an upper and a lower target").toBe(2);
-    expect(hits?.[0].classList.contains("upper")).toBe(true);
-    expect(hits?.[1].classList.contains("lower")).toBe(true);
-  });
-
-  it("opens the charge entity from the upper target (REQ I-2, I-1)", async () => {
+  it("offers one target with two sensors: the window holds the charge too (REQ I-2, DF-1)", async () => {
     const el = await mountBattery("50");
     const seen: string[] = [];
     el.addEventListener("hass-more-info", (ev) => {
       seen.push((ev as CustomEvent<{ entityId: string }>).detail.entityId);
     });
-    const hits = el.shadowRoot?.querySelectorAll(".node.battery .hit");
-    (hits?.[0] as HTMLElement).click();
-    (hits?.[1] as HTMLElement).click();
-    expect(seen[0], "upper target should open the state of charge").toBe("sensor.soc");
-    // Charging, so the lower target opens the charge entity (REQ 4.2).
-    expect(seen[1]).toBe("sensor.bat_in");
+    const dialogs: string[] = [];
+    el.addEventListener("show-dialog", (ev) => {
+      dialogs.push(
+        (ev as CustomEvent<{ dialogParams: { node: string } }>).detail.dialogParams.node,
+      );
+    });
+    const hits = el.shadowRoot?.querySelectorAll<HTMLElement>(".node.battery .hit");
+    expect(hits?.length).toBe(1);
+    hits?.[0].click();
+    expect(seen).toEqual([]);
+    expect(dialogs).toEqual(["battery"]);
+  });
+
+  it("keeps two targets with one signed sensor: charge above, the sensor below (REQ I-2)", async () => {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      updateComplete: Promise<unknown>;
+      shadowRoot: ShadowRoot | null;
+    };
+    el.setConfig({ ...CONFIG, entities: { ...CONFIG.entities, battery: "sensor.bat" } });
+    el.hass = fakeHass({ ...STATES, "sensor.bat": "-1600" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const seen: string[] = [];
+    el.addEventListener("hass-more-info", (ev) => {
+      seen.push((ev as CustomEvent<{ entityId: string }>).detail.entityId);
+    });
+    const hits = el.shadowRoot?.querySelectorAll<HTMLElement>(".node.battery .hit");
+    expect(hits?.length, "expected an upper and a lower target").toBe(2);
+    expect(hits?.[0].classList.contains("upper")).toBe(true);
+    expect(hits?.[1].classList.contains("lower")).toBe(true);
+    hits?.[0].click();
+    hits?.[1].click();
+    expect(seen).toEqual(["sensor.soc", "sensor.bat"]);
+    el.remove();
   });
 
   it("leaves derived nodes unclickable (REQ I-4)", async () => {

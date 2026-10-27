@@ -6,11 +6,14 @@
  * take as they are.
  */
 import {
+  type EnergyBar,
   type EnergyResult,
   type EnergyRole,
   type StatRow,
+  bucketStart,
   integrateEnergy,
   isRolling,
+  periodEnd,
   periodStart,
   warnTier,
 } from "./energy";
@@ -48,6 +51,19 @@ export interface EnergyView {
   fetchedAt: number;
   /** The calendar start it was fetched for; a new day makes it stale. */
   start: number;
+  /** The detail window's bars per role, hours or days, and its time axis (DF-3). */
+  detail?: {
+    step: "hour" | "day";
+    bars: Partial<Record<EnergyRole, EnergyBar[]>>;
+    /** The period as asked for - before a late start - to its end (DF-3). */
+    axisFrom: number;
+    axisTo: number;
+  };
+}
+
+/** A day or less in hourly bars, longer periods in daily ones (DF-3). */
+export function barStep(period: EnergyPeriod): "hour" | "day" {
+  return period === "today" || period === "24h" ? "hour" : "day";
 }
 
 interface Roles {
@@ -334,7 +350,10 @@ export async function fetchEnergy(
   for (const [id, rows] of Object.entries(rowsOf(early, ids, inverted))) {
     fiveMinRows[id] = [...rows, ...(fiveMinRows[id] ?? [])];
   }
+  const tz = timeZoneOf(hass);
+  const step = barStep(period);
   const result = integrateEnergy({
+    bucketOf: (t) => bucketStart(t, step, tz),
     from,
     to: now,
     roles,
@@ -346,7 +365,14 @@ export async function fetchEnergy(
     solarSources:
       roles.solar === SOLAR_SUM ? config.solarSources.map((source) => source.entity) : undefined,
   });
-  return toView(result, period, roles, inverted, hass, now, periodKey(period, from), signed);
+  const view = toView(result, period, roles, inverted, hass, now, periodKey(period, from), signed);
+  view.detail = {
+    step,
+    bars: result.bars ?? {},
+    axisFrom: bucketStart(from, step, tz),
+    axisTo: periodEnd(period, from, now, tz),
+  };
+  return view;
 }
 
 function percent(share: number, hass: HomeAssistant): string {

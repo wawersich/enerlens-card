@@ -87,6 +87,23 @@ average day, not at top speed.
 room stays, so nothing moves when you switch.
 * Tapping a node still opens its history.
 
+[[detail]]
+*Grid and battery in detail.* With two sensors each, a tap on grid or battery
+opens a window with the kWh per hour (Today, 24 h) or per day (longer
+periods): import or discharge upwards, export or charge downwards, the totals
+above - exactly the figures at the node. The periods at the top of the window
+are the card's; switching there leaves the card as it is. A tap on a total
+opens its sensor's history. Hours filled in from neighbouring values are
+paler. For the battery the state of charge stands below; where Home Assistant
+no longer keeps the single readings (10 days by default), a faint band shows
+the lowest and highest value per hour or day.
+
+[.only-light]
+image::detail-energy-en-light.png["The grid's window over 7 days",560]
+
+[.only-dark]
+image::detail-energy-en-dark.png["The grid's window over 7 days",560]
+
 *One sensor or two for grid and battery.* An hourly mean of a signed sensor
 cannot tell how much went each way - on most days the grid does both - only the
 balance is exact. So with a single signed sensor the *grid* shows one figure,

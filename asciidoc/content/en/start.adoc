@@ -30,7 +30,8 @@ Alternatively the card shows moving averages — over 2 and 15 minutes by
 default, both configurable; one chip in the header steps through _Now_,
 _Ø 2 min_ and _Ø 15 min_. They calm the picture down without falsifying the
 numbers. Clicking any element still opens Home Assistant's own dialog with the
-real history.
+real history; grid and battery with two sensors each show both directions
+together in one window.
 
 *Energy instead of power.* At the tap of a button the card shows the energy of
 a period instead of the power: what came from the sun today, what the house used

@@ -190,6 +190,27 @@ room stays, so nothing moves when you switch.</li>
 <li>Tapping a node still opens its history.</li>
 </ul>
 </div>
+<div id="detail" class="paragraph">
+<p><strong>Grid and battery in detail.</strong> With two sensors each, a tap on grid or battery
+opens a window with the kWh per hour (Today, 24 h) or per day (longer
+periods): import or discharge upwards, export or charge downwards, the totals
+above - exactly the figures at the node. The periods at the top of the window
+are the card&#8217;s; switching there leaves the card as it is. A tap on a total
+opens its sensor&#8217;s history. Hours filled in from neighbouring values are
+paler. For the battery the state of charge stands below; where Home Assistant
+no longer keeps the single readings (10 days by default), a faint band shows
+the lowest and highest value per hour or day.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/detail-energy-en-light.png" alt="The grid&#8217;s window over 7 days" width="560">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/detail-energy-en-dark.png" alt="The grid&#8217;s window over 7 days" width="560">
+</div>
+</div>
 <div class="paragraph">
 <p><strong>One sensor or two for grid and battery.</strong> An hourly mean of a signed sensor
 cannot tell how much went each way - on most days the grid does both - only the
@@ -279,6 +300,6 @@ statistics (a sensor without a state class) is listed last with a dash.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=7a02d850"></script>
+<script type="module" src="../assets/site.js?v=753d16ee"></script>
 </body>
 </html>

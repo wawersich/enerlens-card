@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import {
   type EnergyQuery,
   type StatRow,
+  bucketStart,
   integrateEnergy,
+  periodEnd,
   periodStart,
   warnTier,
 } from "../src/energy";
@@ -393,5 +395,54 @@ describe("several PV sources (PV-2, energy mode)", () => {
     const r = integrateEnergy(sources({ hourly: { balcony: [] } as never }));
     expect(r.sources?.balcony).toBeNull();
     expect(r.main.solar?.wh).toBe(900);
+  });
+});
+
+describe("bars for the detail window (REQ DF-3)", () => {
+  const tz = "Europe/Berlin";
+
+  it("starts hours and days on the local clock, also off the full hour", () => {
+    const t = iso("2026-10-19T19:40:00Z"); // 21:40 CEST
+    expect(bucketStart(t, "hour", tz)).toBe(iso("2026-10-19T19:00:00Z"));
+    expect(bucketStart(t, "day", tz)).toBe(iso("2026-10-18T22:00:00Z"));
+    // India is 5:30 ahead: its hours begin at half past in UTC.
+    expect(bucketStart(t, "hour", "Asia/Kolkata")).toBe(iso("2026-10-19T19:30:00Z"));
+    // The day the clocks go back has 25 hours; the next one starts in CET.
+    expect(bucketStart(iso("2026-10-25T23:30:00Z"), "day", tz)).toBe(iso("2026-10-25T23:00:00Z"));
+  });
+
+  it("ends a calendar period with its last day, a rolling one now", () => {
+    const now = iso("2026-10-19T19:00:00Z"); // a Monday
+    const start = (p: "today" | "week" | "month") => periodStart(p, now, tz, 1);
+    expect(periodEnd("today", start("today"), now, tz)).toBe(iso("2026-10-19T22:00:00Z"));
+    expect(periodEnd("week", start("week"), now, tz)).toBe(iso("2026-10-25T23:00:00Z"));
+    expect(periodEnd("month", start("month"), now, tz)).toBe(iso("2026-10-31T23:00:00Z"));
+    expect(periodEnd("24h", periodStart("24h", now, tz, 1), now, tz)).toBe(now);
+  });
+
+  it("splits each role into buckets that add up to its total exactly", () => {
+    const q = query({ bucketOf: (t) => Math.floor(t / (2 * H)) * (2 * H) });
+    q.hourly.imp = hours(T0 - 24 * H, [...Array(24).fill(500), 300, 700, 1100]);
+    const r = integrateEnergy(q);
+    const bars = r.bars?.import ?? [];
+    expect(bars.map((b) => [b.start, b.wh])).toEqual([
+      [T0, 1000],
+      [T0 + 2 * H, 1100],
+    ]);
+    expect(bars.reduce((sum, b) => sum + b.wh, 0)).toBe(r.main.import?.wh);
+    expect(bars.every((b) => b.filledShare === 0)).toBe(true);
+    expect(integrateEnergy(query()).bars, "only when asked for").toBeUndefined();
+  });
+
+  it("marks a bucket by the share of it that was filled in (EM-10, EM-11)", () => {
+    const q = query({ bucketOf: (t) => Math.floor(t / (2 * H)) * (2 * H) });
+    // The second hour has no row: the same hour the day before fills it.
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(200), 400, null, 400]);
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), 500, null, 500]);
+    const r = integrateEnergy(q);
+    const bars = r.bars?.export ?? [];
+    expect(bars[0].filledShare).toBe(0.5);
+    expect(bars[1].filledShare).toBe(0);
+    expect(bars.reduce((sum, b) => sum + b.wh, 0)).toBe(r.main.export?.wh);
   });
 });

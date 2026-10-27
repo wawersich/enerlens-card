@@ -396,3 +396,128 @@ test("doc shots", async ({ browser }) => {
     }
   }
 });
+
+/**
+ * The grid's detail window over 7 days (DF-3) for the energy page. Home
+ * Assistant keeps no statistics for the in-memory sensors, so this page alone
+ * answers the recorder's questions about them with an invented week (N-9):
+ * nights bought, middays sold, every day a little different. Nothing is saved.
+ */
+async function inventStatistics(page: Page): Promise<void> {
+  await page.evaluate((doc) => {
+    const ha = document.querySelector("home-assistant") as unknown as {
+      hass: { connection: { sendMessagePromise(m: Record<string, unknown>): Promise<unknown> } };
+    };
+    const conn = ha.hass.connection;
+    const real = conn.sendMessagePromise.bind(conn);
+    const H = 3_600_000;
+    // Watts by hour of the (UTC+1) day and a day's weather, 0.15 … 1.
+    const mean = (id: string, t: number): number => {
+      const hour = (new Date(t).getUTCHours() + 1) % 24;
+      const day = Math.floor(t / (24 * H));
+      const weather = 0.15 + 0.85 * Math.abs(Math.sin(day * 1.7));
+      const sun = Math.max(0, Math.sin(((hour - 6) / 13) * Math.PI)) * 4500 * weather;
+      const house = 450 + (hour >= 17 && hour <= 21 ? 900 : 0) + (hour >= 7 && hour <= 8 ? 500 : 0);
+      if (id.endsWith("roof")) return sun;
+      if (id.endsWith("house")) return house;
+      if (id.endsWith("grid_import")) return Math.max(0, house - sun);
+      if (id.endsWith("grid_export")) return Math.max(0, sun - house);
+      return 0;
+    };
+    const ours = (ids: unknown) =>
+      Array.isArray(ids) && ids.length > 0 && ids.every((id) => String(id).startsWith(doc));
+    conn.sendMessagePromise = async (m) => {
+      if (m.type === "recorder/get_statistics_metadata" && ours(m.statistic_ids)) {
+        return (m.statistic_ids as string[]).map((id) => ({
+          statistic_id: id,
+          has_mean: true,
+          mean_type: 1,
+          has_sum: false,
+          unit_class: "power",
+          statistics_unit_of_measurement: "W",
+        }));
+      }
+      if (m.type === "recorder/statistics_during_period" && ours(m.statistic_ids)) {
+        const step = m.period === "5minute" ? 300_000 : m.period === "day" ? 24 * H : H;
+        const from = Math.ceil(Date.parse(String(m.start_time)) / step) * step;
+        const to = m.end_time ? Date.parse(String(m.end_time)) : Date.now();
+        const out: Record<string, { start: number; end: number; mean: number }[]> = {};
+        for (const id of m.statistic_ids as string[]) {
+          out[id] = [];
+          // Statistics end with the last full block.
+          for (let t = from; t + step <= to; t += step) {
+            out[id].push({ start: t, end: t + step, mean: mean(id, t) });
+          }
+        }
+        return out;
+      }
+      return real(m);
+    };
+  }, DOC);
+}
+
+test("doc shots: detail window", async ({ browser }) => {
+  test.setTimeout(20 * 60_000);
+  for (const lang of ["de", "en"] as const) {
+    await sensors(lang);
+    for (const dark of [false, true]) {
+      const theme = dark ? "dark" : "light";
+      const file = `detail-energy-${lang}-${theme}.png`;
+      if (ONLY && !ONLY.test(file.replace(".png", ""))) continue;
+      const page = await browser.newPage({ viewport: { width: 1000, height: 900 } });
+      await signIn(page);
+      await look(page, lang, dark);
+      await inventStatistics(page);
+      await page.evaluate(
+        async ({ card, doc }) => {
+          const w = window as unknown as { __deep: (s: string) => HTMLElement[] };
+          const host = document.createElement("div");
+          host.style.cssText = "position:fixed;left:0;top:0;width:500px;z-index:1";
+          const el = document.createElement(card) as HTMLElement & {
+            setConfig(c: object): void;
+            hass: unknown;
+          };
+          el.setConfig({
+            type: `custom:${card}`,
+            entities: {
+              solar: `${doc}roof`,
+              grid: { import: `${doc}grid_import`, export: `${doc}grid_export` },
+              house: `${doc}house`,
+            },
+            view: { energy_periods: ["power", "today", "7d"], remember: false },
+          });
+          el.hass = (document.querySelector("home-assistant") as unknown as { hass: unknown }).hass;
+          host.appendChild(el);
+          (w.__deep("home-assistant-main")[0]?.shadowRoot ?? document.body).appendChild(host);
+          await new Promise((r) => setTimeout(r, 2500));
+          // kW → Heute → 7 Tage
+          for (let i = 0; i < 2; i++) {
+            el.shadowRoot?.querySelector<HTMLElement>(".energy-chip")?.click();
+            await new Promise((r) => setTimeout(r, 2500));
+          }
+          el.shadowRoot?.querySelector<HTMLElement>(".node.grid .hit")?.click();
+        },
+        { card: CARD, doc: DOC },
+      );
+      await page.waitForTimeout(6000);
+      // The dialog's own box, as HA draws it.
+      const clip = await page.evaluate((card) => {
+        const deep = (window as unknown as { __deep: (s: string, r?: ParentNode) => HTMLElement[] })
+          .__deep;
+        const adaptive = deep("ha-adaptive-dialog").find((d) =>
+          d.getRootNode() instanceof ShadowRoot
+            ? (d.getRootNode() as ShadowRoot).host.localName === `${card}-detail`
+            : false,
+        );
+        const panel = adaptive?.shadowRoot
+          ? deep("[part~=dialog], dialog", adaptive.shadowRoot)[0]
+          : undefined;
+        const box = (panel ?? adaptive)?.getBoundingClientRect();
+        if (!box) throw new Error("detail window not found");
+        return { x: box.left, y: box.top, width: box.width, height: box.height };
+      }, CARD);
+      await page.screenshot({ path: resolve("docs/images", file), clip });
+      await page.close();
+    }
+  }
+});

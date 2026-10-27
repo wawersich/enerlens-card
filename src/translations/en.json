@@ -397,5 +397,16 @@
     "peak_title": "PV: power relative to peak power",
     "peak_period_title": "PV: mean power over the period relative to peak power",
     "chip": "PV scale: {mode}, next: {next}"
+  },
+  "detail": {
+    "import": "Import",
+    "export": "Export",
+    "discharge": "Discharge",
+    "charge": "Charge",
+    "soc": "State of charge",
+    "periods": "Period",
+    "open": "{name}: open history",
+    "48h": "48 h",
+    "aggregation": "5-minute mean · band: lowest to highest reading"
   }
 }

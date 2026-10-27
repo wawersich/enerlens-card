@@ -218,34 +218,15 @@ beide. Erwartet werden Werte ab null:</p>
 </div>
 <div class="paragraph">
 <p><strong>Eine Entität oder zwei?</strong> Wenn deine Anlage beides hergibt — einen
-vorzeichenbehafteten Sensor und ein Paar je Richtung — nimm den
-vorzeichenbehafteten. Der Verlaufsdialog von Home Assistant zeigt immer nur eine
-Entität, ein Paar verbirgt also die Hälfte: Tippst du bei 4 W Einspeisung auf
-den Netz-Knoten, bekommst du die Einspeisekurve, in der das Netzladen von
-gestern Abend überhaupt nicht vorkommt.</p>
-</div>
-<div class="paragraph">
-<p>Gibt es keinen vorzeichenbehafteten Sensor, baut ein Helfer <em>Template → Sensor</em>
-einen (Einheit <code>W</code>, Geräteklasse <code>power</code>, Zustandsklasse <code>measurement</code> - ohne
-sie keine Statistik und keine Energiewerte, siehe
-<a href="energy.html#zustandsklasse">Energie</a>):</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ (states('sensor.netz_bezug')|float(0)
-  - states('sensor.netz_einspeisung')|float(0))|round(0) }}</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Gib ihm dieselbe Verfügbarkeitsregel wie dem abgeleiteten Haussensor weiter
-unten — nicht verfügbar, sobald eine der Quellen es ist —, damit ein Aussetzer
-nicht als Null in die Statistik wandert. Sein Wert wird dann aufgezeichnet, was
-für einen von der Karte gerechneten Wert nie gilt: Verlauf, Langzeitstatistik,
-Automationen und das Energie-Dashboard sehen ihn.</p>
-</div>
-<div class="paragraph">
-<p>Geht beides nicht, ist die Zwei-Entitäten-Form in jeder angezeigten Zahl
-richtig; nur die Historie bleibt geteilt.</p>
+vorzeichenbehafteten Sensor und ein Paar je Richtung — nimm das Paar. Ein Tipp
+auf Netz oder Batterie öffnet dann ein Fenster mit beiden Richtungen in einem
+Diagramm: Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden nach unten, bei
+der Batterie der Ladestand darunter. In der Leistungsansicht zeigt es wie der
+Verlauf von Home Assistant das 5-Minuten-Mittel und blass die Spanne vom
+kleinsten bis zum größten Wert, im Energie-Modus die kWh je Stunde oder Tag
+(siehe <a href="energy.html#detail">Energie</a>). Auch der Energie-Modus kann nur mit
+einem Paar beide Richtungen zeigen. Mit einem vorzeichenbehafteten Sensor öffnet
+der Tipp dessen eigenen Verlauf aus Home Assistant.</p>
 </div>
 </div>
 </div>
@@ -253,6 +234,6 @@ richtig; nur die Historie bleibt geteilt.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=7a02d850"></script>
+<script type="module" src="../assets/site.js?v=753d16ee"></script>
 </body>
 </html>

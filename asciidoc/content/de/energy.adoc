@@ -91,6 +91,24 @@ wie sein Durchschnittstag, nicht mit Höchstgeschwindigkeit.
 bleibt, beim Umschalten verschiebt sich nichts.
 * Antippen eines Knotens öffnet weiterhin seinen Verlauf.
 
+[[detail]]
+*Netz und Batterie im Detail.* Mit je zwei Sensoren öffnet ein Tipp auf Netz
+oder Batterie ein Fenster mit den kWh je Stunde (Heute, 24 h) oder je Tag
+(längere Zeiträume): Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden
+nach unten, darüber die Summen - genau die Werte am Knoten. Die Zeiträume oben
+im Fenster sind die der Karte; ein Wechsel dort ändert die Karte nicht. Ein
+Tipp auf eine Summe öffnet den Verlauf ihres Sensors. Stunden, die aus
+Nachbarwerten ergänzt wurden, sind blasser. Bei der Batterie steht der
+Ladestand darunter; wo Home Assistant den einzelnen Verlauf nicht mehr
+aufhebt (Standard 10 Tage), zeigt eine blasse Fläche den kleinsten und
+größten Wert je Stunde bzw. Tag.
+
+[.only-light]
+image::detail-energy-de-light.png["Das Fenster des Netzes über 7 Tage",560]
+
+[.only-dark]
+image::detail-energy-de-dark.png["Das Fenster des Netzes über 7 Tage",560]
+
 *Ein oder zwei Sensoren für Netz und Batterie.* Aus dem Stundenmittel eines
 Sensors mit Vorzeichen lässt sich nicht trennen, wie viel in welche Richtung
 ging - an den meisten Tagen macht das Netz beides -, exakt ist nur der Saldo.

@@ -32,7 +32,8 @@ um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
 über 2 und 15 Minuten, frei einstellbar; ein Chip im Kopf schaltet reihum
 _Jetzt_, _Ø 2 min_ und _Ø 15 min_. Sie beruhigen das Bild, ohne die
 Zahlen zu verfälschen. Ein Klick auf ein Element öffnet weiterhin den Dialog
-von Home Assistant mit der echten Historie.
+von Home Assistant mit der echten Historie; Netz und Batterie mit je zwei
+Sensoren zeigen beide Richtungen zusammen in einem Fenster.
 
 *Energie statt Leistung.* Auf Knopfdruck zeigt die Karte statt der Leistung
 die Energie eines Zeitraums: was heute von der Sonne kam, was das Haus diese

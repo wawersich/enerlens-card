@@ -42,6 +42,6 @@ if (search && window.PagefindUI) {
 }
 
 if (document.querySelector(".card-demo")) {
-  const { startDemos } = await import("../demo/demo.js?v=2ef9adda");
+  const { startDemos } = await import("../demo/demo.js?v=0221908d");
   startDemos({ dark, lang: root.lang });
 }

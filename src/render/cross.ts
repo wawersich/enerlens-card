@@ -46,6 +46,27 @@ function moreInfoEntity(value: Signed, minW: number): string | undefined {
     : (value.entityPositive ?? value.entityNegative);
 }
 
+/** The nodes with a detail window (REQ DF-1). */
+export type DetailNode = "grid" | "battery";
+
+/** What a tap on a node with a detail window asks the card for (REQ DF-1). */
+export interface DetailRequest {
+  node: DetailNode;
+  /** The entity to open instead, where the window cannot (DF-2, DF-7). */
+  entity?: string;
+}
+
+/** Asks the card for the detail window; the card decides how (REQ DF-2). */
+function openDetail(target: EventTarget, request: DetailRequest): void {
+  target.dispatchEvent(
+    new CustomEvent<DetailRequest>("enerlens-detail", {
+      detail: request,
+      bubbles: true,
+      composed: true,
+    }),
+  );
+}
+
 /** Opens Home Assistant's own dialog with its history graph (REQ I-1, ENT-3). */
 export function openMoreInfo(target: EventTarget, entityId: string): void {
   target.dispatchEvent(
@@ -85,6 +106,9 @@ interface NodeView {
   socFillColor?: string;
   /** More-info targets. Absent means not clickable (REQ I-4). */
   entity?: string;
+  /** Grid or battery with two sensors: the value's target opens the detail
+   *  window instead; `entity` stays as its fallback (REQ DF-1, DF-7). */
+  detail?: DetailNode;
   /** Grid node while the status entity reports an outage (REQ NS-4). */
   outage?: boolean;
   socEntity?: string;
@@ -239,7 +263,7 @@ function renderHits(
   v: NodeView,
   config: Config,
   hass: HomeAssistant,
-  tap: (entity?: string) => (ev: Event) => void,
+  tap: (entity?: string, detail?: DetailNode) => (ev: Event) => void,
   /** The label stands above the node (AN-5). */
   labelAbove = v.key === "solar",
 ): TemplateResult | string {
@@ -251,7 +275,8 @@ function renderHits(
   const above = options.inside?.position === "above" && !config.energy ? options.inside : undefined;
   const upper = v.figures?.upper?.entity
     ? { entity: v.figures.upper.entity, text: v.figures.upper.text }
-    : v.socEntity
+    : // With two sensors the window shows the charge too: one target (I-2, DF-1).
+      v.socEntity && v.detail !== "battery"
       ? { entity: v.socEntity, text: v.socValue ?? "" }
       : above
         ? {
@@ -272,23 +297,28 @@ function renderHits(
           above && options.label ? `top:${top};bottom:auto;${half};z-index:3` : `top:${top}`
         }
         aria-label=${`${v.label} ${upper.text}`}
-        @click=${tap(upper.entity)}
+        @click=${
+          // A period's upper figure is one of the pair: the window too (DF-1, EM-13).
+          tap(upper.entity, v.figures?.upper ? v.detail : undefined)
+        }
       ></button>
       <button
         class="hit lower"
         style=${!labelAbove && options.label ? `top:auto;bottom:${bottom};${half}` : `bottom:${bottom}`}
         aria-label=${v.value ? `${v.label} ${v.value}` : v.label}
-        @click=${tap(v.entity)}
+        @click=${tap(v.entity, v.detail)}
         ?disabled=${!v.entity}
       ></button>
     `;
   }
   if (!v.entity) return "";
+  // One target for the whole battery names its charge as well (I-2, I-5).
+  const charge = v.socValue ? `, ${v.socValue}` : "";
   return html`<button
     class="hit"
     style="top:${top};bottom:${bottom}"
-    aria-label=${v.value ? `${v.label} ${v.value}` : v.label}
-    @click=${tap(v.entity)}
+    aria-label=${v.value ? `${v.label} ${v.value}${charge}` : `${v.label}${charge}`}
+    @click=${tap(v.entity, v.detail)}
   ></button>`;
 }
 
@@ -303,7 +333,7 @@ function renderLabel(
   v: NodeView,
   config: Config,
   hass: HomeAssistant,
-  tap: (entity?: string) => (ev: Event) => void,
+  tap: (entity?: string, detail?: DetailNode) => (ev: Event) => void,
   /** The label stands above the node (AN-5). */
   above = v.key === "solar",
 ): TemplateResult | string {
@@ -397,6 +427,9 @@ export function buildNodeViews(
     // While the grid is gone, the node shows the status - so a tap opens the
     // status history, which is the one that says since when.
     entity: gridOutage ? config.gridStatus?.entity : moreInfoEntity(grid, config.flow.minW),
+    // Both directions at once - not while the status is what matters (DF-1, NS-4).
+    detail:
+      !gridOutage && config.sources.grid.kind === "split" && !grid.derived ? "grid" : undefined,
   });
 
   views.push({
@@ -440,6 +473,7 @@ export function buildNodeViews(
         ? socColor(model.soc.w, config.colors.socStops, resolveCssColor)
         : undefined,
       entity: moreInfoEntity(bat, config.flow.minW),
+      detail: config.sources.battery.kind === "split" && !bat.derived ? "battery" : undefined,
       socEntity,
       partial: partialNote(bat.missing, config, hass),
     });
@@ -504,6 +538,8 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
         v.value = balance.text;
         continue;
       }
+      // The period's figures stay right during an outage: the window too (DF-1, EM-6).
+      v.detail = "grid";
       v.figures = {
         upper: fig(arrows.import, "grid_import", imp, "import", g.entityPositive),
         lower: fig(arrows.export, "grid_export", exp, "export", g.entityNegative),
@@ -530,6 +566,7 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
         v.entity = b.entityPositive ?? b.entityNegative;
         continue;
       }
+      v.detail = "battery";
       v.figures = {
         upper: fig(arrows.discharge, "battery_discharge", out, "discharge", b.entityPositive),
         lower: fig(arrows.charge, "battery_charge", into, "charge", b.entityNegative),
@@ -690,8 +727,9 @@ export function renderCross(
         ${views.map((v) => {
           const pos = nodePercentOf(g, v.key);
           const above = g.labelAbove[v.key];
-          const tap = (entity?: string) => (ev: Event) => {
-            if (entity) openMoreInfo(ev.currentTarget as EventTarget, entity);
+          const tap = (entity?: string, detail?: DetailNode) => (ev: Event) => {
+            if (detail) openDetail(ev.currentTarget as EventTarget, { node: detail, entity });
+            else if (entity) openMoreInfo(ev.currentTarget as EventTarget, entity);
           };
           const ring =
             v.key === "house" ? segments : v.key === "solar" ? (solarRing?.segments ?? []) : [];

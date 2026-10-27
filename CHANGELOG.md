@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Both directions at a glance (#26):** with two sensors each, a tap on grid
+  or battery opens a window with both directions in one chart - import or
+  discharge upwards, export or charge downwards - in the card's colours, in
+  Home Assistant's own dialog (the back button closes it, a phone gets a sheet
+  from below). In the power view it shows the 5-minute mean with the range of
+  readings around it, as Home Assistant's history does (Today, 24 h, 48 h,
+  7 days); in a period the kWh per hour or day with the totals of the node, the
+  card's periods to switch between. The battery adds its state of charge below.
+  A tap on a total or a name opens that sensor's history.
+
+### Changed
+- **A battery with two sensors is one tap target:** its state of charge is in
+  the new window. With one signed sensor it keeps two.
+
 ## [1.0.1] - 2026-10-26
 
 ### Changed

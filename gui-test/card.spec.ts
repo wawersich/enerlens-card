@@ -6,7 +6,7 @@
  */
 import { type Page, expect, test } from "@playwright/test";
 import { RICH } from "./fixtures";
-import { CARD, signIn } from "./ha";
+import { CARD, SENSOR, haVersion, signIn } from "./ha";
 
 test.describe.configure({ mode: "serial" });
 
@@ -183,3 +183,97 @@ for (const layout of Object.keys(PLACES)) {
     });
   }
 }
+
+/** The card with two sensors each for grid and battery: they open the detail window (DF-1). */
+const PAIRS = {
+  ...CONFIG,
+  entities: {
+    ...CONFIG.entities,
+    grid: { import: `${SENSOR}grid_import`, export: `${SENSOR}grid_export` },
+    battery: { discharge: `${SENSOR}battery_discharge`, charge: `${SENSOR}battery_charge` },
+  },
+};
+
+/** The detail window as HA shows it: open, its chart, its chips, how wide. */
+async function readDetail() {
+  return page.evaluate((card) => {
+    const deep = (window as unknown as { __deep: (s: string, r?: ParentNode) => HTMLElement[] })
+      .__deep;
+    const detail = deep(`${card}-detail`).at(-1);
+    const root = detail?.shadowRoot;
+    const dialog = root?.querySelector("ha-adaptive-dialog") as
+      | (HTMLElement & { open?: boolean })
+      | null;
+    const content = root?.querySelector(".content") as HTMLElement | null;
+    return {
+      open: dialog?.open === true,
+      chartDefined: customElements.get("ha-chart-base") !== undefined,
+      charts: [...(root?.querySelectorAll(".chart") ?? [])].map((c) => c.className),
+      chips: [...(root?.querySelectorAll<HTMLElement>("[role=radio]") ?? [])].map(
+        (c) => `${c.textContent?.trim()}${c.getAttribute("aria-checked") === "true" ? "*" : ""}`,
+      ),
+      overflow: content ? content.scrollWidth - content.clientWidth : -1,
+    };
+  }, CARD);
+}
+
+async function tapNode(key: string): Promise<void> {
+  await page.evaluate(
+    ({ card, key }) => {
+      const w = window as unknown as { __host: HTMLElement };
+      const el = w.__host.querySelector(card) as HTMLElement;
+      el.shadowRoot?.querySelector<HTMLElement>(`.node.${key} .hit`)?.click();
+    },
+    { card: CARD, key },
+  );
+}
+
+test("GT-7: the detail window - HA's chart, its own ranges, closed by the back button (DF-2, DF-4)", async () => {
+  await mountCard(PAIRS, 640);
+  const url = page.url();
+  for (const key of ["grid", "battery"]) {
+    await tapNode(key);
+    await expect
+      .poll(async () => (await readDetail()).charts.length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    const shown = await readDetail();
+    expect(
+      shown.chartDefined,
+      `ha-chart-base fehlt in Home Assistant ${await haVersion()} - Detail-Fenster prüfen (DF-7)`,
+    ).toBe(true);
+    expect(shown.open).toBe(true);
+    expect(shown.chips).toEqual(["Heute", "24 h*", "48 h", "7 Tage"]);
+    if (key === "battery") expect(shown.charts).toContain("chart soc");
+    // Another range: its chip is the checked one.
+    await page.evaluate((card) => {
+      const deep = (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep;
+      deep(`${card}-detail`)
+        .at(-1)
+        ?.shadowRoot?.querySelectorAll<HTMLElement>("[role=radio]")[2]
+        .click();
+    }, CARD);
+    await expect.poll(async () => (await readDetail()).chips[2]).toBe("48 h*");
+    // The back button closes the window, the dashboard stays.
+    await page.goBack();
+    await expect.poll(async () => (await readDetail()).open).toBe(false);
+    expect(page.url()).toBe(url);
+    // HA finishes its back navigation before the next window is asked for.
+    await page.waitForTimeout(1000);
+  }
+});
+
+test("GT-7: the detail window fits a phone of 320 px (DF-11)", async () => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  try {
+    await mountCard(PAIRS, 304);
+    await tapNode("battery");
+    await expect
+      .poll(async () => (await readDetail()).charts.length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    expect((await readDetail()).overflow, "nichts ragt seitlich heraus").toBeLessThanOrEqual(0);
+    await page.goBack();
+    await expect.poll(async () => (await readDetail()).open).toBe(false);
+  } finally {
+    await page.setViewportSize({ width: 1400, height: 1200 });
+  }
+});

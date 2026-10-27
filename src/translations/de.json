@@ -397,5 +397,16 @@
     "peak_title": "PV: Leistung im Verhältnis zur Spitzenleistung",
     "peak_period_title": "PV: mittlere Leistung im Zeitraum im Verhältnis zur Spitzenleistung",
     "chip": "PV-Skala: {mode}, weiter: {next}"
+  },
+  "detail": {
+    "import": "Bezug",
+    "export": "Einspeisung",
+    "discharge": "Entladen",
+    "charge": "Laden",
+    "soc": "Ladestand",
+    "periods": "Zeitraum",
+    "open": "{name}: Verlauf öffnen",
+    "48h": "48 h",
+    "aggregation": "5-Minuten-Mittel · Fläche: kleinster bis größter Wert"
   }
 }

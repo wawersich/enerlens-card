@@ -138,6 +138,18 @@ interface Choice {
 }
 
 /**
+ * Where an arrow key, Home or End moves in a radio group of `n` (QB-14);
+ * -1 for any other key. Shared with the detail window's periods (DF-9).
+ */
+export function radioStep(key: string, index: number, n: number): number {
+  if (key === "ArrowRight" || key === "ArrowDown") return (index + 1) % n;
+  if (key === "ArrowLeft" || key === "ArrowUp") return (index - 1 + n) % n;
+  if (key === "Home") return 0;
+  if (key === "End") return n - 1;
+  return -1;
+}
+
+/**
  * An expanded quick button: every value its own button, a tap picks it
  * (REQ QB-10). A radio group (QB-14): one tab stop - the checked value -,
  * arrow keys and Home/End pick within; a tap on the checked one does
@@ -156,17 +168,7 @@ function renderChoices(
     if (!off && index !== selected) onSelect(index);
   };
   const key = (ev: KeyboardEvent, index: number) => {
-    const n = choices.length;
-    const to =
-      ev.key === "ArrowRight" || ev.key === "ArrowDown"
-        ? (index + 1) % n
-        : ev.key === "ArrowLeft" || ev.key === "ArrowUp"
-          ? (index - 1 + n) % n
-          : ev.key === "Home"
-            ? 0
-            : ev.key === "End"
-              ? n - 1
-              : -1;
+    const to = radioStep(ev.key, index, choices.length);
     if (to < 0) return;
     ev.preventDefault();
     if (off) return;

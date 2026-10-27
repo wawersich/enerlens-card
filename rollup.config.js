@@ -36,6 +36,7 @@ const applyNameSuffix = () => ({
     return code
       .replace('"enerlens-card"', `"enerlens-card${suffix}"`)
       .replace('"enerlens-card-editor"', `"enerlens-card${suffix}-editor"`)
+      .replace('"enerlens-card-detail"', `"enerlens-card${suffix}-detail"`)
       .replace('"EnerLens Card"', `"EnerLens Card (${suffix.replace(/^-/, "")})"`)
       // Only the local build reloads designs from disk; see LIVE_DESIGNS_URL.
       .replace('export const LIVE_DESIGNS_URL = ""', 

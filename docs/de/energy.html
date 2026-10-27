@@ -194,6 +194,28 @@ bleibt, beim Umschalten verschiebt sich nichts.</li>
 <li>Antippen eines Knotens öffnet weiterhin seinen Verlauf.</li>
 </ul>
 </div>
+<div id="detail" class="paragraph">
+<p><strong>Netz und Batterie im Detail.</strong> Mit je zwei Sensoren öffnet ein Tipp auf Netz
+oder Batterie ein Fenster mit den kWh je Stunde (Heute, 24 h) oder je Tag
+(längere Zeiträume): Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden
+nach unten, darüber die Summen - genau die Werte am Knoten. Die Zeiträume oben
+im Fenster sind die der Karte; ein Wechsel dort ändert die Karte nicht. Ein
+Tipp auf eine Summe öffnet den Verlauf ihres Sensors. Stunden, die aus
+Nachbarwerten ergänzt wurden, sind blasser. Bei der Batterie steht der
+Ladestand darunter; wo Home Assistant den einzelnen Verlauf nicht mehr
+aufhebt (Standard 10 Tage), zeigt eine blasse Fläche den kleinsten und
+größten Wert je Stunde bzw. Tag.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/detail-energy-de-light.png" alt="Das Fenster des Netzes über 7 Tage" width="560">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/detail-energy-de-dark.png" alt="Das Fenster des Netzes über 7 Tage" width="560">
+</div>
+</div>
 <div class="paragraph">
 <p><strong>Ein oder zwei Sensoren für Netz und Batterie.</strong> Aus dem Stundenmittel eines
 Sensors mit Vorzeichen lässt sich nicht trennen, wie viel in welche Richtung
@@ -290,6 +312,6 @@ Liste.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=7a02d850"></script>
+<script type="module" src="../assets/site.js?v=753d16ee"></script>
 </body>
 </html>

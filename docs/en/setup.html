@@ -216,32 +216,14 @@ both. Values are expected to be zero or positive:</p>
 </div>
 <div class="paragraph">
 <p><strong>One entity or two?</strong> If your installation offers both — a signed sensor and a
-pair per direction — take the signed one. Home Assistant&#8217;s history dialog shows
-one entity at a time, so a split pair hides half of what happened: tap the grid
-node while 4 W are being exported and you get the export curve, in which last
-night&#8217;s charging from the grid does not appear at all.</p>
-</div>
-<div class="paragraph">
-<p>If there is no signed sensor, a <em>Template → Sensor</em> helper builds one (unit <code>W</code>,
-device class <code>power</code>, state class <code>measurement</code> - without it no statistics and
-no energy, see <a href="energy.html#state-class">Energy</a>):</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlight"><code class="language-jinja" data-lang="jinja">{{ (states('sensor.grid_import')|float(0)
-  - states('sensor.grid_export')|float(0))|round(0) }}</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Give it the same availability rule as the derived house sensor below —
-unavailable as soon as one input is — so that a dropout does not enter the
-statistics as a zero. Its value is then recorded, which a figure the card
-computes never is: history, long-term statistics, automations and the energy
-dashboard all see it.</p>
-</div>
-<div class="paragraph">
-<p>Failing both, the two-entity form is right in every number the card shows; only
-the history stays in two places.</p>
+pair per direction — take the pair. A tap on grid or battery then opens a window
+with both directions in one chart: import or discharge upwards, export or
+charge downwards, and for the battery its state of charge below. In the power
+view it shows, like Home Assistant&#8217;s own history, the 5-minute mean and faintly
+the range from the lowest to the highest reading; in the energy mode the kWh per
+hour or day (see <a href="energy.html#detail">Energy</a>). The energy mode, too, can
+only show both directions with a pair. With a signed sensor the tap opens that
+sensor&#8217;s own history in Home Assistant.</p>
 </div>
 </div>
 </div>
@@ -249,6 +231,6 @@ the history stays in two places.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=7a02d850"></script>
+<script type="module" src="../assets/site.js?v=753d16ee"></script>
 </body>
 </html>
