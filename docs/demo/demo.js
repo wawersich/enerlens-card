@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=c4e0a58b");
+await import("./enerlens-card.js?v=52ffc95b");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {
@@ -140,6 +140,9 @@ function powers(t, scene, shift = SHIFT) {
   const q2 = 8;
   const q3 = 3;
   if (scene === "outage") wb = 0;
+  // The EV page: a minute of charging, half a minute paused - the row shows
+  // the power, then the charge instead (L-15).
+  if (scene === "ev") wb = evPhase(t) < 2 / 3 ? 7400 + wave(13, 150) : 0;
   const house = 450 + c1 + c2 + c3 + c4 + wb + q1 + q2 + q3;
   const surplus = pv - house;
   let battery;
@@ -162,6 +165,12 @@ function powers(t, scene, shift = SHIFT) {
   };
 }
 
+/** Where the EV page's car is in its 90-second round, 0 to 1. */
+const evPhase = (t) => ((t / 1000) % 90) / 90;
+
+/** The car's charge on the EV page: rising while it charges, held while paused. */
+const evCharge = (t) => Math.round(40 + 50 * Math.min(evPhase(t) * 1.5, 1));
+
 const entity = (id, state, unit, cls) => ({
   entity_id: id, state: String(state),
   attributes: { unit_of_measurement: unit, ...(cls ? { device_class: cls } : {}), state_class: "measurement" },
@@ -172,7 +181,7 @@ function statesAt(t, scene, shift = SHIFT) {
   const out = {};
   for (const [id, w] of Object.entries(powers(t, scene, shift))) out[id] = entity(id, Math.round(w), "W", "power");
   out["sensor.soc"] = entity("sensor.soc", scene === "outage" ? 54 : 68, "%", "battery");
-  out["sensor.car"] = entity("sensor.car", 80, "%", "battery");
+  out["sensor.car"] = entity("sensor.car", scene === "ev" ? evCharge(t) : 80, "%", "battery");
   out["sensor.grid_status"] = {
     entity_id: "sensor.grid_status", state: scene === "outage" ? "not_detected" : "ok",
     attributes: { device_class: "enum", options: ["ok", "not_detected"] }, last_changed: "", last_updated: "",
@@ -334,6 +343,25 @@ function config(scene, t, data = {}) {
         title: t.title,
         view: { ...base.view, default_energy: "24h" },
       };
+    case "ev":
+      // A wallbox with its car: the ring always there, the list short.
+      return {
+        ...base,
+        consumers: consumers.map((c) =>
+          c.entity === "sensor.wb" ? { ...c, charge: { soc: "sensor.car", show: "always" } } : c,
+        ),
+        view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
+      };
+    case "outagetoggle":
+      // The outage page: a plain card, no quick buttons, no list; the switch
+      // above it takes the grid away and gives it back.
+      return {
+        ...base,
+        entities: { ...split, grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] } },
+        // One scope: no filter button over a card without a list.
+        list: { enabled: false, scope: ["filtered"] },
+        view: { ...base.view, modes: ["current"], energy_periods: ["power"] },
+      };
     case "outage":
       return {
         ...base,
@@ -466,9 +494,12 @@ function start(host, { dark, lang }) {
     setInterval(clip, 500);
   }
   const ws = callWS(scene, clock);
+  // The outage page's switch picks the values of a day with or without grid.
+  const now = () =>
+    scene === "outagetoggle" ? (host.dataset.outage === "on" ? "outage" : "live") : scene;
   const feed = () => {
     card.hass = {
-      states: statesAt(Date.now(), scene, clock.shift),
+      states: statesAt(Date.now(), now(), clock.shift),
       locale: { language: lang, number_format: "language" },
       language: lang,
       callWS: ws,
@@ -530,6 +561,7 @@ const WORDS = {
     design: "Aussehen der Punkte", d_none: "Einfache Punkte", d_kugeln: "Kugeln", d_partylicht: "Partylicht",
     d_leuchtpunkte: "Leuchtpunkte", d_electron: "Electron", d_proton: "Proton", d_neutrino: "Neutrino",
     dots: "Höchstzahl Punkte", speed: "Tempo", run: "s pro Runde", dotsize: "Punktgröße",
+    outage: "Netzausfall",
   },
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
@@ -545,6 +577,7 @@ const WORDS = {
     design: "Dot style", d_none: "Plain dots", d_kugeln: "Orbs", d_partylicht: "Party Light",
     d_leuchtpunkte: "Glowing Dots", d_electron: "Electron", d_proton: "Proton", d_neutrino: "Neutrino",
     dots: "Maximum dots", speed: "Speed", run: "s a run", dotsize: "Dot size",
+    outage: "Grid outage",
   },
 };
 
@@ -671,6 +704,12 @@ function controls(host, card, lang, { set, feed, clock }) {
         want.includes("list") &&
           choice(w.list, ["on", "off"], state.list ? "on" : "off", (v) => {
             state.list = v === "on";
+            apply();
+          }),
+        want.includes("outage") &&
+          choice(w.outage, ["off", "on"], host.dataset.outage ?? "off", (v) => {
+            host.dataset.outage = v;
+            feed();
             apply();
           }),
         ...EXTRAS.filter(([key]) => want.includes(key)).map(([key, values, prefix]) =>

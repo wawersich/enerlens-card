@@ -3077,7 +3077,7 @@ class EnerLensCardEditor extends LitElement {
     const t = (key: string) => localize(`editor.${key}`, this.hass);
     const rows = this._sourceRows();
     return html`
-      <ha-expansion-panel outlined expanded class="consumers-panel sources-panel">
+      <ha-expansion-panel outlined class="consumers-panel sources-panel">
         <div slot="header" role="heading" aria-level="3">${t("solar_sources")}</div>
         <div class="consumers">
           <p class="hint">${localize("editor_help.solar_sources", this.hass)}</p>

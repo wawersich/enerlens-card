@@ -4,7 +4,15 @@
 
 Some installations report whether the grid is there at all — an inverter that
 can run an island usually does. Then the card can say so, instead of showing
-0 W, which looks exactly like a quiet minute with nothing flowing:
+0 W, which looks exactly like a quiet minute with nothing flowing.
+
+Try it: the switch above the card takes the grid away and gives it back.
+
+++++
+<div class="card-demo" data-demo="outagetoggle" data-controls="outage" data-yaml="off"></div>
+++++
+
+This is the YAML:
 
 [source,yaml]
 ----

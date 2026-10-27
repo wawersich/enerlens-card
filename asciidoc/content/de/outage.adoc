@@ -4,7 +4,16 @@
 
 Manche Anlagen melden, ob überhaupt Netz anliegt — ein Wechselrichter, der
 Inselbetrieb kann, meist schon. Dann kann die Karte das auch sagen, statt 0 W
-anzuzeigen, was genauso aussieht wie eine ruhige Minute ohne Fluss:
+anzuzeigen, was genauso aussieht wie eine ruhige Minute ohne Fluss.
+
+Zum Ausprobieren: Der Schalter über der Karte nimmt das Netz weg und gibt es
+zurück.
+
+++++
+<div class="card-demo" data-demo="outagetoggle" data-controls="outage" data-yaml="off"></div>
+++++
+
+So sieht das in YAML aus:
 
 [source,yaml]
 ----

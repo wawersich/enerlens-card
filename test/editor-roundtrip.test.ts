@@ -456,6 +456,8 @@ describe("F: a select left out of the YAML shows the card's default (E-1)", () =
     const headings = [
       ...(el.shadowRoot?.querySelectorAll("ha-expansion-panel > [slot=header]") ?? []),
     ].map((h) => h.textContent?.trim());
+    // Folded like every other panel: open it pushed all below out of sight (Markus 27.10.2026).
+    expect(el.shadowRoot?.querySelector(".sources-panel")?.hasAttribute("expanded")).toBe(false);
     expect(headings.slice(0, 4)).toEqual([
       "Basis-Entitäten",
       "Basis-Entitäten: Beschriftung & Zusatzwerte",

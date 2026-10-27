@@ -4,7 +4,18 @@
 
 Eine Wallbox ist ein Verbraucher wie jeder andere. Den Ladestand des Autos
 liefert die Integration des Autos, nicht die Wallbox – Home Assistant verknüpft
-beide nicht, deshalb wird dem Verbraucher gesagt, welches Auto zu ihm gehört:
+beide nicht, deshalb wird dem Verbraucher gesagt, welches Auto zu ihm gehört.
+
+Zum Ausprobieren: Die Wallbox lädt eine Minute lang, der Ring um ihr Icon
+füllt sich; dann pausiert sie eine halbe Minute, und statt der Leistung steht
+der Ladestand in der Zeile. Ein Tipp auf die Zeile zeigt in Home Assistant
+Leistung und Ladestand im Verlauf.
+
+++++
+<div class="card-demo" data-demo="ev" data-yaml="off"></div>
+++++
+
+So sieht das in YAML aus:
 
 [source,yaml]
 ----

@@ -4,7 +4,17 @@
 
 A wallbox is a consumer like any other. The car's state of charge comes from
 the car's own integration, not from the wallbox - Home Assistant does not link
-the two, so the consumer is told which one belongs to it:
+the two, so the consumer is told which one belongs to it.
+
+Try it: the wallbox charges for a minute and the ring around its icon fills
+up; then it pauses for half a minute, and the row shows the charge instead of
+the power. In Home Assistant a tap on the row shows power and charge over time.
+
+++++
+<div class="card-demo" data-demo="ev" data-yaml="off"></div>
+++++
+
+This is the YAML:
 
 [source,yaml]
 ----
