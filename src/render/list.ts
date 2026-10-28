@@ -377,7 +377,7 @@ export class RowAnimator {
               { opacity: 1, transform: `translateY(${blockDelta * 0.45}px)`, offset: 0.33 },
               { opacity: 1, transform: "none" },
             ],
-            { duration: 600, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+            { duration: GLIDE_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
           );
           animation.id = GLIDE;
         }
@@ -391,7 +391,7 @@ export class RowAnimator {
       glide?.cancel();
       const animation = row.animate(
         [{ transform: `translateY(${delta}px)` }, { transform: "none" }],
-        { duration: 600, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+        { duration: GLIDE_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
       );
       animation.id = GLIDE;
     }
@@ -399,10 +399,32 @@ export class RowAnimator {
     this.positions.clear();
   }
 
+  /**
+   * Whether a row in the container is still under way - what the fan follows
+   * frame by frame. Asked rather than remembered: a render mid-glide starts
+   * nothing new, yet the row keeps moving.
+   */
+  gliding(container: Element | null): boolean {
+    if (!container) return false;
+    for (const row of container.querySelectorAll(".row")) {
+      if (RowAnimator.runningGlide(row)) return true;
+    }
+    return false;
+  }
+
   private static runningGlide(row: Element): Animation | undefined {
     if (typeof row.getAnimations !== "function") return undefined;
-    return row.getAnimations().find((a) => a.id === GLIDE && a.playState === "running");
+    // An older WebKit still reports an animation waiting for its first frame
+    // as "pending".
+    return row
+      .getAnimations()
+      .find(
+        (a) =>
+          a.id === GLIDE && (a.playState === "running" || (a.playState as string) === "pending"),
+      );
   }
 }
 
 const GLIDE = "enerlens-glide";
+/** How long a row glides to its new place. */
+export const GLIDE_MS = 600;

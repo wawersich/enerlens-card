@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Every node in detail:** a house or solar with one entity, and grid or
   battery with one signed sensor, open the detail window too; such a battery is
   one tap target, its charge in the window.
+- **Less work in the background:** the lines to the list follow the rows
+  only while they glide, instead of for a moment after every update.
 
 ## [1.2.0] - 2026-10-27
 

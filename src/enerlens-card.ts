@@ -72,7 +72,7 @@ import {
   renderHeader,
   renderOutageBanner,
 } from "./render/header";
-import { RowAnimator, renderList, renderSolarSide } from "./render/list";
+import { GLIDE_MS, RowAnimator, renderList, renderSolarSide } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
 import { sizeFactors } from "./render/sizing";
@@ -107,6 +107,8 @@ const PV_SCALE_KEY = "pv-scale";
 const ENERGY_REFRESH_MS = 5 * 60_000;
 /** After a failed request, the next one comes this much sooner. */
 const ENERGY_RETRY_MS = 30_000;
+/** The fan stops following the rows after this long, should a glide never end. */
+const FAN_FOLLOW_MAX_MS = GLIDE_MS + 400;
 
 /** localStorage throws in private mode and can be disabled outright; a lost
  *  preference must never cost more than the preference itself. */
@@ -247,6 +249,8 @@ class EnerLensCard extends LitElement {
   private readonly _solarRing = new RingAnimator();
   /** Frame loop that keeps the fan on the rows while they glide. */
   private _fanFollow?: number;
+  /** When the fan stops following the rows, should a glide never end. */
+  private _fanFollowUntil = 0;
   private _technique: DotTechnique = "static";
   private _motionQuery?: MediaQueryList;
   private _visible = true;
@@ -1083,6 +1087,9 @@ class EnerLensCard extends LitElement {
     // card stays legible on a phone (REQ K-12).
     this._resizeObserver = new ResizeObserver(() => {
       this._measure();
+      // The rows may have moved without a render - a late font, a column
+      // that got its width. Cheap: the fan writes only what changed.
+      this._drawFan();
       // A new layout may come with a new zoom (issue #7, render/path-zoom.ts).
       this._measurePathZoom();
     });
@@ -1097,6 +1104,9 @@ class EnerLensCard extends LitElement {
     this._intersectionObserver = new IntersectionObserver((entries) => {
       this._visible = entries.some((e) => e.isIntersecting);
       this._syncPlayState();
+      // Back in view: the lines to where the rows are now, and along with any
+      // glide still under way.
+      if (this._visible && this._config) this._updateFan();
     });
     this._intersectionObserver.observe(this);
     this._pickUpLiveDesigns();
@@ -1447,16 +1457,27 @@ class EnerLensCard extends LitElement {
    */
   private _updateFan(): void {
     this._drawFan();
-
-    // Rows glide for 600 ms after a reorder. The lines follow them frame by
+    // Rows glide for GLIDE_MS after a reorder. The lines follow them frame by
     // frame - measured mid-transform, getBoundingClientRect reports where a
-    // row is drawn, not where it will land - and one last pass after the glide.
-    if (this._fanFollow) cancelAnimationFrame(this._fanFollow);
-    if (typeof requestAnimationFrame !== "function") return;
-    const started = performance.now();
+    // row is drawn, not where it will land - but only while one is under way:
+    // most renders move no row, and the loop used to run after each of them.
+    if (!this._visible || typeof requestAnimationFrame !== "function") return;
+    if (!this._rows.gliding(this.renderRoot.querySelector(".body"))) return;
+    // A glide that starts while the loop runs gets its full time too.
+    this._fanFollowUntil = performance.now() + FAN_FOLLOW_MAX_MS;
+    // A loop already running is left be; it asks the rows itself.
+    if (this._fanFollow !== undefined) return;
     const step = () => {
+      // Cleared first, so a draw that throws cannot block every later loop.
+      this._fanFollow = undefined;
+      // Asked before drawing, so the frame after the last glide ended still
+      // draws - the rows in their places, a new row at full opacity.
+      const more =
+        this._visible &&
+        performance.now() < this._fanFollowUntil &&
+        this._rows.gliding(this.renderRoot.querySelector(".body"));
       this._drawFan();
-      this._fanFollow = performance.now() - started < 650 ? requestAnimationFrame(step) : undefined;
+      if (more) this._fanFollow = requestAnimationFrame(step);
     };
     this._fanFollow = requestAnimationFrame(step);
   }
@@ -1884,11 +1905,14 @@ class EnerLensCard extends LitElement {
     if (ground) this.style.setProperty("--el-link-opacity", String(ground.line / 100));
     else this.style.removeProperty("--el-link-opacity");
 
+    // Measured before the fan is drawn: a new scale moves the nodes the lines
+    // start from, and no frame loop comes after to pick that up.
+    const moved = this._measure();
     this._updateFan();
     this._syncPlayState();
     // Rows only glide once a measurement has left the layout where it was: the
     // move that settles it is not one the eye should have to follow.
-    if (!this._measure()) this._settled = true;
+    if (!moved) this._settled = true;
   }
 
   disconnectedCallback(): void {

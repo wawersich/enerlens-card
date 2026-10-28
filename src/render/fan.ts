@@ -43,6 +43,10 @@ interface FanLine {
   paintKey?: string;
   /** The dot colour as the browser reads it; undefined until it answered. */
   mixFrom?: string;
+  /** What was last written, so an update that changes nothing writes nothing. */
+  d?: string;
+  dotPath?: string;
+  look?: string;
 }
 
 /** Each layer's cut-out needs an id of its own - two fans share a shadow root (N-8). */
@@ -71,6 +75,8 @@ export class FanLayer {
   private pathZoom = 1;
   /** Dot size on screen relative to the base size - see sizing.ts (K-12). */
   private dotScale = 1;
+  /** The overlay size last written. */
+  private size?: string;
 
   constructor(private readonly svg: SVGSVGElement) {}
 
@@ -93,10 +99,12 @@ export class FanLayer {
 
   /**
    * A new measure of the WebKit zoom bug (issue #7, path-zoom.ts). Takes
-   * effect on the next update, which redraws every path anyway.
+   * effect on the next update, which sets the dots' paths anew.
    */
   setPathZoom(zoom: number): void {
+    if (zoom === this.pathZoom) return;
     this.pathZoom = zoom;
+    for (const line of this.lines.values()) line.dotPath = undefined;
   }
 
   private ground(): FlowDesignGround | undefined {
@@ -115,9 +123,15 @@ export class FanLayer {
     /** The house's circle within its border, when the fan leaves from it (K-16). */
     hole?: { x: number; y: number; r: number },
   ): void {
-    this.svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
-    this.svg.setAttribute("width", String(size.width));
-    this.svg.setAttribute("height", String(size.height));
+    // Only what changed is written: the card draws the fan after every
+    // render, and most of them move nothing.
+    const sized = `${size.width} ${size.height}`;
+    if (sized !== this.size) {
+      this.size = sized;
+      this.svg.setAttribute("viewBox", `0 0 ${sized}`);
+      this.svg.setAttribute("width", String(size.width));
+      this.svg.setAttribute("height", String(size.height));
+    }
     const clip = this.holeClip(hole, size);
     const clipChanged = clip !== this.clip;
     this.clip = clip;
@@ -128,7 +142,10 @@ export class FanLayer {
       const d = this.route ? this.route(origin, row) : this.pathFor(origin, row);
       const fresh = !this.lines.has(row.key);
       const line = this.lines.get(row.key) ?? this.createLine(row.key);
-      line.path.setAttribute("d", d);
+      if (d !== line.d) {
+        line.d = d;
+        line.path.setAttribute("d", d);
+      }
       // Only on a change: a clip touched repaints all it covers, and the fan
       // is redrawn every frame while the list moves.
       if (clipChanged || fresh) {
@@ -137,19 +154,25 @@ export class FanLayer {
           else el.removeAttribute("clip-path");
         }
       }
-      // Colour through CSS classes rather than the attribute, so the neutral
-      // shade can be a theme variable (attributes do not resolve var()).
-      line.path.setAttribute("class", `fan-line${row.inactive ? ` inactive-${row.inactive}` : ""}`);
-      line.path.style.stroke = row.inactive ? "" : row.color;
-
       // A design asks for a quieter line to stand out against; without one
       // the line keeps the opacity the stylesheet gives it (P-5, P-10).
       const ground = row.inactive ? undefined : this.ground();
       const fade = row.fade ?? 1;
-      line.path.style.opacity = ground ? String((ground.line / 100) * fade) : "";
-      // Without a design the stylesheet's opacity applies, scaled by this.
-      line.path.style.setProperty("--el-fade", String(fade));
-      line.group.style.opacity = fade < 1 ? String(fade) : "";
+      const look = [row.inactive, row.color, ground?.line, fade].join("|");
+      if (look !== line.look) {
+        line.look = look;
+        // Colour through CSS classes rather than the attribute, so the neutral
+        // shade can be a theme variable (attributes do not resolve var()).
+        line.path.setAttribute(
+          "class",
+          `fan-line${row.inactive ? ` inactive-${row.inactive}` : ""}`,
+        );
+        line.path.style.stroke = row.inactive ? "" : row.color;
+        line.path.style.opacity = ground ? String((ground.line / 100) * fade) : "";
+        // Without a design the stylesheet's opacity applies, scaled by this.
+        line.path.style.setProperty("--el-fade", String(fade));
+        line.group.style.opacity = fade < 1 ? String(fade) : "";
+      }
 
       while (line.dots.length > row.count) {
         line.dots.pop()?.remove();
@@ -184,6 +207,9 @@ export class FanLayer {
 
       const countChanged = line.count !== row.count;
       const dotPath = unzoomPath(d, this.pathZoom);
+      const newPath = dotPath !== line.dotPath;
+      line.dotPath = dotPath;
+      const rotate = this.reverse ? "auto 180deg" : "auto";
       const rate = BASE_MS / 1000 / Math.max(row.durationS, 0.01);
       for (const [i, dot] of line.dots.entries()) {
         // A dot that joined since the last paint is still an empty group -
@@ -194,10 +220,11 @@ export class FanLayer {
         // so a ring pushed forward is pushed along it.
         // The line is drawn from `d` as it is; only the dots get the path
         // corrected for the WebKit zoom bug (issue #7).
-        dot.style.offsetPath = `path("${dotPath}")`;
+        // A dot that joined has none yet.
+        if (newPath || !dot.style.offsetPath) dot.style.offsetPath = `path("${dotPath}")`;
         // Run backwards (the PV fan, into its node), a dot is turned round too:
         // `auto` alone faces the drawn way, and its lighter side would trail.
-        dot.style.offsetRotate = this.reverse ? "auto 180deg" : "auto";
+        if (dot.style.offsetRotate !== rotate) dot.style.offsetRotate = rotate;
 
         // Same guard as the list: no Web Animations must not crash (REQ N-5).
         // The card asks for no dots where they cannot move (P-7), so this
@@ -224,7 +251,7 @@ export class FanLayer {
         // some later frame applies, and recomputes that one animation's start
         // time when it does. Rate and spacing are set together, in one task,
         // so the dots cannot slowly drift out of their even spread.
-        animation.playbackRate = rate;
+        if (animation.playbackRate !== rate) animation.playbackRate = rate;
         if (countChanged || !line.animations[i]) {
           animation.currentTime = (BASE_MS * i) / row.count;
         }
