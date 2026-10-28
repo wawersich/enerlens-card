@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=3013cea1");
+await import("./enerlens-card.js?v=0a5c9a22");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {
@@ -102,6 +102,19 @@ function setTimeOfDay(hours) {
   offset += target - now;
 }
 
+// The ring scene: the rank of each of the four consumers, step by step. Each
+// step moves one segment forward, past one, two or all three of the others.
+const RING_LEVELS = [2100, 1500, 1000, 600];
+const RING_ORDERS = [
+  [0, 1, 2, 3],
+  [1, 0, 2, 3],
+  [1, 0, 3, 2],
+  [2, 1, 3, 0],
+  [3, 2, 0, 1],
+  [3, 1, 0, 2],
+  [0, 2, 1, 3],
+];
+
 function powers(t, scene, shift = SHIFT) {
   const d = new Date(t + shift);
   // The dots scene stands still at half past twelve: only the dots move.
@@ -131,9 +144,9 @@ function powers(t, scene, shift = SHIFT) {
   let c4 = scene === "arrange" ? 6 : 140;
   let wb = h >= 11 && h < 15 ? 3700 : 0;
   if (scene === "ring") {
-    // Four consumers around the same mean, each on its own beat: their order
-    // changes every few seconds, so the ring re-sorts all the time.
-    [c1, c2, c3, c4] = [13, 17, 11, 19].map((period, i) => 1200 + wave(period, 900, i * 1.6));
+    // Four consumers on fixed levels that trade places every four seconds,
+    // one move at a time, so each overtake can finish before the next.
+    [c1, c2, c3, c4] = RING_ORDERS[Math.floor(s / 4) % RING_ORDERS.length].map((rank) => RING_LEVELS[rank]);
     wb = 0;
   }
   const q1 = 0;

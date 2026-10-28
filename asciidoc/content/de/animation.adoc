@@ -20,8 +20,8 @@ und taucht an seinem Platz wieder auf.
 neue Reihenfolge über. Ruhiger, gerade wenn sich die Reihenfolge oft ändert.
 * *Springen*: Keine Bewegung, der Ring steht sofort in der neuen Ordnung.
 
-Zum Ausprobieren: In dieser Karte schwanken vier Verbraucher um denselben
-Mittelwert, ihre Reihenfolge ändert sich alle paar Sekunden. Liste und
+Zum Ausprobieren: In dieser Karte tauschen vier Verbraucher alle vier Sekunden
+die Plätze, ein Segment überholt eines, zwei oder alle drei anderen. Liste und
 Quick-Buttons sind ausgeblendet, damit nur der Ring zu sehen ist.
 
 ++++

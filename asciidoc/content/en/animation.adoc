@@ -19,8 +19,8 @@ its place.
 into the new order. Calmer, above all when the order changes often.
 * *Jump*: no movement, the ring stands in the new order at once.
 
-Try it: in this card four consumers swing around the same mean, so their order
-changes every few seconds. List and quick buttons are hidden, so that only the
+Try it: in this card four consumers trade places every four seconds, one
+segment passing one, two or all three of the others. List and quick buttons are hidden, so that only the
 ring is to be seen.
 
 ++++
