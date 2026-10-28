@@ -107,8 +107,11 @@ with power and energy:
   history.
 * *House*, when a balcony plant feeds in past the house meter (see
   link:balcony.html[Balcony solar]): one line or bars of the calculated house
-  value, exactly the figure in the circle. Without a balcony plant a tap opens
-  the house sensor's history as before.
+  value, exactly the figure in the circle.
+* *Every node with a single entity* – house, solar, and grid or battery with
+  one signed sensor: one line or bars; for grid and battery import or
+  discharge upwards, export or charge downwards, the bars as the balance per
+  hour or day. The battery shows its charge below.
 * *Consumers with a state of charge*, such as the wallbox (see
   link:ev.html[Wallbox and EV]): the power, with the car's charge below.
 * *Every row of the list* – consumers and PV sources: their power or their

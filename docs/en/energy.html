@@ -213,8 +213,11 @@ first – the node&#8217;s figure – then each source; a tap on a source opens 
 history.</li>
 <li><strong>House</strong>, when a balcony plant feeds in past the house meter (see
 <a href="balcony.html">Balcony solar</a>): one line or bars of the calculated house
-value, exactly the figure in the circle. Without a balcony plant a tap opens
-the house sensor&#8217;s history as before.</li>
+value, exactly the figure in the circle.</li>
+<li><strong>Every node with a single entity</strong> – house, solar, and grid or battery with
+one signed sensor: one line or bars; for grid and battery import or
+discharge upwards, export or charge downwards, the bars as the balance per
+hour or day. The battery shows its charge below.</li>
 <li><strong>Consumers with a state of charge</strong>, such as the wallbox (see
 <a href="ev.html">Wallbox and EV</a>): the power, with the car&#8217;s charge below.</li>
 <li><strong>Every row of the list</strong> – consumers and PV sources: their power or their
@@ -324,6 +327,6 @@ statistics (a sensor without a state class) is listed last with a dash.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=cd3935c5"></script>
+<script type="module" src="../assets/site.js?v=3e5b13b2"></script>
 </body>
 </html>

@@ -759,9 +759,15 @@ describe("room and tap targets for extra values", () => {
     expect(upper && lower, "two targets").toBeTruthy();
     expect(upper.getAttribute("aria-label")).toBe("PV 12.389 kWh");
     const ids = opened(el);
+    const windows: string[] = [];
+    el.addEventListener("show-dialog", (ev) =>
+      windows.push((ev as CustomEvent).detail.dialogParams.node),
+    );
     upper.click();
     lower.click();
-    expect(ids).toEqual(["sensor.today", "sensor.s"]);
+    // The field its entity, the node its window (Z-7, DF-20).
+    expect(ids).toEqual(["sensor.today"]);
+    expect(windows).toEqual(["solar"]);
     el.remove();
   });
 
@@ -852,7 +858,8 @@ describe("room and tap targets for extra values", () => {
     const order = [...node(el, "battery").querySelectorAll("button")].map((b) =>
       b.className.split(" ").slice(0, 2).join(" "),
     );
-    expect(order).toEqual(["hit upper", "hit lower", "extra-label extra"]);
+    // One target for the node, the charge in its window (I-2, DF-20), then the field.
+    expect(order).toEqual(["hit", "extra-label extra"]);
     el.remove();
   });
 });

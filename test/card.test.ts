@@ -506,7 +506,7 @@ describe("battery node", () => {
     expect(dialogs).toEqual(["battery"]);
   });
 
-  it("keeps two targets with one signed sensor: charge above, the sensor below (REQ I-2)", async () => {
+  it("one target with one signed sensor too: the window holds the charge (REQ I-2, DF-20)", async () => {
     const el = document.createElement("enerlens-card") as HTMLElement & {
       setConfig: (c: unknown) => void;
       hass: HomeAssistant;
@@ -521,13 +521,15 @@ describe("battery node", () => {
     el.addEventListener("hass-more-info", (ev) => {
       seen.push((ev as CustomEvent<{ entityId: string }>).detail.entityId);
     });
+    const dialogs: string[] = [];
+    el.addEventListener("show-dialog", (ev) =>
+      dialogs.push((ev as CustomEvent).detail.dialogParams.node),
+    );
     const hits = el.shadowRoot?.querySelectorAll<HTMLElement>(".node.battery .hit");
-    expect(hits?.length, "expected an upper and a lower target").toBe(2);
-    expect(hits?.[0].classList.contains("upper")).toBe(true);
-    expect(hits?.[1].classList.contains("lower")).toBe(true);
+    expect(hits?.length).toBe(1);
     hits?.[0].click();
-    hits?.[1].click();
-    expect(seen).toEqual(["sensor.soc", "sensor.bat"]);
+    expect(seen).toEqual([]);
+    expect(dialogs).toEqual(["battery"]);
     el.remove();
   });
 

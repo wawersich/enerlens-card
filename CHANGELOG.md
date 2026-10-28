@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **Every node in detail:** a house or solar with one entity, and grid or
+  battery with one signed sensor, open the detail window too; such a battery is
+  one tap target, its charge in the window.
+
 ## [1.2.0] - 2026-10-27
 
 ### Added

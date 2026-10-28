@@ -408,8 +408,8 @@ export function buildNodeViews(
       ? undefined
       : (model.solar.entity ??
         (config.solarSources.length === 1 ? config.solarSources[0].entity : undefined)),
-    detail:
-      config.sources.solar.kind === "sum" && config.solarSources.length > 1 ? "solar" : undefined,
+    // Every node with something measured behind it opens the window (DF-20).
+    detail: model.solar.derived ? undefined : "solar",
     partial: partialNote(model.solar.missing, config, hass),
   });
 
@@ -444,8 +444,7 @@ export function buildNodeViews(
     // status history, which is the one that says since when.
     entity: gridOutage ? config.gridStatus?.entity : moreInfoEntity(grid, config.flow.minW),
     // Both directions at once - not while the status is what matters (DF-1, NS-4).
-    detail:
-      !gridOutage && config.sources.grid.kind === "split" && !grid.derived ? "grid" : undefined,
+    detail: !gridOutage && !grid.derived ? "grid" : undefined,
   });
 
   views.push({
@@ -462,7 +461,7 @@ export function buildNodeViews(
     partial: partialNote(model.house.missing, config, hass),
     // Corrected, the node shows more than the sensor's history: the window
     // shows the node's figure instead (DF-14, issue #30).
-    detail: model.house.corrected && !model.house.derived ? "house" : undefined,
+    detail: model.house.derived ? undefined : "house",
   });
 
   const bat = model.battery;
@@ -492,7 +491,8 @@ export function buildNodeViews(
         ? socColor(model.soc.w, config.colors.socStops, resolveCssColor)
         : undefined,
       entity: moreInfoEntity(bat, config.flow.minW),
-      detail: config.sources.battery.kind === "split" && !bat.derived ? "battery" : undefined,
+      // One target, the charge in the window, with one sensor or two (I-2, DF-20).
+      detail: bat.derived ? undefined : "battery",
       socEntity,
       partial: partialNote(bat.missing, config, hass),
     });
@@ -552,6 +552,8 @@ function energyViews(views: NodeView[], model: Model, config: Config, hass: Home
           g.entityPositive ?? g.entityNegative,
         );
         balance.mark = worse(marks.import, marks.export);
+        // A period's figures stay right during an outage: the window too (DF-20, EM-6).
+        v.detail = "grid";
         v.figures = { lower: balance };
         v.entity = balance.entity;
         v.value = balance.text;

@@ -39,6 +39,8 @@ const STATES: Record<string, string> = {
   "sensor.wallbox": "0",
   "sensor.car": "60",
   "sensor.c1": "200",
+  "sensor.gridnet": "-1000",
+  "sensor.batnet": "-600",
 };
 
 /** Mornings bought, afternoons sold: both directions on one day. */
@@ -53,6 +55,9 @@ const MEANS: Record<string, (t: number) => number> = {
   "sensor.roof": (t) => (new Date(t).getUTCHours() >= 8 ? 2800 : 0),
   "sensor.wallbox": (t) => (new Date(t).getUTCHours() === 9 ? 3700 : 0),
   "sensor.c1": () => 200,
+  // Signed: bought before 08:00, sold after.
+  "sensor.gridnet": (t) => (new Date(t).getUTCHours() < 8 ? 500 : -1000),
+  "sensor.batnet": (t) => (new Date(t).getUTCHours() < 8 ? 300 : -600),
 };
 
 /** A month's request waits for this, or fails while `failMonth` is set. */
@@ -376,6 +381,56 @@ describe("the detail window in a period (REQ DF-3)", () => {
     // 500 W house, 200 W shown: 0.3 kWh each hour.
     expect(bars.every((v) => v === 0.3)).toBe(true);
     expect(text(d.shadowRoot?.querySelector(".sum b"))).toBe(row);
+  });
+
+  it("a grid with one signed sensor: its balance hour by hour, the node's figure on top (DF-20)", async () => {
+    const el = await mount({ ...CONFIG, entities: { ...CONFIG.entities, grid: "sensor.gridnet" } });
+    cardChip(el)?.click();
+    await settle(el);
+    const node = text(el.shadowRoot?.querySelector(".node.grid .value"));
+    const d = await open(el, "grid");
+    const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+    const at = (i: number) => {
+      const p = c?.data[0].data[i] as [number, number] | { value: [number, number] };
+      return Array.isArray(p) ? p[1] : p.value[1];
+    };
+    expect(at(2)).toBe(0.5);
+    expect(at(9)).toBe(-1);
+    // The balance as the node writes it, arrow and all (EM-3).
+    expect(node).toContain(text(d.shadowRoot?.querySelector(".sum b")));
+  });
+
+  it("a signed grid with invert: arrow and balance as at the node (DF-20, EM-3)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, grid: { entity: "sensor.gridnet", invert: true } },
+    });
+    cardChip(el)?.click();
+    await settle(el);
+    const nodeArrow = el.shadowRoot?.querySelector(".node.grid .arrow")?.getAttribute("data-arrow");
+    const node = text(el.shadowRoot?.querySelector(".node.grid .value"));
+    const d = await open(el, "grid");
+    const head = d.shadowRoot?.querySelector(".sum");
+    expect(head?.querySelector("span")?.textContent).toBe(nodeArrow);
+    expect(node).toContain(text(head?.querySelector("b")));
+  });
+
+  it("a signed battery: no figure as at the node, charge bars below zero (DF-20, EM-3)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: "sensor.batnet" },
+    });
+    cardChip(el)?.click();
+    await settle(el);
+    const d = await open(el, "battery");
+    expect(d.shadowRoot?.querySelector(".sum b")).toBeNull();
+    const c = d.shadowRoot?.querySelector<Chart>(".chart.energy");
+    const p = c?.data[0].data[9] as unknown as {
+      value: [number, number];
+      itemStyle?: { color?: string };
+    };
+    expect(p.value[1]).toBe(-0.6);
+    expect(p.itemStyle?.color).toBeTruthy();
   });
 
   it("totals the card's own figures (DF-3)", async () => {

@@ -45,6 +45,8 @@ const STATES: Record<string, [string, string]> = {
   "sensor.house2": ["2000", "W"],
   "sensor.c1": ["400", "W"],
   "sensor.c2": ["5", "W"],
+  "sensor.gridnet": ["500", "W"],
+  "sensor.batnet": ["-800", "W"],
 };
 
 /** What the recorder keeps: power from 06:00, the state of charge from 10:00 only. */
@@ -87,6 +89,15 @@ const FIVE: Record<string, [number, number, number, number][]> = {
     [MIDNIGHT + 6 * H + 300_000, -2000, -3000, -1000],
   ],
   "sensor.balcony": [[MIDNIGHT + 6 * H, 50, 40, 60]],
+  // Signed: import / discharge above zero, export / charge below.
+  "sensor.gridnet": [
+    [MIDNIGHT + 6 * H, 500, 400, 600],
+    [MIDNIGHT + 6 * H + 300_000, -300, -400, -200],
+  ],
+  "sensor.batnet": [
+    [MIDNIGHT + 6 * H, -800, -900, -700],
+    [MIDNIGHT + 6 * H + 300_000, 400, 300, 500],
+  ],
   "sensor.house2": [
     [MIDNIGHT + 6 * H, 1000, 900, 1100],
     [MIDNIGHT + 6 * H + 300_000, 2000, 1900, 2100],
@@ -604,5 +615,41 @@ describe("every row opens its window (REQ DF-19)", () => {
     // The band turned too: the largest reading becomes the smallest.
     expect(values(series.find((s) => s.name === "solar-low") as Series)).toEqual([250, 350]);
     expect(values(series.find((s) => s.name === "solar-span") as Series)).toEqual([100, 100]);
+  });
+});
+
+describe("every node opens its window, one entity or not (REQ DF-20)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const mean = (d: Dialog, name: string) =>
+    values((chart(d, "power")?.data ?? []).find((s) => s.name === name) as Series);
+
+  it("a house that is its sensor: one series with its band", async () => {
+    const el = await mount();
+    const d = await open(el, "house");
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Haus");
+    expect(mean(d, "Haus")).toEqual([1000, 2000]);
+    expect((chart(d, "power")?.data ?? []).some((s) => s.name.endsWith("-span"))).toBe(true);
+  });
+
+  it("a grid with one signed sensor: in its sign, export below zero", async () => {
+    const el = await mount({ ...CONFIG, entities: { ...CONFIG.entities, grid: "sensor.gridnet" } });
+    const d = await open(el, "grid");
+    expect(text(d.shadowRoot?.querySelector("#title"))).toBe("Netz");
+    expect(mean(d, "Netz")).toEqual([500, -300]);
+  });
+
+  it("a battery with one signed sensor: one target, discharge above, the charge below", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: "sensor.batnet" },
+    });
+    expect(el.shadowRoot?.querySelectorAll(".node.battery .hit")).toHaveLength(1);
+    const d = await open(el, "battery");
+    expect(mean(d, "Batterie")).toEqual([-800, 400]);
+    expect(chart(d, "soc")).toBeTruthy();
   });
 });

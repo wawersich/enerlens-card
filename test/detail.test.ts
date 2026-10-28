@@ -122,7 +122,7 @@ describe("which target opens the detail window (REQ DF-1)", () => {
     expect(seen.dialogs.map((d) => (d.dialogParams as { node: string }).node)).toEqual(["battery"]);
   });
 
-  it("not a single signed sensor: that opens its entity as before", async () => {
+  it("a single signed sensor opens the window too, its entity the way out (DF-20)", async () => {
     const el = await mount(
       { entities: { ...ENTITIES, grid: "sensor.grid" } },
       {
@@ -132,8 +132,10 @@ describe("which target opens the detail window (REQ DF-1)", () => {
     );
     const seen = listen(el);
     hits(el, "grid")[0].click();
-    expect(seen.dialogs).toEqual([]);
-    expect(seen.more).toEqual(["sensor.grid"]);
+    expect(seen.more).toEqual([]);
+    expect(seen.dialogs.map((d) => d.dialogParams as { node: string; entity: string })).toEqual([
+      expect.objectContaining({ node: "grid", entity: "sensor.grid" }),
+    ]);
   });
 
   it("an extra value above the icon keeps its own target (Z-7)", async () => {
@@ -164,12 +166,15 @@ describe("the node views behind the targets (REQ DF-1)", () => {
   };
   const of = (list: ReturnType<typeof views>, key: string) => list.find((v) => v.key === key);
 
-  it("marks grid and battery with two sensors, nothing else", () => {
+  it("marks every node with an entity behind it (DF-20)", () => {
     const list = views(ENTITIES);
     expect(of(list, "grid")?.detail).toBe("grid");
     expect(of(list, "battery")?.detail).toBe("battery");
-    expect(of(list, "house")?.detail).toBeUndefined();
-    expect(of(list, "solar")?.detail).toBeUndefined();
+    expect(of(list, "house")?.detail).toBe("house");
+    expect(of(list, "solar")?.detail).toBe("solar");
+    const signed = views({ ...ENTITIES, grid: "sensor.grid", battery: "sensor.bat" });
+    expect(of(signed, "grid")?.detail).toBe("grid");
+    expect(of(signed, "battery")?.detail).toBe("battery");
     // The entity stays: the fallback when the window cannot open (DF-7).
     expect(of(list, "grid")?.entity).toBe("sensor.export");
   });
@@ -188,11 +193,10 @@ describe("the node views behind the targets (REQ DF-1)", () => {
     expect(of(list, "solar")?.entity).toBeUndefined();
   });
 
-  it("PV as a list of one: that source's more-info, as a single entity (DF-13, PV-10)", () => {
+  it("PV as a list of one: the window, that source the way out (DF-20)", () => {
     const list = views({ ...ENTITIES, solar: [{ entity: "sensor.roof" }] });
-    expect(of(list, "solar")?.detail).toBeUndefined();
+    expect(of(list, "solar")?.detail).toBe("solar");
     expect(of(list, "solar")?.entity).toBe("sensor.roof");
-    expect(of(views(ENTITIES), "solar")?.detail).toBeUndefined();
   });
 
   it("not a derived house, whatever the sources say: no correction there (DF-14)", () => {

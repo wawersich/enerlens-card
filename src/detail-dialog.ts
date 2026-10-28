@@ -22,7 +22,7 @@ import { formatEnergy, formatPower, localeFor } from "./format";
 import { localize } from "./localize";
 import { type DetailNode, arrowsFor, openMoreInfo } from "./render/cross";
 import { radioStep } from "./render/header";
-import type { Config, DirectionKey, EnergyPeriod, HomeAssistant } from "./types";
+import type { Config, DirectionKey, EnergyMark, EnergyPeriod, HomeAssistant } from "./types";
 
 /** Sent by a card that leaves the page: its window closes with it (DF-2). */
 export const CARD_GONE = "enerlens-card-gone";
@@ -96,6 +96,17 @@ interface Series {
   role: EnergyRole;
   /** Turned, as the card turns it (DF-17): a PV source mounted the other way. */
   invert?: boolean;
+  /**
+   * A main sensor of the card: its bars are the role's, less a second role's
+   * for a signed one (import less export) - the card's own figures (DF-20).
+   */
+  roles?: [EnergyRole, EnergyRole?];
+  /** A signed sensor: the colour below zero (DF-20). */
+  downColor?: string;
+  /** A signed grid: its balance with the node's arrow (EM-3, DF-20). */
+  arrows?: { up: string; down: string; upColor: string; downColor: string };
+  /** A signed battery: no figure, as the node has none (EM-3). */
+  noFigure?: boolean;
 }
 
 /** One sensor of a figure the card adds up (PV-3): turned, and 0 when quiet. */
@@ -180,7 +191,27 @@ function planOf(
   const none: Plan = { title, series: [], layout: "mirrored" };
   if (node === "solar") {
     const sources = config.solarSources;
-    if (config.sources.solar.kind !== "sum" || sources.length < 2) return none;
+    const solar = config.sources.solar;
+    // One entity, or a list of one: that one as a single series (DF-20).
+    if (solar.kind === "single" || (solar.kind === "sum" && sources.length === 1)) {
+      const one = solar.kind === "single" ? undefined : sources[0];
+      return {
+        title,
+        layout: "single",
+        series: [
+          {
+            entity: solar.kind === "single" ? solar.entity : (one?.entity ?? ""),
+            name: title,
+            color: one?.color ?? config.colors.solar,
+            sign: 1,
+            role: "solar",
+            invert: solar.kind === "single" ? solar.invert : one?.invert,
+            roles: ["solar"],
+          },
+        ],
+      };
+    }
+    if (solar.kind !== "sum" || sources.length < 2) return none;
     return {
       title,
       layout: "stacked",
@@ -232,7 +263,25 @@ function planOf(
   if (node === "house") {
     const house = config.sources.house;
     const past = config.solarSources.filter((source) => source.excluded);
-    if (house.kind !== "single" || past.length === 0) return none;
+    if (house.kind !== "single") return none;
+    // Not corrected: the sensor is the node's figure, one series (DF-20).
+    if (past.length === 0) {
+      return {
+        title,
+        layout: "single",
+        series: [
+          {
+            entity: house.entity,
+            name: title,
+            color: config.colors.house,
+            sign: 1,
+            role: "house",
+            invert: house.invert,
+            roles: ["house"],
+          },
+        ],
+      };
+    }
     return {
       title,
       layout: "total",
@@ -252,8 +301,41 @@ function planOf(
     };
   }
   const spec = node === "grid" ? config.sources.grid : config.sources.battery;
-  if (spec.kind !== "split") return none;
   const arrows = arrowsFor(config.layout);
+  if (spec.kind === "single") {
+    // One signed sensor: one series in the card's sign, import or discharge
+    // above zero; its bars the balance hour by hour (DF-20, EM-3).
+    const grid = node === "grid";
+    const up: DirectionKey = grid ? "grid_import" : "battery_discharge";
+    const down: DirectionKey = grid ? "grid_export" : "battery_charge";
+    return {
+      title,
+      layout: "single",
+      series: [
+        {
+          entity: spec.entity,
+          name: title,
+          color: config.colors[up],
+          downColor: config.colors[down],
+          sign: 1,
+          role: grid ? "import" : "discharge",
+          invert: spec.invert,
+          roles: grid ? ["import", "export"] : ["discharge", "charge"],
+          arrows: grid
+            ? {
+                up: arrows.import,
+                down: arrows.export,
+                upColor: arrowColor(config, up),
+                downColor: arrowColor(config, down),
+              }
+            : undefined,
+          noFigure: !grid,
+        },
+      ],
+      soc: grid ? undefined : config.sources.batterySoc,
+    };
+  }
+  if (spec.kind !== "split") return none;
   const [up, down] =
     node === "grid" ? (["import", "export"] as const) : (["discharge", "charge"] as const);
   const side = (role: typeof up | typeof down, entity: string, sign: 1 | -1): Series => {
@@ -1186,6 +1268,22 @@ export class EnerLensDetail extends LitElement {
     // The card's own sum, bucket by bucket: the house's bars and those of the
     // sources past its meter, already turned (DF-14, DF-17).
     const barsOf = (side: Series): EnergyBar[] => {
+      if (side.roles) {
+        // A main sensor: the card's own bars, a signed one's balance (DF-20).
+        const [plus, less] = side.roles;
+        const out = new Map<number, EnergyBar>(
+          (detail.bars[plus] ?? []).map((b) => [b.start, { ...b }]),
+        );
+        for (const bar of less ? (detail.bars[less] ?? []) : []) {
+          const was = out.get(bar.start);
+          out.set(bar.start, {
+            start: bar.start,
+            wh: (was?.wh ?? 0) - bar.wh,
+            filledShare: Math.max(was?.filledShare ?? 0, bar.filledShare),
+          });
+        }
+        return [...out.values()];
+      }
       if (plan.layout === "stacked" || plan.layout === "single") {
         return detail.entityBars[side.entity] ?? [];
       }
@@ -1237,9 +1335,12 @@ export class EnerLensDetail extends LitElement {
           // to the figure above them (DF-17).
           const wh = plan.layout === "mirrored" ? Math.max(0, bar.wh) : bar.wh;
           const point: [number, number] = [middle, (side.sign * wh) / 1000];
+          // Below zero in its own colour: export or charging (DF-20).
+          const below = side.downColor && wh < 0 ? { color: this._paint(side.downColor) } : {};
           // Filled in from neighbouring values: paler, as the node's warning (EM-11).
-          return warnTier(bar.filledShare) > 0
-            ? { value: point, itemStyle: { opacity: 0.45 } }
+          const pale = warnTier(bar.filledShare) > 0 ? { opacity: 0.45 } : {};
+          return Object.keys(below).length || Object.keys(pale).length
+            ? { value: point, itemStyle: { ...below, ...pale } }
             : point;
         }),
       };
@@ -1370,17 +1471,35 @@ export class EnerLensDetail extends LitElement {
                 : side.invert
                   ? turned(side.entity, [{ entity: side.entity, invert: true, quiet: true }], view)
                   : view?.meanW(side.entity);
-          const figure = this._power
-            ? undefined
-            : view && mean !== null && mean !== undefined
-              ? // A row is not clamped: its window's figure neither (DF-19).
-                plan.layout === "single"
-                ? `${mean < 0 ? "−" : ""}${formatEnergy(Math.abs(mean * view.hours), hass)}`
-                : formatEnergy(Math.max(0, mean * view.hours), hass)
-              : "—";
+          // A signed grid's balance carries the node's arrow, not a minus (EM-3).
+          const signedArrow =
+            side.arrows && !this._power && view && mean !== null && mean !== undefined
+              ? mean < 0
+                ? { text: side.arrows.down, color: side.arrows.downColor }
+                : { text: side.arrows.up, color: side.arrows.upColor }
+              : undefined;
+          const figure =
+            this._power || side.noFigure
+              ? undefined
+              : view && mean !== null && mean !== undefined
+                ? side.arrows
+                  ? formatEnergy(Math.abs(mean * view.hours), hass)
+                  : side.roles
+                    ? // A node's figure exactly as the node writes it (DF-20).
+                      formatEnergy(mean * view.hours, hass)
+                    : // A row is not clamped: its window's figure neither (DF-19).
+                      plan.layout === "single"
+                      ? `${mean < 0 ? "−" : ""}${formatEnergy(Math.abs(mean * view.hours), hass)}`
+                      : formatEnergy(Math.max(0, mean * view.hours), hass)
+                : "—";
           // A source's own warning, not the sum's (EM-11).
-          const mark =
-            plan.layout === "stacked" || plan.layout === "single"
+          const mark = side.roles
+            ? // The worse of the two halves, as the node takes it (EM-11).
+              [marks?.[side.roles[0]], side.roles[1] ? marks?.[side.roles[1]] : undefined].reduce(
+                (a, b) => (b && (!a || b.tier > a.tier) ? b : a),
+                undefined as EnergyMark | undefined,
+              )
+            : plan.layout === "stacked" || plan.layout === "single"
               ? view?.marks.consumers[side.entity]
               : // The rest's own warning, as its row shows it (EM-11).
                 params.node === "rest"
@@ -1403,11 +1522,13 @@ export class EnerLensDetail extends LitElement {
             })}
             @click=${more(side.entity)}
           >${
-            side.arrow
-              ? html`<span style="color:${side.arrowColor}">${side.arrow}</span> `
-              : plan.layout === "stacked"
-                ? html`<span class="swatch" style="background:${side.color}"></span>`
-                : nothing
+            signedArrow
+              ? html`<span style="color:${signedArrow.color}">${signedArrow.text}</span> `
+              : side.arrow
+                ? html`<span style="color:${side.arrowColor}">${side.arrow}</span> `
+                : plan.layout === "stacked"
+                  ? html`<span class="swatch" style="background:${side.color}"></span>`
+                  : nothing
           }${side.name}${figure ? html` <b>${figure}</b>` : nothing}</button>`;
         })}
       </div>

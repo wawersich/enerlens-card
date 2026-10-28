@@ -218,8 +218,12 @@ Oben steht zuerst die Summe – der Wert am Knoten –, dann jede Quelle; ein
 Tipp auf eine Quelle öffnet ihren Verlauf.</li>
 <li><strong>Haus</strong>, wenn ein Balkonkraftwerk am Hauszähler vorbei einspeist (siehe
 <a href="balcony.html">Balkonkraftwerk</a>): eine Linie bzw. Balken mit dem
-berechneten Hauswert, genau dem Wert im Kreis. Ohne Balkonkraftwerk öffnet
-ein Tipp wie bisher den Verlauf des Haus-Sensors.</li>
+berechneten Hauswert, genau dem Wert im Kreis.</li>
+<li><strong>Jeder Knoten mit nur einer Entität</strong> – Haus, PV, und Netz oder Batterie mit
+einem Sensor mit Vorzeichen: eine Linie bzw. Balken, beim Netz und bei der
+Batterie Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden nach unten,
+die Balken als Saldo je Stunde bzw. Tag. Die Batterie zeigt darunter den
+Ladestand.</li>
 <li><strong>Verbraucher mit Ladestand</strong>, etwa die Wallbox (siehe
 <a href="ev.html">Wallbox und E-Auto</a>): die Leistung, darunter der Ladestand des
 Autos.</li>
@@ -337,6 +341,6 @@ Liste.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=cd3935c5"></script>
+<script type="module" src="../assets/site.js?v=3e5b13b2"></script>
 </body>
 </html>

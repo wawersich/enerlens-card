@@ -112,8 +112,12 @@ jeweils mit Leistung und Energie:
   Tipp auf eine Quelle öffnet ihren Verlauf.
 * *Haus*, wenn ein Balkonkraftwerk am Hauszähler vorbei einspeist (siehe
   link:balcony.html[Balkonkraftwerk]): eine Linie bzw. Balken mit dem
-  berechneten Hauswert, genau dem Wert im Kreis. Ohne Balkonkraftwerk öffnet
-  ein Tipp wie bisher den Verlauf des Haus-Sensors.
+  berechneten Hauswert, genau dem Wert im Kreis.
+* *Jeder Knoten mit nur einer Entität* – Haus, PV, und Netz oder Batterie mit
+  einem Sensor mit Vorzeichen: eine Linie bzw. Balken, beim Netz und bei der
+  Batterie Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden nach unten,
+  die Balken als Saldo je Stunde bzw. Tag. Die Batterie zeigt darunter den
+  Ladestand.
 * *Verbraucher mit Ladestand*, etwa die Wallbox (siehe
   link:ev.html[Wallbox und E-Auto]): die Leistung, darunter der Ladestand des
   Autos.
