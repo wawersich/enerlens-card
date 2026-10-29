@@ -105,7 +105,7 @@ der Liste</strong>, <strong>In der Liste zeigen</strong> mit der Bedingung und u
 Zeile die Leistung, sonst stattdessen den Ladestand – die Zeile braucht also
 keinen zusätzlichen Platz. Mit der Bedingung bleibt die Zeile in der Liste,
 solange das Auto angesteckt ist, auch voll und bei 0 W; mehr dazu unter
-<a href="#halten">Anpinnen und in der Liste halten</a>. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
+<a href="#halten">Anpinnen, halten, hervorheben</a>. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
 schauen: <code>operator: "!="</code> mit <code>value: [available, none]</code> heißt „angesteckt,
 außer bei diesen Zuständen". Schläft das Auto und ist sein Sensor
 nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
@@ -120,7 +120,7 @@ im Detailfenster.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="halten"><a class="anchor" href="#halten"></a>Anpinnen und in der Liste halten</h2>
+<h2 id="halten"><a class="anchor" href="#halten"></a>Anpinnen, halten, hervorheben</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Das gilt für jeden Verbraucher, nicht nur für die Wallbox.</p>
@@ -154,6 +154,11 @@ als die Höchstzahl erlaubt, erscheinen trotzdem alle gehaltenen – der Editor
 sagt dann, dass andere Verbraucher nicht mehr erscheinen.</p>
 </div>
 <div class="paragraph">
+<p><strong>Hervorheben</strong> (<code>highlight</code>): <code>bold: true</code> setzt Name und Wert fett,
+<code>band: true</code> hinterlegt die Zeile leicht in der Farbe des Verbrauchers; beides
+geht einzeln oder zusammen und braucht keinen zusätzlichen Platz.</p>
+</div>
+<div class="paragraph">
 <p>Im Energie-Modus gelten Position und <code>always</code> genauso; eine Bedingung beschreibt
 den Zustand jetzt und wird dort nicht ausgewertet.</p>
 </div>
@@ -168,6 +173,6 @@ Verbraucher im Editor, schreibt er ihn in der neuen Form.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=2280a976"></script>
+<script type="module" src="../assets/site.js?v=5bac9ca6"></script>
 </body>
 </html>

@@ -58,7 +58,7 @@ print progress. "State of charge" does not fit there: under _Label_ (in YAML
 detail window.
 
 [[hold]]
-== Pinning and keeping a row in the list
+== Pin, keep, highlight
 
 This works for every consumer, not only the wallbox.
 
@@ -83,6 +83,10 @@ conditions - build a helper in Home Assistant and use it as the sensor.
 strongest consumers fill the rest. If more rows are held than the maximum
 allows, all held rows still appear - the editor then says that no other
 consumer will.
+
+*Highlight* (`highlight`): `bold: true` sets name and value in bold,
+`band: true` lightly backs the row in the consumer's colour; either on its own
+or both, and no extra room.
 
 In the energy mode position and `always` apply the same way; a condition
 describes the state now and is not evaluated there.

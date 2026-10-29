@@ -13,7 +13,7 @@
 |`entities.battery` |— |Battery power, signed
 |`entities.battery_soc` |— |State of charge in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — see _Grid outage_
-|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, charge}` - `position`, `show`, `condition` and `charge` see _Wallbox and EV_
+|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, highlight, charge}` - `position`, `show`, `condition`, `highlight` and `charge` see _Wallbox and EV_
 |`min_consumer_w` |`10` |Consumers below this are folded into the remainder (unless the filter is off, see quick buttons); a consumer's own `min_w` overrides it
 |`max_consumers` |all |Maximum number of consumer rows; held ones (`show`) count and come first, the strongest get the remaining places
 |`update_interval_s` |`5` |How often the list reorders

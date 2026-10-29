@@ -60,7 +60,7 @@ YAML `charge.label`) steht stattdessen etwa „Druckfortschritt“ – im Toolti
 im Detailfenster.
 
 [[halten]]
-== Anpinnen und in der Liste halten
+== Anpinnen, halten, hervorheben
 
 Das gilt für jeden Verbraucher, nicht nur für die Wallbox.
 
@@ -87,6 +87,10 @@ baut sich einen Helfer in Home Assistant und nimmt ihn als Sensor.
 Plätze zuerst, die übrigen füllen die stärksten Verbraucher. Halten mehr Zeilen,
 als die Höchstzahl erlaubt, erscheinen trotzdem alle gehaltenen – der Editor
 sagt dann, dass andere Verbraucher nicht mehr erscheinen.
+
+*Hervorheben* (`highlight`): `bold: true` setzt Name und Wert fett,
+`band: true` hinterlegt die Zeile leicht in der Farbe des Verbrauchers; beides
+geht einzeln oder zusammen und braucht keinen zusätzlichen Platz.
 
 Im Energie-Modus gelten Position und `always` genauso; eine Bedingung beschreibt
 den Zustand jetzt und wird dort nicht ausgewertet.

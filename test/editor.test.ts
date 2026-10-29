@@ -1544,9 +1544,9 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     // The basics on top, everything else in the flattened group "Display".
     expect(fields(el, 0)).toEqual(["entity", "name", "icon", "min_w", "display"]);
     expect(findField(consumerForm(el, 0).schema, "display")?.flatten).toBe(true);
-    expect(displayFields(el, 0)).toEqual(["position", "show", "charge"]);
+    expect(displayFields(el, 0)).toEqual(["position", "show", "highlight", "charge"]);
     await setRow(el, 0, { entity: "sensor.wallbox", show: "condition" });
-    expect(displayFields(el, 0)).toEqual(["position", "show", "condition", "charge"]);
+    expect(displayFields(el, 0)).toEqual(["position", "show", "condition", "highlight", "charge"]);
   });
 
   it("offers the states of an enum entity, on/off for a switch, a number for a comparison", async () => {
@@ -1620,6 +1620,29 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     const saved = await setRow(el, 2, { entity: "sensor.oven", name: "Herd" });
     const before = normalizeConfig(handWritten).consumers.map((c) => c.hold);
     expect(normalizeConfig(saved).consumers.map((c) => c.hold)).toEqual(before);
+  });
+
+  it("writes only the highlight switches that are on (REQ L-19)", async () => {
+    const el = await mountList(BASE);
+    const both = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      highlight: { bold: true, band: false },
+    });
+    expect(both.consumers?.[0]).toEqual({ entity: "sensor.wallbox", highlight: { bold: true } });
+    const none = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      highlight: { bold: false, band: false },
+    });
+    expect(none.consumers?.[0]).toEqual({ entity: "sensor.wallbox" });
+    // Keys the form has no field for stay (issue #19).
+    const extra = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      highlight: { band: true, glow: 2 },
+    });
+    expect(extra.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      highlight: { band: true, glow: 2 },
+    });
   });
 
   it("writes no condition the form does not show", async () => {

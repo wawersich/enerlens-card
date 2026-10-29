@@ -50,6 +50,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
         threshold: consumer.minW ?? config.minConsumerW,
         isRest: false,
         powerUnknown: true,
+        highlight: consumer.highlight,
       });
       continue;
     }
@@ -69,6 +70,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
       isRest: false,
       charge: chargeOfEntry(consumer),
       powerUnknown: consumer.reading.available ? undefined : true,
+      highlight: consumer.highlight,
     };
     (keep ? held : candidates).push(entry);
   }

@@ -1191,6 +1191,14 @@ export const styles = css`
       align-items: center;
     }
 
+    /* The row starts with the runway the fan lines cross; the band (L-19)
+       covers mark, name and value only - an absolutely placed child of a
+       grid takes its grid area as its box. */
+    .list.stacked .row.band::before {
+      grid-column: 2 / -1;
+      grid-row: 1;
+    }
+
     .list.stacked .lane {
       width: auto;
     }
@@ -1291,6 +1299,32 @@ export const styles = css`
   .row.rest .name,
   .row.rest .row-value {
     color: var(--secondary-text-color);
+  }
+
+  /* Highlight (REQ L-19). The band reaches a little beyond the row on both
+     sides, drawn behind it, so names and values keep their place and the
+     fan line still ends on the mark. Bold weighs name and value. */
+  .row.band::before {
+    content: "";
+    position: absolute;
+    inset: 1px -6px;
+    border-radius: 6px;
+    background: var(--el-row-color);
+    opacity: 0.14;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .row.band {
+    isolation: isolate;
+  }
+
+  /* Bold wins over the plain weight of a stale charge: grey says "not fresh",
+     the weight says "highlighted", and the two do not exclude each other. */
+  .row.bold .name,
+  .row.bold .row-value,
+  .row.bold.stale .row-value.soc {
+    font-weight: 700;
   }
 
   /* Covers the row and reaches 5 px beyond it top and bottom, so a 34 px row

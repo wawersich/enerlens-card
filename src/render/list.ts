@@ -252,7 +252,8 @@ function renderRow(
             <div
               class="row ${solar ? "pv" : ""} ${entry.isRest ? "rest" : ""} ${charge ? "charge" : ""} ${
                 charge?.stale ? "stale" : ""
-              }"
+              } ${entry.highlight?.bold ? "bold" : ""} ${entry.highlight?.band ? "band" : ""}"
+              style=${entry.highlight?.band ? `--el-row-color:${entry.color}` : ""}
               data-key=${entry.key}
             >
               ${stacked ? runway() : nothing}

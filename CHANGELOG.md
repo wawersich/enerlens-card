@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the top or bottom of the list; `show: always` or `show: condition` keeps it
   there even at 0 W, the condition on any sensor (`=`, `!=` with one or more
   states, `<`, `>`, `<=`, `>=` with a number).
+- **Highlight a consumer:** `highlight: { bold: true, band: true }` - name and
+  value in bold, the row backed in its colour; each on its own.
 
 ### Deprecated
 - `charge.show`, `charge.plugged` and `charge.unplugged`: still read, and they

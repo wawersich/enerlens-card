@@ -312,7 +312,9 @@
     "condition_operator": "Operator",
     "condition_values": "Wert(e)",
     "condition_number": "Wert",
-    "consumer_display": "Darstellung"
+    "consumer_display": "Darstellung",
+    "highlight_bold": "Fett",
+    "highlight_band": "Farbband"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest. Standard: 10 W.",
@@ -399,7 +401,9 @@
     "consumer_position": "Mit oben/unten kann man einem Verbraucher in der Liste eine feste Position zuordnen. Bei mehreren Verbrauchern mit oben/unten entscheidet zusätzlich die Reihenfolge der Verbraucherliste hier im Editor.",
     "condition_values": "Einer oder mehrere Zustände; = heißt „ist einer davon“, ≠ „ist keiner davon“. Zahlen werden als Zahlen verglichen.",
     "condition_number": "Eine Zahl in der Einheit des Sensors.",
-    "consumers_held_limit": "{held} Verbraucher sind immer oder per Bedingung sichtbar, die Höchstzahl ist {limit}. Andere Verbraucher erscheinen dann nicht."
+    "consumers_held_limit": "{held} Verbraucher sind immer oder per Bedingung sichtbar, die Höchstzahl ist {limit}. Andere Verbraucher erscheinen dann nicht.",
+    "highlight_bold": "Name und Wert kräftig.",
+    "highlight_band": "Zeile leicht in der Farbe des Verbrauchers hinterlegt."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

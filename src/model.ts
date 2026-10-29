@@ -377,6 +377,7 @@ export function buildModelFrom(
           : undefined,
       held: heldOf?.(consumer) ?? consumer.hold?.kind === "always",
       position: consumer.position,
+      highlight: consumer.highlight,
     };
   });
 

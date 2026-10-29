@@ -312,7 +312,9 @@
     "condition_operator": "Operator",
     "condition_values": "Value(s)",
     "condition_number": "Value",
-    "consumer_display": "Display"
+    "consumer_display": "Display",
+    "highlight_bold": "Bold",
+    "highlight_band": "Colour band"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder. Default: 10 W.",
@@ -399,7 +401,9 @@
     "consumer_position": "Top/bottom gives a consumer a fixed position in the list. With several consumers at the top/bottom, the order of the consumer list here in the editor decides as well.",
     "condition_values": "One or more states; = means 'is one of them', ≠ 'is none of them'. Numbers are compared as numbers.",
     "condition_number": "One number, in the sensor's unit.",
-    "consumers_held_limit": "{held} consumers are shown always or by a condition, the maximum is {limit}. No other consumer appears then."
+    "consumers_held_limit": "{held} consumers are shown always or by a condition, the maximum is {limit}. No other consumer appears then.",
+    "highlight_bold": "Name and value in bold.",
+    "highlight_band": "The row lightly backed in the consumer's colour."
   },
   "outage": {
     "banner": "Island mode — no grid",

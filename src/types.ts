@@ -201,6 +201,14 @@ export interface ConsumerConfig {
   /** Kept in the list regardless of power; unset = by power (REQ L-18). */
   show?: "always" | "condition";
   condition?: ConditionConfig;
+  /** Bold and/or a band in the row's colour (REQ L-19). */
+  highlight?: { bold?: boolean; band?: boolean };
+}
+
+/** How a consumer row is highlighted (REQ L-19); absent = not at all. */
+export interface Highlight {
+  bold: boolean;
+  band: boolean;
 }
 
 /** The condition of `show: condition` (REQ L-18). */
@@ -409,6 +417,7 @@ export interface NormalizedConsumer {
   charge?: NormalizedCharge;
   position?: ConsumerPosition;
   hold?: NormalizedHold;
+  highlight?: Highlight;
 }
 
 /** Where a consumer row stands in the list (REQ L-18); unset = sorted by power. */
@@ -715,6 +724,7 @@ export interface ConsumerReading {
   /** Kept in the list whatever it draws: `show: always` or a condition met (REQ L-18). */
   held?: boolean;
   position?: ConsumerPosition;
+  highlight?: Highlight;
 }
 
 /** One PV source as read now (REQ PV-2). */
@@ -777,6 +787,8 @@ export interface ListEntry {
    * then 0 for sorting and the rest, but no figure may be shown for it (rule 8).
    */
   powerUnknown?: boolean;
+  /** Bold and/or banded (REQ L-19). */
+  highlight?: Highlight;
 }
 
 export interface Segment {

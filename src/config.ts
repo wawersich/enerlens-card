@@ -22,6 +22,7 @@ import {
   type ExtraPosition,
   type ExtraWeight,
   type GridStatusSpec,
+  type Highlight,
   type HoldOperator,
   type HomeAssistant,
   type IconKey,
@@ -1099,6 +1100,15 @@ export function collectExtraIds(config: Config): string[] {
   return ids;
 }
 
+/** Bold and band of a consumer row (REQ L-19); both off is no highlight. */
+function readHighlight(value: unknown, field: string, hass?: HomeAssistant): Highlight | undefined {
+  if (isUnset(value)) return undefined;
+  const raw = requireRecord(value, field, hass);
+  const bold = readBoolean(raw.bold, `${field}.bold`, false, hass);
+  const band = readBoolean(raw.band, `${field}.band`, false, hass);
+  return bold || band ? { bold, band } : undefined;
+}
+
 /**
  * Charge, hold and position of one consumer. The new `show` wins over the old
  * `charge.show` when both are set - merging the two would be magic nobody can
@@ -1108,7 +1118,7 @@ function readPlace(
   entry: Record<string, unknown>,
   field: string,
   hass?: HomeAssistant,
-): Pick<NormalizedConsumer, "charge" | "hold" | "position"> {
+): Pick<NormalizedConsumer, "charge" | "hold" | "position" | "highlight"> {
   const {
     charge,
     hold: oldHold,
@@ -1120,6 +1130,7 @@ function readPlace(
   }
   return {
     charge,
+    highlight: readHighlight(entry.highlight, `${field}.highlight`, hass),
     hold: isUnset(entry.show) ? oldHold : hold,
     position: isUnset(entry.position)
       ? undefined

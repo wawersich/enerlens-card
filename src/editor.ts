@@ -261,6 +261,15 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
       ],
     });
   }
+  // Two switches, each on its own (REQ L-19).
+  display.push({
+    name: "highlight",
+    type: "grid",
+    schema: [
+      { name: "bold", labelKey: "highlight_bold", selector: { boolean: {} } },
+      { name: "band", labelKey: "highlight_band", selector: { boolean: {} } },
+    ],
+  });
   display.push({
     name: "charge",
     type: "expandable",
@@ -286,6 +295,16 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
       schema: display,
     },
   ];
+}
+
+/** Only the switches that are on; none on, no highlight in the YAML (REQ L-19). */
+function cleanHighlight(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  return prune({
+    ...unknownKeys(value, ["bold", "band"]),
+    bold: value.bold === true ? true : undefined,
+    band: value.band === true ? true : undefined,
+  });
 }
 
 /**
@@ -802,6 +821,7 @@ function cleanConsumers(value: unknown): RawConfig["consumers"] {
       ...entry,
       charge: cleanCharge(entry.charge),
       condition: cleanCondition(entry.show, entry.condition),
+      highlight: cleanHighlight(entry.highlight),
     });
     const entity = cleaned?.entity;
     if (!cleaned || typeof entity !== "string" || seen.has(entity)) continue;
