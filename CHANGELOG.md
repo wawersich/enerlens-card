@@ -6,7 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Pin and keep consumers (#6):** `position: top | bottom` fixes a row at
+  the top or bottom of the list; `show: always` or `show: condition` keeps it
+  there even at 0 W, the condition on any sensor (`=`, `!=` with one or more
+  states, `<`, `>`, `<=`, `>=` with a number).
+
+### Deprecated
+- `charge.show`, `charge.plugged` and `charge.unplugged`: still read, and they
+  mean `show` and `condition`; the editor writes the new form once the
+  consumer is changed.
+
 ### Changed
+- **`max_consumers` counts held rows:** a plugged-in wallbox used to come on
+  top of the limit; it now takes a place, and the strongest fill the rest.
+  Raise `max_consumers` to keep the old number of rows. The editor warns when
+  the held rows fill the limit.
+- **Energy mode:** a condition (such as "plugged in") no longer keeps a row in
+  the list there - it says nothing about a period. `show: always` still does.
 - **Every node in detail:** a house or solar with one entity, and grid or
   battery with one signed sensor, open the detail window too; such a battery is
   one tap target, its charge in the window.

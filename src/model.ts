@@ -10,6 +10,7 @@ import type {
   HomeAssistant,
   Model,
   NormalizedCharge,
+  NormalizedConsumer,
   Reading,
   Signed,
   SolarSourceReading,
@@ -198,12 +199,23 @@ export function buildModel(
   config: Config,
   chargeOf?: ChargeOf,
   lastSeen?: ReadonlyMap<string, number>,
+  heldOf?: HeldOf,
 ): Model {
-  return buildModelFrom(hass, config, (entityId) => readPowerW(hass, entityId), chargeOf, lastSeen);
+  return buildModelFrom(
+    hass,
+    config,
+    (entityId) => readPowerW(hass, entityId),
+    chargeOf,
+    lastSeen,
+    heldOf,
+  );
 }
 
 /** The state of charge of a consumer that has one (REQ L-15); read live, never averaged. */
 export type ChargeOf = (charge: NormalizedCharge) => ChargeState;
+
+/** Whether a consumer row is held in the list right now (REQ L-18); read live, never averaged. */
+export type HeldOf = (consumer: NormalizedConsumer) => boolean;
 
 /**
  * Same as `buildModel`, but every power value is supplied by `valueOf` instead of
@@ -218,6 +230,7 @@ export function buildModelFrom(
   valueOf: (entityId: string) => number | null,
   chargeOf?: ChargeOf,
   lastSeen?: ReadonlyMap<string, number>,
+  heldOf?: HeldOf,
 ): Model {
   const safeValueOf: ValueOf = (entityId) => {
     try {
@@ -359,10 +372,11 @@ export function buildModelFrom(
           ? {
               ...chargeOf(consumer.charge),
               entity: consumer.charge.soc,
-              show: consumer.charge.show,
               label: consumer.charge.label,
             }
           : undefined,
+      held: heldOf?.(consumer) ?? consumer.hold?.kind === "always",
+      position: consumer.position,
     };
   });
 

@@ -6,6 +6,7 @@ import { dotParams } from "./flow";
 import {
   type Breakdown,
   type Config,
+  type ConsumerPosition,
   type ConsumerReading,
   type ListEntry,
   type Model,
@@ -14,8 +15,8 @@ import {
 } from "./types";
 
 /**
- * One selection: filter by threshold, keep the strongest `maxConsumers`, add
- * the rest, sort descending (REQ 4.4, L-3 to L-6).
+ * One selection: filter by threshold, fill the limit, add the rest, sort
+ * (REQ 4.4, L-3 to L-6), then place pinned rows (L-18).
  *
  * `showAll` lifts threshold and limit (REQ L-12): a consumer that was busy a
  * minute ago is otherwise gone from the list before one can tap its history.
@@ -25,17 +26,19 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   // own if it has one, else the global one (REQ L-3). A standby draw that is
   // real but uninteresting (a heat pump idling at 25 W) is hidden this way.
   const candidates: ListEntry[] = [];
-  // Rows that stay whatever they draw: a car plugged in, or `show: always`
-  // (REQ L-15) - one wants to see its charge, above all when it stands full.
-  const pinned: ListEntry[] = [];
+  // Rows that stay whatever they draw: `show: always` or a condition met
+  // (REQ L-18) - a car plugged in, above all when it stands full.
+  const held: ListEntry[] = [];
   // A period's consumer without statistics: listed last with a dash, so it is
   // seen to be missing rather than silently left out (EM-12).
   const unknown: ListEntry[] = [];
+  const order = new Map<string, number>();
+  const position = new Map<string, ConsumerPosition>();
+  model.consumers.forEach((consumer, i) => {
+    order.set(consumer.key, i);
+    if (consumer.position) position.set(consumer.key, consumer.position);
+  });
   for (const consumer of model.consumers) {
-    const charge = consumer.charge;
-    const pin =
-      charge !== undefined &&
-      (charge.show === "always" || (charge.show === "plugged" && charge.plugged));
     if (!consumer.reading.available && config.energy?.consumers[consumer.entity] !== undefined) {
       unknown.push({
         key: consumer.key,
@@ -50,10 +53,11 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
       });
       continue;
     }
-    if (!consumer.reading.available && !pin) continue;
+    const keep = consumer.held === true;
+    if (!consumer.reading.available && !keep) continue;
     const w = consumer.reading.available ? consumer.reading.w : 0;
     const threshold = consumer.minW ?? config.minConsumerW;
-    if (!showAll && !pin && w < threshold) continue;
+    if (!showAll && !keep && w < threshold) continue;
     const entry: ListEntry = {
       key: consumer.key,
       name: consumer.name,
@@ -66,22 +70,30 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
       charge: chargeOfEntry(consumer),
       powerUnknown: consumer.reading.available ? undefined : true,
     };
-    (pin ? pinned : candidates).push(entry);
+    (keep ? held : candidates).push(entry);
   }
 
-  // 2. Strongest `maxConsumers` (REQ L-4), pinned rows on top of the limit.
-  // Array.sort is stable, so consumers of equal power keep their configured order.
-  const shown = sortDescending(candidates)
-    .slice(0, showAll ? Number.POSITIVE_INFINITY : config.maxConsumers)
-    .concat(pinned);
+  // 2. The limit bounds the height of the card, so held rows count and take
+  // their places first; the strongest fill what is left (REQ L-4, changed
+  // 29.10.2026). More held rows than places are all shown - "always" is an
+  // explicit wish, the editor warns about it. Array.sort is stable, so
+  // consumers of equal power keep their configured order.
+  const room = showAll ? Number.POSITIVE_INFINITY : Math.max(0, config.maxConsumers - held.length);
+  const shown = held.concat(sortDescending(candidates).slice(0, room));
 
   // 3. Rest, only with an available house value and at or above the threshold
   // (REQ L-5). A negative rest - sum of shown > house - fails that test too.
-  const entries = shown.slice();
+  const sorted: ListEntry[] = [];
+  const top: ListEntry[] = [];
+  const bottom: ListEntry[] = [];
+  for (const entry of shown) {
+    const place = position.get(entry.key);
+    (place === "top" ? top : place === "bottom" ? bottom : sorted).push(entry);
+  }
   if (model.house.available) {
     const rest = model.house.w - shown.reduce((sum, entry) => sum + entry.w, 0);
     if (rest >= config.minConsumerW) {
-      entries.push({
+      sorted.push({
         key: REST_KEY,
         // Empty when unconfigured; the renderer localizes it (REQ L-5).
         name: config.list.restLabel ?? "",
@@ -96,8 +108,18 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   }
 
   // 4. The rest is sorted in like any other entry (REQ L-6). It was appended
-  // last, so on a tie it lands behind consumers of equal power.
-  return sortDescending(entries).concat(unknown);
+  // last, so on a tie it lands behind consumers of equal power. Pinned rows
+  // stand before and after that block in the order of the configuration
+  // (L-18); a pinned consumer without statistics keeps its place too.
+  const byConfig = (a: ListEntry, b: ListEntry) =>
+    (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0);
+  const loose = unknown.filter((entry) => !position.has(entry.key));
+  for (const entry of unknown) {
+    const place = position.get(entry.key);
+    if (place === "top") top.push(entry);
+    else if (place === "bottom") bottom.push(entry);
+  }
+  return top.sort(byConfig).concat(sortDescending(sorted), bottom.sort(byConfig), loose);
 }
 
 /** What the row shows of a consumer's state of charge (REQ L-15). */

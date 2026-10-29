@@ -22,15 +22,19 @@ consumers:
   - entity: sensor.wallbox_power
     name: Wallbox
     icon: mdi:ev-station
+    position: top                            # fixed at the top (top | bottom)
+    show: condition                          # keep it in the list: always | condition
+    condition:                               # while the cable is plugged in
+      entity: binary_sensor.car_charge_cable
+      operator: "="
+      value: "on"
     charge:
       soc: sensor.car_battery_level          # the car, in %
-      show: plugged                          # charging (default) | plugged | always
-      plugged: binary_sensor.car_charge_cable
 ----
 
-In the editor the consumer unfolds; under *State of charge* are the *State of
-charge entity (%)*, when it shows - *While charging*, *While plugged in* or
-*Always* - and, for *While plugged in*, the cable:
+In the editor the consumer unfolds; under *Display* are *Position in the list*,
+*Show in the list* with the condition and, under *State of charge*, the *State
+of charge entity (%)*:
 
 [.only-light]
 image::editor-ev-en-light.png["Wallbox with the car's state of charge",490]
@@ -40,10 +44,10 @@ image::editor-ev-en-dark.png["Wallbox with the car's state of charge",490]
 
 A thin ring around the icon shows the charge. While the car charges, the row
 shows the power; otherwise it shows the charge instead, so the row needs no
-extra room. With `show: plugged` the row stays in the list as long as the car
-is plugged in - full and at 0 W too. `plugged` can also be a wallbox status
-sensor; `unplugged: ++[++available, none++]++` then lists the states that mean "not
-plugged in". When the car is asleep and its sensor unavailable, the last known
+extra room. With the condition the row stays in the list as long as the car is
+plugged in - full and at 0 W too; more under <<hold>>. The condition can look
+at a wallbox status sensor as well: `operator: "!="` with
+`value: ++[++available, none++]++` means "plugged in, except in these states". When the car is asleep and its sensor unavailable, the last known
 charge is shown grey. Hover the icon for the value; a tap on the row opens a
 window with the power and the charge below it (see
 link:energy.html#detail[Energy]); in
@@ -52,3 +56,37 @@ cars - a power station works the same way, and so does a 3D printer with its
 print progress. "State of charge" does not fit there: under _Label_ (in YAML
 `charge.label`) put e.g. "Print progress" instead - in the tooltip and in the
 detail window.
+
+[[hold]]
+== Pinning and keeping a row in the list
+
+This works for every consumer, not only the wallbox.
+
+*Position* (`position`): `top` or `bottom` fixes the row at the top or bottom of
+the list; several stand in the order of the configuration, sorted by dragging
+in the editor. Without it the row sorts by power. The position only decides
+the place, not whether the row appears.
+
+*Show in the list* (`show`): from its minimum power a consumer is listed
+anyway. `always` keeps it there at all times as well, `condition` only while
+the condition is met - at 0 W too. No setting hides a consumer that draws
+power.
+
+*Condition* (`condition`): a sensor, an operator and a value. `"="` and `"!="`
+take one or more states ("is one of them" / "is none of them"), `">"`, `"<"`,
+`">="` and `"<="` exactly one number, e.g. `sensor.battery_voltage` `">"`
+`10.5`. The operators are quoted in YAML. While the sensor is briefly
+unavailable, its last answer counts. For more - a range, an attribute, two
+conditions - build a helper in Home Assistant and use it as the sensor.
+
+*Maximum* (`max_consumers`): held rows count and get their places first; the
+strongest consumers fill the rest. If more rows are held than the maximum
+allows, all held rows still appear - the editor then says that no other
+consumer will.
+
+In the energy mode position and `always` apply the same way; a condition
+describes the state now and is not evaluated there.
+
+*Older spelling:* `charge.show` with `plugged` and `unplugged` still works and
+means the same as `show` and `condition`. Changing the consumer in the editor
+writes it in the new form.

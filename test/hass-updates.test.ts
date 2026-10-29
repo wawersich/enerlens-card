@@ -53,7 +53,7 @@ const CONFIG = {
     {
       entity: "sensor.pump",
       name: "Pump",
-      charge: { soc: "sensor.car", plugged: "binary_sensor.plug" },
+      charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
     },
   ],
   nodes: { solar: { label: { entity: "sensor.today" } } },

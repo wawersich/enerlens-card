@@ -167,11 +167,13 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
     expect(section(el, "display").querySelector(".section-description")).toBeNull();
   });
 
-  it("builds a consumer entry's form as it unfolds, its charge section included", async () => {
+  it("builds a consumer entry's form as it unfolds, its display group included", async () => {
     const el = await mount();
     await toggle(el, consumer(el, 0), true);
     const [inner] = forms(consumer(el, 0));
-    expect(inner.schema.map((f) => f.name)).toContain("charge");
+    // The charge sits in the group "Display" since 29.10.2026 (REQ E-4).
+    const display = inner.schema.find((f) => f.name === "display");
+    expect(display?.schema?.map((f) => f.name)).toContain("charge");
     expect(forms(consumer(el, 1))).toHaveLength(0);
     await toggle(el, consumer(el, 0), false);
     expect(forms(consumer(el, 0))[0]).toBe(inner);

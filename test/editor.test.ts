@@ -19,7 +19,13 @@ type Editor = HTMLElement & {
   shadowRoot: ShadowRoot | null;
 };
 
-type Field = { name?: string; type?: string; schema?: Field[]; selector?: Record<string, unknown> };
+type Field = {
+  name?: string;
+  type?: string;
+  flatten?: boolean;
+  schema?: Field[];
+  selector?: Record<string, unknown>;
+};
 type Form = HTMLElement & { data: Record<string, unknown>; schema: Field[] };
 
 const hass = {
@@ -1429,15 +1435,24 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
         unplugged: ["none", ""],
       },
     });
+    // A change to this consumer writes it in the new form (REQ L-18, E-4).
     expect(saved.consumers?.[0]).toEqual({
       entity: "sensor.wallbox",
       name: "Wallbox",
-      charge: { soc: "sensor.car", show: "plugged", plugged: "sensor.status", unplugged: ["none"] },
+      charge: { soc: "sensor.car" },
+      show: "condition",
+      condition: { entity: "sensor.status", operator: "!=", value: ["none"] },
     });
-    expect(normalizeConfig(saved).consumers[0].charge?.show).toBe("plugged");
+    // The old spelling still works: it becomes the condition of REQ L-18.
+    expect(normalizeConfig(saved).consumers[0].hold).toEqual({
+      kind: "condition",
+      entity: "sensor.status",
+      operator: "!=",
+      values: ["none"],
+    });
   });
 
-  it("writes no plug and no unplugged states the form does not show", async () => {
+  it("turns the old plug into a condition, without states for an on/off plug", async () => {
     const el = await mountList(BASE);
     const onOff = await setRow(el, 0, {
       entity: "sensor.wallbox",
@@ -1448,16 +1463,21 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
         unplugged: ["none"],
       },
     });
-    expect(onOff.consumers?.[0].charge).toEqual({
-      soc: "sensor.car",
-      show: "plugged",
-      plugged: "binary_sensor.plug",
+    expect(onOff.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      charge: { soc: "sensor.car" },
+      show: "condition",
+      condition: { entity: "binary_sensor.plug", operator: "=", value: ["on"] },
     });
     const notWaiting = await setRow(el, 0, {
       entity: "sensor.wallbox",
       charge: { soc: "sensor.car", show: "always", plugged: "sensor.status", unplugged: ["none"] },
     });
-    expect(notWaiting.consumers?.[0].charge).toEqual({ soc: "sensor.car", show: "always" });
+    expect(notWaiting.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      charge: { soc: "sensor.car" },
+      show: "always",
+    });
   });
 
   it("moves by buttons where HA has not loaded its drag helper", async () => {
@@ -1491,45 +1511,232 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     const saved = await setRow(el, 0, {
       entity: "sensor.wallbox",
       name: "Wallbox",
-      charge: { show: "always" },
+      charge: { label: "Druckfortschritt" },
     });
     expect(saved.consumers?.[0]).toEqual({ entity: "sensor.wallbox", name: "Wallbox" });
-    // The form keeps what was chosen, so the entry can be finished.
-    expect((consumerForm(el, 0).data.charge as Record<string, unknown>).show).toBe("always");
-  });
-
-  const chargeFields = (el: Editor, index: number) =>
-    (consumerForm(el, index).schema.find((f) => f.name === "charge")?.schema ?? []).map(
-      (f) => f.name,
+    // The form keeps what was typed, so the entry can be finished.
+    expect((consumerForm(el, 0).data.charge as Record<string, unknown>).label).toBe(
+      "Druckfortschritt",
     );
-
-  it("asks for the plug only where the display waits for it", async () => {
-    const el = await mountList(BASE);
-    expect(chargeFields(el, 0)).toEqual(["soc", "label", "show"]);
-    await setRow(el, 0, {
-      entity: "sensor.wallbox",
-      charge: { soc: "sensor.car", show: "plugged" },
-    });
-    expect(chargeFields(el, 0)).toEqual(["soc", "label", "show", "plugged"]);
   });
 
-  it("offers the states of an enum plug entity, and none for on/off", async () => {
-    const el = await mountList(BASE);
-    await setRow(el, 0, {
-      entity: "sensor.wallbox",
-      charge: { soc: "sensor.car", show: "plugged", plugged: "sensor.status" },
-    });
-    const unplugged = consumerForm(el, 0)
-      .schema.find((f) => f.name === "charge")
-      ?.schema?.find((f) => f.name === "unplugged");
-    const options = (unplugged?.selector?.select as { options: Array<{ value: string }> }).options;
-    expect(options.map((o) => o.value)).toEqual(["none", "available", "charging"]);
+  /** A field anywhere in the form, groups included. */
+  const findField = (list: Field[], name: string): Field | undefined => {
+    for (const f of list) {
+      if (f.name === name) return f;
+      const inner = f.schema ? findField(f.schema, name) : undefined;
+      if (inner) return inner;
+    }
+    return undefined;
+  };
+  const chargeFields = (el: Editor, index: number) =>
+    (findField(consumerForm(el, index).schema, "charge")?.schema ?? []).map((f) => f.name);
 
+  const fields = (el: Editor, index: number) => consumerForm(el, index).schema.map((f) => f.name);
+  const displayFields = (el: Editor, index: number) =>
+    (findField(consumerForm(el, index).schema, "display")?.schema ?? []).map((f) => f.name);
+  const conditionField = (el: Editor, index: number, name: string) =>
+    findField(consumerForm(el, index).schema, "condition")?.schema?.find((f) => f.name === name);
+
+  it("keeps the charge to its value, and asks for a condition only where it is chosen", async () => {
+    const el = await mountList(BASE);
+    expect(chargeFields(el, 0)).toEqual(["soc", "label"]);
+    // The basics on top, everything else in the flattened group "Display".
+    expect(fields(el, 0)).toEqual(["entity", "name", "icon", "min_w", "display"]);
+    expect(findField(consumerForm(el, 0).schema, "display")?.flatten).toBe(true);
+    expect(displayFields(el, 0)).toEqual(["position", "show", "charge"]);
+    await setRow(el, 0, { entity: "sensor.wallbox", show: "condition" });
+    expect(displayFields(el, 0)).toEqual(["position", "show", "condition", "charge"]);
+  });
+
+  it("offers the states of an enum entity, on/off for a switch, a number for a comparison", async () => {
+    const el = await mountList(BASE);
+    const optionsOf = () =>
+      (
+        conditionField(el, 0, "value")?.selector?.select as { options: Array<{ value: string }> }
+      ).options.map((o) => o.value);
     await setRow(el, 0, {
       entity: "sensor.wallbox",
-      charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
+      show: "condition",
+      condition: { entity: "sensor.status", operator: "!=" },
     });
-    expect(chargeFields(el, 0)).toEqual(["soc", "label", "show", "plugged"]);
+    expect(optionsOf()).toEqual(["none", "available", "charging"]);
+    await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      show: "condition",
+      condition: { entity: "binary_sensor.plug", operator: "=" },
+    });
+    expect(optionsOf()).toEqual(["on", "off"]);
+    await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      show: "condition",
+      condition: { entity: "sensor.voltage", operator: ">" },
+    });
+    expect(conditionField(el, 0, "value")?.selector?.number).toBeTruthy();
+  });
+
+  it("drops a list when the operator becomes a comparison, never leaving one the card rejects", async () => {
+    const el = await mountList(BASE);
+    const toNumber = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      show: "condition",
+      condition: { entity: "sensor.status", operator: ">", value: ["on"] },
+    });
+    expect(toNumber.consumers?.[0].condition).toEqual({ entity: "sensor.status", operator: ">" });
+    expect(() => normalizeConfig(toNumber)).not.toThrow();
+    const toList = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      show: "condition",
+      condition: { entity: "sensor.status", operator: "=", value: 10.5 },
+    });
+    // A number is a valid value for = as well (REQ L-18): it stays, as text.
+    expect(toList.consumers?.[0].condition).toEqual({
+      entity: "sensor.status",
+      operator: "=",
+      value: ["10.5"],
+    });
+    expect(() => normalizeConfig(toList)).not.toThrow();
+  });
+
+  it("keeps a condition written by hand when another consumer changes (review 29.10.2026)", async () => {
+    const handWritten = {
+      ...BASE,
+      consumers: [
+        {
+          entity: "sensor.wallbox",
+          show: "condition",
+          condition: { entity: "binary_sensor.plug", operator: "=", value: true },
+        },
+        {
+          entity: "sensor.pump",
+          show: "condition",
+          condition: { entity: "sensor.voltage", operator: ">", value: "10.5" },
+        },
+        { entity: "sensor.oven" },
+      ],
+    } as RawConfig;
+    const el = await mountList(handWritten);
+    expect(consumerForm(el, 0).data.condition).toMatchObject({ value: ["on"] });
+    const saved = await setRow(el, 2, { entity: "sensor.oven", name: "Herd" });
+    const before = normalizeConfig(handWritten).consumers.map((c) => c.hold);
+    expect(normalizeConfig(saved).consumers.map((c) => c.hold)).toEqual(before);
+  });
+
+  it("writes no condition the form does not show", async () => {
+    const el = await mountList(BASE);
+    const saved = await setRow(el, 0, {
+      entity: "sensor.wallbox",
+      show: "always",
+      condition: { entity: "sensor.status", operator: "=", value: ["on"] },
+      position: "",
+    });
+    expect(saved.consumers?.[0]).toEqual({ entity: "sensor.wallbox", show: "always" });
+  });
+
+  it("shows an old charge.show in the new form, and writes nothing on opening (REQ L-18)", async () => {
+    const legacy = {
+      ...BASE,
+      consumers: [
+        {
+          entity: "sensor.wallbox",
+          charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
+        },
+        { entity: "sensor.pump", charge: { soc: "sensor.boiler", show: "always" } },
+      ],
+    } as RawConfig;
+    const el = await mountList(legacy);
+    expect(consumerForm(el, 0).data).toMatchObject({
+      show: "condition",
+      condition: { entity: "binary_sensor.plug", operator: "=", value: ["on"] },
+      charge: { soc: "sensor.car" },
+    });
+    expect(consumerForm(el, 1).data).toMatchObject({ show: "always" });
+    // Changing the first consumer leaves the second as it was written.
+    const saved = await setRow(el, 0, { ...consumerForm(el, 0).data, name: "Wallbox" });
+    expect(saved.consumers?.[1]).toEqual({
+      entity: "sensor.pump",
+      charge: { soc: "sensor.boiler", show: "always" },
+    });
+  });
+
+  /** Every spelling of 1.2.0 in one card (REQ L-18, migration). */
+  const OLD: RawConfig = {
+    ...BASE,
+    consumers: [
+      {
+        entity: "sensor.wallbox",
+        name: "Wallbox",
+        charge: { soc: "sensor.car", show: "plugged", plugged: "binary_sensor.plug" },
+      },
+      {
+        entity: "sensor.box",
+        charge: {
+          soc: "sensor.car2",
+          show: "plugged",
+          plugged: "sensor.status",
+          unplugged: ["none", "available"],
+        },
+      },
+      { entity: "sensor.printer", charge: { soc: "sensor.job", label: "Druck", show: "always" } },
+      { entity: "sensor.boiler", charge: { soc: "sensor.tank", show: "charging" } },
+      { entity: "sensor.oven", name: "Herd" },
+    ],
+  } as RawConfig;
+
+  it("writes nothing when a 1.2.0 config is only opened (REQ L-18)", async () => {
+    const el = document.createElement("enerlens-card-editor") as Editor;
+    const written: RawConfig[] = [];
+    el.addEventListener("config-changed", (ev) =>
+      written.push((ev as CustomEvent<{ config: RawConfig }>).detail.config),
+    );
+    el.hass = withStates;
+    el.setConfig(structuredClone(OLD));
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await unfoldAll(el);
+    await el.updateComplete;
+    // Whatever else the editor may settle on opening, the consumers stay as written.
+    for (const config of written) expect(config.consumers).toEqual(OLD.consumers);
+  });
+
+  it("leaves every 1.2.0 consumer as written when another one changes", async () => {
+    const el = await mountList(structuredClone(OLD));
+    const saved = await setRow(el, 4, { entity: "sensor.oven", name: "Backofen" });
+    expect(saved.consumers?.slice(0, 4)).toEqual(OLD.consumers?.slice(0, 4));
+    // And the card reads them exactly as before.
+    expect(normalizeConfig(saved).consumers.slice(0, 4)).toEqual(
+      normalizeConfig(OLD).consumers.slice(0, 4),
+    );
+  });
+
+  it("writes a 1.2.0 consumer in the new form once it is changed, meaning the same", async () => {
+    const el = await mountList(structuredClone(OLD));
+    for (const index of [0, 1, 2, 3]) {
+      const saved = await setRow(el, index, { ...consumerForm(el, index).data });
+      const consumer = saved.consumers?.[index] as unknown as Record<string, unknown>;
+      const charge = consumer.charge as Record<string, unknown>;
+      expect(charge.show ?? charge.plugged ?? charge.unplugged).toBeUndefined();
+      expect(normalizeConfig(saved).consumers[index]).toEqual(
+        normalizeConfig(OLD).consumers[index],
+      );
+    }
+  });
+
+  it("warns when the held rows fill the maximum number of consumers (REQ L-4)", async () => {
+    const warning = (el: Editor) => el.shadowRoot?.querySelector(".consumers .hint.warn");
+    const el = await mountList({ ...BASE, max_consumers: 2 } as RawConfig);
+    expect(warning(el)).toBeFalsy();
+    await setRow(el, 0, { entity: "sensor.wallbox", show: "always" });
+    expect(warning(el)).toBeFalsy();
+    await setRow(el, 1, {
+      entity: "sensor.pump",
+      show: "condition",
+      condition: { entity: "binary_sensor.plug", operator: "=", value: ["on"] },
+    });
+    expect(warning(el)?.textContent).toMatch(/2/);
+    // An unfinished condition is the standard for the card, and not counted.
+    await setRow(el, 1, { entity: "sensor.pump", show: "condition" });
+    expect(warning(el)).toBeFalsy();
   });
 
   it("marks an entry that has a state of charge", async () => {

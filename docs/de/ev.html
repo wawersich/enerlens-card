@@ -52,6 +52,8 @@
   </ul></nav>
   <main data-pagefind-body>
     <h1>Wallbox und E-Auto</h1>
+<div id="preamble">
+<div class="sectionbody">
 <div class="paragraph">
 <p>Eine Wallbox ist ein Verbraucher wie jeder andere. Den Ladestand des Autos
 liefert die Integration des Autos, nicht die Wallbox – Home Assistant verknüpft
@@ -73,16 +75,20 @@ Leistung und Ladestand im Verlauf.</p>
   - entity: sensor.wallbox_leistung
     name: Wallbox
     icon: mdi:ev-station
+    position: top                            # fest oben (top | bottom)
+    show: condition                          # in der Liste halten: always | condition
+    condition:                               # solange das Kabel steckt
+      entity: binary_sensor.auto_ladekabel
+      operator: "="
+      value: "on"
     charge:
-      soc: sensor.auto_ladestand             # das Auto, in %
-      show: plugged                          # charging (Standard) | plugged | always
-      plugged: binary_sensor.auto_ladekabel</code></pre>
+      soc: sensor.auto_ladestand             # das Auto, in %</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Im Editor klappt der Verbraucher auf; unter <strong>Ladestand</strong> stehen die
-<strong>Ladestand-Entität (%)</strong>, wann er gezeigt wird – <strong>Beim Laden</strong>, <strong>Wenn angesteckt</strong>
-oder <strong>Immer</strong> – und bei <strong>Wenn angesteckt</strong> das Kabel:</p>
+<p>Im Editor klappt der Verbraucher auf; unter <strong>Darstellung</strong> stehen <strong>Position in
+der Liste</strong>, <strong>In der Liste zeigen</strong> mit der Bedingung und unter <strong>Ladestand</strong> die
+<strong>Ladestand-Entität (%)</strong>:</p>
 </div>
 <div class="imageblock only-light">
 <div class="content">
@@ -97,10 +103,11 @@ oder <strong>Immer</strong> – und bei <strong>Wenn angesteckt</strong> das Kab
 <div class="paragraph">
 <p>Ein dünner Ring um das Icon zeigt den Ladestand. Lädt das Auto, zeigt die
 Zeile die Leistung, sonst stattdessen den Ladestand – die Zeile braucht also
-keinen zusätzlichen Platz. Mit <code>show: plugged</code> bleibt die Zeile in der Liste,
-solange das Auto angesteckt ist, auch voll und bei 0 W. <code>plugged</code> darf auch ein
-Status-Sensor der Wallbox sein; <code>unplugged: [available, none]</code> nennt dann die
-Zustände, die „nicht angesteckt" bedeuten. Schläft das Auto und ist sein Sensor
+keinen zusätzlichen Platz. Mit der Bedingung bleibt die Zeile in der Liste,
+solange das Auto angesteckt ist, auch voll und bei 0 W; mehr dazu unter
+<a href="#halten">Anpinnen und in der Liste halten</a>. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
+schauen: <code>operator: "!="</code> mit <code>value: [available, none]</code> heißt „angesteckt,
+außer bei diesen Zuständen". Schläft das Auto und ist sein Sensor
 nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
 über dem Icon steht der Wert; ein Tipp auf die Zeile öffnet ein Fenster mit
 der Leistung und darunter dem Ladestand (siehe <a href="energy.html#detail">Energie</a>); im Editor
@@ -110,10 +117,57 @@ Druckfortschritt auch. Dann passt „Ladestand“ nicht: Unter <em>Bezeichnung</
 YAML <code>charge.label</code>) steht stattdessen etwa „Druckfortschritt“ – im Tooltip und
 im Detailfenster.</p>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="halten"><a class="anchor" href="#halten"></a>Anpinnen und in der Liste halten</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Das gilt für jeden Verbraucher, nicht nur für die Wallbox.</p>
+</div>
+<div class="paragraph">
+<p><strong>Position</strong> (<code>position</code>): <code>top</code> oder <code>bottom</code> stellt die Zeile fest oben oder
+unten in die Liste; mehrere stehen in der Reihenfolge der Konfiguration, im
+Editor per Ziehen sortiert. Ohne Angabe sortiert sich die Zeile nach Leistung.
+Die Position entscheidet nur über den Platz, nicht darüber, ob die Zeile
+erscheint.</p>
+</div>
+<div class="paragraph">
+<p><strong>In der Liste zeigen</strong> (<code>show</code>): Ab seiner Mindestleistung steht ein Verbraucher
+ohnehin in der Liste. <code>always</code> hält ihn zusätzlich immer dort, <code>condition</code> nur,
+solange die Bedingung erfüllt ist – auch bei 0 W. Keine Einstellung blendet
+einen Verbraucher aus, der Leistung zieht.</p>
+</div>
+<div class="paragraph">
+<p><strong>Bedingung</strong> (<code>condition</code>): ein Sensor, ein Operator und ein Wert. <code>"="</code> und
+<code>"!="</code> nehmen einen oder mehrere Zustände („ist einer davon" / „ist keiner
+davon"), <code>"&gt;"</code>, <code>"&lt;"</code>, <code>"&gt;="</code> und <code>"&#8656;"</code> genau eine Zahl, etwa
+<code>sensor.batterie_spannung</code> <code>"&gt;"</code> <code>10.5</code>. Die Operatoren stehen in YAML in
+Anführungszeichen. Ist der Sensor kurz nicht verfügbar, gilt seine letzte
+Antwort. Wer mehr braucht – einen Bereich, ein Attribut, zwei Bedingungen –,
+baut sich einen Helfer in Home Assistant und nimmt ihn als Sensor.</p>
+</div>
+<div class="paragraph">
+<p><strong>Höchstzahl</strong> (<code>max_consumers</code>): Gehaltene Zeilen zählen mit und bekommen ihre
+Plätze zuerst, die übrigen füllen die stärksten Verbraucher. Halten mehr Zeilen,
+als die Höchstzahl erlaubt, erscheinen trotzdem alle gehaltenen – der Editor
+sagt dann, dass andere Verbraucher nicht mehr erscheinen.</p>
+</div>
+<div class="paragraph">
+<p>Im Energie-Modus gelten Position und <code>always</code> genauso; eine Bedingung beschreibt
+den Zustand jetzt und wird dort nicht ausgewertet.</p>
+</div>
+<div class="paragraph">
+<p><strong>Ältere Schreibweise:</strong> <code>charge.show</code> mit <code>plugged</code> und <code>unplugged</code> funktioniert
+weiter und bedeutet dasselbe wie <code>show</code> und <code>condition</code>. Ändert man den
+Verbraucher im Editor, schreibt er ihn in der neuen Form.</p>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=d12ee5ec"></script>
+<script type="module" src="../assets/site.js?v=2280a976"></script>
 </body>
 </html>

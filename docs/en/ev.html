@@ -52,6 +52,8 @@
   </ul></nav>
   <main data-pagefind-body>
     <h1>Wallbox and EV</h1>
+<div id="preamble">
+<div class="sectionbody">
 <div class="paragraph">
 <p>A wallbox is a consumer like any other. The car&#8217;s state of charge comes from
 the car&#8217;s own integration, not from the wallbox - Home Assistant does not link
@@ -72,16 +74,20 @@ the power. In Home Assistant a tap on the row shows power and charge over time.<
   - entity: sensor.wallbox_power
     name: Wallbox
     icon: mdi:ev-station
+    position: top                            # fixed at the top (top | bottom)
+    show: condition                          # keep it in the list: always | condition
+    condition:                               # while the cable is plugged in
+      entity: binary_sensor.car_charge_cable
+      operator: "="
+      value: "on"
     charge:
-      soc: sensor.car_battery_level          # the car, in %
-      show: plugged                          # charging (default) | plugged | always
-      plugged: binary_sensor.car_charge_cable</code></pre>
+      soc: sensor.car_battery_level          # the car, in %</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>In the editor the consumer unfolds; under <strong>State of charge</strong> are the <strong>State of
-charge entity (%)</strong>, when it shows - <strong>While charging</strong>, <strong>While plugged in</strong> or
-<strong>Always</strong> - and, for <strong>While plugged in</strong>, the cable:</p>
+<p>In the editor the consumer unfolds; under <strong>Display</strong> are <strong>Position in the list</strong>,
+<strong>Show in the list</strong> with the condition and, under <strong>State of charge</strong>, the <strong>State
+of charge entity (%)</strong>:</p>
 </div>
 <div class="imageblock only-light">
 <div class="content">
@@ -96,10 +102,10 @@ charge entity (%)</strong>, when it shows - <strong>While charging</strong>, <st
 <div class="paragraph">
 <p>A thin ring around the icon shows the charge. While the car charges, the row
 shows the power; otherwise it shows the charge instead, so the row needs no
-extra room. With <code>show: plugged</code> the row stays in the list as long as the car
-is plugged in - full and at 0 W too. <code>plugged</code> can also be a wallbox status
-sensor; <code>unplugged: [available, none]</code> then lists the states that mean "not
-plugged in". When the car is asleep and its sensor unavailable, the last known
+extra room. With the condition the row stays in the list as long as the car is
+plugged in - full and at 0 W too; more under <a href="#hold">[hold]</a>. The condition can look
+at a wallbox status sensor as well: <code>operator: "!="</code> with
+<code>value: [available, none]</code> means "plugged in, except in these states". When the car is asleep and its sensor unavailable, the last known
 charge is shown grey. Hover the icon for the value; a tap on the row opens a
 window with the power and the charge below it (see
 <a href="energy.html#detail">Energy</a>); in
@@ -109,10 +115,55 @@ print progress. "State of charge" does not fit there: under <em>Label</em> (in Y
 <code>charge.label</code>) put e.g. "Print progress" instead - in the tooltip and in the
 detail window.</p>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hold"><a class="anchor" href="#hold"></a>Pinning and keeping a row in the list</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This works for every consumer, not only the wallbox.</p>
+</div>
+<div class="paragraph">
+<p><strong>Position</strong> (<code>position</code>): <code>top</code> or <code>bottom</code> fixes the row at the top or bottom of
+the list; several stand in the order of the configuration, sorted by dragging
+in the editor. Without it the row sorts by power. The position only decides
+the place, not whether the row appears.</p>
+</div>
+<div class="paragraph">
+<p><strong>Show in the list</strong> (<code>show</code>): from its minimum power a consumer is listed
+anyway. <code>always</code> keeps it there at all times as well, <code>condition</code> only while
+the condition is met - at 0 W too. No setting hides a consumer that draws
+power.</p>
+</div>
+<div class="paragraph">
+<p><strong>Condition</strong> (<code>condition</code>): a sensor, an operator and a value. <code>"="</code> and <code>"!="</code>
+take one or more states ("is one of them" / "is none of them"), <code>"&gt;"</code>, <code>"&lt;"</code>,
+<code>"&gt;="</code> and <code>"&#8656;"</code> exactly one number, e.g. <code>sensor.battery_voltage</code> <code>"&gt;"</code>
+<code>10.5</code>. The operators are quoted in YAML. While the sensor is briefly
+unavailable, its last answer counts. For more - a range, an attribute, two
+conditions - build a helper in Home Assistant and use it as the sensor.</p>
+</div>
+<div class="paragraph">
+<p><strong>Maximum</strong> (<code>max_consumers</code>): held rows count and get their places first; the
+strongest consumers fill the rest. If more rows are held than the maximum
+allows, all held rows still appear - the editor then says that no other
+consumer will.</p>
+</div>
+<div class="paragraph">
+<p>In the energy mode position and <code>always</code> apply the same way; a condition
+describes the state now and is not evaluated there.</p>
+</div>
+<div class="paragraph">
+<p><strong>Older spelling:</strong> <code>charge.show</code> with <code>plugged</code> and <code>unplugged</code> still works and
+means the same as <code>show</code> and <code>condition</code>. Changing the consumer in the editor
+writes it in the new form.</p>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=d12ee5ec"></script>
+<script type="module" src="../assets/site.js?v=2280a976"></script>
 </body>
 </html>

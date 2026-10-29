@@ -13,6 +13,7 @@ import {
   type ColorKey,
   type Config,
   ConfigError,
+  type ConsumerPosition,
   type EnergyChoice,
   type EnergyPeriod,
   type ExtraColorKey,
@@ -21,6 +22,7 @@ import {
   type ExtraPosition,
   type ExtraWeight,
   type GridStatusSpec,
+  type HoldOperator,
   type HomeAssistant,
   type IconKey,
   type InactiveLines,
@@ -33,6 +35,7 @@ import {
   type NodeOptions,
   type NormalizedCharge,
   type NormalizedConsumer,
+  type NormalizedHold,
   type NormalizedSolarSource,
   type PowerFormat,
   type PowerUnit,
@@ -844,48 +847,120 @@ const CHARGE_SHOWS: readonly ChargeShow[] = ["charging", "plugged", "always"];
 
 /**
  * A consumer's state of charge (REQ L-15). Half-filled forms are ordinary
- * editor states (E-1): without `soc` there is nothing to show, and `plugged`
- * display without a plugged entity cannot decide - both are dropped back to
- * something that works, with a word in the console, never an error card.
+ * editor states (E-1): without `soc` there is nothing to show, and the whole
+ * block is dropped - its old `show` too, as it always was - with a word in
+ * the console, never an error card.
+ *
+ * `show`, `plugged` and `unplugged` are the old spelling of what L-18 calls
+ * `show` and `condition`; they come back as the hold they stand for.
  */
 function readCharge(
   value: unknown,
   field: string,
   hass?: HomeAssistant,
-): NormalizedCharge | undefined {
-  if (isUnset(value)) return undefined;
+  newShow = false,
+): { charge?: NormalizedCharge; hold?: NormalizedHold; old: boolean } {
+  if (isUnset(value)) return { old: false };
   const raw = requireRecord(value, field, hass);
   const soc = readString(raw.soc, `${field}.soc`, hass);
   if (!soc) {
     console.warn(localize("error.config.charge_no_soc", hass, { field }));
-    return undefined;
+    return { old: false };
   }
-  let show = readEnum(raw.show, CHARGE_SHOWS, `${field}.show`, "charging", hass);
+  const charge = { soc, label: readString(raw.label, `${field}.label`, hass) };
+  const old = !isUnset(raw.show) || !isUnset(raw.plugged) || !isUnset(raw.unplugged);
+  // The new show wins (REQ L-18): the old keys are then not read at all, so a
+  // leftover written wrongly costs a warning, not an error card.
+  if (newShow) return { charge, old };
+  const show = readEnum(raw.show, CHARGE_SHOWS, `${field}.show`, "charging", hass);
   const plugged = readString(raw.plugged, `${field}.plugged`, hass);
-  if (show === "plugged" && !plugged) {
+  if (show === "always") return { charge, hold: { kind: "always" }, old };
+  if (show !== "plugged") return { charge, old };
+  if (!plugged) {
     console.warn(localize("error.config.charge_no_plugged", hass, { field }));
-    show = "charging";
+    return { charge, old };
   }
-  return {
-    soc,
-    show,
-    plugged,
-    label: readString(raw.label, `${field}.label`, hass),
-    // An on/off plug answers on or off; states listed for it would turn every
-    // "off" into "plugged in" (REQ L-15).
-    unplugged: /^(binary_sensor|input_boolean)\./.test(plugged ?? "")
-      ? []
-      : readStateList(raw.unplugged, `${field}.unplugged`, hass),
-  };
+  // An on/off plug answers on or off; states listed for it would turn every
+  // "off" into "plugged in" (REQ L-15).
+  const unplugged = ON_OFF.test(plugged)
+    ? []
+    : readStateList(raw.unplugged, `${field}.unplugged`, hass);
+  const hold: NormalizedHold =
+    unplugged.length > 0
+      ? { kind: "condition", entity: plugged, operator: "!=", values: unplugged }
+      : { kind: "condition", entity: plugged, operator: "=", values: ["on"] };
+  return { charge, hold, old };
 }
 
-/** Entities the charge display reads; watched for changes, never averaged (REQ L-15). */
+const ON_OFF = /^(binary_sensor|input_boolean)\./;
+const POSITIONS: readonly ConsumerPosition[] = ["top", "bottom"];
+const SHOWS = ["always", "condition"] as const;
+const OPERATORS: readonly HoldOperator[] = ["=", "!=", ">", "<", ">=", "<="];
+
+/** A value of a condition as the state it is compared with: YAML true/false is on/off. */
+function conditionValue(value: unknown): string | undefined {
+  if (value === true) return "on";
+  if (value === false) return "off";
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "string" && value.trim() !== "") return normalizeState(value);
+  return undefined;
+}
+
+/**
+ * `show` and `condition` of one consumer (REQ L-18). Nothing here may fail on
+ * something the editor produces on the way (E-1, rule 7): a condition without
+ * entity, operator or value is the standard, one written wrongly for its
+ * operator is never met - both with a word in the console. Only names the
+ * card does not know (show, operator) are errors, as with every enum.
+ */
+function readHold(
+  entry: Record<string, unknown>,
+  field: string,
+  hass?: HomeAssistant,
+): NormalizedHold | undefined {
+  if (isUnset(entry.show)) return undefined;
+  const show = readEnum(entry.show, SHOWS, `${field}.show`, "always", hass);
+  if (show === "always") return { kind: "always" };
+  const where = `${field}.condition`;
+  const raw = isUnset(entry.condition) ? {} : requireRecord(entry.condition, where, hass);
+  const entity = readString(raw.entity, `${where}.entity`, hass);
+  const operator = isUnset(raw.operator)
+    ? undefined
+    : readEnum(raw.operator, OPERATORS, `${where}.operator`, "=", hass);
+  const listed = (Array.isArray(raw.value) ? raw.value : [raw.value]).filter((v) => !isUnset(v));
+  if (!entity || !operator || listed.length === 0) {
+    console.warn(localize("error.config.condition_incomplete", hass, { field: where }));
+    return undefined;
+  }
+  if (operator === "=" || operator === "!=") {
+    const values: string[] = [];
+    for (const v of listed) {
+      const text = conditionValue(v);
+      if (text !== undefined && !values.includes(text)) values.push(text);
+    }
+    if (values.length === 0) {
+      console.warn(localize("error.config.condition_incomplete", hass, { field: where }));
+      return undefined;
+    }
+    return { kind: "condition", entity, operator, values };
+  }
+  const limit = typeof raw.value === "number" ? raw.value : Number(raw.value);
+  if (Array.isArray(raw.value) || typeof raw.value === "boolean" || !Number.isFinite(limit)) {
+    console.warn(localize("error.config.condition_number", hass, { field: where, operator }));
+    return { kind: "condition", entity, operator, invalid: true };
+  }
+  return { kind: "condition", entity, operator, limit };
+}
+
+/**
+ * Entities the charge display and the conditions read (REQ L-15, L-18);
+ * watched for changes, never averaged.
+ */
 export function collectChargeIds(config: Config): string[] {
   const ids: string[] = [];
   for (const consumer of config.consumers) {
-    const charge = consumer.charge;
-    if (!charge) continue;
-    for (const id of [charge.soc, charge.plugged]) if (id && !ids.includes(id)) ids.push(id);
+    const condition = consumer.hold?.kind === "condition" ? consumer.hold.entity : undefined;
+    for (const id of [consumer.charge?.soc, condition]) if (id && !ids.includes(id)) ids.push(id);
   }
   return ids;
 }
@@ -1024,6 +1099,34 @@ export function collectExtraIds(config: Config): string[] {
   return ids;
 }
 
+/**
+ * Charge, hold and position of one consumer. The new `show` wins over the old
+ * `charge.show` when both are set - merging the two would be magic nobody can
+ * follow (REQ L-18).
+ */
+function readPlace(
+  entry: Record<string, unknown>,
+  field: string,
+  hass?: HomeAssistant,
+): Pick<NormalizedConsumer, "charge" | "hold" | "position"> {
+  const {
+    charge,
+    hold: oldHold,
+    old,
+  } = readCharge(entry.charge, `${field}.charge`, hass, !isUnset(entry.show));
+  const hold = readHold(entry, field, hass);
+  if (!isUnset(entry.show) && old) {
+    console.warn(localize("error.config.show_twice", hass, { field }));
+  }
+  return {
+    charge,
+    hold: isUnset(entry.show) ? oldHold : hold,
+    position: isUnset(entry.position)
+      ? undefined
+      : readEnum(entry.position, POSITIONS, `${field}.position`, "top", hass),
+  };
+}
+
 function readConsumers(
   value: unknown,
   palette: string[],
@@ -1059,7 +1162,7 @@ function readConsumers(
       minW: isUnset(entry.min_w)
         ? undefined
         : readLimited(entry.min_w, `${field}.min_w`, 0, hass, NUMBER_LIMITS["consumers.min_w"]),
-      charge: readCharge(entry.charge, `${field}.charge`, hass),
+      ...readPlace(entry, field, hass),
     });
   }
   return consumers;

@@ -361,7 +361,7 @@ function config(scene, t, data = {}) {
       return {
         ...base,
         consumers: consumers.map((c) =>
-          c.entity === "sensor.wb" ? { ...c, charge: { soc: "sensor.car", show: "always" } } : c,
+          c.entity === "sensor.wb" ? { ...c, show: "always", charge: { soc: "sensor.car" } } : c,
         ),
         view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
       };

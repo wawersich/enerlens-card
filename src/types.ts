@@ -196,6 +196,19 @@ export interface ConsumerConfig {
   icon?: string;
   /** A state of charge that belongs to this consumer - an EV at its wallbox (REQ L-15). */
   charge?: ChargeConfig;
+  /** Fixed at the top or bottom of the list; unset = by power (REQ L-18). */
+  position?: ConsumerPosition;
+  /** Kept in the list regardless of power; unset = by power (REQ L-18). */
+  show?: "always" | "condition";
+  condition?: ConditionConfig;
+}
+
+/** The condition of `show: condition` (REQ L-18). */
+export interface ConditionConfig {
+  entity?: string;
+  operator?: HoldOperator;
+  /** States for = and != (one or a list), one number for the comparisons. */
+  value?: string | number | boolean | Array<string | number | boolean>;
 }
 
 /** When a consumer with a state of charge is listed (REQ L-15). */
@@ -394,14 +407,34 @@ export interface NormalizedConsumer {
   minW?: number;
   icon?: string;
   charge?: NormalizedCharge;
+  position?: ConsumerPosition;
+  hold?: NormalizedHold;
 }
 
+/** Where a consumer row stands in the list (REQ L-18); unset = sorted by power. */
+export type ConsumerPosition = "top" | "bottom";
+
+export type HoldOperator = "=" | "!=" | ">" | "<" | ">=" | "<=";
+
+/**
+ * What keeps a consumer row in the list regardless of its power (REQ L-18).
+ * `values` serve = and != (lower-case), `limit` the comparisons; `invalid`
+ * marks a condition written wrongly, which is never met (E-1, rule 7).
+ */
+export type NormalizedHold =
+  | { kind: "always" }
+  | {
+      kind: "condition";
+      entity: string;
+      operator: HoldOperator;
+      values?: string[];
+      limit?: number;
+      invalid?: true;
+    };
+
+/** The state of charge of a consumer (REQ L-15); its old `show` became a hold (L-18). */
 export interface NormalizedCharge {
   soc: string;
-  show: ChargeShow;
-  plugged?: string;
-  /** Lower-case; empty means the entity is on/off. */
-  unplugged: string[];
   /** What the value is called instead of "State of charge" (issue #31). */
   label?: string;
 }
@@ -415,7 +448,6 @@ export interface ChargeState {
   soc?: number;
   stale: boolean;
   since?: number;
-  plugged: boolean;
 }
 
 export interface Config {
@@ -679,7 +711,10 @@ export interface ConsumerReading {
   minW?: number;
   icon?: string;
   reading: Reading;
-  charge?: ChargeState & { entity: string; show: ChargeShow; label?: string };
+  charge?: ChargeState & { entity: string; label?: string };
+  /** Kept in the list whatever it draws: `show: always` or a condition met (REQ L-18). */
+  held?: boolean;
+  position?: ConsumerPosition;
 }
 
 /** One PV source as read now (REQ PV-2). */

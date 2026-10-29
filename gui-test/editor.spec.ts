@@ -68,10 +68,7 @@ function changed(before: object, after: object): string[] {
  * set: a consumer's state of charge needs its entity first (E-4).
  */
 const NEEDS: Record<string, string> = {
-  show: "soc",
   label: "soc",
-  plugged: "soc",
-  unplugged: "soc",
 };
 
 /** Fields whose change rebuilds the form around them: tested on their own. */

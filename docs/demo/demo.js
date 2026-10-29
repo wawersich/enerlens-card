@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=a0726013");
+await import("./enerlens-card.js?v=6f2b0807");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {
@@ -361,7 +361,7 @@ function config(scene, t, data = {}) {
       return {
         ...base,
         consumers: consumers.map((c) =>
-          c.entity === "sensor.wb" ? { ...c, charge: { soc: "sensor.car", show: "always" } } : c,
+          c.entity === "sensor.wb" ? { ...c, show: "always", charge: { soc: "sensor.car" } } : c,
         ),
         view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
       };

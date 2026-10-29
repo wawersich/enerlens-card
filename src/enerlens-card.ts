@@ -42,6 +42,7 @@ import {
   timeZoneOf,
 } from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
+import { HoldTracker } from "./hold";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
@@ -88,6 +89,7 @@ import {
   type HomeAssistant,
   type Model,
   type NormalizedCharge,
+  type NormalizedConsumer,
   type OutageState,
   type PvScale,
   REST_KEY,
@@ -220,6 +222,11 @@ class EnerLensCard extends LitElement {
   /** Hands the model a consumer's charge as the tracker knows it now. */
   private readonly _chargeOf = (charge: NormalizedCharge) =>
     this._charge.state(this._hass as HomeAssistant, charge);
+  /** Conditions remember their last answer across an unavailable sensor (REQ L-18). */
+  private readonly _holds = new HoldTracker();
+  /** A period has no "now" to ask a condition about; only `always` holds there. */
+  private readonly _heldOf = (consumer: NormalizedConsumer) =>
+    this._holds.held(consumer, this._period !== null);
   private _model?: Model;
   /** Snapshot the list, ring and dots work from - advanced on the tick. */
   private _tickModel?: Model;
@@ -806,7 +813,13 @@ class EnerLensCard extends LitElement {
     this._observeCharge(hass);
     // Invented readings are no last values of real sources (E-5).
     if (!this._example) this._solarMemory.observe(hass, this._config.solarSources);
-    this._model = buildModel(hass, this._config, this._chargeOf, this._solarMemory.values);
+    this._model = buildModel(
+      hass,
+      this._config,
+      this._chargeOf,
+      this._solarMemory.values,
+      this._heldOf,
+    );
     this._tickModel ??= this._model;
     // Invented readings never go into the averages: they would outlive the
     // example as a "measured" mean (E-5).
@@ -914,6 +927,7 @@ class EnerLensCard extends LitElement {
   private _observeCharge(hass: HomeAssistant): void {
     if (!this._config || this._chargeIds.length === 0) return;
     this._charge.observe(hass, this._config.consumers);
+    this._holds.observe(hass, this._config.consumers);
   }
 
   /**
@@ -949,6 +963,7 @@ class EnerLensCard extends LitElement {
               this._config,
               this._chargeOf,
               this._solarMemory.values,
+              this._heldOf,
             );
             this._tickModel = this._modelForMode(this._hass, this._config);
           }
@@ -968,6 +983,7 @@ class EnerLensCard extends LitElement {
             this._config,
             this._chargeOf,
             this._solarMemory.values,
+            this._heldOf,
           );
           this._tickModel = this._modelForMode(this._hass, this._config);
         }
@@ -1072,7 +1088,13 @@ class EnerLensCard extends LitElement {
 
     if (this._hass) {
       this._observeCharge(this._hass);
-      this._model = buildModel(this._hass, this._config, this._chargeOf, this._solarMemory.values);
+      this._model = buildModel(
+        this._hass,
+        this._config,
+        this._chargeOf,
+        this._solarMemory.values,
+        this._heldOf,
+      );
       this._tickModel = this._model;
     }
     if (!previous || previous.updateIntervalS !== this._config.updateIntervalS) {
@@ -1190,11 +1212,12 @@ class EnerLensCard extends LitElement {
         (id) => view?.meanW(id) ?? null,
         this._chargeOf,
         this._solarMemory.values,
+        this._heldOf,
       );
     }
     // The example has no history to average; it shows its invented now.
     if (this._mode === "current" || !this._buffer || this._example) {
-      return buildModel(hass, config, this._chargeOf, this._solarMemory.values);
+      return buildModel(hass, config, this._chargeOf, this._solarMemory.values, this._heldOf);
     }
     const minutes =
       this._mode === "avg_short" ? config.view.avgShortMinutes : config.view.avgLongMinutes;
@@ -1207,6 +1230,8 @@ class EnerLensCard extends LitElement {
       config,
       (entityId) => buffer.mean(entityId, windowMs, now),
       this._chargeOf,
+      undefined,
+      this._heldOf,
     );
   }
 
@@ -1892,7 +1917,7 @@ class EnerLensCard extends LitElement {
     const ticked =
       this._tickModel ??
       this._model ??
-      buildModel(this._hass, this._config, this._chargeOf, this._solarMemory.values);
+      buildModel(this._hass, this._config, this._chargeOf, this._solarMemory.values, this._heldOf);
     // Still, a dot says nothing - its speed is the message, and the line's
     // colour already tells whether anything flows.
     const plans = this._dotsMove ? planDots(this._flowsOf(ticked), this._shownConfig()) : [];

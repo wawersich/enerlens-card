@@ -1,22 +1,16 @@
 // @vitest-environment happy-dom
 /**
  * A consumer's state of charge - an EV at its wallbox (REQ L-15): config,
- * plugged latch, last known value, selection, and the row it ends up in.
+ * last known value, selection, and the row it ends up in. The plug became a
+ * condition of REQ L-18 (consumer-hold.test.ts); here only its old spelling.
  */
 import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
-import { ChargeTracker, pluggedVerdict, socValue } from "../src/charge";
+import { ChargeTracker, socValue } from "../src/charge";
 import { collectChargeIds, normalizeConfig } from "../src/config";
 import { buildBreakdown } from "../src/consumers";
 import { renderList, showsCharge } from "../src/render/list";
-import type {
-  ChargeShow,
-  ConsumerReading,
-  HomeAssistant,
-  ListEntry,
-  Model,
-  RawConfig,
-} from "../src/types";
+import type { ConsumerReading, HomeAssistant, ListEntry, Model, RawConfig } from "../src/types";
 
 const ENTITIES = { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" };
 
@@ -59,11 +53,13 @@ describe("charge config (REQ L-15)", () => {
         unplugged: ["Available", "none"],
       }),
     );
-    expect(config.consumers[0].charge).toEqual({
-      soc: "sensor.car",
-      show: "plugged",
-      plugged: "sensor.status",
-      unplugged: ["available", "none"],
+    expect(config.consumers[0].charge).toEqual({ soc: "sensor.car", label: undefined });
+    // show/plugged/unplugged are the old spelling of a condition (REQ L-18).
+    expect(config.consumers[0].hold).toEqual({
+      kind: "condition",
+      entity: "sensor.status",
+      operator: "!=",
+      values: ["available", "none"],
     });
     expect(collectChargeIds(config)).toEqual(["sensor.car", "sensor.status"]);
   });
@@ -76,12 +72,8 @@ describe("charge config (REQ L-15)", () => {
 
   it("defaults show to charging and needs nothing else", () => {
     const config = normalizeConfig(raw({ soc: "sensor.car" }));
-    expect(config.consumers[0].charge).toEqual({
-      soc: "sensor.car",
-      show: "charging",
-      plugged: undefined,
-      unplugged: [],
-    });
+    expect(config.consumers[0].charge).toEqual({ soc: "sensor.car", label: undefined });
+    expect(config.consumers[0].hold).toBeUndefined();
   });
 
   it("drops a charge without soc, with a warning, instead of failing (E-1)", () => {
@@ -95,7 +87,7 @@ describe("charge config (REQ L-15)", () => {
   it("falls back to charging when show plugged has no plugged entity (E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const config = normalizeConfig(raw({ soc: "sensor.car", show: "plugged" }));
-    expect(config.consumers[0].charge?.show).toBe("charging");
+    expect(config.consumers[0].hold).toBeUndefined();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -109,7 +101,7 @@ describe("charge config (REQ L-15)", () => {
         unplugged: ["none"],
       }),
     );
-    expect(config.consumers[0].charge?.unplugged).toEqual([]);
+    expect(config.consumers[0].hold).toMatchObject({ operator: "=", values: ["on"] });
   });
 
   it("rejects an unknown show value like any enum", () => {
@@ -117,23 +109,7 @@ describe("charge config (REQ L-15)", () => {
   });
 });
 
-describe("plugged and state of charge (REQ L-15)", () => {
-  it("reads an on/off entity", () => {
-    expect(pluggedVerdict("on", [])).toBe(true);
-    expect(pluggedVerdict("off", [])).toBe(false);
-  });
-
-  it("reads an enum against its unplugged states, ignoring case", () => {
-    expect(pluggedVerdict("charging", ["available", "none"])).toBe(true);
-    expect(pluggedVerdict("Available", ["available", "none"])).toBe(false);
-  });
-
-  it("has no answer for unavailable or unknown", () => {
-    expect(pluggedVerdict("unavailable", [])).toBeUndefined();
-    expect(pluggedVerdict("unknown", ["available"])).toBeUndefined();
-    expect(pluggedVerdict(undefined, [])).toBeUndefined();
-  });
-
+describe("state of charge (REQ L-15)", () => {
   it("reads a state of charge and clamps it", () => {
     expect(socValue("64.4")).toBe(64.4);
     expect(socValue("104")).toBe(100);
@@ -141,21 +117,8 @@ describe("plugged and state of charge (REQ L-15)", () => {
     expect(socValue("")).toBeUndefined();
   });
 
-  const charge = {
-    soc: "sensor.car",
-    show: "plugged" as ChargeShow,
-    plugged: "binary_sensor.plug",
-    unplugged: [],
-  };
+  const charge = { soc: "sensor.car" };
   const consumers = [{ key: "sensor.wallbox", entity: "sensor.wallbox", color: "#000", charge }];
-
-  it("keeps the last plugged answer while the entity is unavailable", () => {
-    const tracker = new ChargeTracker();
-    tracker.observe(hassWith({ "binary_sensor.plug": "on", "sensor.car": "50" }), consumers);
-    const later = hassWith({ "binary_sensor.plug": "unavailable", "sensor.car": "50" });
-    tracker.observe(later, consumers);
-    expect(tracker.state(later, charge).plugged).toBe(true);
-  });
 
   it("keeps the last state of charge grey while the car sleeps", () => {
     const tracker = new ChargeTracker();
@@ -192,14 +155,15 @@ function reading(w: number | null) {
     : { available: true as const, w, derived: false };
 }
 
-function wallbox(w: number | null, show: ChargeShow, plugged: boolean, soc = 80): ConsumerReading {
+function wallbox(w: number | null, held: boolean, soc = 80): ConsumerReading {
   return {
     key: "sensor.wallbox",
     entity: "sensor.wallbox",
     name: "Wallbox",
     color: "#7e57c2",
     reading: reading(w),
-    charge: { entity: "sensor.car", show, plugged, soc, stale: false },
+    charge: { entity: "sensor.car", soc, stale: false },
+    held,
   };
 }
 
@@ -230,27 +194,29 @@ describe("which rows a charge keeps in the list (REQ L-15)", () => {
     max_consumers: 1,
   } as RawConfig);
 
-  it("keeps a plugged-in car at 0 W, outside threshold and limit", () => {
-    const b = buildBreakdown(model([other(2000), wallbox(0, "plugged", true)]), config);
-    expect(b.entries.map((e) => e.key)).toEqual(["sensor.pump", "sensor.wallbox"]);
+  it("keeps a plugged-in car at 0 W outside the threshold; it takes a place of the limit", () => {
+    // Since 29.10.2026 held rows count to max_consumers (REQ L-4): the limit
+    // bounds the height of the card.
+    const b = buildBreakdown(model([other(2000), wallbox(0, true)]), config);
+    expect(b.entries.map((e) => e.key)).toEqual(["sensor.wallbox"]);
     // Nothing flows, so it gets no ring segment (R-2).
-    expect(b.segments.map((s) => s.key)).toEqual(["sensor.pump"]);
+    expect(b.segments).toEqual([]);
   });
 
   it("lets an unplugged car go like any consumer", () => {
-    const b = buildBreakdown(model([other(2000), wallbox(0, "plugged", false)]), config);
+    const b = buildBreakdown(model([other(2000), wallbox(0, false)]), config);
     expect(b.entries.map((e) => e.key)).toEqual(["sensor.pump"]);
   });
 
   it("follows the normal filter with show charging", () => {
-    const b = buildBreakdown(model([other(2000), wallbox(0, "charging", true)]), config);
+    const b = buildBreakdown(model([other(2000), wallbox(0, false)]), config);
     expect(b.entries.map((e) => e.key)).toEqual(["sensor.pump"]);
   });
 
-  it("always keeps the row with show always, even with the power unavailable", () => {
-    const b = buildBreakdown(model([other(2000), wallbox(null, "always", false)]), config);
-    expect(b.entries.map((e) => e.key)).toEqual(["sensor.pump", "sensor.wallbox"]);
-    expect(b.entries[1].w).toBe(0);
+  it("always keeps a held row, even with the power unavailable", () => {
+    const b = buildBreakdown(model([other(2000), wallbox(null, true)]), config);
+    expect(b.entries.map((e) => e.key)).toEqual(["sensor.wallbox"]);
+    expect(b.entries[0].w).toBe(0);
   });
 });
 

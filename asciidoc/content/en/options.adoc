@@ -13,9 +13,9 @@
 |`entities.battery` |— |Battery power, signed
 |`entities.battery_soc` |— |State of charge in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — see _Grid outage_
-|`consumers` |— |List of `++{++entity, name, color, icon, min_w, charge}` - `charge` see _Wallbox and EV_
+|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, charge}` - `position`, `show`, `condition` and `charge` see _Wallbox and EV_
 |`min_consumer_w` |`10` |Consumers below this are folded into the remainder (unless the filter is off, see quick buttons); a consumer's own `min_w` overrides it
-|`max_consumers` |all |Only the strongest are listed
+|`max_consumers` |all |Maximum number of consumer rows; held ones (`show`) count and come first, the strongest get the remaining places
 |`update_interval_s` |`5` |How often the list reorders
 |`power.unit` |`kW` |`kW`, `W` or `auto`. `auto` picks the unit per value: whole watts below 1000 W, kilowatts above
 |`power.decimals` |`2` |Decimals for a fixed `kW`: 1, 2 or 3. Watts are always whole

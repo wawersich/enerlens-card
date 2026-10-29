@@ -13,9 +13,9 @@
 |`entities.battery` |— |Batterieleistung, signiert
 |`entities.battery_soc` |— |Ladezustand in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — siehe _Netzausfall_
-|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, charge}` – `charge` siehe _Wallbox und E-Auto_
+|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, position, show, condition, charge}` – `position`, `show`, `condition` und `charge` siehe _Wallbox und E-Auto_
 |`min_consumer_w` |`10` |Verbraucher darunter zählen zum Rest (außer mit ausgeschaltetem Filter, siehe Quick-Buttons); ein eigenes `min_w` am Verbraucher hat Vorrang
-|`max_consumers` |alle |Nur die stärksten werden gelistet
+|`max_consumers` |alle |Höchstzahl der Verbraucherzeilen; gehaltene (`show`) zählen mit und kommen zuerst, die übrigen Plätze bekommen die stärksten
 |`update_interval_s` |`5` |Wie oft die Liste neu sortiert
 |`power.unit` |`kW` |`kW`, `W` oder `auto`. `auto` wählt die Einheit je Wert: unter 1000 W ganze Watt, darüber kW
 |`power.decimals` |`2` |Nachkommastellen bei festem `kW`: 1, 2 oder 3. Watt sind immer ganz

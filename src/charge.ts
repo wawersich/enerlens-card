@@ -3,30 +3,12 @@
  *
  * The wallbox measures the power, the car reports its charge through an
  * integration of its own; nothing in Home Assistant links the two, so the
- * configuration does. Two things need memory across updates and live here:
- * whether the car is plugged in (an unavailable sensor keeps the last answer)
- * and the last known state of charge (a sleeping car often goes unavailable,
- * and its last reading is still a measurement - shown grey, never made up).
+ * configuration does. The last known state of charge needs memory across
+ * updates and lives here (a sleeping car often goes unavailable, and its last
+ * reading is still a measurement - shown grey, never made up). Whether the car
+ * is plugged in became a condition of its own (REQ L-18, hold.ts).
  */
 import type { ChargeState, HomeAssistant, NormalizedCharge, NormalizedConsumer } from "./types";
-
-const NO_VALUE = new Set(["unavailable", "unknown", ""]);
-
-/**
- * Plugged in, not plugged in, or no answer. Without an `unplugged` list the
- * entity is on/off; with one, every real state outside it means plugged in.
- * Case does not count - OCPP boxes write `Available`, others `available`.
- */
-export function pluggedVerdict(
-  state: string | undefined,
-  unplugged: readonly string[],
-): boolean | undefined {
-  if (state === undefined) return undefined;
-  const value = state.trim().toLowerCase();
-  if (NO_VALUE.has(value)) return undefined;
-  if (unplugged.length === 0) return value === "on";
-  return !unplugged.includes(value);
-}
 
 /** A state of charge in percent, or undefined when the state is no number. */
 export function socValue(state: string | undefined): number | undefined {
@@ -41,8 +23,6 @@ interface Known {
 }
 
 export class ChargeTracker {
-  /** Last answer per plugged entity; held while it is unavailable. */
-  private readonly plugged = new Map<string, boolean>();
   /** Last numeric state of charge per entity, with when it was measured. */
   private readonly known = new Map<string, Known>();
   /** Entities whose history was already asked for, so it is asked only once. */
@@ -61,20 +41,15 @@ export class ChargeTracker {
         const t = Date.parse(stateObj?.last_updated || stateObj?.last_changed || "");
         this.known.set(charge.soc, { value, t: Number.isFinite(t) ? t : Date.now() });
       }
-      if (charge.plugged) {
-        const verdict = pluggedVerdict(hass.states[charge.plugged]?.state, charge.unplugged);
-        if (verdict !== undefined) this.plugged.set(charge.plugged, verdict);
-      }
     }
   }
 
   state(hass: HomeAssistant, charge: NormalizedCharge): ChargeState {
-    const plugged = charge.plugged ? (this.plugged.get(charge.plugged) ?? false) : false;
     const live = socValue(hass.states[charge.soc]?.state);
-    if (live !== undefined) return { soc: live, stale: false, plugged };
+    if (live !== undefined) return { soc: live, stale: false };
     const known = this.known.get(charge.soc);
-    if (known) return { soc: known.value, stale: true, since: known.t, plugged };
-    return { stale: false, plugged };
+    if (known) return { soc: known.value, stale: true, since: known.t };
+    return { stale: false };
   }
 
   /** State-of-charge entities with no value now and none remembered, not yet asked for. */

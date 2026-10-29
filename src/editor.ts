@@ -131,57 +131,146 @@ function isOnOff(entityId: string): boolean {
   return domain === "binary_sensor" || domain === "input_boolean";
 }
 
-/** What can say whether a car is plugged in: on/off, or a state among several. */
-const PLUGGED_FILTER = [
-  { domain: "binary_sensor" },
-  { domain: "input_boolean" },
-  { domain: "sensor" },
-  { domain: "input_select" },
+const OPERATOR_LABELS: ReadonlyArray<[string, string]> = [
+  ["=", "="],
+  ["!=", "≠"],
+  [">", ">"],
+  ["<", "<"],
+  [">=", "≥"],
+  ["<=", "≤"],
 ];
 
+/** = and != take states as chips, the comparisons one number (REQ L-18). */
+const isListOperator = (operator: unknown): boolean =>
+  operator === undefined || operator === "" || operator === "=" || operator === "!=";
+
 /**
- * The form of one consumer, built per entry: the plugged field only where the
- * display waits for the plug, and the unplugged states only for an entity that
- * has states rather than on/off - offered from its own options (REQ E-4, L-15).
+ * A consumer as the form shows it: the old `charge.show/plugged/unplugged`
+ * turned into `show` and `condition` (REQ L-18, E-4). Opening the editor
+ * writes nothing; only a change to this consumer writes it back in this form.
+ * The card does the same mapping when it reads the YAML, so what the form
+ * shows is what the card does.
+ */
+export function consumerView(entry: Record<string, unknown>): Record<string, unknown> {
+  const own = isRecord(entry.condition) ? entry.condition : undefined;
+  // A single value or true/false written by hand shows as chips.
+  const row =
+    own && isListOperator(own.operator) && own.value !== undefined && !Array.isArray(own.value)
+      ? { ...entry, condition: { ...own, value: conditionStates(own.value) } }
+      : entry;
+  const charge = isRecord(row.charge) ? row.charge : undefined;
+  if (!charge || !("show" in charge || "plugged" in charge || "unplugged" in charge)) return row;
+  const { show, plugged, unplugged, ...rest } = charge;
+  const view: Record<string, unknown> = { ...row, charge: rest };
+  // The new form wins where both are written (REQ L-18); a charge without soc
+  // was always dropped whole, its show with it.
+  if (nonEmpty(row.show) || !nonEmpty(charge.soc)) return view;
+  if (show === "always") view.show = "always";
+  else if (show === "plugged" && nonEmpty(plugged)) {
+    const off = isOnOff(plugged) ? [] : (states(unplugged) ?? []);
+    view.show = "condition";
+    view.condition =
+      off.length > 0
+        ? { entity: plugged, operator: "!=", value: off }
+        : { entity: plugged, operator: "=", value: ["on"] };
+  }
+  return view;
+}
+
+/**
+ * The form of one consumer, built per entry (REQ E-4, L-18): the condition only
+ * for "show: condition", its value as state chips for = and != - offered from
+ * the entity's own options, on/off for a switch - and as one number for the
+ * comparisons.
  */
 function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
   const t = (key: string) => localize(`editor.${key}`, hass);
-  const charge = isRecord(entry.charge) ? entry.charge : {};
-  const plugged = typeof charge.plugged === "string" ? charge.plugged : "";
-  const onOff = isOnOff(plugged);
-  const options = hass.states?.[plugged]?.attributes?.options;
-  const choices = (Array.isArray(options) ? options : [])
-    .filter((option): option is string => typeof option === "string")
-    .map((option) => ({ value: option, label: option }));
-  const chargeFields: Record<string, unknown>[] = [
-    { name: "soc", selector: { entity: { filter: BATTERY_FILTER } } },
-    // Its own name, e.g. a printer's progress (issue #31).
-    { name: "label", selector: { text: {} } },
+  const condition = isRecord(entry.condition) ? entry.condition : {};
+  const conditionEntity = typeof condition.entity === "string" ? condition.entity : "";
+  const options = hass.states?.[conditionEntity]?.attributes?.options;
+  const known = isOnOff(conditionEntity)
+    ? ["on", "off"]
+    : (Array.isArray(options) ? options : []).filter(
+        (option): option is string => typeof option === "string",
+      );
+  const valueField = isListOperator(condition.operator)
+    ? {
+        name: "value",
+        labelKey: "condition_values",
+        selector: {
+          select: {
+            multiple: true,
+            custom_value: true,
+            mode: "list",
+            options: known.map((option) => ({ value: option, label: option })),
+          },
+        },
+      }
+    : {
+        name: "value",
+        labelKey: "condition_number",
+        selector: { number: { mode: "box", step: "any" } },
+      };
+  // Everything beyond the basics sits in one group, "Display" (Markus,
+  // 29.10.2026). It is flattened: its fields stay keys of the consumer.
+  const display: Record<string, unknown>[] = [
+    {
+      name: "position",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: [
+            { value: "", label: t("position_sorted") },
+            { value: "top", label: t("position_top") },
+            { value: "bottom", label: t("position_bottom") },
+          ],
+        },
+      },
+    },
     {
       name: "show",
       selector: {
         select: {
           mode: "dropdown",
           options: [
-            { value: "charging", label: t("charge_show_charging") },
-            { value: "plugged", label: t("charge_show_plugged") },
-            { value: "always", label: t("charge_show_always") },
+            { value: "", label: t("show_power") },
+            { value: "always", label: t("show_always") },
+            { value: "condition", label: t("show_condition") },
           ],
         },
       },
     },
   ];
-  if (charge.show === "plugged") {
-    chargeFields.push({ name: "plugged", selector: { entity: { filter: PLUGGED_FILTER } } });
-    if (plugged && !onOff) {
-      chargeFields.push({
-        name: "unplugged",
-        selector: {
-          select: { multiple: true, custom_value: true, mode: "list", options: choices },
+  if (entry.show === "condition") {
+    display.push({
+      name: "condition",
+      type: "grid",
+      schema: [
+        { name: "entity", labelKey: "condition_entity", selector: { entity: {} } },
+        {
+          name: "operator",
+          labelKey: "condition_operator",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: OPERATOR_LABELS.map(([value, label]) => ({ value, label })),
+            },
+          },
         },
-      });
-    }
+        valueField,
+      ],
+    });
   }
+  display.push({
+    name: "charge",
+    type: "expandable",
+    title: t("charge"),
+    schema: [
+      { name: "soc", selector: { entity: { filter: BATTERY_FILTER } } },
+      // Its own name, e.g. a printer's progress (issue #31).
+      { name: "label", selector: { text: {} } },
+    ],
+  });
   return [
     { name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } },
     { name: "name", selector: { text: {} } },
@@ -189,9 +278,58 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
     // places to set one thing is one place too many.
     { name: "icon", selector: { icon: {} } },
     { name: "min_w", selector: { number: { ...limitsOf("consumers.min_w"), mode: "box" } } },
-    { name: "charge", type: "expandable", title: t("charge"), schema: chargeFields },
+    {
+      name: "display",
+      type: "expandable",
+      flatten: true,
+      title: t("consumer_display"),
+      schema: display,
+    },
   ];
 }
+
+/**
+ * The values of = and != as chips: one value or a list, YAML true/false as
+ * on/off and numbers as text - what the card reads too (REQ L-18). A value
+ * written by hand must survive a change to another consumer.
+ */
+function conditionStates(value: unknown): string[] | undefined {
+  const list = (Array.isArray(value) ? value : [value])
+    .map((v) => (v === true ? "on" : v === false ? "off" : typeof v === "number" ? String(v) : v))
+    .filter((v): v is string => typeof v === "string" && v.trim() !== "");
+  return list.length ? list : undefined;
+}
+
+/** One number for the comparisons; a number written as text counts too. */
+function conditionNumber(value: unknown): number | undefined {
+  const n =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  return typeof value === "string" && value.trim() === ""
+    ? undefined
+    : Number.isFinite(n)
+      ? n
+      : undefined;
+}
+
+/**
+ * The condition as the YAML should hold it: only for show: condition, and the
+ * value only in the kind its operator takes - chips for = and !=, one number
+ * for the comparisons. A list left from = when the operator becomes > is
+ * dropped instead of leaving one the card would have to warn about
+ * (REQ L-18, E-1).
+ */
+function cleanCondition(show: unknown, value: unknown): Record<string, unknown> | undefined {
+  if (show !== "condition" || !isRecord(value)) return undefined;
+  const list = isListOperator(value.operator);
+  const kept = list ? conditionStates(value.value) : conditionNumber(value.value);
+  return prune({
+    ...unknownKeys(value, ["entity", "operator", "value"]),
+    entity: nonEmpty(value.entity) ? value.entity : undefined,
+    operator: nonEmpty(value.operator) ? value.operator : undefined,
+    value: kept,
+  });
+}
+
 type Quantity = (typeof QUANTITIES)[number];
 /** The four nodes plus the rest row, which has an icon but no entity. */
 const ICON_KEYS = [...QUANTITIES, "rest"] as const;
@@ -660,7 +798,11 @@ function cleanConsumers(value: unknown): RawConfig["consumers"] {
   const list: Record<string, unknown>[] = [];
   for (const entry of value) {
     if (!isRecord(entry)) continue;
-    const cleaned = prune<Record<string, unknown>>({ ...entry, charge: cleanCharge(entry.charge) });
+    const cleaned = prune<Record<string, unknown>>({
+      ...entry,
+      charge: cleanCharge(entry.charge),
+      condition: cleanCondition(entry.show, entry.condition),
+    });
     const entity = cleaned?.entity;
     if (!cleaned || typeof entity !== "string" || seen.has(entity)) continue;
     seen.add(entity);
@@ -3163,6 +3305,7 @@ class EnerLensCardEditor extends LitElement {
         <div slot="header" role="heading" aria-level="3">${t("consumers")}</div>
         <div class="consumers">
           <p class="hint">${localize("editor_help.consumers_list", this.hass)}</p>
+          ${this._renderHeldWarning(rows)}
           <ha-sortable handle-selector=".handle" @item-moved=${this._moveConsumer}>
             <div class="consumer-list">
               ${repeat(
@@ -3179,6 +3322,30 @@ class EnerLensCardEditor extends LitElement {
         </div>
       </ha-expansion-panel>
     `;
+  }
+
+  /**
+   * Held rows take their places of `max_consumers` first (REQ L-4, 29.10.2026);
+   * once they fill it, no other consumer can appear - said here, not hidden.
+   */
+  private _renderHeldWarning(rows: readonly unknown[]): TemplateResult | typeof nothing {
+    const limit = this._config?.max_consumers;
+    if (typeof limit !== "number" || !Number.isFinite(limit)) return nothing;
+    // Counted as the card reads them: an entity, and `always` or a condition
+    // that is complete - an unfinished one is the standard (E-1).
+    const seen = new Set<string>();
+    const held = rows.filter((row) => {
+      if (!isRecord(row) || !nonEmpty(row.entity) || seen.has(row.entity)) return false;
+      seen.add(row.entity);
+      const view = consumerView(row);
+      if (view.show === "always") return true;
+      const condition = cleanCondition(view.show, view.condition);
+      return Boolean(condition?.entity && condition.operator && condition.value !== undefined);
+    }).length;
+    if (held < limit) return nothing;
+    return html`<p class="hint warn">
+      ${localize("editor_help.consumers_held_limit", this.hass, { held, limit })}
+    </p>`;
   }
 
   private _renderConsumer(raw: unknown, index: number, key: number): TemplateResult {
@@ -3284,8 +3451,8 @@ class EnerLensCardEditor extends LitElement {
           this._builtConsumers.has(key)
             ? html`<ha-form
                 .hass=${this.hass}
-                .data=${row}
-                .schema=${consumerSchema(this.hass as HomeAssistant, row)}
+                .data=${consumerView(row)}
+                .schema=${consumerSchema(this.hass as HomeAssistant, consumerView(row))}
                 .computeLabel=${this._consumerLabel}
                 .computeHelper=${this._consumerHelper}
                 @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
@@ -3299,21 +3466,23 @@ class EnerLensCardEditor extends LitElement {
     `;
   }
 
-  private _consumerLabel = (item: { name: string }): string => {
+  private _consumerLabel = (item: { name: string; labelKey?: string }): string => {
+    if (item.labelKey) return localize(`editor.${item.labelKey}`, this.hass);
     const own = `editor.consumer_${item.name}`;
     const text = localize(own, this.hass);
     return text === own ? localize(`editor.${item.name}`, this.hass) : text;
   };
 
-  private _consumerHelper = (item: { name: string }): string => {
-    const key = `editor_help.consumer_${item.name}`;
+  private _consumerHelper = (item: { name: string; labelKey?: string }): string => {
+    const key = `editor_help.${item.labelKey ?? `consumer_${item.name}`}`;
     const text = localize(key, this.hass);
     return text === key ? "" : text;
   };
 
   private _setConsumer(index: number, value: Record<string, unknown>): void {
     const rows = [...this._consumerRows()];
-    rows[index] = value;
+    // A change to this consumer writes it in the new form (REQ L-18, E-4).
+    rows[index] = consumerView(value);
     this._writeConsumers(rows, [...this._consumerKeys]);
   }
 
@@ -3574,6 +3743,10 @@ class EnerLensCardEditor extends LitElement {
       width: 18px;
       height: 18px;
       margin: 0;
+    }
+
+    .hint.warn {
+      color: var(--warning-color, #ffa600);
     }
 
     .hint {
