@@ -6,11 +6,18 @@
  */
 import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
-import { ChargeTracker, socValue } from "../src/charge";
+import { ChargeTracker, indicatorValue } from "../src/charge";
 import { collectChargeIds, normalizeConfig } from "../src/config";
 import { buildBreakdown } from "../src/consumers";
-import { renderList, showsCharge } from "../src/render/list";
-import type { ConsumerReading, HomeAssistant, ListEntry, Model, RawConfig } from "../src/types";
+import { idleIndicator, renderList } from "../src/render/list";
+import type {
+  ConsumerReading,
+  HomeAssistant,
+  ListEntry,
+  Model,
+  RawConfig,
+  RowIndicators,
+} from "../src/types";
 
 const ENTITIES = { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" };
 
@@ -53,7 +60,12 @@ describe("charge config (REQ L-15)", () => {
         unplugged: ["Available", "none"],
       }),
     );
-    expect(config.consumers[0].charge).toEqual({ soc: "sensor.car", label: undefined });
+    // The old charge is a ring with 0-100 % (REQ L-20).
+    expect(config.consumers[0].indicators).toEqual({
+      slots: { ring: { entity: "sensor.car", min: 0, max: 100, percent: true } },
+      idleValue: "ring",
+      inEnergy: true,
+    });
     // show/plugged/unplugged are the old spelling of a condition (REQ L-18).
     expect(config.consumers[0].hold).toEqual({
       kind: "condition",
@@ -66,20 +78,26 @@ describe("charge config (REQ L-15)", () => {
 
   it("reads an own label for the charge, e.g. a printer's progress (issue #31)", () => {
     const config = normalizeConfig(raw({ soc: "sensor.printer", label: "Druckfortschritt" }));
-    expect(config.consumers[0].charge?.label).toBe("Druckfortschritt");
-    expect(normalizeConfig(raw({ soc: "sensor.car" })).consumers[0].charge?.label).toBeUndefined();
+    expect(config.consumers[0].indicators?.slots.ring?.label).toBe("Druckfortschritt");
+    expect(
+      normalizeConfig(raw({ soc: "sensor.car" })).consumers[0].indicators?.slots.ring?.label,
+    ).toBeUndefined();
   });
 
   it("defaults show to charging and needs nothing else", () => {
     const config = normalizeConfig(raw({ soc: "sensor.car" }));
-    expect(config.consumers[0].charge).toEqual({ soc: "sensor.car", label: undefined });
+    expect(config.consumers[0].indicators).toEqual({
+      slots: { ring: { entity: "sensor.car", min: 0, max: 100, percent: true } },
+      idleValue: "ring",
+      inEnergy: true,
+    });
     expect(config.consumers[0].hold).toBeUndefined();
   });
 
   it("drops a charge without soc, with a warning, instead of failing (E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const config = normalizeConfig(raw({ show: "always" }));
-    expect(config.consumers[0].charge).toBeUndefined();
+    expect(config.consumers[0].indicators).toBeUndefined();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -110,23 +128,33 @@ describe("charge config (REQ L-15)", () => {
 });
 
 describe("state of charge (REQ L-15)", () => {
-  it("reads a state of charge and clamps it", () => {
-    expect(socValue("64.4")).toBe(64.4);
-    expect(socValue("104")).toBe(100);
-    expect(socValue("unavailable")).toBeUndefined();
-    expect(socValue("")).toBeUndefined();
+  it("reads a number and never limits it - only the drawing is (rule 8)", () => {
+    expect(indicatorValue("64.4")).toBe(64.4);
+    expect(indicatorValue("104")).toBe(104);
+    expect(indicatorValue("unavailable")).toBeUndefined();
+    expect(indicatorValue("")).toBeUndefined();
   });
 
-  const charge = { soc: "sensor.car" };
-  const consumers = [{ key: "sensor.wallbox", entity: "sensor.wallbox", color: "#000", charge }];
+  const consumers = [
+    {
+      key: "sensor.wallbox",
+      entity: "sensor.wallbox",
+      color: "#000",
+      indicators: {
+        slots: { ring: { entity: "sensor.car", min: 0, max: 100 } },
+        idleValue: "ring" as const,
+        inEnergy: true,
+      },
+    },
+  ];
 
   it("keeps the last state of charge grey while the car sleeps", () => {
     const tracker = new ChargeTracker();
     tracker.observe(hassWith({ "sensor.car": "72" }), consumers);
     const asleep = hassWith({ "sensor.car": "unavailable" });
     tracker.observe(asleep, consumers);
-    const result = tracker.state(asleep, charge);
-    expect(result.soc).toBe(72);
+    const result = tracker.state(asleep, "sensor.car");
+    expect(result.value).toBe(72);
     expect(result.stale).toBe(true);
     expect(result.since).toBe(Date.parse("2026-10-04T10:00:00Z"));
   });
@@ -144,7 +172,11 @@ describe("state of charge (REQ L-15)", () => {
     }));
     await tracker.prefill(hassWith({ "sensor.car": "unavailable" }, callWS), ["sensor.car"]);
     expect(callWS).toHaveBeenCalledTimes(1);
-    expect(tracker.state(asleep, charge)).toMatchObject({ soc: 63, stale: true, since: 2_000_000 });
+    expect(tracker.state(asleep, "sensor.car")).toMatchObject({
+      value: 63,
+      stale: true,
+      since: 2_000_000,
+    });
     expect(tracker.missing(asleep, consumers)).toEqual([]);
   });
 });
@@ -155,6 +187,30 @@ function reading(w: number | null) {
     : { available: true as const, w, derived: false };
 }
 
+/** The old charge as a row carries it: a ring with 0-100 % (REQ L-20). */
+function ring(
+  value: number | undefined,
+  stale: boolean,
+  extra: { since?: number; label?: string; entity?: string } = {},
+): RowIndicators {
+  return {
+    slots: {
+      ring: {
+        entity: extra.entity ?? "sensor.car",
+        min: 0,
+        max: 100,
+        percent: true,
+        value,
+        stale,
+        since: extra.since,
+        label: extra.label,
+      },
+    },
+    idleValue: "ring",
+    inEnergy: true,
+  };
+}
+
 function wallbox(w: number | null, held: boolean, soc = 80): ConsumerReading {
   return {
     key: "sensor.wallbox",
@@ -162,7 +218,7 @@ function wallbox(w: number | null, held: boolean, soc = 80): ConsumerReading {
     name: "Wallbox",
     color: "#7e57c2",
     reading: reading(w),
-    charge: { entity: "sensor.car", soc, stale: false },
+    indicators: ring(soc, false),
     held,
   };
 }
@@ -244,7 +300,7 @@ describe("the row with a state of charge (REQ L-15)", () => {
     icon: "mdi:ev-station",
     threshold: 10,
     isRest: false,
-    charge: { entity: "sensor.car", soc: 64, stale: false },
+    indicators: ring(64, false),
   };
 
   it("shows the power while charging and the charge on the ring", () => {
@@ -253,33 +309,34 @@ describe("the row with a state of charge (REQ L-15)", () => {
     const fill = host.querySelector(".charge-ring .fill");
     // In the SVG namespace, or the browser draws nothing.
     expect(fill?.namespaceURI).toBe("http://www.w3.org/2000/svg");
-    expect(host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe("Ladestand 64 %");
-    expect(host.querySelector(".soc-hit.value")).toBeNull();
+    expect(host.querySelector(".swatch")?.getAttribute("title")).toBe("Ladestand 64 %");
   });
 
   it("shows the charge in the value column when nothing flows", () => {
-    const entry = { ...base, w: 0, charge: { entity: "sensor.car", soc: 80, stale: false } };
-    expect(showsCharge(entry, config)).toBe(true);
+    // Whether it does is decided on the tick (REQ L-20): `idle`.
+    const entry = { ...base, w: 0, idle: true, indicators: ring(80, false) };
+    expect(idleIndicator(entry, config)).toBeTruthy();
     const { host } = draw(entry);
     expect(host.querySelector(".row-value")?.textContent?.trim()).toBe("80 %");
-    expect(host.querySelector(".soc-hit.value")).toBeTruthy();
   });
 
-  it("opens the detail window from every part of the row: power and charge in one (DF-15)", () => {
-    const { host, onEntry } = draw({ ...base, w: 0 });
-    for (const sel of [".soc-hit.mark", ".soc-hit.value", ".row-hit"]) {
-      (host.querySelector(sel) as HTMLButtonElement).click();
+  it("opens the detail window from the row and from its mark, with one tab stop (L-20)", () => {
+    const { host, onEntry } = draw({ ...base, w: 0, idle: true });
+    for (const sel of [".swatch", ".row-hit"]) {
+      (host.querySelector(sel) as HTMLElement).click();
     }
     // The power entity stays the way out, when the window cannot open (DF-7).
     expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([
       ["sensor.wallbox", "consumer:sensor.wallbox"],
       ["sensor.wallbox", "consumer:sensor.wallbox"],
-      ["sensor.wallbox", "consumer:sensor.wallbox"],
     ]);
+    // The mark is no button of its own any more; the row's name says everything.
+    expect(host.querySelectorAll("button")).toHaveLength(1);
+    expect(host.querySelector(".row-hit")?.getAttribute("aria-label")).toContain("Ladestand 64 %");
   });
 
   it("a row without a charge opens the window too (DF-19)", () => {
-    const { host, onEntry } = draw({ ...base, charge: undefined });
+    const { host, onEntry } = draw({ ...base, indicators: undefined });
     (host.querySelector(".row-hit") as HTMLButtonElement).click();
     expect(onEntry.mock.calls.map((c) => [c[0], c[2]])).toEqual([
       ["sensor.wallbox", "consumer:sensor.wallbox"],
@@ -294,7 +351,7 @@ describe("the row with a state of charge (REQ L-15)", () => {
       key: "sensor.roof",
       entity: "sensor.roof",
       name: "Dach",
-      charge: undefined,
+      indicators: undefined,
     };
     render(
       renderList({ entries: [], segments: [] }, config, hass, onEntry, false, [source], false),
@@ -309,77 +366,63 @@ describe("the row with a state of charge (REQ L-15)", () => {
   it("names the charge by its own label where one is set (issue #31)", () => {
     const { host } = draw({
       ...base,
-      charge: { entity: "sensor.printer", soc: 87, stale: false, label: "Druckfortschritt" },
+      indicators: ring(87, false, { entity: "sensor.printer", label: "Druckfortschritt" }),
     });
-    expect(host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe(
-      "Druckfortschritt 87 %",
-    );
-    const unknown = draw({ ...base, charge: { entity: "sensor.p", stale: false, label: "Druck" } });
-    expect(unknown.host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe(
-      "Druck unbekannt",
-    );
+    expect(host.querySelector(".swatch")?.getAttribute("title")).toBe("Druckfortschritt 87 %");
+    const unknown = draw({
+      ...base,
+      indicators: ring(undefined, false, { entity: "sensor.p", label: "Druck" }),
+    });
+    expect(unknown.host.querySelector(".swatch")?.getAttribute("title")).toBe("Druck unbekannt");
   });
 
   it("greys a last known value and says how old it is", () => {
     const today = new Date();
     const since = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 14, 5).getTime();
-    const { host } = draw({
-      ...base,
-      w: 0,
-      charge: { entity: "sensor.car", soc: 72, stale: true, since },
-    });
+    const { host } = draw({ ...base, w: 0, idle: true, indicators: ring(72, true, { since }) });
     expect(host.querySelector(".row")?.classList.contains("stale")).toBe(true);
-    expect(host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe(
+    expect(host.querySelector(".charge-ring")?.classList.contains("stale")).toBe(true);
+    expect(host.querySelector(".swatch")?.getAttribute("title")).toBe(
       "Ladestand 72 % · Stand 14:05",
     );
   });
 
   it("shows the power and an empty ring without any value", () => {
-    const { host } = draw({ ...base, w: 0, charge: { entity: "sensor.car", stale: false } });
+    const { host } = draw({ ...base, w: 0, idle: true, indicators: ring(undefined, false) });
     expect(host.querySelector(".charge-ring .fill")).toBeNull();
     expect(host.querySelector(".row-value")?.textContent).toContain("kW");
-    expect(host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe("Ladestand unbekannt");
+    expect(host.querySelector(".swatch")?.getAttribute("title")).toBe("Ladestand unbekannt");
   });
 
   it("shows no figure for a power that is unavailable (rule 8)", () => {
     const { host } = draw({
       ...base,
       w: 0,
+      idle: true,
       powerUnknown: true,
-      charge: { entity: "sensor.car", stale: false },
+      indicators: ring(undefined, false),
     });
     expect(host.querySelector(".row-value")?.textContent?.trim()).toBe("—");
   });
 
   it("greys only a charge, never a live power next to a stale one", () => {
     const since = Date.now();
-    const { host } = draw({
-      ...base,
-      charge: { entity: "sensor.car", soc: 72, stale: true, since },
-    });
+    const { host } = draw({ ...base, indicators: ring(72, true, { since }) });
     expect(host.querySelector(".row-value")?.classList.contains("soc")).toBe(false);
-    const idle = draw({
-      ...base,
-      w: 0,
-      charge: { entity: "sensor.car", soc: 72, stale: true, since },
-    });
+    const idle = draw({ ...base, w: 0, idle: true, indicators: ring(72, true, { since }) });
     expect(idle.host.querySelector(".row-value")?.classList.contains("soc")).toBe(true);
   });
 
   it("dates a value that is not from today", () => {
     const since = new Date(2026, 9, 1, 14, 5).getTime();
-    const { host } = draw({
-      ...base,
-      w: 0,
-      charge: { entity: "sensor.car", soc: 72, stale: true, since },
-    });
-    expect(host.querySelector(".soc-hit.mark")?.getAttribute("title")).toBe(
+    const { host } = draw({ ...base, w: 0, indicators: ring(72, true, { since }) });
+    expect(host.querySelector(".swatch")?.getAttribute("title")).toBe(
       "Ladestand 72 % · Stand 1.10. 14:05",
     );
   });
 
   it("leaves a row without charge as it was", () => {
-    const { host } = draw({ ...base, charge: undefined });
+    const { host } = draw({ ...base, indicators: undefined });
     expect(host.querySelector("ha-icon.swatch.icon")).toBeTruthy();
     expect(host.querySelector(".charge-ring, .soc-hit")).toBeNull();
   });

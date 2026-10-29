@@ -7,9 +7,16 @@
  */
 import { type TemplateResult, html, nothing, svg } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import { formatClock, formatPercent, formatPower } from "../format";
+import { formatClock, formatExtra, formatPercent, formatPower } from "../format";
 import { localize } from "../localize";
-import type { Breakdown, Config, HomeAssistant, ListEntry } from "../types";
+import type {
+  Breakdown,
+  Config,
+  HomeAssistant,
+  IndicatorReading,
+  IndicatorSlot,
+  ListEntry,
+} from "../types";
 import { DEFAULT_ICONS, type DetailNode } from "./cross";
 
 function rowLabel(entry: ListEntry, hass: HomeAssistant): string {
@@ -56,16 +63,33 @@ export function rowHeight(count: number): number {
 }
 
 /**
- * The ring around a row's mark, filled clockwise from twelve o'clock to the
- * state of charge (REQ L-15). Without a value it is the faint track alone.
+ * How far an extra value fills its ring, bar or mark: (value - min) / (max -
+ * min), held to 0..1 (REQ L-20). min > max is a scale running the other way;
+ * min = max is empty below and full from the value on. Only the drawing is
+ * held - the figure stays the measurement (rule 8).
  */
-function chargeRing(soc: number | undefined): TemplateResult {
+export function fractionOf(ind: IndicatorReading): number | undefined {
+  if (ind.value === undefined) return undefined;
+  if (ind.min === ind.max) return ind.value >= ind.max ? 1 : 0;
+  return Math.max(0, Math.min(1, (ind.value - ind.min) / (ind.max - ind.min)));
+}
+
+/**
+ * The ring around a row's mark, filled clockwise from twelve o'clock (REQ
+ * L-15, L-20). Without a value it is the faint track alone.
+ */
+function ringOf(ind: IndicatorReading, rowColor: string): TemplateResult {
   // At the edge of its box: the box already reaches beyond the slot, so the
   // ring clears an icon of full size without crowding the name.
   const r = 11.2;
   const c = 2 * Math.PI * r;
-  const len = soc === undefined ? 0 : (c * Math.max(0, Math.min(100, soc))) / 100;
-  return html`<svg class="charge-ring" viewBox="0 0 24 24" aria-hidden="true">
+  const len = c * (fractionOf(ind) ?? 0);
+  return html`<svg
+    class="charge-ring ${ind.stale ? "stale" : ""}"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    style="color:${ind.color ?? rowColor}"
+  >
     <circle class="track" cx="12" cy="12" r=${r}></circle>
     ${
       len > 0
@@ -84,31 +108,85 @@ function chargeRing(soc: number | undefined): TemplateResult {
   </svg>`;
 }
 
-/** The tooltip on the mark: the charge, and how old it is when it is old. */
-function chargeTitle(charge: NonNullable<ListEntry["charge"]>, hass: HomeAssistant): string {
-  // An own name - a printer's progress, say - instead of "State of charge" (issue #31).
-  const label = charge.label || localize("list.charge_label", hass);
-  if (charge.soc === undefined) return localize("list.charge_unknown", hass, { label });
-  const value = formatPercent(charge.soc, hass);
-  if (charge.stale && charge.since !== undefined) {
-    return localize("list.charge_stale", hass, {
-      label,
-      value,
-      time: formatClock(charge.since, hass),
-    });
-  }
-  return localize("list.charge", hass, { label, value });
+/**
+ * The figure of an extra value. Percent in whole numbers, as the state of
+ * charge always was and the battery's is (L-15, K-3) - the old `charge` and
+ * a ring written new read the same. Anything else as an extra at the cross
+ * (Z-5), in the unit it was measured in, kept for a stale value.
+ */
+function indicatorFigure(ind: IndicatorReading, hass: HomeAssistant): string {
+  if (ind.value === undefined) return "";
+  const live = hass.states?.[ind.entity];
+  const unit = ind.unit ?? live?.attributes?.unit_of_measurement;
+  if (ind.percent || unit === "%") return formatPercent(ind.value, hass);
+  const stateObj = {
+    entity_id: ind.entity,
+    state: String(ind.value),
+    attributes: { ...(live?.attributes ?? {}), ...(unit ? { unit_of_measurement: unit } : {}) },
+    last_changed: "",
+    last_updated: "",
+  };
+  return formatExtra(stateObj, hass, "ha");
 }
 
 /**
- * Whether the value column shows the charge instead of the power: when there
- * is a charge to show and nothing to speak of is flowing - the same
- * `flow.min_w` that decides whether dots run (REQ L-15, P-9).
+ * What an extra value is called: its own label; the ring "State of charge"
+ * as it always was; the others their entity's name (REQ L-20).
  */
-export function showsCharge(entry: ListEntry, config: Config): boolean {
-  // A period shows energy; a state of charge is a now (EM-5).
-  if (config.energy) return false;
-  return entry.charge?.soc !== undefined && (entry.powerUnknown || entry.w < config.flow.minW);
+function indicatorName(ind: IndicatorReading, slot: IndicatorSlot, hass: HomeAssistant): string {
+  if (ind.label) return ind.label;
+  if (slot === "ring") return localize("list.charge_label", hass);
+  const friendly = hass.states?.[ind.entity]?.attributes?.friendly_name;
+  return typeof friendly === "string" && friendly ? friendly : ind.entity;
+}
+
+/**
+ * The tooltip line of an extra value: name and figure, how old it is when it
+ * is old, and "now" in a period, so no one takes it for the period's value.
+ */
+function indicatorTitle(
+  ind: IndicatorReading,
+  slot: IndicatorSlot,
+  hass: HomeAssistant,
+  energy: boolean,
+): string {
+  const label = indicatorName(ind, slot, hass);
+  let text: string;
+  if (ind.value === undefined) text = localize("list.charge_unknown", hass, { label });
+  else if (ind.stale && ind.since !== undefined) {
+    text = localize("list.charge_stale", hass, {
+      label,
+      value: indicatorFigure(ind, hass),
+      time: formatClock(ind.since, hass),
+    });
+  } else text = localize("list.charge", hass, { label, value: indicatorFigure(ind, hass) });
+  return energy ? localize("list.indicator_now", hass, { text }) : text;
+}
+
+/**
+ * The extra values a row draws: all of them with the power, in a period only
+ * where the consumer asks for it (`in_energy`, REQ L-20).
+ */
+function shownIndicators(
+  entry: ListEntry,
+  config: Config,
+): Partial<Record<IndicatorSlot, IndicatorReading>> {
+  const indicators = entry.indicators;
+  if (!indicators || (config.energy && !indicators.inEnergy)) return {};
+  return indicators.slots;
+}
+
+/**
+ * The extra value the value column shows instead of the power, if any: the
+ * one `idle_value` names, decided on the tick (REQ L-20), and only while it
+ * has a number - without one the power stands there.
+ */
+export function idleIndicator(entry: ListEntry, config: Config): IndicatorReading | undefined {
+  if (!entry.idle || config.energy || !entry.indicators) return undefined;
+  const slot = entry.indicators.idleValue;
+  if (slot === "power") return undefined;
+  const ind = entry.indicators.slots[slot];
+  return ind?.value === undefined ? undefined : ind;
 }
 
 export function renderList(
@@ -204,55 +282,78 @@ function renderRow(
   stacked: boolean,
   solar: boolean,
 ): TemplateResult {
-  {
-    const charge = entry.charge;
-    const percent = showsCharge(entry, config);
-    const value =
-      percent && charge?.soc !== undefined
-        ? formatPercent(charge.soc, hass)
-        : entry.powerUnknown
-          ? "—"
-          : formatPower(entry.w, hass, config.power);
-    const title = charge ? chargeTitle(charge, hass) : "";
-    // In a period: gaps filled in, a late start, a remainder that holds
-    // them (EM-11, EM-12) - a PV source's under its entity as well (PV-2).
-    const mark = config.energy
-      ? entry.isRest
-        ? config.energy.rest
-        : config.energy.consumers[entry.entity ?? ""]
+  const energy = config.energy !== undefined;
+  const shown = shownIndicators(entry, config);
+  const { ring, bar_top: barTop, bar_bottom: barBottom, fill } = shown;
+  const idle = idleIndicator(entry, config);
+  const idleSlot = entry.indicators?.idleValue as IndicatorSlot | undefined;
+  const power = entry.powerUnknown ? "—" : formatPower(entry.w, hass, config.power);
+  const value = idle ? indicatorFigure(idle, hass) : power;
+  // In a period: gaps filled in, a late start, a remainder that holds
+  // them (EM-11, EM-12) - a PV source's under its entity as well (PV-2).
+  const mark = config.energy
+    ? entry.isRest
+      ? config.energy.rest
+      : config.energy.consumers[entry.entity ?? ""]
+    : undefined;
+  const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
+  // Every row opens its window: a consumer's, a PV source's, the rest's -
+  // the last needs a measured house (DF-18, DF-19). Power and every extra
+  // value are in it (DF-15).
+  const detail: DetailNode | undefined = entry.isRest
+    ? config.sources.house.kind === "single"
+      ? "rest"
+      : undefined
+    : entry.entity
+      ? solar
+        ? `source:${entry.key}`
+        : `consumer:${entry.key}`
       : undefined;
-    const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
-    // Power and charge in one window: every part of the row opens it, the
-    // power the way out (DF-15, Markus: "Wir machen alle gleich"). Without
-    // the window each part opens what it shows (REQ L-15).
-    // Every row opens its window: a consumer's, a PV source's, the rest's -
-    // the last needs a measured house (DF-18, DF-19).
-    const detail: DetailNode | undefined = entry.isRest
-      ? config.sources.house.kind === "single"
-        ? "rest"
-        : undefined
-      : entry.entity
-        ? solar
-          ? `source:${entry.key}`
-          : `consumer:${entry.key}`
-        : undefined;
-    const socHit = (part: string) =>
-      charge
-        ? html`<button
-                  class="soc-hit ${part}"
-                  title=${title}
-                  aria-label=${`${rowLabel(entry, hass)}: ${title}`}
-                  @click=${(ev: Event) =>
-                    detail
-                      ? onEntry(entry.entity as string, ev, detail)
-                      : onEntry(charge.entity, ev)}
-                ></button>`
-        : nothing;
-    return html`
+  const open = (ev: Event) => onEntry(entry.entity ?? "", ev, detail);
+  const titles = (Object.entries(shown) as [IndicatorSlot, IndicatorReading][]).map(([slot, ind]) =>
+    indicatorTitle(ind, slot, hass, energy),
+  );
+  // One tap target, one tab stop: the row; its name says every value (L-20).
+  const label = [`${rowLabel(entry, hass)} ${power}`, ...titles].join(", ");
+  // The mark's tooltip: ring and fill, one per line. Not a button - a tap on
+  // it falls through to the row (REQ L-20).
+  const markTitle = [
+    ring && indicatorTitle(ring, "ring", hass, energy),
+    fill && indicatorTitle(fill, "fill", hass, energy),
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const fraction = fill ? (fractionOf(fill) ?? 0) : 0;
+  const swatch =
+    ring || fill
+      ? html`<span
+          class="swatch ${entry.icon ? "icon" : "dot"} ${fill ? "filled" : ""} ${fill?.stale ? "stale" : ""}"
+          style="color:${entry.color};--el-fill:${(fraction * 100).toFixed(1)}%"
+          title=${markTitle}
+          @click=${open}
+          >${ring ? ringOf(ring, entry.color) : nothing}${
+            entry.icon ? html`<ha-icon .icon=${entry.icon}></ha-icon>` : nothing
+          }</span
+        >`
+      : entry.icon
+        ? html`<ha-icon class="swatch icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
+        : html`<span class="swatch dot" style="color:${entry.color}"></span>`;
+  const bar = (ind: IndicatorReading | undefined, slot: "bar_top" | "bar_bottom") =>
+    ind
+      ? html`<span
+          class="bar ${slot === "bar_top" ? "top" : "bottom"} ${ind.stale ? "stale" : ""}"
+          style="--bar-color:${ind.color ?? entry.color};--bar-fill:${((fractionOf(ind) ?? 0) * 100).toFixed(1)}%"
+          title=${indicatorTitle(ind, slot, hass, energy)}
+          @click=${open}
+        ></span>`
+      : nothing;
+  return html`
             <div
-              class="row ${solar ? "pv" : ""} ${entry.isRest ? "rest" : ""} ${charge ? "charge" : ""} ${
-                charge?.stale ? "stale" : ""
-              } ${entry.highlight?.bold ? "bold" : ""} ${entry.highlight?.band ? "band" : ""}"
+              class="row ${solar ? "pv" : ""} ${entry.isRest ? "rest" : ""} ${
+                ring || fill ? "charge" : ""
+              } ${idle?.stale ? "stale" : ""} ${entry.highlight?.bold ? "bold" : ""} ${
+                entry.highlight?.band ? "band" : ""
+              }"
               style=${entry.highlight?.band ? `--el-row-color:${entry.color}` : ""}
               data-key=${entry.key}
             >
@@ -260,38 +361,30 @@ function renderRow(
               ${
                 // The colour mark, directly in front of the name so the two read
                 // as one label - the fan line ends on it. A configured icon takes
-                // its place, in the same colour (REQ L-2, L-13). With a state of
-                // charge it carries the ring and its own tap target (L-15).
-                charge
-                  ? html`<span class="swatch ${entry.icon ? "icon" : "dot"}" style="color:${entry.color}"
-                      >${chargeRing(charge.soc)}${
-                        entry.icon ? html`<ha-icon .icon=${entry.icon}></ha-icon>` : nothing
-                      }${socHit("mark")}</span
-                    >`
-                  : entry.icon
-                    ? html`<ha-icon class="swatch icon" .icon=${entry.icon} style="color:${entry.color}"></ha-icon>`
-                    : html`<span class="swatch dot" style="color:${entry.color}"></span>`
+                // its place, in the same colour (REQ L-2, L-13). Ring and fill
+                // live on it (L-15, L-20).
+                swatch
               }
               <span class="name">${rowLabel(entry, hass)}</span>
-              <span class="row-value ${percent ? "soc" : ""} ${markClass}" title=${mark?.note ?? ""}
-                >${value}${percent ? socHit("value") : nothing}</span
+              <span
+                class="row-value ${idle ? "soc" : ""} ${markClass}"
+                title=${mark?.note ?? ""}
+                style=${idle && idleSlot && idleSlot !== "fill" && idle.color ? `color:${idle.color}` : ""}
+                >${value}</span
               >
               ${
                 entry.entity || detail
                   ? html`<button
                     class="row-hit"
                     title=${mark?.note ?? ""}
-                    aria-label=${`${rowLabel(entry, hass)} ${
-                      // The row opens the power, so it names the power.
-                      entry.powerUnknown ? "—" : formatPower(entry.w, hass, config.power)
-                    }`}
-                    @click=${(ev: Event) => onEntry(entry.entity ?? "", ev, detail)}
+                    aria-label=${label}
+                    @click=${open}
                   ></button>`
                   : nothing
               }
+              ${bar(barTop, "bar_top")}${bar(barBottom, "bar_bottom")}
             </div>
           `;
-  }
 }
 
 /**

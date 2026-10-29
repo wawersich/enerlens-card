@@ -65,10 +65,12 @@ function changed(before: object, after: object): string[] {
 
 /**
  * Fields that by design write nothing until another field of their form is
- * set: a consumer's state of charge needs its entity first (E-4).
+ * set: an extra value of a consumer needs its entity first (E-4, L-20).
  */
 const NEEDS: Record<string, string> = {
-  label: "soc",
+  label: "entity",
+  min: "entity",
+  max: "entity",
 };
 
 /** Fields whose change rebuilds the form around them: tested on their own. */

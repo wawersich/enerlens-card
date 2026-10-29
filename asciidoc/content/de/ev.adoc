@@ -29,13 +29,15 @@ consumers:
       entity: binary_sensor.auto_ladekabel
       operator: "="
       value: "on"
-    charge:
-      soc: sensor.auto_ladestand             # das Auto, in %
+    indicators:
+      ring:
+        entity: sensor.auto_ladestand        # das Auto, in %
+      idle_value: ring                       # ohne Leistung den Ladestand zeigen
 ----
 
 Im Editor klappt der Verbraucher auf; unter *Darstellung* stehen *Position in
-der Liste*, *In der Liste zeigen* mit der Bedingung und unter *Ladestand* die
-*Ladestand-Entität (%)*:
+der Liste*, *In der Liste zeigen* mit der Bedingung und unter *Zusatzanzeigen*
+der *Ring* mit der Entität des Ladestands:
 
 [.only-light]
 image::editor-ev-de-light.png["Wallbox mit dem Ladestand des Autos",490]
@@ -44,57 +46,20 @@ image::editor-ev-de-light.png["Wallbox mit dem Ladestand des Autos",490]
 image::editor-ev-de-dark.png["Wallbox mit dem Ladestand des Autos",490]
 
 Ein dünner Ring um das Icon zeigt den Ladestand. Lädt das Auto, zeigt die
-Zeile die Leistung, sonst stattdessen den Ladestand – die Zeile braucht also
-keinen zusätzlichen Platz. Mit der Bedingung bleibt die Zeile in der Liste,
+Zeile die Leistung, sonst stattdessen den Ladestand (`idle_value: ring`) – die
+Zeile braucht also keinen zusätzlichen Platz. Mit der Bedingung bleibt die Zeile in der Liste,
 solange das Auto angesteckt ist, auch voll und bei 0 W; mehr dazu unter
-<<halten>>. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
+link:consumers.html[Zusatzwerte an den Verbrauchern]. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
 schauen: `operator: "!="` mit `value: ++[++available, none++]++` heißt „angesteckt,
 außer bei diesen Zuständen". Schläft das Auto und ist sein Sensor
 nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
 über dem Icon steht der Wert; ein Tipp auf die Zeile öffnet ein Fenster mit
-der Leistung und darunter dem Ladestand (siehe link:energy.html#detail[Energie]); im Editor
-steht es beim Verbraucher unter _Ladestand_. Das geht nicht nur mit Autos –
-eine Powerstation funktioniert genauso, ein 3D-Drucker mit seinem
-Druckfortschritt auch. Dann passt „Ladestand“ nicht: Unter _Bezeichnung_ (in
-YAML `charge.label`) steht stattdessen etwa „Druckfortschritt“ – im Tooltip und
-im Detailfenster.
+der Leistung und darunter dem Ladestand (siehe link:energy.html#detail[Energie]).
+Das geht nicht nur mit Autos – eine Powerstation funktioniert genauso, ein
+3D-Drucker mit seinem Druckfortschritt auch. Dann passt „Ladestand“ nicht: Unter
+_Bezeichnung_ (in YAML `label`) steht stattdessen etwa „Druckfortschritt“ – im
+Tooltip und im Detailfenster.
 
-[[halten]]
-== Anpinnen, halten, hervorheben
-
-Das gilt für jeden Verbraucher, nicht nur für die Wallbox.
-
-*Position* (`position`): `top` oder `bottom` stellt die Zeile fest oben oder
-unten in die Liste; mehrere stehen in der Reihenfolge der Konfiguration, im
-Editor per Ziehen sortiert. Ohne Angabe sortiert sich die Zeile nach Leistung.
-Die Position entscheidet nur über den Platz, nicht darüber, ob die Zeile
-erscheint.
-
-*In der Liste zeigen* (`show`): Ab seiner Mindestleistung steht ein Verbraucher
-ohnehin in der Liste. `always` hält ihn zusätzlich immer dort, `condition` nur,
-solange die Bedingung erfüllt ist – auch bei 0 W. Keine Einstellung blendet
-einen Verbraucher aus, der Leistung zieht.
-
-*Bedingung* (`condition`): ein Sensor, ein Operator und ein Wert. `"="` und
-`"!="` nehmen einen oder mehrere Zustände („ist einer davon" / „ist keiner
-davon"), `">"`, `"<"`, `">="` und `"<="` genau eine Zahl, etwa
-`sensor.batterie_spannung` `">"` `10.5`. Die Operatoren stehen in YAML in
-Anführungszeichen. Ist der Sensor kurz nicht verfügbar, gilt seine letzte
-Antwort. Wer mehr braucht – einen Bereich, ein Attribut, zwei Bedingungen –,
-baut sich einen Helfer in Home Assistant und nimmt ihn als Sensor.
-
-*Höchstzahl* (`max_consumers`): Gehaltene Zeilen zählen mit und bekommen ihre
-Plätze zuerst, die übrigen füllen die stärksten Verbraucher. Halten mehr Zeilen,
-als die Höchstzahl erlaubt, erscheinen trotzdem alle gehaltenen – der Editor
-sagt dann, dass andere Verbraucher nicht mehr erscheinen.
-
-*Hervorheben* (`highlight`): `bold: true` setzt Name und Wert fett,
-`band: true` hinterlegt die Zeile leicht in der Farbe des Verbrauchers; beides
-geht einzeln oder zusammen und braucht keinen zusätzlichen Platz.
-
-Im Energie-Modus gelten Position und `always` genauso; eine Bedingung beschreibt
-den Zustand jetzt und wird dort nicht ausgewertet.
-
-*Ältere Schreibweise:* `charge.show` mit `plugged` und `unplugged` funktioniert
-weiter und bedeutet dasselbe wie `show` und `condition`. Ändert man den
-Verbraucher im Editor, schreibt er ihn in der neuen Form.
+Ring, Balken, Füllung, Anpinnen und Hervorheben gibt es für jeden Verbraucher,
+nicht nur für die Wallbox: siehe link:consumers.html[Zusatzwerte an den
+Verbrauchern].

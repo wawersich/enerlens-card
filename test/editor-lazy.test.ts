@@ -173,7 +173,7 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
     const [inner] = forms(consumer(el, 0));
     // The charge sits in the group "Display" since 29.10.2026 (REQ E-4).
     const display = inner.schema.find((f) => f.name === "display");
-    expect(display?.schema?.map((f) => f.name)).toContain("charge");
+    expect(display?.schema?.map((f) => f.name)).toContain("indicators");
     expect(forms(consumer(el, 1))).toHaveLength(0);
     await toggle(el, consumer(el, 0), false);
     expect(forms(consumer(el, 0))[0]).toBe(inner);

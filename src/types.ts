@@ -196,6 +196,8 @@ export interface ConsumerConfig {
   icon?: string;
   /** A state of charge that belongs to this consumer - an EV at its wallbox (REQ L-15). */
   charge?: ChargeConfig;
+  /** Ring, bars and fill with values of their own (REQ L-20); `charge` is its old spelling. */
+  indicators?: IndicatorsConfig;
   /** Fixed at the top or bottom of the list; unset = by power (REQ L-18). */
   position?: ConsumerPosition;
   /** Kept in the list regardless of power; unset = by power (REQ L-18). */
@@ -230,6 +232,33 @@ export interface ChargeConfig {
   unplugged?: string[];
   /** What the value is called instead of "State of charge" (issue #31). */
   label?: string;
+}
+
+/** The four places an extra value of a consumer can take in its row (REQ L-20). */
+export type IndicatorSlot = "ring" | "bar_top" | "bar_bottom" | "fill";
+
+export const INDICATOR_SLOTS: readonly IndicatorSlot[] = ["ring", "bar_top", "bar_bottom", "fill"];
+
+/** One extra value as written in YAML (REQ L-20). */
+export interface IndicatorConfig {
+  entity?: string;
+  min?: number;
+  max?: number;
+  label?: string;
+  /** Ring and bars only; the fill keeps the consumer's colour. */
+  color?: string;
+}
+
+/** The extra values of a consumer (REQ L-20). */
+export interface IndicatorsConfig {
+  ring?: IndicatorConfig;
+  bar_top?: IndicatorConfig;
+  bar_bottom?: IndicatorConfig;
+  fill?: IndicatorConfig;
+  /** What the value column shows while the consumer draws nothing. */
+  idle_value?: "power" | IndicatorSlot;
+  /** Shown in the energy mode too, with the value of now. */
+  in_energy?: boolean;
 }
 
 export interface SocStop {
@@ -414,7 +443,7 @@ export interface NormalizedConsumer {
   /** Own threshold in W, undefined = the global `min_consumer_w` (REQ L-3). */
   minW?: number;
   icon?: string;
-  charge?: NormalizedCharge;
+  indicators?: NormalizedIndicators;
   position?: ConsumerPosition;
   hold?: NormalizedHold;
   highlight?: Highlight;
@@ -441,22 +470,45 @@ export type NormalizedHold =
       invalid?: true;
     };
 
-/** The state of charge of a consumer (REQ L-15); its old `show` became a hold (L-18). */
-export interface NormalizedCharge {
-  soc: string;
-  /** What the value is called instead of "State of charge" (issue #31). */
+/** One extra value of a consumer (REQ L-20). */
+export interface NormalizedIndicator {
+  entity: string;
+  min: number;
+  max: number;
   label?: string;
+  color?: string;
+  /** Read from the old `charge`: shown in whole percent as it always was. */
+  percent?: true;
+}
+
+export interface NormalizedIndicators {
+  slots: Partial<Record<IndicatorSlot, NormalizedIndicator>>;
+  idleValue: "power" | IndicatorSlot;
+  inEnergy: boolean;
 }
 
 /**
- * What the card knows about a consumer's state of charge right now (REQ L-15).
- * `soc` is undefined when no value was ever seen; `stale` marks the last known
- * one, kept while the sensor is unavailable, with the time it was measured.
+ * What the card knows about an extra value right now (REQ L-15, L-20).
+ * `value` is undefined when no number was ever seen; `stale` marks the last
+ * known one, kept while the sensor is unavailable, with the time it was
+ * measured.
  */
-export interface ChargeState {
-  soc?: number;
+export interface IndicatorState {
+  value?: number;
   stale: boolean;
   since?: number;
+  /** The unit it was measured in - an unavailable sensor often drops it. */
+  unit?: string;
+}
+
+/** An extra value with what is known of it now. */
+export type IndicatorReading = NormalizedIndicator & IndicatorState;
+
+/** The extra values of a row, read (REQ L-20). */
+export interface RowIndicators {
+  slots: Partial<Record<IndicatorSlot, IndicatorReading>>;
+  idleValue: "power" | IndicatorSlot;
+  inEnergy: boolean;
 }
 
 export interface Config {
@@ -720,7 +772,7 @@ export interface ConsumerReading {
   minW?: number;
   icon?: string;
   reading: Reading;
-  charge?: ChargeState & { entity: string; label?: string };
+  indicators?: RowIndicators;
   /** Kept in the list whatever it draws: `show: always` or a condition met (REQ L-18). */
   held?: boolean;
   position?: ConsumerPosition;
@@ -780,8 +832,14 @@ export interface ListEntry {
    */
   threshold: number;
   isRest: boolean;
-  /** State of charge shown with the row (REQ L-15). */
-  charge?: { entity: string; soc?: number; stale: boolean; since?: number; label?: string };
+  /** Ring, bars and fill of the row (REQ L-15, L-20). */
+  indicators?: RowIndicators;
+  /**
+   * The value column shows the extra value `indicators.idleValue` names
+   * instead of the power - decided on the tick, so it does not flip between
+   * W and °C while the power hovers at the threshold (REQ L-20).
+   */
+  idle?: boolean;
   /**
    * False for a row kept by its charge while its power is unavailable: `w` is
    * then 0 for sorting and the rest, but no figure may be shown for it (rule 8).

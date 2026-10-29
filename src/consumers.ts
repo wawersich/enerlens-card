@@ -51,6 +51,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
         isRest: false,
         powerUnknown: true,
         highlight: consumer.highlight,
+        indicators: consumer.indicators,
       });
       continue;
     }
@@ -68,7 +69,8 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
       icon: consumer.icon,
       threshold,
       isRest: false,
-      charge: chargeOfEntry(consumer),
+      indicators: consumer.indicators,
+      idle: idleOf(consumer, w, threshold, config) || undefined,
       powerUnknown: consumer.reading.available ? undefined : true,
       highlight: consumer.highlight,
     };
@@ -124,17 +126,16 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   return top.sort(byConfig).concat(sortDescending(sorted), bottom.sort(byConfig), loose);
 }
 
-/** What the row shows of a consumer's state of charge (REQ L-15). */
-function chargeOfEntry(consumer: ConsumerReading): ListEntry["charge"] {
-  const charge = consumer.charge;
-  if (!charge) return undefined;
-  return {
-    entity: charge.entity,
-    soc: charge.soc,
-    stale: charge.stale,
-    since: charge.since,
-    label: charge.label,
-  };
+/**
+ * Whether the value column shows an extra value instead of the power
+ * (REQ L-20): below the row's own threshold - the one that says "it runs" -
+ * or with the power unavailable, and never for a period, which shows energy
+ * (EM-5). Decided on the tick and kept until the next one (L-7).
+ */
+function idleOf(consumer: ConsumerReading, w: number, threshold: number, config: Config): boolean {
+  const indicators = consumer.indicators;
+  if (!indicators || indicators.idleValue === "power" || config.energy) return false;
+  return !consumer.reading.available || w < threshold;
 }
 
 /**
@@ -214,10 +215,10 @@ export function refreshBreakdownValues(
   config: Config,
 ): Breakdown {
   const live = new Map<string, number>();
-  const charges = new Map<string, ListEntry["charge"]>();
+  const extras = new Map<string, ListEntry["indicators"]>();
   for (const consumer of model.consumers) {
     if (consumer.reading.available) live.set(consumer.key, consumer.reading.w);
-    if (consumer.charge) charges.set(consumer.key, chargeOfEntry(consumer));
+    if (consumer.indicators) extras.set(consumer.key, consumer.indicators);
   }
 
   const entries = breakdown.entries.map((entry) =>
@@ -227,7 +228,8 @@ export function refreshBreakdownValues(
           ...entry,
           w: live.get(entry.key) ?? (entry.powerUnknown ? 0 : entry.w),
           powerUnknown: live.has(entry.key) ? undefined : entry.powerUnknown,
-          charge: charges.has(entry.key) ? charges.get(entry.key) : entry.charge,
+          // Values live; whether the column shows one stays with the tick (L-20).
+          indicators: extras.has(entry.key) ? extras.get(entry.key) : entry.indicators,
         },
   );
 

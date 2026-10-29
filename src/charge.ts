@@ -1,5 +1,6 @@
 /**
- * A consumer's state of charge - typically an EV at its wallbox (REQ L-15).
+ * The extra values of a consumer - ring, bars, fill (REQ L-20); first and
+ * typically an EV's state of charge at its wallbox (REQ L-15).
  *
  * The wallbox measures the power, the car reports its charge through an
  * integration of its own; nothing in Home Assistant links the two, so the
@@ -8,18 +9,34 @@
  * reading is still a measurement - shown grey, never made up). Whether the car
  * is plugged in became a condition of its own (REQ L-18, hold.ts).
  */
-import type { ChargeState, HomeAssistant, NormalizedCharge, NormalizedConsumer } from "./types";
+import type { HomeAssistant, IndicatorState, NormalizedConsumer } from "./types";
 
-/** A state of charge in percent, or undefined when the state is no number. */
-export function socValue(state: string | undefined): number | undefined {
+/**
+ * The number a state stands for, or undefined when it is none - an enum
+ * state, unavailable, empty. Never limited: the measurement is shown as it
+ * is (rule 8); only the drawing is limited to its scale.
+ */
+export function indicatorValue(state: string | undefined): number | undefined {
   if (state === undefined || state.trim() === "") return undefined;
   const value = Number(state);
-  return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : undefined;
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/** The extra-value entities of the consumers, each once. */
+function entitiesOf(consumers: readonly NormalizedConsumer[]): string[] {
+  const ids = new Set<string>();
+  for (const consumer of consumers) {
+    for (const indicator of Object.values(consumer.indicators?.slots ?? {})) {
+      ids.add(indicator.entity);
+    }
+  }
+  return [...ids];
 }
 
 interface Known {
   value: number;
   t: number;
+  unit?: string;
 }
 
 export class ChargeTracker {
@@ -30,37 +47,43 @@ export class ChargeTracker {
 
   /** Folds the live states into what the tracker remembers. */
   observe(hass: HomeAssistant, consumers: readonly NormalizedConsumer[]): void {
-    for (const consumer of consumers) {
-      const charge = consumer.charge;
-      if (!charge) continue;
-      const stateObj = hass.states[charge.soc];
-      const value = socValue(stateObj?.state);
+    for (const entity of entitiesOf(consumers)) {
+      const stateObj = hass.states[entity];
+      const value = indicatorValue(stateObj?.state);
       if (value !== undefined) {
         // When it was last reported, not when it last changed: a car that
         // says 80 % again and again is up to date (REQ L-15).
         const t = Date.parse(stateObj?.last_updated || stateObj?.last_changed || "");
-        this.known.set(charge.soc, { value, t: Number.isFinite(t) ? t : Date.now() });
+        const unit = stateObj?.attributes?.unit_of_measurement;
+        this.known.set(entity, {
+          value,
+          t: Number.isFinite(t) ? t : Date.now(),
+          unit: typeof unit === "string" ? unit : undefined,
+        });
       }
     }
   }
 
-  state(hass: HomeAssistant, charge: NormalizedCharge): ChargeState {
-    const live = socValue(hass.states[charge.soc]?.state);
-    if (live !== undefined) return { soc: live, stale: false };
-    const known = this.known.get(charge.soc);
-    if (known) return { soc: known.value, stale: true, since: known.t };
+  state(hass: HomeAssistant, entity: string): IndicatorState {
+    const stateObj = hass.states[entity];
+    const live = indicatorValue(stateObj?.state);
+    const unit = stateObj?.attributes?.unit_of_measurement;
+    if (live !== undefined) {
+      return { value: live, stale: false, unit: typeof unit === "string" ? unit : undefined };
+    }
+    const known = this.known.get(entity);
+    if (known) return { value: known.value, stale: true, since: known.t, unit: known.unit };
     return { stale: false };
   }
 
-  /** State-of-charge entities with no value now and none remembered, not yet asked for. */
+  /** Extra-value entities with no value now and none remembered, not yet asked for. */
   missing(hass: HomeAssistant, consumers: readonly NormalizedConsumer[]): string[] {
-    const out: string[] = [];
-    for (const consumer of consumers) {
-      const soc = consumer.charge?.soc;
-      if (!soc || out.includes(soc) || this.asked.has(soc) || this.known.has(soc)) continue;
-      if (socValue(hass.states[soc]?.state) === undefined) out.push(soc);
-    }
-    return out;
+    return entitiesOf(consumers).filter(
+      (id) =>
+        !this.asked.has(id) &&
+        !this.known.has(id) &&
+        indicatorValue(hass.states[id]?.state) === undefined,
+    );
   }
 
   /**
@@ -102,7 +125,7 @@ export class ChargeTracker {
       if (!Array.isArray(points)) continue;
       let best: Known | undefined;
       for (const point of points as Array<{ s?: unknown; lu?: unknown; lc?: unknown }>) {
-        const value = typeof point.s === "string" ? socValue(point.s) : undefined;
+        const value = typeof point.s === "string" ? indicatorValue(point.s) : undefined;
         const raw = typeof point.lc === "number" ? point.lc : point.lu;
         if (value === undefined || typeof raw !== "number") continue;
         const t = raw * 1000;

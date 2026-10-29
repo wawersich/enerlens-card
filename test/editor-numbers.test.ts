@@ -57,7 +57,9 @@ function numberFields(el: Editor): { name: string; min?: number; max?: number }[
   const walk = (fields: Field[]) => {
     for (const f of fields) {
       if (f.schema) walk(f.schema);
-      else if (f.name && f.selector?.number) {
+      // min and max of an extra value sit two levels down in a consumer's
+      // form; they have a test of their own below (REQ L-20).
+      else if (f.name && f.selector?.number && !["min", "max"].includes(f.name)) {
         out.set(f.name, { name: f.name, min: f.selector.number.min, max: f.selector.number.max });
       }
     }
@@ -114,6 +116,42 @@ describe("every number field, whatever is typed (E-1 checklist)", () => {
 
   // Every number field of the form, several values each: about 3 s alone,
   // past the default 5 s while the other files run alongside (25.10.2026).
+  it("never refuses min and max of an extra value, a reversed scale included (REQ L-20)", async () => {
+    const config = {
+      ...BASE,
+      consumers: [{ entity: "sensor.pump", indicators: { bar_top: { entity: "sensor.ww" } } }],
+    } as RawConfig;
+    const el = await mount(config);
+    const form = forms(el).find((f) =>
+      JSON.stringify(f.schema).includes('"name":"bar_top"'),
+    ) as Form;
+    for (const [min, max] of [
+      [40, 60],
+      [40, 6],
+      [40, 40],
+      [-1, 1e9],
+      [0.5, 1.5],
+    ]) {
+      let saved: RawConfig | undefined;
+      const listen = (ev: Event) => {
+        saved = (ev as CustomEvent<{ config: RawConfig }>).detail.config;
+      };
+      el.addEventListener("config-changed", listen);
+      const data = form.data as Record<string, unknown>;
+      form.dispatchEvent(
+        new CustomEvent("value-changed", {
+          detail: {
+            value: { ...data, indicators: { bar_top: { entity: "sensor.ww", min, max } } },
+          },
+        }),
+      );
+      el.removeEventListener("config-changed", listen);
+      expect(saved, `${min}..${max}`).toBeTruthy();
+      expect(() => normalizeConfig(saved as RawConfig), `${min}..${max}`).not.toThrow();
+      expect(saved?.consumers?.[0].indicators?.bar_top).toEqual({ entity: "sensor.ww", min, max });
+    }
+  });
+
   it("never brings the card to refuse its configuration", { timeout: 60000 }, async () => {
     const el = await mount(BASE);
     for (const field of numberFields(el)) {

@@ -193,7 +193,7 @@ describe("the old charge.show maps onto show and condition (REQ L-18)", () => {
       charge: { soc: "sensor.soc", show: "sometimes", unplugged: [1] },
     });
     expect(c.hold).toEqual({ kind: "always" });
-    expect(c.charge).toEqual({ soc: "sensor.soc", label: undefined });
+    expect(c.indicators?.slots.ring).toMatchObject({ entity: "sensor.soc", min: 0, max: 100 });
   });
 
   it("lets the new form win over the old one, with a warning", () => {

@@ -50,6 +50,7 @@ import type {
   SocStop,
   SolarSourceConfig,
 } from "./types";
+import { INDICATOR_SLOTS } from "./types";
 
 /** Power sensors, plus anything measured in W or kW - many template sensors
  *  carry no device_class and would otherwise be unpickable (REQ E-3). */
@@ -159,12 +160,25 @@ export function consumerView(entry: Record<string, unknown>): Record<string, unk
       ? { ...entry, condition: { ...own, value: conditionStates(own.value) } }
       : entry;
   const charge = isRecord(row.charge) ? row.charge : undefined;
-  if (!charge || !("show" in charge || "plugged" in charge || "unplugged" in charge)) return row;
-  const { show, plugged, unplugged, ...rest } = charge;
-  const view: Record<string, unknown> = { ...row, charge: rest };
-  // The new form wins where both are written (REQ L-18); a charge without soc
-  // was always dropped whole, its show with it.
-  if (nonEmpty(row.show) || !nonEmpty(charge.soc)) return view;
+  // A charge without soc was always dropped whole by the card, its show with
+  // it; the form has no place for it and leaves it as written.
+  if (!charge || !nonEmpty(charge.soc)) return row;
+  const { show, plugged, unplugged, soc, label, ...rest } = charge;
+  // Without the old key: the form has no field for it (E-1, roundtrip B).
+  const { charge: _old, ...base } = row;
+  const view: Record<string, unknown> = { ...base };
+  // The old charge is a ring with 0-100 % in the value column and the energy
+  // mode (REQ L-20); indicators win where both are written.
+  if (!isRecord(row.indicators)) {
+    view.indicators = {
+      ...rest,
+      ring: prune({ entity: soc, label: nonEmpty(label) ? label : undefined }),
+      idle_value: "ring",
+      in_energy: true,
+    };
+  }
+  // The new form wins where both are written (REQ L-18).
+  if (nonEmpty(row.show)) return view;
   if (show === "always") view.show = "always";
   else if (show === "plugged" && nonEmpty(plugged)) {
     const off = isOnOff(plugged) ? [] : (states(unplugged) ?? []);
@@ -175,6 +189,18 @@ export function consumerView(entry: Record<string, unknown>): Record<string, unk
         : { entity: plugged, operator: "=", value: ["on"] };
   }
   return view;
+}
+
+/**
+ * What the consumer's form is handed: the consumer in the new form, its
+ * highlight as ticks - { bold, band } -> ["bold", "band"] (L-19).
+ */
+function formView(row: Record<string, unknown>): Record<string, unknown> {
+  const view = consumerView(row);
+  const ticks = view.highlight;
+  return isRecord(ticks)
+    ? { ...view, highlight: HIGHLIGHTS.filter((k) => ticks[k] === true) }
+    : view;
 }
 
 /**
@@ -246,14 +272,22 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
       name: "condition",
       type: "grid",
       schema: [
-        { name: "entity", labelKey: "condition_entity", selector: { entity: {} } },
+        // No label: HA's entity picker puts one above the field, which would
+        // push it below the operator beside it (Markus 29.10.2026); its
+        // placeholder already says what goes in.
+        { name: "entity", labelKey: "", selector: { entity: {} } },
         {
           name: "operator",
           labelKey: "condition_operator",
           selector: {
             select: {
               mode: "dropdown",
-              options: OPERATOR_LABELS.map(([value, label]) => ({ value, label })),
+              // The sign alone is small in HA's select; the words make it
+              // readable at a glance (Markus 29.10.2026).
+              options: OPERATOR_LABELS.map(([value, sign], i) => ({
+                value,
+                label: `${sign}  ${t(`operator_${i}`)}`,
+              })),
             },
           },
         },
@@ -261,23 +295,84 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
       ],
     });
   }
-  // Two switches, each on its own (REQ L-19).
+  // Two ticks, each on its own (REQ L-19). Checkboxes with their text right
+  // beside them: switches put the text far left and the switch far right, and
+  // two of them took a lot of room (Markus 29.10.2026).
   display.push({
     name: "highlight",
-    type: "grid",
-    schema: [
-      { name: "bold", labelKey: "highlight_bold", selector: { boolean: {} } },
-      { name: "band", labelKey: "highlight_band", selector: { boolean: {} } },
-    ],
+    labelKey: "highlight",
+    selector: {
+      select: {
+        multiple: true,
+        mode: "list",
+        options: [
+          { value: "bold", label: t("highlight_bold") },
+          { value: "band", label: t("highlight_band") },
+        ],
+      },
+    },
+  });
+  // Ring, bars and fill, each with a value of its own (REQ L-20); the old
+  // state of charge is the ring.
+  const indicators = isRecord(entry.indicators) ? entry.indicators : {};
+  const configured = INDICATOR_SLOTS.filter((slot) => {
+    const one = indicators[slot];
+    return isRecord(one) && nonEmpty(one.entity);
   });
   display.push({
-    name: "charge",
+    name: "indicators",
     type: "expandable",
-    title: t("charge"),
+    title: t("indicators"),
+    expanded: configured.length > 0,
     schema: [
-      { name: "soc", selector: { entity: { filter: BATTERY_FILTER } } },
-      // Its own name, e.g. a printer's progress (issue #31).
-      { name: "label", selector: { text: {} } },
+      ...INDICATOR_SLOTS.map((slot) => ({
+        name: slot,
+        type: "expandable",
+        title: t(`indicator_${slot}`),
+        // Open where something is set, closed where nothing is (Markus
+        // 29.10.2026); a place opened by hand stays open.
+        expanded: configured.includes(slot),
+        schema: [
+          { name: "entity", labelKey: "indicator_entity", selector: { entity: {} } },
+          // Its own name, e.g. a printer's progress (issue #31).
+          {
+            name: "label",
+            labelKey: `indicator_label_${slot === "ring" ? "ring" : "other"}`,
+            selector: { text: {} },
+          },
+          {
+            name: "",
+            type: "grid",
+            schema: [
+              {
+                name: "min",
+                labelKey: "indicator_min",
+                selector: { number: { mode: "box", step: "any" } },
+              },
+              {
+                name: "max",
+                labelKey: "indicator_max",
+                selector: { number: { mode: "box", step: "any" } },
+              },
+            ],
+          },
+        ],
+      })),
+      {
+        name: "idle_value",
+        labelKey: "idle_value",
+        selector: {
+          select: {
+            mode: "dropdown",
+            // Only what is there to show (L-20).
+            options: [
+              { value: "", label: t("idle_power") },
+              ...configured.map((slot) => ({ value: slot, label: t(`indicator_${slot}`) })),
+            ],
+          },
+        },
+      },
+      { name: "in_energy", labelKey: "in_energy", selector: { boolean: {} } },
     ],
   });
   return [
@@ -296,6 +391,40 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
     },
   ];
 }
+
+/**
+ * The extra values as the YAML should hold them (REQ L-20): a slot only once it
+ * has an entity - the form keeps a half-filled one - min and max only as
+ * numbers, the colour of ring and bars, idle_value only for a slot that is
+ * there, in_energy only when on.
+ */
+function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  const out: Record<string, unknown> = {
+    ...unknownKeys(value, [...INDICATOR_SLOTS, "idle_value", "in_energy"]),
+  };
+  for (const slot of INDICATOR_SLOTS) {
+    const one = value[slot];
+    if (!isRecord(one) || !nonEmpty(one.entity)) continue;
+    const number = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+    out[slot] = prune({
+      ...unknownKeys(one, ["entity", "label", "min", "max", "color"]),
+      entity: one.entity,
+      label: nonEmpty(one.label) ? one.label : undefined,
+      min: number(one.min),
+      max: number(one.max),
+      color: slot !== "fill" && nonEmpty(one.color) ? one.color : undefined,
+    });
+  }
+  const idle = value.idle_value;
+  if (typeof idle === "string" && idle !== "power" && out[idle] !== undefined)
+    out.idle_value = idle;
+  if (value.in_energy === true) out.in_energy = true;
+  const hasSlot = INDICATOR_SLOTS.some((slot) => out[slot] !== undefined);
+  return hasSlot ? prune(out) : undefined;
+}
+
+const HIGHLIGHTS = ["bold", "band"] as const;
 
 /** Only the switches that are on; none on, no highlight in the YAML (REQ L-19). */
 function cleanHighlight(value: unknown): Record<string, unknown> | undefined {
@@ -748,10 +877,37 @@ function toFlat(config: RawConfig): FlatConfig {
 
 const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim() !== "";
 
+/** The card's refusal of a configuration, or undefined when it takes it. */
+function refuses(config: RawConfig, hass?: HomeAssistant): unknown {
+  try {
+    normalizeConfig(config, hass, []);
+    return undefined;
+  } catch (error) {
+    return error;
+  }
+}
+
+/**
+ * The first quantity whose chosen source is not filled in yet - said in the
+ * user's words ("PV: not complete yet") rather than the card's rule about
+ * three of four, which names the wrong cause (E-1, 29.10.2026).
+ */
+function incompleteOf(flat: FlatRecord, hass?: HomeAssistant): string | undefined {
+  for (const quantity of QUANTITIES) {
+    const source =
+      (flat[`${quantity}_source`] as Source | undefined) ?? sourceOf(quantity, undefined);
+    if (source !== "entity" && source !== "split" && source !== "sources") continue;
+    if (buildRef(quantity, flat) !== undefined) continue;
+    return localize("editor.incomplete", hass, { name: localize(`node.${quantity}`, hass) });
+  }
+  return undefined;
+}
+
 /**
  * The YAML entry for one quantity. Returns undefined while the chosen source
  * is not filled in yet - a half-configured split stays in the form state, not
- * in the config, so the preview reports "missing" rather than "mixed form".
+ * in the config. Where that leaves the card short of a quantity, _emit does
+ * not write at all and the editor names what is missing (E-1, 29.10.2026).
  */
 function buildRef(quantity: Quantity, flat: FlatRecord): EntityRef | undefined {
   const source =
@@ -822,6 +978,7 @@ function cleanConsumers(value: unknown): RawConfig["consumers"] {
       charge: cleanCharge(entry.charge),
       condition: cleanCondition(entry.show, entry.condition),
       highlight: cleanHighlight(entry.highlight),
+      indicators: cleanIndicators(entry.indicators),
     });
     const entity = cleaned?.entity;
     if (!cleaned || typeof entity !== "string" || seen.has(entity)) continue;
@@ -2053,6 +2210,7 @@ class EnerLensCardEditor extends LitElement {
     _openConsumers: { state: true },
     _builtSections: { state: true },
     _builtConsumers: { state: true },
+    _held: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -2062,6 +2220,14 @@ class EnerLensCardEditor extends LitElement {
   private _flat?: FlatConfig;
   /** What we last emitted, to tell our own echo from an outside edit. */
   private _emitted?: string;
+  /**
+   * Why the form's state is not written: the card would refuse it (E-1,
+   * 29.10.2026). The preview keeps the last valid card meanwhile.
+   */
+  private _held?: string;
+  /** Whether the configuration as it came in is one the card accepts. */
+  private _wasValid = true;
+  private _validFor?: RawConfig;
   /** Colour rows with their CSS field folded out. Every keystroke re-renders the
    *  list, so this cannot live in the DOM - it would fold shut mid-word. */
   private _openColors: ReadonlySet<string> = new Set();
@@ -2246,6 +2412,26 @@ class EnerLensCardEditor extends LitElement {
     if (!this._config) return;
     this._flat = flat;
     const config = fromFlat(flat, this._config);
+    // Never write what the card refuses (rule 7, E-1): a source chosen but
+    // not filled in yet stays in the form, the preview keeps the last valid
+    // card, and the editor says what is missing (29.10.2026, replacing the
+    // error card that used to say it).
+    // Only a step that turns a valid configuration into a refused one is
+    // held: YAML the card refuses already (typed by hand, issue #19) stays
+    // editable as it always was.
+    try {
+      if (this._config !== this._validFor) {
+        this._validFor = this._config;
+        this._wasValid = refuses(this._config, this.hass) === undefined;
+      }
+      if (this._wasValid) normalizeConfig(config, this.hass, []);
+      this._held = undefined;
+    } catch (error) {
+      this._held =
+        incompleteOf(flat as FlatRecord, this.hass) ??
+        (error instanceof Error ? error.message : String(error));
+      return;
+    }
     this._emitted = JSON.stringify(config);
     this.dispatchEvent(
       new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }),
@@ -2450,13 +2636,33 @@ class EnerLensCardEditor extends LitElement {
         const name =
           (typeof entry.name === "string" && entry.name.trim()) ||
           (typeof entry.entity === "string" ? entry.entity : `#${index + 1}`);
-        return this._colorRow({
+        const own = typeof entry.color === "string" ? entry.color : "";
+        const consumerColor = own || palette[index % palette.length];
+        // Ring and bars have a colour of their own, empty = the consumer's
+        // (REQ L-20); only for a slot that is there. The fill is the mark.
+        const view = consumerView(entry);
+        const extras = isRecord(view.indicators) ? view.indicators : {};
+        const slots = (["ring", "bar_top", "bar_bottom"] as const).filter((slot) => {
+          const one = extras[slot];
+          return isRecord(one) && nonEmpty(one.entity);
+        });
+        return html`${this._colorRow({
           id: `consumer:${index}`,
           label: name,
           name,
-          value: typeof entry.color === "string" ? entry.color : "",
-          preset: palette[index % palette.length],
-        });
+          value: own,
+          preset: consumerColor,
+        })}${slots.map((slot) => {
+          const one = extras[slot] as Record<string, unknown>;
+          const text = `${name} · ${localize(`editor.indicator_${slot}`, this.hass)}`;
+          return this._colorRow({
+            id: `indicator:${index}:${slot}`,
+            label: text,
+            name: text,
+            value: typeof one.color === "string" ? one.color : "",
+            preset: consumerColor,
+          });
+        })}`;
       })}
     `;
   }
@@ -2843,6 +3049,10 @@ class EnerLensCardEditor extends LitElement {
     else if (kind === "node") this._setColor(rest as ColorKey, value);
     else if (kind === "consumer") this._setConsumerColor(Number(rest), value);
     else if (kind === "stop") this._setStopColor(Number(rest), value);
+    else if (kind === "indicator") {
+      const [index, slot] = rest.split(":");
+      this._setIndicatorColor(Number(index), slot, value);
+    }
   }
 
   /** A colour that is a field of its own rather than one of the colour sets. */
@@ -2861,6 +3071,25 @@ class EnerLensCardEditor extends LitElement {
     // a colour, and the palette would stop being the fallback (REQ C-4).
     const { color: _previous, ...rest } = list[index] as Record<string, unknown>;
     list[index] = value.trim() === "" ? rest : { ...rest, color: value };
+    this._emit({ ...flat, consumers: list } as FlatConfig);
+  }
+
+  /**
+   * The colour of a ring or bar (REQ L-20). A consumer still in the old
+   * spelling is written in the new form with it - a change to this consumer.
+   */
+  private _setIndicatorColor(index: number, slot: string, value: string): void {
+    if (!this._flat) return;
+    const flat = this._flat as FlatRecord;
+    const list = Array.isArray(flat.consumers) ? [...(flat.consumers as unknown[])] : [];
+    if (!isRecord(list[index])) return;
+    const view = consumerView(list[index] as Record<string, unknown>);
+    const extras = isRecord(view.indicators) ? { ...view.indicators } : {};
+    const one = isRecord(extras[slot]) ? (extras[slot] as Record<string, unknown>) : undefined;
+    if (!one) return;
+    const { color: _previous, ...kept } = one;
+    extras[slot] = value.trim() === "" ? kept : { ...kept, color: value };
+    list[index] = prune({ ...view, indicators: extras });
     this._emit({ ...flat, consumers: list } as FlatConfig);
   }
 
@@ -3043,6 +3272,17 @@ class EnerLensCardEditor extends LitElement {
   }
 
   render(): TemplateResult | typeof nothing {
+    if (!this.hass || !this._config || !this._flat) return nothing;
+    return html`${
+      this._held
+        ? html`<p class="field-note held-note" role="alert">
+            ${localize("editor.held", this.hass, { message: this._held })}
+          </p>`
+        : nothing
+    }${this._renderBody()}`;
+  }
+
+  private _renderBody(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config || !this._flat) return nothing;
     // What the card would use instead of what is typed, said at the field -
     // worked out once per configuration, not on every state update.
@@ -3378,8 +3618,12 @@ class EnerLensCardEditor extends LitElement {
       (typeof friendly === "string" && friendly) ||
       entity ||
       t("consumer_new");
-    const charge = isRecord(row.charge) ? row.charge : undefined;
-    const hasCharge = nonEmpty(charge?.soc);
+    const view = consumerView(row);
+    const extras = isRecord(view.indicators) ? view.indicators : {};
+    const hasCharge = INDICATOR_SLOTS.some((slot) => {
+      const one = extras[slot];
+      return isRecord(one) && nonEmpty(one.entity);
+    });
     const palette = DEFAULT_CONSUMER_PALETTE;
     const colour =
       typeof row.color === "string" && row.color.trim() !== ""
@@ -3444,8 +3688,8 @@ class EnerLensCardEditor extends LitElement {
           </span>
           ${
             hasCharge
-              ? html`<span class="badge"><ha-icon icon="mdi:battery-charging-70"></ha-icon>${t(
-                  "charge",
+              ? html`<span class="badge"><ha-icon icon="mdi:gauge"></ha-icon>${t(
+                  "indicators",
                 )}</span>`
               : nothing
           }
@@ -3471,8 +3715,8 @@ class EnerLensCardEditor extends LitElement {
           this._builtConsumers.has(key)
             ? html`<ha-form
                 .hass=${this.hass}
-                .data=${consumerView(row)}
-                .schema=${consumerSchema(this.hass as HomeAssistant, consumerView(row))}
+                .data=${formView(row)}
+                .schema=${consumerSchema(this.hass as HomeAssistant, formView(row))}
                 .computeLabel=${this._consumerLabel}
                 .computeHelper=${this._consumerHelper}
                 @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
@@ -3487,6 +3731,7 @@ class EnerLensCardEditor extends LitElement {
   }
 
   private _consumerLabel = (item: { name: string; labelKey?: string }): string => {
+    if (item.labelKey === "") return "";
     if (item.labelKey) return localize(`editor.${item.labelKey}`, this.hass);
     const own = `editor.consumer_${item.name}`;
     const text = localize(own, this.hass);
@@ -3494,6 +3739,7 @@ class EnerLensCardEditor extends LitElement {
   };
 
   private _consumerHelper = (item: { name: string; labelKey?: string }): string => {
+    if (item.labelKey === "") return "";
     const key = `editor_help.${item.labelKey ?? `consumer_${item.name}`}`;
     const text = localize(key, this.hass);
     return text === key ? "" : text;
@@ -3501,8 +3747,24 @@ class EnerLensCardEditor extends LitElement {
 
   private _setConsumer(index: number, value: Record<string, unknown>): void {
     const rows = [...this._consumerRows()];
-    // A change to this consumer writes it in the new form (REQ L-18, E-4).
-    rows[index] = consumerView(value);
+    // A change to this consumer writes it in the new form (REQ L-18, E-4);
+    // the form handed back as it was shown changes nothing (E-1).
+    const before = rows[index];
+    const unchanged =
+      isRecord(before) && JSON.stringify(formView(before)) === JSON.stringify(value);
+    // Ticks back into { bold, band }, keys the form has no field for kept (#19).
+    const ticks = value.highlight;
+    const written = Array.isArray(ticks)
+      ? {
+          ...value,
+          highlight: {
+            ...unknownKeys(isRecord(before) ? before.highlight : undefined, [...HIGHLIGHTS]),
+            bold: ticks.includes("bold"),
+            band: ticks.includes("band"),
+          },
+        }
+      : value;
+    rows[index] = unchanged ? before : consumerView(written);
     this._writeConsumers(rows, [...this._consumerKeys]);
   }
 

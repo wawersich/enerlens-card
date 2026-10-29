@@ -111,8 +111,12 @@ describe("PV sources in the editor (PV-9)", () => {
 
   it("switching from one entity to several starts the list empty and writes nothing yet", async () => {
     const el = await mount({ entities: { solar: "sensor.pv", grid: "sensor.grid" } });
-    const saved = save(el, { solar_source: "sources", solar_sources: [{}] });
-    expect((saved.entities as Record<string, unknown>).solar).toBeUndefined();
+    // Nothing at all since 29.10.2026: without PV the card would refuse the
+    // configuration, so the list is held in the form until a row is filled (E-1).
+    expect(() => save(el, { solar_source: "sources", solar_sources: [{}] })).toThrow(
+      "no config-changed",
+    );
+    expect((el as unknown as Inner)._flat.solar_sources).toEqual([{}]);
   });
 });
 

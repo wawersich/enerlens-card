@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zusatzwerte an den Verbrauchern – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Suchen"></div>
+  <a class="lang" href="../en/consumers.html" hreflang="en">English</a>
+  <button class="theme" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Inhalt">
+  <button class="menu" type="button" aria-expanded="false">Inhalt: <b>Zusatzwerte an den Verbrauchern</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Einrichtung</a></li>
+<li><a href="derive.html">Fehlende Größen ableiten</a></li>
+<li><a href="balcony.html">Balkonkraftwerk und weitere PV</a></li>
+<li><a href="layout.html">Anordnungen</a></li>
+<li><a href="ev.html">Wallbox und E-Auto</a></li>
+<li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li class="current"><a href="consumers.html">Zusatzwerte an den Verbrauchern</a></li>
+<li><a href="quick.html">Quick-Buttons</a></li>
+<li><a href="energy.html">Energie für einen Zeitraum</a></li>
+<li><a href="outage.html">Netzausfall</a></li>
+<li><a href="animation.html">Animationen</a></li>
+<li><a href="look.html">Farben und Aussehen</a></li>
+<li><a href="options.html">Alle Optionen</a></li>
+<li><a href="languages.html">Sprachen</a></li>
+<li><a href="migrate.html">Umstieg von power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Zusatzwerte an den Verbrauchern</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Wie die Knoten kann jeder Verbraucher in der Liste mehr zeigen als seine
+Leistung: einen Ring um sein Icon, einen dünnen Balken oben oder unten in der
+Zeile, ein Icon, das sich füllt. Dazu lässt er sich fest oben oder unten
+anpinnen, immer oder unter einer Bedingung in der Liste halten und hervorheben.</p>
+</div>
+<div class="paragraph">
+<p>Zum Ansehen: Eine Runde dauert anderthalb Minuten. Die Wallbox ist oben
+angepinnt und hervorgehoben; lädt sie nicht, zeigt sie den Ladestand des Autos.
+Die Wärmepumpe läuft und ruht – im Ruhezustand steht statt der Leistung die
+Warmwasser-Temperatur da, ihre Balken zeigen Warmwasser und Vorlauf. Der
+Pufferspeicher füllt sich, der 3D-Drucker zeigt seinen Fortschritt, die
+Waschmaschine steht unten.</p>
+</div>
+<div class="card-demo" data-demo="consumers" data-yaml="off"></div>
+<div class="paragraph">
+<p><strong>Mit der Maus über ein Icon oder einen Balken fahren:</strong> Dann steht dort der Wert
+mit seiner Bezeichnung, etwa „Warmwasser 52 °C“ – auch hier in der Demo. Ein
+Tipp auf die Zeile öffnet in Home Assistant das Fenster mit dem Verlauf der
+Leistung und jedes Zusatzwerts.</p>
+</div>
+<div class="paragraph">
+<p>So sieht das in YAML aus:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">consumers:
+  - entity: sensor.wallbox_leistung
+    name: Wallbox
+    position: top                            # fest oben
+    show: always                             # immer in der Liste
+    highlight: { bold: true, band: true }
+    indicators:
+      ring: { entity: sensor.auto_ladestand }
+      idle_value: ring                       # ohne Leistung: der Ladestand
+  - entity: sensor.waermepumpe_leistung
+    name: Wärmepumpe
+    min_w: 40
+    show: always
+    indicators:
+      bar_top: { entity: sensor.warmwasser, min: 40, max: 60, label: Warmwasser }
+      bar_bottom:
+        entity: sensor.vorlauf
+        min: 20
+        max: 55
+        label: Vorlauf
+        color: "#e53935"                     # eigene Farbe
+      idle_value: bar_top                    # unter 40 W: „52 °C“
+  - entity: sensor.heizstab_leistung
+    name: Pufferspeicher
+    icon: mdi:water-boiler
+    indicators:
+      fill: { entity: sensor.puffer_ladung, label: Ladung }
+  - entity: sensor.drucker_leistung
+    name: 3D-Drucker
+    indicators:
+      bar_top: { entity: sensor.druckfortschritt, label: Druckfortschritt }
+  - entity: sensor.waschmaschine_leistung
+    position: bottom
+    highlight: { band: true }</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Im Editor steht das alles beim Verbraucher unter <strong>Darstellung</strong>; die Farben von
+Ring und Balken unter <strong>Farben</strong>. Die Wärmepumpe aus dem Beispiel sieht dort so
+aus – oben angepinnt, mit Farbband, Warmwasser als Balken oben:</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-consumer-display-de-light.png" alt="Darstellung eines Verbrauchers im Editor" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-consumer-display-de-dark.png" alt="Darstellung eines Verbrauchers im Editor" width="490">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="zusatz"><a class="anchor" href="#zusatz"></a>Zusatzanzeigen</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Der Ring ist eine von vier Zusatzanzeigen, die jeder Verbraucher haben kann,
+einzeln oder zusammen und ohne zusätzlichen Platz in der Zeile:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Platz</th>
+<th class="tableblock halign-left valign-top">Aussehen</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ring um Icon bzw. Farbpunkt</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bar_top</code>, <code>bar_bottom</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">dünner Balken oben bzw. unten in der Zeile, vom Namen bis zum Wert</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>fill</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Farbpunkt füllt sich von unten; bei einem Icon füllt sich ein Feld dahinter</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Jeder Platz hat eine <code>entity</code>, einen Bereich <code>min</code> bis <code>max</code> (Standard 0 bis
+100) und auf Wunsch eine <code>label</code>; Ring und Balken haben eine eigene Farbe
+(im Editor unter <em>Farben</em>), die Füllung die des Verbrauchers. Ein Beispiel ist
+die Warmwasser-Temperatur einer Wärmepumpe:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">consumers:
+  - entity: sensor.waermepumpe_leistung
+    name: Wärmepumpe
+    min_w: 40
+    show: always
+    indicators:
+      bar_top:
+        entity: sensor.warmwasser_temperatur
+        min: 40
+        max: 60
+        label: Warmwasser
+      idle_value: bar_top                    # unter 40 W: „52 °C“ statt der Leistung</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Wertspalte</strong> (<code>idle_value</code>): Mit Leistung steht dort die Leistung. Unter der
+Mindestleistung der Zeile (<code>min_w</code>, sonst <code>min_consumer_w</code>) steht der gewählte
+Zusatzwert, mit Einheit, so wie Home Assistant ihn zeigt. Die Spalte wechselt
+im Takt der Liste, nicht bei jedem Messwert.</p>
+</div>
+<div class="paragraph">
+<p><strong>Tooltip und Klick:</strong> Mit der Maus über Icon oder Balken steht der Wert mit
+seiner Bezeichnung; ein Tipp auf die Zeile öffnet das Fenster mit der Leistung
+und darunter jedem Zusatzwert in einem eigenen Diagramm.</p>
+</div>
+<div class="paragraph">
+<p><strong>Energie-Modus:</strong> Dort entfallen die Zusatzanzeigen, wie die Zusatzwerte an den
+Knoten. Mit <code>in_energy: true</code> bleiben sie und zeigen den Wert von jetzt; der
+Tooltip sagt dann „· jetzt“, die Wertspalte zeigt weiter kWh.</p>
+</div>
+<div class="paragraph">
+<p><strong>Ältere Schreibweisen:</strong> <code>charge</code> (mit <code>soc</code> und <code>label</code>) bedeutet einen Ring
+von 0 bis 100 % mit <code>idle_value: ring</code> und <code>in_energy: true</code>; <code>charge.show</code> mit
+<code>plugged</code> und <code>unplugged</code> bedeutet <code>show</code> und <code>condition</code>. Beides funktioniert
+weiter. Ändert man den Verbraucher im Editor, schreibt er ihn in der neuen
+Form.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="halten"><a class="anchor" href="#halten"></a>Anpinnen, halten, hervorheben</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Das gilt für jeden Verbraucher, nicht nur für die Wallbox.</p>
+</div>
+<div class="paragraph">
+<p><strong>Position</strong> (<code>position</code>): <code>top</code> oder <code>bottom</code> stellt die Zeile fest oben oder
+unten in die Liste; mehrere stehen in der Reihenfolge der Konfiguration, im
+Editor per Ziehen sortiert. Ohne Angabe sortiert sich die Zeile nach Leistung.
+Die Position entscheidet nur über den Platz, nicht darüber, ob die Zeile
+erscheint.</p>
+</div>
+<div class="paragraph">
+<p><strong>In der Liste zeigen</strong> (<code>show</code>): Ab seiner Mindestleistung steht ein Verbraucher
+ohnehin in der Liste. <code>always</code> hält ihn zusätzlich immer dort, <code>condition</code> nur,
+solange die Bedingung erfüllt ist – auch bei 0 W. Keine Einstellung blendet
+einen Verbraucher aus, der Leistung zieht.</p>
+</div>
+<div class="paragraph">
+<p><strong>Bedingung</strong> (<code>condition</code>): ein Sensor, ein Operator und ein Wert. <code>"="</code> und
+<code>"!="</code> nehmen einen oder mehrere Zustände („ist einer davon" / „ist keiner
+davon"), <code>"&gt;"</code>, <code>"&lt;"</code>, <code>"&gt;="</code> und <code>"&#8656;"</code> genau eine Zahl, etwa
+<code>sensor.batterie_spannung</code> <code>"&gt;"</code> <code>10.5</code>. Die Operatoren stehen in YAML in
+Anführungszeichen. Ist der Sensor kurz nicht verfügbar, gilt seine letzte
+Antwort. Wer mehr braucht – einen Bereich, ein Attribut, zwei Bedingungen –,
+baut sich einen Helfer in Home Assistant und nimmt ihn als Sensor.</p>
+</div>
+<div class="paragraph">
+<p><strong>Höchstzahl</strong> (<code>max_consumers</code>): Gehaltene Zeilen zählen mit und bekommen ihre
+Plätze zuerst, die übrigen füllen die stärksten Verbraucher. Halten mehr Zeilen,
+als die Höchstzahl erlaubt, erscheinen trotzdem alle gehaltenen – der Editor
+sagt dann, dass andere Verbraucher nicht mehr erscheinen.</p>
+</div>
+<div class="paragraph">
+<p><strong>Hervorheben</strong> (<code>highlight</code>): <code>bold: true</code> setzt Name und Wert fett,
+<code>band: true</code> hinterlegt die Zeile leicht in der Farbe des Verbrauchers; beides
+geht einzeln oder zusammen und braucht keinen zusätzlichen Platz.</p>
+</div>
+<div class="paragraph">
+<p>Im Energie-Modus gelten Position und <code>always</code> genauso; eine Bedingung beschreibt
+den Zustand jetzt und wird dort nicht ausgewertet.</p>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js?v=5c8b5a13"></script>
+</body>
+</html>

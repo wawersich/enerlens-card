@@ -194,7 +194,9 @@ describe("editor", () => {
         type: "custom:enerlens-card",
         entities: { solar: "sensor.solar", grid: "sensor.grid" },
       });
-      await change(el, { grid_source: "split" });
+      // Half a split is held in the form, not written (E-1, 29.10.2026) ...
+      await expect(change(el, { grid_source: "split" })).rejects.toThrow("no config-changed");
+      // ... and written once both pickers are filled.
       const saved = await change(el, { grid_import: "sensor.in", grid_export: "sensor.out" });
       expect(saved.entities?.grid).toEqual({ import: "sensor.in", export: "sensor.out" });
     });
@@ -1439,7 +1441,7 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     expect(saved.consumers?.[0]).toEqual({
       entity: "sensor.wallbox",
       name: "Wallbox",
-      charge: { soc: "sensor.car" },
+      indicators: { ring: { entity: "sensor.car" }, idle_value: "ring", in_energy: true },
       show: "condition",
       condition: { entity: "sensor.status", operator: "!=", value: ["none"] },
     });
@@ -1465,7 +1467,7 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     });
     expect(onOff.consumers?.[0]).toEqual({
       entity: "sensor.wallbox",
-      charge: { soc: "sensor.car" },
+      indicators: { ring: { entity: "sensor.car" }, idle_value: "ring", in_energy: true },
       show: "condition",
       condition: { entity: "binary_sensor.plug", operator: "=", value: ["on"] },
     });
@@ -1475,7 +1477,7 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     });
     expect(notWaiting.consumers?.[0]).toEqual({
       entity: "sensor.wallbox",
-      charge: { soc: "sensor.car" },
+      indicators: { ring: { entity: "sensor.car" }, idle_value: "ring", in_energy: true },
       show: "always",
     });
   });
@@ -1529,8 +1531,8 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     }
     return undefined;
   };
-  const chargeFields = (el: Editor, index: number) =>
-    (findField(consumerForm(el, index).schema, "charge")?.schema ?? []).map((f) => f.name);
+  const indicatorFields = (el: Editor, index: number) =>
+    (findField(consumerForm(el, index).schema, "indicators")?.schema ?? []).map((f) => f.name);
 
   const fields = (el: Editor, index: number) => consumerForm(el, index).schema.map((f) => f.name);
   const displayFields = (el: Editor, index: number) =>
@@ -1540,13 +1542,28 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
 
   it("keeps the charge to its value, and asks for a condition only where it is chosen", async () => {
     const el = await mountList(BASE);
-    expect(chargeFields(el, 0)).toEqual(["soc", "label"]);
+    // Four places for an extra value, then what the value column shows and the
+    // energy mode (REQ L-20).
+    expect(indicatorFields(el, 0)).toEqual([
+      "ring",
+      "bar_top",
+      "bar_bottom",
+      "fill",
+      "idle_value",
+      "in_energy",
+    ]);
     // The basics on top, everything else in the flattened group "Display".
     expect(fields(el, 0)).toEqual(["entity", "name", "icon", "min_w", "display"]);
     expect(findField(consumerForm(el, 0).schema, "display")?.flatten).toBe(true);
-    expect(displayFields(el, 0)).toEqual(["position", "show", "highlight", "charge"]);
+    expect(displayFields(el, 0)).toEqual(["position", "show", "highlight", "indicators"]);
     await setRow(el, 0, { entity: "sensor.wallbox", show: "condition" });
-    expect(displayFields(el, 0)).toEqual(["position", "show", "condition", "highlight", "charge"]);
+    expect(displayFields(el, 0)).toEqual([
+      "position",
+      "show",
+      "condition",
+      "highlight",
+      "indicators",
+    ]);
   });
 
   it("offers the states of an enum entity, on/off for a switch, a number for a comparison", async () => {
@@ -1622,6 +1639,21 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     expect(normalizeConfig(saved).consumers.map((c) => c.hold)).toEqual(before);
   });
 
+  it("shows the highlight as two ticks and writes them as switches (REQ L-19)", async () => {
+    const el = await mountList({
+      ...BASE,
+      consumers: [{ entity: "sensor.wallbox", highlight: { band: true } }, BASE.consumers?.[1]],
+    } as RawConfig);
+    expect(consumerForm(el, 0).data.highlight).toEqual(["band"]);
+    const both = await setRow(el, 0, { entity: "sensor.wallbox", highlight: ["bold", "band"] });
+    expect(both.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      highlight: { bold: true, band: true },
+    });
+    const none = await setRow(el, 0, { entity: "sensor.wallbox", highlight: [] });
+    expect(none.consumers?.[0]).toEqual({ entity: "sensor.wallbox" });
+  });
+
   it("writes only the highlight switches that are on (REQ L-19)", async () => {
     const el = await mountList(BASE);
     const both = await setRow(el, 0, {
@@ -1671,7 +1703,7 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     expect(consumerForm(el, 0).data).toMatchObject({
       show: "condition",
       condition: { entity: "binary_sensor.plug", operator: "=", value: ["on"] },
-      charge: { soc: "sensor.car" },
+      indicators: { ring: { entity: "sensor.car" }, idle_value: "ring", in_energy: true },
     });
     expect(consumerForm(el, 1).data).toMatchObject({ show: "always" });
     // Changing the first consumer leaves the second as it was written.
@@ -1735,13 +1767,19 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
   it("writes a 1.2.0 consumer in the new form once it is changed, meaning the same", async () => {
     const el = await mountList(structuredClone(OLD));
     for (const index of [0, 1, 2, 3]) {
-      const saved = await setRow(el, index, { ...consumerForm(el, index).data });
+      const saved = await setRow(el, index, { ...consumerForm(el, index).data, name: "Neu" });
       const consumer = saved.consumers?.[index] as unknown as Record<string, unknown>;
-      const charge = consumer.charge as Record<string, unknown>;
-      expect(charge.show ?? charge.plugged ?? charge.unplugged).toBeUndefined();
-      expect(normalizeConfig(saved).consumers[index]).toEqual(
-        normalizeConfig(OLD).consumers[index],
-      );
+      expect(consumer.charge).toBeUndefined();
+      const now = normalizeConfig(saved).consumers[index];
+      const old = normalizeConfig(OLD).consumers[index];
+      expect(now.hold).toEqual(old.hold);
+      // Same ring, value column and energy mode; only the old whole-percent
+      // display is gone - the new form shows the value like any extra (L-20).
+      const { percent: _p, ...ring } =
+        old.indicators?.slots.ring ?? ({} as Record<string, unknown>);
+      expect(now.indicators?.slots.ring).toEqual(ring);
+      expect(now.indicators?.idleValue).toBe(old.indicators?.idleValue);
+      expect(now.indicators?.inEnergy).toBe(old.indicators?.inEnergy);
     }
   });
 

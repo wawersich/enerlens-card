@@ -41,6 +41,7 @@
 <li><a href="layout.html">Anordnungen</a></li>
 <li class="current"><a href="ev.html">Wallbox und E-Auto</a></li>
 <li><a href="extras.html">Zusatzwerte an den Knoten</a></li>
+<li><a href="consumers.html">Zusatzwerte an den Verbrauchern</a></li>
 <li><a href="quick.html">Quick-Buttons</a></li>
 <li><a href="energy.html">Energie für einen Zeitraum</a></li>
 <li><a href="outage.html">Netzausfall</a></li>
@@ -52,8 +53,6 @@
   </ul></nav>
   <main data-pagefind-body>
     <h1>Wallbox und E-Auto</h1>
-<div id="preamble">
-<div class="sectionbody">
 <div class="paragraph">
 <p>Eine Wallbox ist ein Verbraucher wie jeder andere. Den Ladestand des Autos
 liefert die Integration des Autos, nicht die Wallbox – Home Assistant verknüpft
@@ -81,14 +80,16 @@ Leistung und Ladestand im Verlauf.</p>
       entity: binary_sensor.auto_ladekabel
       operator: "="
       value: "on"
-    charge:
-      soc: sensor.auto_ladestand             # das Auto, in %</code></pre>
+    indicators:
+      ring:
+        entity: sensor.auto_ladestand        # das Auto, in %
+      idle_value: ring                       # ohne Leistung den Ladestand zeigen</code></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>Im Editor klappt der Verbraucher auf; unter <strong>Darstellung</strong> stehen <strong>Position in
-der Liste</strong>, <strong>In der Liste zeigen</strong> mit der Bedingung und unter <strong>Ladestand</strong> die
-<strong>Ladestand-Entität (%)</strong>:</p>
+der Liste</strong>, <strong>In der Liste zeigen</strong> mit der Bedingung und unter <strong>Zusatzanzeigen</strong>
+der <strong>Ring</strong> mit der Entität des Ladestands:</p>
 </div>
 <div class="imageblock only-light">
 <div class="content">
@@ -102,77 +103,29 @@ der Liste</strong>, <strong>In der Liste zeigen</strong> mit der Bedingung und u
 </div>
 <div class="paragraph">
 <p>Ein dünner Ring um das Icon zeigt den Ladestand. Lädt das Auto, zeigt die
-Zeile die Leistung, sonst stattdessen den Ladestand – die Zeile braucht also
-keinen zusätzlichen Platz. Mit der Bedingung bleibt die Zeile in der Liste,
+Zeile die Leistung, sonst stattdessen den Ladestand (<code>idle_value: ring</code>) – die
+Zeile braucht also keinen zusätzlichen Platz. Mit der Bedingung bleibt die Zeile in der Liste,
 solange das Auto angesteckt ist, auch voll und bei 0 W; mehr dazu unter
-<a href="#halten">Anpinnen, halten, hervorheben</a>. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
+<a href="consumers.html">Zusatzwerte an den Verbrauchern</a>. Die Bedingung darf auch auf einen Status-Sensor der Wallbox
 schauen: <code>operator: "!="</code> mit <code>value: [available, none]</code> heißt „angesteckt,
 außer bei diesen Zuständen". Schläft das Auto und ist sein Sensor
 nicht verfügbar, erscheint der letzte bekannte Ladestand grau. Mit der Maus
 über dem Icon steht der Wert; ein Tipp auf die Zeile öffnet ein Fenster mit
-der Leistung und darunter dem Ladestand (siehe <a href="energy.html#detail">Energie</a>); im Editor
-steht es beim Verbraucher unter <em>Ladestand</em>. Das geht nicht nur mit Autos –
-eine Powerstation funktioniert genauso, ein 3D-Drucker mit seinem
-Druckfortschritt auch. Dann passt „Ladestand“ nicht: Unter <em>Bezeichnung</em> (in
-YAML <code>charge.label</code>) steht stattdessen etwa „Druckfortschritt“ – im Tooltip und
-im Detailfenster.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="halten"><a class="anchor" href="#halten"></a>Anpinnen, halten, hervorheben</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>Das gilt für jeden Verbraucher, nicht nur für die Wallbox.</p>
+der Leistung und darunter dem Ladestand (siehe <a href="energy.html#detail">Energie</a>).
+Das geht nicht nur mit Autos – eine Powerstation funktioniert genauso, ein
+3D-Drucker mit seinem Druckfortschritt auch. Dann passt „Ladestand“ nicht: Unter
+<em>Bezeichnung</em> (in YAML <code>label</code>) steht stattdessen etwa „Druckfortschritt“ – im
+Tooltip und im Detailfenster.</p>
 </div>
 <div class="paragraph">
-<p><strong>Position</strong> (<code>position</code>): <code>top</code> oder <code>bottom</code> stellt die Zeile fest oben oder
-unten in die Liste; mehrere stehen in der Reihenfolge der Konfiguration, im
-Editor per Ziehen sortiert. Ohne Angabe sortiert sich die Zeile nach Leistung.
-Die Position entscheidet nur über den Platz, nicht darüber, ob die Zeile
-erscheint.</p>
-</div>
-<div class="paragraph">
-<p><strong>In der Liste zeigen</strong> (<code>show</code>): Ab seiner Mindestleistung steht ein Verbraucher
-ohnehin in der Liste. <code>always</code> hält ihn zusätzlich immer dort, <code>condition</code> nur,
-solange die Bedingung erfüllt ist – auch bei 0 W. Keine Einstellung blendet
-einen Verbraucher aus, der Leistung zieht.</p>
-</div>
-<div class="paragraph">
-<p><strong>Bedingung</strong> (<code>condition</code>): ein Sensor, ein Operator und ein Wert. <code>"="</code> und
-<code>"!="</code> nehmen einen oder mehrere Zustände („ist einer davon" / „ist keiner
-davon"), <code>"&gt;"</code>, <code>"&lt;"</code>, <code>"&gt;="</code> und <code>"&#8656;"</code> genau eine Zahl, etwa
-<code>sensor.batterie_spannung</code> <code>"&gt;"</code> <code>10.5</code>. Die Operatoren stehen in YAML in
-Anführungszeichen. Ist der Sensor kurz nicht verfügbar, gilt seine letzte
-Antwort. Wer mehr braucht – einen Bereich, ein Attribut, zwei Bedingungen –,
-baut sich einen Helfer in Home Assistant und nimmt ihn als Sensor.</p>
-</div>
-<div class="paragraph">
-<p><strong>Höchstzahl</strong> (<code>max_consumers</code>): Gehaltene Zeilen zählen mit und bekommen ihre
-Plätze zuerst, die übrigen füllen die stärksten Verbraucher. Halten mehr Zeilen,
-als die Höchstzahl erlaubt, erscheinen trotzdem alle gehaltenen – der Editor
-sagt dann, dass andere Verbraucher nicht mehr erscheinen.</p>
-</div>
-<div class="paragraph">
-<p><strong>Hervorheben</strong> (<code>highlight</code>): <code>bold: true</code> setzt Name und Wert fett,
-<code>band: true</code> hinterlegt die Zeile leicht in der Farbe des Verbrauchers; beides
-geht einzeln oder zusammen und braucht keinen zusätzlichen Platz.</p>
-</div>
-<div class="paragraph">
-<p>Im Energie-Modus gelten Position und <code>always</code> genauso; eine Bedingung beschreibt
-den Zustand jetzt und wird dort nicht ausgewertet.</p>
-</div>
-<div class="paragraph">
-<p><strong>Ältere Schreibweise:</strong> <code>charge.show</code> mit <code>plugged</code> und <code>unplugged</code> funktioniert
-weiter und bedeutet dasselbe wie <code>show</code> und <code>condition</code>. Ändert man den
-Verbraucher im Editor, schreibt er ihn in der neuen Form.</p>
-</div>
-</div>
+<p>Ring, Balken, Füllung, Anpinnen und Hervorheben gibt es für jeden Verbraucher,
+nicht nur für die Wallbox: siehe <a href="consumers.html">Zusatzwerte an den
+Verbrauchern</a>.</p>
 </div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=5bac9ca6"></script>
+<script type="module" src="../assets/site.js?v=5c8b5a13"></script>
 </body>
 </html>

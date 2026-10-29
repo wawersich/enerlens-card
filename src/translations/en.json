@@ -21,7 +21,8 @@
     "charge_label": "State of charge",
     "charge": "{label} {value}",
     "charge_stale": "{label} {value} · as of {time}",
-    "charge_unknown": "{label} unknown"
+    "charge_unknown": "{label} unknown",
+    "indicator_now": "{text} · now"
   },
   "view": {
     "now": "Now",
@@ -89,7 +90,10 @@
       "rounded": "{field}: whole numbers only - rounded to {value}.",
       "order_used": "{field}: to keep the order, the card uses {value}.",
       "clamped_min": "{field} must be at least {min} - {value} is used.",
-      "unknown_value": "{field}: unknown value, allowed are {allowed} - the card uses the default."
+      "unknown_value": "{field}: unknown value, allowed are {allowed} - the card uses the default.",
+      "indicator_no_entity": "{field} has no entity and is ignored.",
+      "idle_value_missing": "{field}: idle_value {slot} is not configured - the value column shows the power.",
+      "indicators_twice": "{field}: indicators and charge are both set - indicators is used, charge ignored."
     }
   },
   "editor": {
@@ -220,8 +224,6 @@
     "consumer_new": "New consumer",
     "consumer_remove": "Remove consumer",
     "charge": "State of charge",
-    "consumer_soc": "State of charge entity (%)",
-    "consumer_label": "Label",
     "consumer_show": "Show in the list",
     "consumer_up": "Move up",
     "consumer_down": "Move down",
@@ -314,7 +316,29 @@
     "condition_number": "Value",
     "consumer_display": "Display",
     "highlight_bold": "Bold",
-    "highlight_band": "Colour band"
+    "highlight_band": "Colour band",
+    "operator_0": "equal to",
+    "operator_1": "not equal to",
+    "operator_2": "greater than",
+    "operator_3": "less than",
+    "operator_4": "at least",
+    "operator_5": "at most",
+    "indicators": "Indicators",
+    "indicator_ring": "Ring",
+    "indicator_bar_top": "Bar at the top",
+    "indicator_bar_bottom": "Bar at the bottom",
+    "indicator_fill": "Fill",
+    "indicator_entity": "Entity",
+    "indicator_label_ring": "Label",
+    "indicator_label_other": "Label",
+    "indicator_min": "Min",
+    "indicator_max": "Max",
+    "idle_value": "Show without power",
+    "idle_power": "Power",
+    "in_energy": "Show in the energy mode too",
+    "highlight": "Highlight",
+    "incomplete": "{name}: not completely chosen yet.",
+    "held": "{message} The preview shows the last valid state; nothing is written until this is completed."
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder. Default: 10 W.",
@@ -366,8 +390,6 @@
     "power_digits": "How much the number says, not how many places follow the point. With 3: 1.23 kW · 12.3 kW · 123 kW. A decimal place means something different at 1.23 kW than at 123 kW; this keeps what the figure tells constant. Watts are always whole. Default: 3.",
     "consumers_list": "Unfold to edit, drag by the handle to sort. The colour is under “Colours”.",
     "consumer_min_w": "Overrides the global minimum power - say 50 W for a heat pump, so its standby does not count as a consumer.",
-    "consumer_soc": "For a wallbox, the car’s state of charge from the car’s own integration. Shown as a ring around the icon; while nothing charges it stands in the row instead of the power.",
-    "consumer_label": "An own name instead of “State of charge”, when the value is something else in percent. Shown in the tooltip and the detail window. Empty: state of charge.",
     "consumer_show": "From its minimum power a consumer is always listed. 'Always' or a condition keep it there as well, even at 0 W - a wallbox while the car is plugged in, say. Held rows count towards the maximum number of consumers.",
     "node_show_state": "Without the state word only the colour tells export from import, charging from discharging.",
     "node_inside_entity": "Any entity. The circle only has room for a number and its unit. Always shows the current state, also in the average views.",
@@ -402,8 +424,12 @@
     "condition_values": "One or more states; = means 'is one of them', ≠ 'is none of them'. Numbers are compared as numbers.",
     "condition_number": "One number, in the sensor's unit.",
     "consumers_held_limit": "{held} consumers are shown always or by a condition, the maximum is {limit}. No other consumer appears then.",
-    "highlight_bold": "Name and value in bold.",
-    "highlight_band": "The row lightly backed in the consumer's colour."
+    "indicator_label_ring": "Empty: State of charge. Shown in the tooltip and the detail window.",
+    "indicator_label_other": "Empty: the entity's name. Shown in the tooltip and the detail window.",
+    "indicator_min": "Empty = 0. The value at an empty display.",
+    "indicator_max": "Empty = 100. The value at a full display.",
+    "idle_value": "What is shown as the value while the consumer is below its minimum power, that is, while it is off. With power, that is, while it is on, the power is always shown there. Useful for a wallbox, say: while it is not charging, the car's state of charge is shown instead of the power.",
+    "in_energy": "In the energy mode ring, bars and fill then show the value of now; the value column keeps showing kWh."
   },
   "outage": {
     "banner": "Island mode — no grid",

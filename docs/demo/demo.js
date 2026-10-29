@@ -11,9 +11,9 @@
 // A card starts when it scrolls into view; six on one page would otherwise
 // all animate on a phone at once.
 
-import { ENERGY_COLOURS, NAMES, THEME, consumers as listOf } from "./shared.js?v=2baa76fe";
+import { ENERGY_COLOURS, NAMES, THEME, consumers as listOf } from "./shared.js?v=a8f5fbc6";
 
-const ICONS = await fetch(new URL("./icons.json?v=808703dd", import.meta.url)).then((r) => r.json());
+const ICONS = await fetch(new URL("./icons.json?v=f5fdf9f3", import.meta.url)).then((r) => r.json());
 
 customElements.define(
   "ha-card",
@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=622bed59");
+await import("./enerlens-card.js?v=8ed430c7");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {
@@ -156,7 +156,21 @@ function powers(t, scene, shift = SHIFT) {
   // The EV page: a minute of charging, half a minute paused - the row shows
   // the power, then the charge instead (L-15).
   if (scene === "ev") wb = evPhase(t) < 2 / 3 ? 7400 + wave(13, 150) : 0;
-  const house = 450 + c1 + c2 + c3 + c4 + wb + q1 + q2 + q3;
+  // The page on extra values at the consumers (L-20): a heat pump that runs
+  // and rests, a buffer heated now and then, a printer at work - all in the
+  // same 90-second round as the car.
+  const extras = scene === "consumers";
+  const round = evPhase(t);
+  const hp = extras ? (round < 0.5 ? 2100 + wave(9, 120) : 25) : 0;
+  const rod = extras && round > 0.25 && round < 0.6 ? 1500 : 0;
+  // The printer prints on the start page too, its progress as a bar (L-20).
+  const printer = extras || scene === "arrange" ? 120 + wave(7, 15) : 0;
+  if (extras) {
+    wb = round < 2 / 3 ? 7400 + wave(13, 150) : 0;
+    c1 = 0;
+    c3 = 0;
+  }
+  const house = 450 + c1 + c2 + c3 + c4 + wb + q1 + q2 + q3 + hp + rod + printer;
   const surplus = pv - house;
   let battery;
   let grid;
@@ -172,6 +186,7 @@ function powers(t, scene, shift = SHIFT) {
     "sensor.gi": Math.max(grid, 0), "sensor.ge": Math.max(-grid, 0),
     "sensor.bd": Math.max(battery, 0), "sensor.bc": Math.max(-battery, 0),
     "sensor.c1": c1, "sensor.c2": c2, "sensor.c3": c3, "sensor.c4": c4, "sensor.wb": wb,
+    "sensor.hp": hp, "sensor.rod": rod, "sensor.printer": printer,
     "sensor.q1": q1, "sensor.q2": q2, "sensor.q3": q3,
     // Three PV sources summing to the PV above (REQ 2.17).
     "sensor.pv1": pv1, "sensor.pv2": pv2, "sensor.pv3": pv3, "sensor.pv4": pv4,
@@ -194,7 +209,22 @@ function statesAt(t, scene, shift = SHIFT) {
   const out = {};
   for (const [id, w] of Object.entries(powers(t, scene, shift))) out[id] = entity(id, Math.round(w), "W", "power");
   out["sensor.soc"] = entity("sensor.soc", scene === "outage" ? 54 : 68, "%", "battery");
-  out["sensor.car"] = entity("sensor.car", scene === "ev" ? evCharge(t) : 80, "%", "battery");
+  out["sensor.car"] = entity(
+    "sensor.car",
+    scene === "ev" || scene === "consumers" ? evCharge(t) : 80,
+    "%",
+    "battery",
+  );
+  // The extra values of the consumers page (L-20), along its round.
+  const round = evPhase(t);
+  const one = (x) => Math.round(x * 10) / 10;
+  const hot = round < 0.5 ? 45 + 26 * round : 58 - 16 * (round - 0.5);
+  out["sensor.hot_water"] = entity("sensor.hot_water", one(hot), "°C", "temperature");
+  out["sensor.flow_temp"] = entity("sensor.flow_temp", round < 0.5 ? 46 : 27, "°C", "temperature");
+  const heated = Math.min(Math.max((round - 0.25) / 0.35, 0), 1);
+  out["sensor.buffer"] = entity("sensor.buffer", Math.round(35 + 55 * heated), "%");
+  // Twice per round, so the print visibly moves on (Markus 29.10.2026).
+  out["sensor.print"] = entity("sensor.print", Math.round(((round * 2) % 1) * 100), "%");
   out["sensor.grid_status"] = {
     entity_id: "sensor.grid_status", state: scene === "outage" ? "not_detected" : "ok",
     attributes: { device_class: "enum", options: ["ok", "not_detected"] }, last_changed: "", last_updated: "",
@@ -256,6 +286,13 @@ function callWS(scene, clock) {
 }
 
 /* ------------------------------------------------------------ the scenes */
+/** Names of the consumers page (L-20), beside the shared ones. */
+const X = {
+  de: { hot: "Warmwasser", flow: "Vorlauf", buffer: "Pufferspeicher", charge: "Ladung", printer: "3D-Drucker", progress: "Druckfortschritt" },
+  en: { hot: "Hot water", flow: "Flow", buffer: "Buffer tank", charge: "Charge", printer: "3D printer", progress: "Print progress" },
+};
+/** The language of a set of names: the German set has German titles. */
+const lang = (t) => (t.title === "Energie" ? "de" : "en");
 function config(scene, t, data = {}) {
   // With the quiet ones: the filter button brings them into the list.
   const consumers = listOf(t, { quiet: true });
@@ -328,6 +365,28 @@ function config(scene, t, data = {}) {
           ...sources.entities,
           solar: [...sources.entities.solar, { entity: "sensor.pv4", name: t.shed, kwp: 0.3 }],
         },
+        // A 3D printer with its progress above its name (L-20, Markus 29.10.2026).
+        consumers: [
+          // The heat pump with its hot water as a ring (L-20).
+          ...base.consumers.map((c) =>
+            c.entity === "sensor.c1"
+              ? {
+                  ...c,
+                  indicators: {
+                    ring: { entity: "sensor.hot_water", min: 40, max: 60, label: X[lang(t)].hot },
+                  },
+                }
+              : c,
+          ),
+          {
+            entity: "sensor.printer",
+            name: X[lang(t)].printer,
+            icon: "mdi:printer-3d-nozzle",
+            indicators: {
+              bar_top: { entity: "sensor.print", label: X[lang(t)].progress, color: "#e53935" },
+            },
+          },
+        ],
         layout: data.layout,
         ...(data.lines ? { flow: { ...base.flow, lines: data.lines } } : {}),
         list: { solar: data.pvRows, enabled: data.list },
@@ -361,7 +420,13 @@ function config(scene, t, data = {}) {
       return {
         ...base,
         consumers: consumers.map((c) =>
-          c.entity === "sensor.wb" ? { ...c, show: "always", charge: { soc: "sensor.car" } } : c,
+          c.entity === "sensor.wb"
+            ? {
+                ...c,
+                show: "always",
+                indicators: { ring: { entity: "sensor.car" }, idle_value: "ring" },
+              }
+            : c,
         ),
         view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
       };
@@ -379,6 +444,56 @@ function config(scene, t, data = {}) {
       return {
         ...base,
         entities: { ...split, grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] } },
+      };
+    case "consumers":
+      // Every extra value at once, with pinning and highlighting (L-18 to L-20).
+      return {
+        ...base,
+        consumers: [
+          {
+            entity: "sensor.wb",
+            name: t.wb,
+            icon: "mdi:ev-station",
+            position: "top",
+            show: "always",
+            highlight: { bold: true, band: true },
+            indicators: { ring: { entity: "sensor.car" }, idle_value: "ring" },
+          },
+          {
+            entity: "sensor.hp",
+            name: t.c1,
+            icon: "mdi:heat-pump-outline",
+            min_w: 40,
+            show: "always",
+            indicators: {
+              bar_top: { entity: "sensor.hot_water", min: 40, max: 60, label: X[lang(t)].hot },
+              bar_bottom: {
+                entity: "sensor.flow_temp",
+                min: 20,
+                max: 55,
+                label: X[lang(t)].flow,
+                color: "#e53935",
+              },
+              idle_value: "bar_top",
+            },
+          },
+          {
+            entity: "sensor.rod",
+            name: X[lang(t)].buffer,
+            icon: "mdi:water-boiler",
+            show: "always",
+            indicators: { fill: { entity: "sensor.buffer", label: X[lang(t)].charge }, idle_value: "fill" },
+          },
+          {
+            entity: "sensor.printer",
+            name: X[lang(t)].printer,
+            icon: "mdi:printer-3d-nozzle",
+            indicators: { bar_top: { entity: "sensor.print", label: X[lang(t)].progress } },
+          },
+          { entity: "sensor.c2", name: t.c2, icon: "mdi:washing-machine", position: "bottom", highlight: { band: true } },
+          { entity: "sensor.c4", name: t.c4, icon: "mdi:fridge-outline" },
+        ],
+        view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
       };
     case "extras":
       return {

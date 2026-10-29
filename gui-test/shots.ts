@@ -43,6 +43,9 @@ const SENSORS: Record<string, Sensor> = {
   wallbox: W("Wallbox Leistung", "Wallbox power", 3700),
   soc: { de: "Batterie Ladestand", en: "Battery charge", state: 64, unit: "%", cls: "battery" },
   car: { de: "Auto Ladestand", en: "Car charge", state: 71, unit: "%", cls: "battery" },
+  heat_pump: W("Wärmepumpe", "Heat pump", 25),
+  hot_water: { de: "Warmwasser", en: "Hot water", state: 52, unit: "°C", cls: "temperature" },
+  flow_temp: { de: "Vorlauf", en: "Flow temperature", state: 27, unit: "°C", cls: "temperature" },
   today: { de: "PV-Ertrag heute", en: "Solar today", state: 23.4, unit: "kWh", cls: "energy" },
   forecast: {
     de: "PV-Prognose Rest",
@@ -119,7 +122,21 @@ interface Shot {
   /** Cut from this field's name to that one's (both inclusive); whole part if absent. */
   from?: string;
   to?: string;
+  /** Groups inside the part kept closed, by their heading per language. */
+  fold?: Record<Lang, string[]>;
 }
+
+/** The indicator places' headings, to keep the unused ones closed. */
+const PLACE = {
+  ring: { de: "Ring", en: "Ring" },
+  bar_top: { de: "Balken oben", en: "Bar at the top" },
+  bar_bottom: { de: "Balken unten", en: "Bar at the bottom" },
+  fill: { de: "Füllung", en: "Fill" },
+} as const;
+const folded = (...places: (keyof typeof PLACE)[]): Record<Lang, string[]> => ({
+  de: places.map((p) => PLACE[p].de),
+  en: places.map((p) => PLACE[p].en),
+});
 
 /** The pictures. Page "Balkonkraftwerk und weitere PV" (balcony.adoc). */
 const SHOTS: Shot[] = [
@@ -185,11 +202,45 @@ const SHOTS: Shot[] = [
           position: "top",
           show: "condition",
           condition: { entity: PLUG, operator: "=", value: ["on"] },
-          charge: { soc: `${DOC}car` },
+          indicators: { ring: { entity: `${DOC}car` }, idle_value: "ring" },
         },
       ],
     }),
     part: ".consumers-panel:not(.sources-panel)",
+    fold: folded("bar_top", "bar_bottom", "fill"),
+  },
+  // Page "Zusatzwerte an den Verbrauchern" (consumers.adoc): the heat pump
+  // with two bars, pinned and highlighted - the group "Display" alone.
+  {
+    name: "editor-consumer-display",
+    config: (lang) => ({
+      ...BASIC(lang),
+      consumers: [
+        {
+          entity: `${DOC}heat_pump`,
+          name: lang === "de" ? "Wärmepumpe" : "Heat pump",
+          icon: "mdi:heat-pump-outline",
+          min_w: 40,
+          position: "top",
+          show: "always",
+          highlight: { band: true },
+          indicators: {
+            bar_top: {
+              entity: `${DOC}hot_water`,
+              min: 40,
+              max: 60,
+              label: lang === "de" ? "Warmwasser" : "Hot water",
+            },
+            bar_bottom: { entity: `${DOC}flow_temp`, min: 20, max: 55 },
+            idle_value: "bar_top",
+          },
+        },
+      ],
+    }),
+    part: ".consumers-panel:not(.sources-panel)",
+    from: "position",
+    to: "in_energy",
+    fold: folded("ring", "bar_bottom", "fill"),
   },
   // Page "Zusatzwerte an den Knoten" (extras.adoc).
   {
@@ -289,7 +340,7 @@ async function look(page: Page, lang: Lang, dark: boolean): Promise<void> {
 }
 
 /** Unfolds the part in the dialog's editor and returns the box to cut. */
-async function frame(page: Page, shot: Omit<Shot, "config">) {
+async function frame(page: Page, shot: Omit<Shot, "config" | "fold"> & { fold?: string[] }) {
   return page.evaluate(
     async ({ card, shot }) => {
       const deep = (window as unknown as { __deep: (s: string, r?: ParentNode) => HTMLElement[] })
@@ -327,6 +378,25 @@ async function frame(page: Page, shot: Omit<Shot, "config">) {
       const own =
         part.tagName === "HA-EXPANSION-PANEL" ? part : part.querySelector("ha-expansion-panel");
       if (own) (own as unknown as { expanded: boolean }).expanded = true;
+      // Groups the picture keeps closed, so it shows what matters (L-20).
+      // The heading is a property in some HA versions, a slotted element in
+      // others - and ha-form draws it from the group's title either way.
+      const headingOf = (panel: HTMLElement) =>
+        (
+          (panel as unknown as { header?: string }).header ||
+          panel.getAttribute("header") ||
+          panel.querySelector(":scope > [slot='header']")?.textContent ||
+          panel.shadowRoot?.querySelector("#summary, .summary, .header")?.textContent ||
+          ""
+        ).trim();
+      for (let round = 0; round < 2; round++) {
+        for (const panel of deep("ha-expansion-panel", part)) {
+          if (shot.fold?.includes(headingOf(panel))) {
+            (panel as unknown as { expanded: boolean }).expanded = false;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
       await new Promise((r) => setTimeout(r, 800));
       part.scrollIntoView({ block: "start" });
       await new Promise((r) => setTimeout(r, 400));
@@ -390,6 +460,7 @@ test("doc shots", async ({ browser }) => {
           from: shot.from,
           to: shot.to,
           closed: shot.closed,
+          fold: shot.fold?.[lang],
         });
         const file = `${shot.name}-${lang}-${theme}.png`;
         await page.screenshot({ path: resolve("docs/images", file), clip });

@@ -10,7 +10,7 @@ import { normalizeConfig } from "../src/config";
 import { buildBreakdown } from "../src/consumers";
 import { HoldTracker } from "../src/hold";
 import { buildModel } from "../src/model";
-import { showsCharge } from "../src/render/list";
+import { idleIndicator } from "../src/render/list";
 import type { HomeAssistant, RawConfig } from "../src/types";
 
 afterEach(() => vi.restoreAllMocks());
@@ -71,7 +71,7 @@ function show(
   const model = buildModel(
     hass,
     config,
-    (charge) => charges.state(hass, charge),
+    (entity) => charges.state(hass, entity),
     undefined,
     (consumer) => holds.held(consumer, energy),
   );
@@ -81,7 +81,11 @@ function show(
     value: Object.fromEntries(
       entries.map((e) => [
         e.name,
-        showsCharge(e, config) ? `${e.charge?.soc} %` : e.powerUnknown ? "—" : `${e.w} W`,
+        idleIndicator(e, config)
+          ? `${idleIndicator(e, config)?.value} %`
+          : e.powerUnknown
+            ? "—"
+            : `${e.w} W`,
       ]),
     ),
   };
@@ -246,7 +250,13 @@ describe("1.2.0: the other spellings", () => {
         { entity: "sensor.printer", charge: { soc: "sensor.job", label: "Druck", show: "always" } },
       ],
     } as RawConfig);
-    expect(config.consumers[0].charge).toEqual({ soc: "sensor.job", label: "Druck" });
+    expect(config.consumers[0].indicators?.slots.ring).toEqual({
+      entity: "sensor.job",
+      min: 0,
+      max: 100,
+      label: "Druck",
+      percent: true,
+    });
     expect(config.consumers[0].hold).toEqual({ kind: "always" });
   });
 });

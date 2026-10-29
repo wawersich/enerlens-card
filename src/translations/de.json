@@ -21,7 +21,8 @@
     "charge_label": "Ladestand",
     "charge": "{label} {value}",
     "charge_stale": "{label} {value} · Stand {time}",
-    "charge_unknown": "{label} unbekannt"
+    "charge_unknown": "{label} unbekannt",
+    "indicator_now": "{text} · jetzt"
   },
   "view": {
     "now": "Jetzt",
@@ -89,7 +90,10 @@
       "rounded": "{field}: nur ganze Zahlen – gerundet auf {value}.",
       "order_used": "{field}: Wegen der Reihenfolge rechnet die Karte mit {value}.",
       "clamped_min": "{field} muss mindestens {min} sein – verwendet wird {value}.",
-      "unknown_value": "{field}: unbekannter Wert, erlaubt sind {allowed} – die Karte nimmt den Standard."
+      "unknown_value": "{field}: unbekannter Wert, erlaubt sind {allowed} – die Karte nimmt den Standard.",
+      "indicator_no_entity": "{field} hat keine Entität und wird ignoriert.",
+      "idle_value_missing": "{field}: idle_value {slot} ist nicht eingerichtet - die Wertspalte zeigt die Leistung.",
+      "indicators_twice": "{field}: indicators und charge sind beide gesetzt - indicators gilt, charge wird ignoriert."
     }
   },
   "editor": {
@@ -220,8 +224,6 @@
     "consumer_new": "Neuer Verbraucher",
     "consumer_remove": "Verbraucher entfernen",
     "charge": "Ladestand",
-    "consumer_soc": "Ladestand-Entität (%)",
-    "consumer_label": "Bezeichnung",
     "consumer_show": "In der Liste zeigen",
     "consumer_up": "Nach oben",
     "consumer_down": "Nach unten",
@@ -314,7 +316,29 @@
     "condition_number": "Wert",
     "consumer_display": "Darstellung",
     "highlight_bold": "Fett",
-    "highlight_band": "Farbband"
+    "highlight_band": "Farbband",
+    "operator_0": "gleich",
+    "operator_1": "ungleich",
+    "operator_2": "größer als",
+    "operator_3": "kleiner als",
+    "operator_4": "größer oder gleich",
+    "operator_5": "kleiner oder gleich",
+    "indicators": "Zusatzanzeigen",
+    "indicator_ring": "Ring",
+    "indicator_bar_top": "Balken oben",
+    "indicator_bar_bottom": "Balken unten",
+    "indicator_fill": "Füllung",
+    "indicator_entity": "Entität",
+    "indicator_label_ring": "Bezeichnung",
+    "indicator_label_other": "Bezeichnung",
+    "indicator_min": "Min",
+    "indicator_max": "Max",
+    "idle_value": "Ohne Leistung zeigen",
+    "idle_power": "Leistung",
+    "in_energy": "Auch im Energie-Modus zeigen",
+    "highlight": "Hervorheben",
+    "incomplete": "{name}: noch nicht vollständig ausgewählt.",
+    "held": "{message} Die Vorschau zeigt den letzten gültigen Stand; geschrieben wird erst, wenn das ergänzt ist."
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest. Standard: 10 W.",
@@ -366,8 +390,6 @@
     "power_digits": "Wie viele Ziffern die Zahl aussagt — nicht wie viele hinter dem Komma stehen. Mit 3: 1,23 kW · 12,3 kW · 123 kW. Eine Nachkommastelle bedeutet bei 1,23 kW etwas anderes als bei 123 kW; die Aussagekraft bleibt so gleich. Watt sind immer ganz. Standard: 3.",
     "consumers_list": "Aufklappen zum Bearbeiten, am Griff ziehen zum Sortieren. Die Farbe steht unter „Farben“.",
     "consumer_min_w": "Überschreibt die globale Mindestleistung – etwa 50 W für eine Wärmepumpe, damit ihr Standby nicht als Verbraucher zählt.",
-    "consumer_soc": "Für eine Wallbox der Ladestand des Autos, aus dessen eigener Integration. Erscheint als Ring um das Icon; lädt nichts, steht er statt der Leistung in der Zeile.",
-    "consumer_label": "Eigene Bezeichnung statt „Ladestand“, wenn der Wert etwas anderes in Prozent ist. Steht im Tooltip und im Detailfenster. Leer: Ladestand.",
     "consumer_show": "Ab der Mindestleistung steht ein Verbraucher immer in der Liste. „Immer“ oder eine Bedingung halten ihn zusätzlich, auch bei 0 W – etwa die Wallbox, solange das Auto angesteckt ist. Gehaltene Zeilen zählen zur Höchstzahl Verbraucher.",
     "node_show_state": "Ohne Zustandswort zeigt nur noch die Farbe, ob eingespeist oder bezogen, geladen oder entladen wird.",
     "node_inside_entity": "Eine beliebige Entität. Im Kreis ist nur Platz für Zahl und Einheit. Zeigt immer den aktuellen Zustand, auch in den Ø-Ansichten.",
@@ -402,8 +424,12 @@
     "condition_values": "Einer oder mehrere Zustände; = heißt „ist einer davon“, ≠ „ist keiner davon“. Zahlen werden als Zahlen verglichen.",
     "condition_number": "Eine Zahl in der Einheit des Sensors.",
     "consumers_held_limit": "{held} Verbraucher sind immer oder per Bedingung sichtbar, die Höchstzahl ist {limit}. Andere Verbraucher erscheinen dann nicht.",
-    "highlight_bold": "Name und Wert kräftig.",
-    "highlight_band": "Zeile leicht in der Farbe des Verbrauchers hinterlegt."
+    "indicator_label_ring": "Leer: Ladestand. Steht im Tooltip und im Detailfenster.",
+    "indicator_label_other": "Leer: der Name der Entität. Steht im Tooltip und im Detailfenster.",
+    "indicator_min": "Leer = 0. Wert bei leerer Anzeige.",
+    "indicator_max": "Leer = 100. Wert bei voller Anzeige.",
+    "idle_value": "Was als Wert angezeigt wird, solange der Verbraucher unter seiner Mindestleistung liegt, also aus ist. Mit Leistung, also wenn er an ist, steht dort immer die Leistung. Sinnvoll etwa bei einer Wallbox: Wird nicht geladen, steht statt der Leistung der Ladestand des Autos da.",
+    "in_energy": "Im Energie-Modus zeigen Ring, Balken und Füllung dann den aktuellen Wert; die Wertspalte zeigt weiter kWh."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

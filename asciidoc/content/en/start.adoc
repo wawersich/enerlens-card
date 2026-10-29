@@ -112,6 +112,14 @@ name and state word can be hidden. See _Extra values at the nodes_.
 <div class="card-demo" data-demo="extras"></div>
 ++++
 
+*Extra values at the consumers.* A row of the consumer list can show more than
+its power too, without needing extra room: a ring around the icon, a thin bar
+at the top or bottom, an icon that fills. In the card at the very top the heat
+pump carries a ring with its hot-water temperature, the 3D printer a red bar
+with its print progress - hover them for the value. Consumers can also be
+pinned to the top or bottom, kept in the list and highlighted. See
+link:consumers.html[Extra values at the consumers].
+
 A *grid outage* is shown, provided the installation reports the grid status.
 
 ++++

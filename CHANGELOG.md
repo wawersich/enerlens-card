@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the top or bottom of the list; `show: always` or `show: condition` keeps it
   there even at 0 W, the condition on any sensor (`=`, `!=` with one or more
   states, `<`, `>`, `<=`, `>=` with a number).
+- **Indicators (#6, #31):** a consumer can carry up to four extra values -
+  `indicators.ring`, `bar_top`, `bar_bottom` and `fill`, each with entity,
+  `min`/`max`, label and (ring, bars) its own colour. `idle_value` names the
+  one the value column shows while the consumer draws nothing, `in_energy`
+  keeps them in the energy mode; the detail window draws each in a chart.
 - **Highlight a consumer:** `highlight: { bold: true, band: true }` - name and
   value in bold, the row backed in its colour; each on its own.
 
@@ -18,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `charge.show`, `charge.plugged` and `charge.unplugged`: still read, and they
   mean `show` and `condition`; the editor writes the new form once the
   consumer is changed.
+- `charge` itself: still read as a ring of 0-100 % with `idle_value: ring`
+  and `in_energy: true`; the editor writes `indicators` once the consumer is
+  changed.
 
 ### Changed
 - **`max_consumers` counts held rows:** a plugged-in wallbox used to come on
@@ -26,11 +34,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the held rows fill the limit.
 - **Energy mode:** a condition (such as "plugged in") no longer keeps a row in
   the list there - it says nothing about a period. `show: always` still does.
+- **The value column switches at the row's own threshold:** a state of charge
+  replaced the power below `flow.min_w`; it now does so below the consumer's
+  `min_w` (else `min_consumer_w`), and only on the list's beat. With the
+  defaults nothing changes.
+- **One tab stop per row:** the mark with the charge is no button of its own
+  any more; the row's label names every value.
 - **Every node in detail:** a house or solar with one entity, and grid or
   battery with one signed sensor, open the detail window too; such a battery is
   one tap target, its charge in the window.
 - **Less work in the background:** the lines to the list follow the rows
   only while they glide, instead of for a moment after every update.
+
+### Fixed
+- **Editor: a source chosen but not filled in yet** (PV, grid or house set to
+  "one entity", "split" or "several sources") showed an error card in the
+  preview. The editor now keeps the last valid card, writes nothing until the
+  choice is complete, and says what is missing.
 
 ## [1.2.0] - 2026-10-27
 

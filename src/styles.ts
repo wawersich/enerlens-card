@@ -1064,11 +1064,52 @@ export const styles = css`
     background: currentColor;
   }
 
-  /* A state of charge on the row (REQ L-15): a thin ring around the mark.
-     Track faint, fill in the row colour; a value that is only the last known
-     one turns both grey. */
+  /* Extra values on the mark (REQ L-15, L-20): a thin ring around it, and/or
+     the mark filling from below. Above the row's target so its tooltip shows;
+     a tap on it opens the same window as the row. */
   .row.charge .swatch {
     position: relative;
+    z-index: 1;
+    cursor: pointer;
+  }
+
+  /* The fill of a plain mark: an outline, filled from below. */
+  .swatch.dot.filled::after {
+    box-sizing: border-box;
+    border: 1.5px solid currentColor;
+    background: linear-gradient(to top, currentColor var(--el-fill), transparent var(--el-fill));
+  }
+
+  /* The fill of an icon: a tank behind it (L-20, variant D chosen by Markus
+     29.10.2026). The icon stays in full colour; a rounded field behind it
+     fills from below - a faint copy of a thin icon was hard to read. */
+  .swatch.icon.filled::before,
+  .swatch.icon.filled::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 4px;
+    z-index: -1;
+  }
+
+  .swatch.icon.filled::before {
+    background: var(--secondary-text-color);
+    opacity: 0.12;
+  }
+
+  .swatch.icon.filled::after {
+    background: currentColor;
+    opacity: 0.3;
+    clip-path: inset(calc(100% - var(--el-fill)) 0 0 0);
+  }
+
+  /* A stale value greys the fill, not the consumer's own mark. */
+  .swatch.icon.filled.stale::after {
+    background: var(--secondary-text-color);
+  }
+
+  .swatch.dot.filled.stale {
+    color: var(--secondary-text-color) !important;
   }
 
   /* The icon keeps the size of every other row's icon; the ring is added
@@ -1097,41 +1138,76 @@ export const styles = css`
     stroke-linecap: round;
   }
 
-  .row.stale .charge-ring,
+  .charge-ring.stale {
+    color: var(--secondary-text-color) !important;
+  }
+
   .row.stale .row-value.soc {
-    color: var(--secondary-text-color);
+    color: var(--secondary-text-color) !important;
   }
 
   .row.stale .row-value.soc {
     font-weight: 400;
   }
 
-  /* The mark and a charge in the value column open the charge's history,
-     the rest of the row the power's (REQ L-15). Above the row target, as tall
-     as it is, and at least 36 px wide so a thumb finds the mark. */
-  .row .row-value {
-    position: relative;
-  }
-
-  .soc-hit {
+  /* The bars of a row (REQ L-20): 2 px near its top and bottom edge, from the
+     name to the value, the row's height untouched. The element itself is a
+     12 px strip around the line, so a mouse finds its tooltip; a tap falls
+     through to the row's window. Track faint, fill in the bar's colour. */
+  .bar {
     position: absolute;
     z-index: 1;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    height: var(--el-row-h, 34px);
-    min-width: 36px;
-    width: calc(100% + 8px);
-    background: none;
-    border: 0;
-    padding: 0;
+    left: calc(var(--el-swatch) + 6px);
+    right: 0;
+    /* Wide enough to find with the mouse (Markus 29.10.2026); the middle of
+       the row with name and value stays free. */
+    height: 12px;
     cursor: pointer;
   }
 
-  .soc-hit:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: -2px;
-    border-radius: 4px;
+  /* On the edge itself a line reads as part of the neighbouring row
+     (headless look, 29.10.2026). */
+  .bar.top {
+    top: 0;
+  }
+
+  .bar.bottom {
+    bottom: 0;
+  }
+
+  .bar::before,
+  .bar::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--bar-color);
+  }
+
+  .bar::before {
+    right: 0;
+    opacity: 0.22;
+  }
+
+  .bar::after {
+    width: var(--bar-fill);
+  }
+
+  /* 12 px strips inside the row, the line 3 px from its edge. */
+  .bar.top::before,
+  .bar.top::after {
+    top: 3px;
+  }
+
+  .bar.bottom::before,
+  .bar.bottom::after {
+    bottom: 3px;
+  }
+
+  .bar.stale::before,
+  .bar.stale::after {
+    background: var(--secondary-text-color);
   }
 
   /* The runway the fan lines cross in the stacked layout. It draws nothing:
@@ -1197,6 +1273,13 @@ export const styles = css`
     .list.stacked .row.band::before {
       grid-column: 2 / -1;
       grid-row: 1;
+    }
+
+    /* Below the cross the bars run over name and value only (L-20). */
+    .list.stacked .bar {
+      grid-column: 3 / -1;
+      grid-row: 1;
+      left: 0;
     }
 
     .list.stacked .lane {

@@ -32,7 +32,12 @@ export function consumers(t, { quiet = false } = {}) {
     { entity: "sensor.c2", name: t.c2, icon: "mdi:washing-machine" },
     { entity: "sensor.c3", name: t.c3, icon: "mdi:air-conditioner" },
     { entity: "sensor.c4", name: t.c4, icon: "mdi:fridge-outline" },
-    { entity: "sensor.wb", name: t.wb, icon: "mdi:ev-station", charge: { soc: "sensor.car" } },
+    {
+      entity: "sensor.wb",
+      name: t.wb,
+      icon: "mdi:ev-station",
+      indicators: { ring: { entity: "sensor.car" }, idle_value: "ring" },
+    },
     ...(quiet
       ? [
           { entity: "sensor.q1", name: t.q1, icon: "mdi:tumble-dryer" },

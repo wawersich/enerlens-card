@@ -118,6 +118,15 @@ eines Knotens lassen sich ausblenden. Siehe _Zusatzwerte an den Knoten_.
 <div class="card-demo" data-demo="extras"></div>
 ++++
 
+*Zusatzwerte an den Verbrauchern.* Auch eine Zeile der Verbraucher-Liste kann
+mehr zeigen als die Leistung, ohne zusätzlichen Platz zu brauchen: einen Ring um
+das Icon, einen dünnen Balken oben oder unten, ein Icon, das sich füllt. In der
+Karte ganz oben trägt die Wärmepumpe einen Ring mit der Warmwasser-Temperatur,
+der 3D-Drucker einen roten Balken mit seinem Druckfortschritt – mit der Maus
+darüberfahren zeigt den Wert. Verbraucher lassen sich außerdem oben oder unten
+anpinnen, in der Liste halten und hervorheben. Siehe
+link:consumers.html[Zusatzwerte an den Verbrauchern].
+
 Ein *Netzausfall* wird angezeigt, sofern die Anlage den Netzstatus erfasst.
 
 ++++

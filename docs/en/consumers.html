@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extra values at the consumers – EnerLens Card</title>
+<meta name="description" content="">
+<script>
+  // Before the first paint, so a dark page never flashes light.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="icon" href="../assets/brand/favicon-lupe.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/brand/favicon-lupe-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/style.css?v=c663ce57">
+<link rel="stylesheet" href="../pagefind/pagefind-ui.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+<g class="fg">
+<path d="M41 41 L57 57" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="19" fill="none" stroke="currentColor" stroke-width="4.5"/>
+</g>
+<path d="M27 12.5v3M27 38.5v3M12.5 27h3M38.5 27h3M16.7 16.7l2.1 2.1M35.2 35.2l2.1 2.1M16.7 37.3l2.1-2.1M35.2 18.8l2.1-2.1" stroke="#ff9800" stroke-width="3" stroke-linecap="round"/>
+<circle cx="27" cy="27" r="7" fill="#ff9800"/>
+</svg>Ener<span>Lens</span></a>
+  <div id="search" class="search" data-placeholder="Search"></div>
+  <a class="lang" href="../de/consumers.html" hreflang="de">Deutsch</a>
+  <button class="theme" type="button" title="Toggle light/dark" aria-label="Toggle light/dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3Z"/></svg></button>
+</header>
+<div class="frame">
+  <nav class="side" aria-label="Contents">
+  <button class="menu" type="button" aria-expanded="false">Contents: <b>Extra values at the consumers</b></button>
+  <ul>
+<li><a href="index.html">EnerLens Card</a></li>
+<li><a href="install.html">Installation</a></li>
+<li><a href="setup.html">Setup</a></li>
+<li><a href="derive.html">Deriving a missing quantity</a></li>
+<li><a href="balcony.html">Balcony solar and more PV</a></li>
+<li><a href="layout.html">Arrangements</a></li>
+<li><a href="ev.html">Wallbox and EV</a></li>
+<li><a href="extras.html">Extra values at the nodes</a></li>
+<li class="current"><a href="consumers.html">Extra values at the consumers</a></li>
+<li><a href="quick.html">Quick buttons</a></li>
+<li><a href="energy.html">Energy over a period</a></li>
+<li><a href="outage.html">Grid outage</a></li>
+<li><a href="animation.html">Animations</a></li>
+<li><a href="look.html">Colours and look</a></li>
+<li><a href="options.html">All options</a></li>
+<li><a href="languages.html">Languages</a></li>
+<li><a href="migrate.html">Coming from power-flow-card-plus</a></li>
+  </ul></nav>
+  <main data-pagefind-body>
+    <h1>Extra values at the consumers</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Like the nodes, every consumer in the list can show more than its power: a
+ring around its icon, a thin bar at the top or bottom of the row, an icon that
+fills. It can also be pinned to the top or bottom, kept in the list always or
+under a condition, and highlighted.</p>
+</div>
+<div class="paragraph">
+<p>Watch: one round takes a minute and a half. The wallbox is pinned to the top
+and highlighted; while it does not charge it shows the car&#8217;s state of charge.
+The heat pump runs and rests - at rest the hot-water temperature stands in
+place of the power, its bars show hot water and flow. The buffer tank fills,
+the 3D printer shows its progress, the washing machine stands at the bottom.</p>
+</div>
+<div class="card-demo" data-demo="consumers" data-yaml="off"></div>
+<div class="paragraph">
+<p><strong>Hover an icon or a bar with the mouse:</strong> its value shows with its label, such
+as "Hot water 52 °C" - in this demo too. A tap on the row opens Home
+Assistant&#8217;s window with the history of the power and of every extra value.</p>
+</div>
+<div class="paragraph">
+<p>This is the YAML:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">consumers:
+  - entity: sensor.wallbox_power
+    name: Wallbox
+    position: top                            # pinned to the top
+    show: always                             # always in the list
+    highlight: { bold: true, band: true }
+    indicators:
+      ring: { entity: sensor.car_battery_level }
+      idle_value: ring                       # without power: the charge
+  - entity: sensor.heat_pump_power
+    name: Heat pump
+    min_w: 40
+    show: always
+    indicators:
+      bar_top: { entity: sensor.hot_water, min: 40, max: 60, label: Hot water }
+      bar_bottom:
+        entity: sensor.flow_temperature
+        min: 20
+        max: 55
+        label: Flow
+        color: "#e53935"                     # a colour of its own
+      idle_value: bar_top                    # below 40 W: "52 °C"
+  - entity: sensor.heating_rod_power
+    name: Buffer tank
+    icon: mdi:water-boiler
+    indicators:
+      fill: { entity: sensor.buffer_charge, label: Charge }
+  - entity: sensor.printer_power
+    name: 3D printer
+    indicators:
+      bar_top: { entity: sensor.print_progress, label: Print progress }
+  - entity: sensor.washing_machine_power
+    position: bottom
+    highlight: { band: true }</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the editor all of this is under the consumer&#8217;s <strong>Display</strong>; the colours of
+ring and bars under <strong>Colours</strong>. The heat pump of the example looks like this
+there - pinned to the top, with a colour band, hot water as the top bar:</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-consumer-display-en-light.png" alt="A consumer&#8217;s display settings in the editor" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-consumer-display-en-dark.png" alt="A consumer&#8217;s display settings in the editor" width="490">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="indicators"><a class="anchor" href="#indicators"></a>Indicators</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The ring is one of four indicators every consumer can have, one at a time or
+together, with no extra room in the row:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Place</th>
+<th class="tableblock halign-left valign-top">Look</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ring</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ring around the icon or colour dot</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bar_top</code>, <code>bar_bottom</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">thin bar at the top or bottom of the row, from the name to the value</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>fill</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the colour dot fills from below; with an icon, a field behind it does</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Each place has an <code>entity</code>, a range <code>min</code> to <code>max</code> (0 to 100 by default) and
+optionally a <code>label</code>; ring and bars have a colour of their own (in the editor
+under <em>Colours</em>), the fill takes the consumer&#8217;s. One example is the hot-water
+temperature of a heat pump:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">consumers:
+  - entity: sensor.heat_pump_power
+    name: Heat pump
+    min_w: 40
+    show: always
+    indicators:
+      bar_top:
+        entity: sensor.hot_water_temperature
+        min: 40
+        max: 60
+        label: Hot water
+      idle_value: bar_top                    # below 40 W: "52 °C" instead of the power</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Value column</strong> (<code>idle_value</code>): with power it shows the power. Below the row&#8217;s
+minimum power (<code>min_w</code>, else <code>min_consumer_w</code>) it shows the chosen value, with
+its unit, as Home Assistant shows it. The column switches on the list&#8217;s beat,
+not with every reading.</p>
+</div>
+<div class="paragraph">
+<p><strong>Tooltip and tap:</strong> hover the icon or a bar for the value with its label; a tap
+on the row opens the window with the power and below it every value in a chart
+of its own.</p>
+</div>
+<div class="paragraph">
+<p><strong>Energy mode:</strong> the indicators are left out there, like the extra values at the
+nodes. With <code>in_energy: true</code> they stay and show the value of now; the tooltip
+then says "· now", the value column keeps showing kWh.</p>
+</div>
+<div class="paragraph">
+<p><strong>Older spellings:</strong> <code>charge</code> (with <code>soc</code> and <code>label</code>) means a ring from 0 to
+100 % with <code>idle_value: ring</code> and <code>in_energy: true</code>; <code>charge.show</code> with
+<code>plugged</code> and <code>unplugged</code> means <code>show</code> and <code>condition</code>. Both still work.
+Changing the consumer in the editor writes it in the new form.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hold"><a class="anchor" href="#hold"></a>Pin, keep, highlight</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This works for every consumer, not only the wallbox.</p>
+</div>
+<div class="paragraph">
+<p><strong>Position</strong> (<code>position</code>): <code>top</code> or <code>bottom</code> fixes the row at the top or bottom of
+the list; several stand in the order of the configuration, sorted by dragging
+in the editor. Without it the row sorts by power. The position only decides
+the place, not whether the row appears.</p>
+</div>
+<div class="paragraph">
+<p><strong>Show in the list</strong> (<code>show</code>): from its minimum power a consumer is listed
+anyway. <code>always</code> keeps it there at all times as well, <code>condition</code> only while
+the condition is met - at 0 W too. No setting hides a consumer that draws
+power.</p>
+</div>
+<div class="paragraph">
+<p><strong>Condition</strong> (<code>condition</code>): a sensor, an operator and a value. <code>"="</code> and <code>"!="</code>
+take one or more states ("is one of them" / "is none of them"), <code>"&gt;"</code>, <code>"&lt;"</code>,
+<code>"&gt;="</code> and <code>"&#8656;"</code> exactly one number, e.g. <code>sensor.battery_voltage</code> <code>"&gt;"</code>
+<code>10.5</code>. The operators are quoted in YAML. While the sensor is briefly
+unavailable, its last answer counts. For more - a range, an attribute, two
+conditions - build a helper in Home Assistant and use it as the sensor.</p>
+</div>
+<div class="paragraph">
+<p><strong>Maximum</strong> (<code>max_consumers</code>): held rows count and get their places first; the
+strongest consumers fill the rest. If more rows are held than the maximum
+allows, all held rows still appear - the editor then says that no other
+consumer will.</p>
+</div>
+<div class="paragraph">
+<p><strong>Highlight</strong> (<code>highlight</code>): <code>bold: true</code> sets name and value in bold,
+<code>band: true</code> lightly backs the row in the consumer&#8217;s colour; either on its own
+or both, and no extra room.</p>
+</div>
+<div class="paragraph">
+<p>In the energy mode position and <code>always</code> apply the same way; a condition
+describes the state now and is not evaluated there.</p>
+</div>
+</div>
+</div>
+  </main>
+</div>
+<footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
+<script src="../pagefind/pagefind-ui.js"></script>
+<script type="module" src="../assets/site.js?v=5c8b5a13"></script>
+</body>
+</html>

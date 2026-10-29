@@ -25,8 +25,10 @@ import {
   type Highlight,
   type HoldOperator,
   type HomeAssistant,
+  INDICATOR_SLOTS,
   type IconKey,
   type InactiveLines,
+  type IndicatorSlot,
   type InsideField,
   type LabelField,
   type LayoutName,
@@ -34,9 +36,10 @@ import {
   type ListScope,
   type NodeKey,
   type NodeOptions,
-  type NormalizedCharge,
   type NormalizedConsumer,
   type NormalizedHold,
+  type NormalizedIndicator,
+  type NormalizedIndicators,
   type NormalizedSolarSource,
   type PowerFormat,
   type PowerUnit,
@@ -860,7 +863,7 @@ function readCharge(
   field: string,
   hass?: HomeAssistant,
   newShow = false,
-): { charge?: NormalizedCharge; hold?: NormalizedHold; old: boolean } {
+): { charge?: NormalizedIndicators; hold?: NormalizedHold; old: boolean } {
   if (isUnset(value)) return { old: false };
   const raw = requireRecord(value, field, hass);
   const soc = readString(raw.soc, `${field}.soc`, hass);
@@ -868,7 +871,21 @@ function readCharge(
     console.warn(localize("error.config.charge_no_soc", hass, { field }));
     return { old: false };
   }
-  const charge = { soc, label: readString(raw.label, `${field}.label`, hass) };
+  // The old spelling of a ring with 0-100 %, shown in its place when nothing
+  // flows and in the energy mode too - all as it always was (REQ L-20).
+  const charge: NormalizedIndicators = {
+    slots: {
+      ring: {
+        entity: soc,
+        min: 0,
+        max: 100,
+        label: readString(raw.label, `${field}.label`, hass),
+        percent: true,
+      },
+    },
+    idleValue: "ring",
+    inEnergy: true,
+  };
   const old = !isUnset(raw.show) || !isUnset(raw.plugged) || !isUnset(raw.unplugged);
   // The new show wins (REQ L-18): the old keys are then not read at all, so a
   // leftover written wrongly costs a warning, not an error card.
@@ -894,6 +911,62 @@ function readCharge(
 }
 
 const ON_OFF = /^(binary_sensor|input_boolean)\./;
+const IDLE_VALUES: readonly ("power" | IndicatorSlot)[] = ["power", ...INDICATOR_SLOTS];
+
+/**
+ * One extra value (REQ L-20). Without an entity it is an ordinary editor state
+ * (E-1): dropped with a word in the console. `min > max` is a scale running
+ * the other way and taken as written - it also turns up on the way while one
+ * types.
+ */
+function readIndicator(
+  value: unknown,
+  slot: IndicatorSlot,
+  field: string,
+  hass?: HomeAssistant,
+): NormalizedIndicator | undefined {
+  if (isUnset(value)) return undefined;
+  const raw = requireRecord(value, field, hass);
+  const entity = readString(raw.entity, `${field}.entity`, hass);
+  if (!entity) {
+    console.warn(localize("error.config.indicator_no_entity", hass, { field }));
+    return undefined;
+  }
+  return {
+    entity,
+    min: readNumber(raw.min, `${field}.min`, 0, hass),
+    max: readNumber(raw.max, `${field}.max`, 100, hass),
+    label: readString(raw.label, `${field}.label`, hass),
+    // The fill is the consumer's own mark and keeps its colour.
+    color: slot === "fill" ? undefined : readString(raw.color, `${field}.color`, hass),
+  };
+}
+
+/** The extra values of a consumer (REQ L-20); none configured is none at all. */
+function readIndicators(
+  value: unknown,
+  field: string,
+  hass?: HomeAssistant,
+): NormalizedIndicators | undefined {
+  if (isUnset(value)) return undefined;
+  const raw = requireRecord(value, field, hass);
+  const slots: NormalizedIndicators["slots"] = {};
+  for (const slot of INDICATOR_SLOTS) {
+    const indicator = readIndicator(raw[slot], slot, `${field}.${slot}`, hass);
+    if (indicator) slots[slot] = indicator;
+  }
+  let idleValue = readEnum(raw.idle_value, IDLE_VALUES, `${field}.idle_value`, "power", hass);
+  if (idleValue !== "power" && !slots[idleValue]) {
+    console.warn(localize("error.config.idle_value_missing", hass, { field, slot: idleValue }));
+    idleValue = "power";
+  }
+  if (Object.keys(slots).length === 0) return undefined;
+  return {
+    slots,
+    idleValue,
+    inEnergy: readBoolean(raw.in_energy, `${field}.in_energy`, false, hass),
+  };
+}
 const POSITIONS: readonly ConsumerPosition[] = ["top", "bottom"];
 const SHOWS = ["always", "condition"] as const;
 const OPERATORS: readonly HoldOperator[] = ["=", "!=", ">", "<", ">=", "<="];
@@ -961,7 +1034,8 @@ export function collectChargeIds(config: Config): string[] {
   const ids: string[] = [];
   for (const consumer of config.consumers) {
     const condition = consumer.hold?.kind === "condition" ? consumer.hold.entity : undefined;
-    for (const id of [consumer.charge?.soc, condition]) if (id && !ids.includes(id)) ids.push(id);
+    const extras = Object.values(consumer.indicators?.slots ?? {}).map((i) => i.entity);
+    for (const id of [...extras, condition]) if (id && !ids.includes(id)) ids.push(id);
   }
   return ids;
 }
@@ -1118,7 +1192,7 @@ function readPlace(
   entry: Record<string, unknown>,
   field: string,
   hass?: HomeAssistant,
-): Pick<NormalizedConsumer, "charge" | "hold" | "position" | "highlight"> {
+): Pick<NormalizedConsumer, "indicators" | "hold" | "position" | "highlight"> {
   const {
     charge,
     hold: oldHold,
@@ -1128,8 +1202,13 @@ function readPlace(
   if (!isUnset(entry.show) && old) {
     console.warn(localize("error.config.show_twice", hass, { field }));
   }
+  // indicators win over the old charge (REQ L-20), as show wins over charge.show.
+  const indicators = readIndicators(entry.indicators, `${field}.indicators`, hass);
+  if (!isUnset(entry.indicators) && charge) {
+    console.warn(localize("error.config.indicators_twice", hass, { field }));
+  }
   return {
-    charge,
+    indicators: isUnset(entry.indicators) ? charge : indicators,
     highlight: readHighlight(entry.highlight, `${field}.highlight`, hass),
     hold: isUnset(entry.show) ? oldHold : hold,
     position: isUnset(entry.position)

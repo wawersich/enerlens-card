@@ -4,14 +4,17 @@
  * Owner: agent 2. REQ 4.1 - 4.3, K-8, K-9, A-1 - A-6.
  */
 import type {
-  ChargeState,
   Config,
   ConsumerReading,
   HomeAssistant,
+  IndicatorReading,
+  IndicatorSlot,
+  IndicatorState,
   Model,
-  NormalizedCharge,
   NormalizedConsumer,
+  NormalizedIndicators,
   Reading,
+  RowIndicators,
   Signed,
   SolarSourceReading,
   SourceSpec,
@@ -211,8 +214,20 @@ export function buildModel(
   );
 }
 
-/** The state of charge of a consumer that has one (REQ L-15); read live, never averaged. */
-export type ChargeOf = (charge: NormalizedCharge) => ChargeState;
+/** What is known of an extra value now (REQ L-15, L-20); read live, never averaged. */
+export type ChargeOf = (entity: string) => IndicatorState;
+
+/** Each configured extra value with what is known of it now (REQ L-20). */
+function readIndicators(indicators: NormalizedIndicators, chargeOf: ChargeOf): RowIndicators {
+  const slots: Partial<Record<IndicatorSlot, IndicatorReading>> = {};
+  for (const [slot, indicator] of Object.entries(indicators.slots) as [
+    IndicatorSlot,
+    NonNullable<NormalizedIndicators["slots"][IndicatorSlot]>,
+  ][]) {
+    slots[slot] = { ...indicator, ...chargeOf(indicator.entity) };
+  }
+  return { slots, idleValue: indicators.idleValue, inEnergy: indicators.inEnergy };
+}
 
 /** Whether a consumer row is held in the list right now (REQ L-18); read live, never averaged. */
 export type HeldOf = (consumer: NormalizedConsumer) => boolean;
@@ -367,14 +382,8 @@ export function buildModelFrom(
       // icons for one consumer in ten and dots for the rest - worse than dots.
       icon: consumer.icon,
       reading: makeReading(safeValueOf(consumer.entity), consumer.entity, false),
-      charge:
-        consumer.charge && chargeOf
-          ? {
-              ...chargeOf(consumer.charge),
-              entity: consumer.charge.soc,
-              label: consumer.charge.label,
-            }
-          : undefined,
+      indicators:
+        consumer.indicators && chargeOf ? readIndicators(consumer.indicators, chargeOf) : undefined,
       held: heldOf?.(consumer) ?? consumer.hold?.kind === "always",
       position: consumer.position,
       highlight: consumer.highlight,

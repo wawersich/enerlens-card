@@ -119,14 +119,26 @@ interface Part {
   minus?: boolean;
 }
 
-/** What a window shows (DF-1): its title, its series, a state of charge below. */
+/**
+ * A value in a chart of its own below the power (DF-5, DF-15): the battery's
+ * state of charge, or a consumer's extra values (REQ L-20).
+ */
+interface Extra {
+  entity: string;
+  /** Its own name; unset: "State of charge". */
+  label?: string;
+  /** 0..100 % on a fixed axis; anything else follows its data. */
+  percent: boolean;
+  /** A consumer's value that a period shows only on request (L-20 in_energy). */
+  inEnergy?: boolean;
+}
+
+/** What a window shows (DF-1): its title, its series, values below. */
 interface Plan {
   title: string;
   series: Series[];
-  /** The state of charge below the chart (DF-5). */
-  soc?: string;
-  /** Its own name instead of "State of charge" (issue #31). */
-  socLabel?: string;
+  /** Charts below the power, one per value (DF-5, DF-15). */
+  extras?: Extra[];
   /**
    * How the series lie: a pair mirrored at zero (DF-3), the parts of a sum
    * stacked (DF-13), or one series that is the card's own sum of `parts` -
@@ -150,15 +162,29 @@ function planOf(
       ? (hass?.states?.[consumer.entity]?.attributes?.friendly_name as string | undefined)
       : undefined;
     const title = consumer?.name ?? friendly ?? consumer?.entity ?? "";
-    if (!consumer) return { title, series: [], layout: "single" };
+    if (!consumer) return { title, series: [], layout: "single", extras: [] };
     return {
       title,
       layout: "single",
       series: [
         { entity: consumer.entity, name: title, color: consumer.color, sign: 1, role: "house" },
       ],
-      soc: consumer.charge?.soc,
-      socLabel: consumer.charge?.label,
+      // Every extra value of the row, each in a chart of its own (L-20).
+      extras: Object.entries(consumer.indicators?.slots ?? {}).map(([slot, ind]) => ({
+        entity: ind.entity,
+        // Named as the row names it: own label, "State of charge" for the
+        // ring, else the entity's name or its id (L-20).
+        label:
+          ind.label ??
+          (slot === "ring"
+            ? undefined
+            : ((hass?.states?.[ind.entity]?.attributes?.friendly_name as string | undefined) ??
+              ind.entity)),
+        percent:
+          ind.percent === true ||
+          (ind.min === 0 && ind.max === 100 && unitOf(hass, ind.entity) === "%"),
+        inEnergy: consumer.indicators?.inEnergy ?? false,
+      })),
     };
   }
   if (node.startsWith("source:")) {
@@ -332,7 +358,7 @@ function planOf(
           noFigure: !grid,
         },
       ],
-      soc: grid ? undefined : config.sources.batterySoc,
+      extras: socExtra(grid ? undefined : config.sources.batterySoc),
     };
   }
   if (spec.kind !== "split") return none;
@@ -354,8 +380,23 @@ function planOf(
     title,
     layout: "mirrored",
     series: [side(up, spec.positive, 1), side(down, spec.negative, -1)],
-    soc: node === "battery" ? config.sources.batterySoc : undefined,
+    extras: socExtra(node === "battery" ? config.sources.batterySoc : undefined),
   };
+}
+
+/** The values a window draws below the power: in a period only those asked for there (L-20). */
+function extrasShown(plan: Plan, energy: boolean): Extra[] {
+  return (plan.extras ?? []).filter((e) => !energy || e.inEnergy !== false);
+}
+
+/** The battery's state of charge below its chart (DF-5). */
+function socExtra(entity: string | undefined): Extra[] {
+  return entity ? [{ entity, percent: true }] : [];
+}
+
+function unitOf(hass: HomeAssistant | undefined, entity: string): string | undefined {
+  const unit = hass?.states?.[entity]?.attributes?.unit_of_measurement;
+  return typeof unit === "string" ? unit : undefined;
 }
 
 /**
@@ -519,13 +560,14 @@ export class EnerLensDetail extends LitElement {
   /** Whether anything was drawn yet: a later failure keeps it up (DF-7). */
   private _loaded = false;
   private _chart?: ChartElement;
-  private _socChart?: ChartElement;
+  /** One chart per value below the power (DF-5, DF-15). */
+  private _extraCharts: (ChartElement | undefined)[] = [];
   /** What is drawn, kept to draw again in another theme (DF-6). */
   private _drawn?: {
     period: EnergyPeriod | null;
     range: PowerRange;
     power?: { range: { from: number; to: number }; rows: Record<string, StatRow5[]> };
-    soc?: { data: SocData; min: number; max: number };
+    extras?: ({ data: SocData; min: number; max: number } | undefined)[];
   };
   /** The theme it was drawn in. */
   private _dark?: boolean;
@@ -660,7 +702,7 @@ export class EnerLensDetail extends LitElement {
     this._open = true;
     this._view = undefined;
     this._chart = undefined;
-    this._socChart = undefined;
+    this._extraCharts = [];
     this._drawn = undefined;
     this._busy = false;
     this._giveWayTo = undefined;
@@ -842,12 +884,21 @@ export class EnerLensDetail extends LitElement {
         this._drawPower(range, rows);
         axis = { ...range, min: range.from, max: range.to };
       }
-      const soc = plan.soc;
-      if (soc && axis) {
-        const data = await socData(hass, soc, axis.from, Math.min(axis.to, Date.now()), step);
+      const extras = extrasShown(plan, Boolean(energy));
+      if (axis && extras.length > 0) {
+        const to = Math.min(axis.to, Date.now());
+        // One value that fails costs its own chart, not the window (review).
+        const all = await Promise.allSettled(
+          extras.map((e) => socData(hass, e.entity, axis.from, to, step)),
+        );
         if (!current()) return;
-        drawn.soc = { data, min: axis.min, max: axis.max };
-        this._drawSoc(data, axis.min, axis.max);
+        drawn.extras = all.map((r) =>
+          r.status === "fulfilled" ? { data: r.value, min: axis.min, max: axis.max } : undefined,
+        );
+        all.forEach((r, i) => {
+          if (r.status === "fulfilled") this._drawSoc(i, r.value, axis.min, axis.max);
+          else console.warn(r.reason);
+        });
       }
       this._drawn = drawn;
       this._loaded = true;
@@ -1148,18 +1199,27 @@ export class EnerLensDetail extends LitElement {
     this.requestUpdate();
   }
 
-  /** The state of charge in a chart of its own below, on the same axis (DF-5). */
-  private _drawSoc(data: SocData, min: number, max: number): void {
+  /**
+   * A value in a chart of its own below, on the same axis (DF-5): the state of
+   * charge on 0..100 %, any other extra value on an axis of its own data, in
+   * its own unit (DF-15, L-20).
+   */
+  private _drawSoc(index: number, data: SocData, min: number, max: number): void {
     const hass = this._hass;
     if (!hass) return;
     const params = this._params;
     const state = params?.card.detailState();
     const own = params && state ? planOf(params.node, state.config, hass, this._shown) : undefined;
+    const extra = own ? extrasShown(own, !this._power)[index] : undefined;
+    if (!extra) return;
     // In the tooltip under its own name, where it has one (issue #31).
-    const name = own?.socLabel || localize("detail.soc", hass);
+    const name = extra.label || localize("detail.soc", hass);
     const line = this._paint("var(--secondary-text-color)");
     const fill = this._paint("var(--divider-color)");
-    const percent = (v: number) => `${Math.round(v)} %`;
+    const unit = extra.percent ? "%" : unitOf(hass, extra.entity);
+    const number = new Intl.NumberFormat(localeFor(hass), { maximumFractionDigits: 1 });
+    const percent = (v: number) =>
+      extra.percent ? `${Math.round(v)} %` : `${number.format(v)}${unit ? ` ${unit}` : ""}`;
     const series: Record<string, unknown>[] = [];
     if (data.band.length > 0) {
       // Lower edge, then the span above it, stacked: the area between is the
@@ -1196,11 +1256,13 @@ export class EnerLensDetail extends LitElement {
       areaStyle: { color: fill, opacity: 0.6 },
       data: data.line,
     });
-    const chart = this._chartFor("_socChart", "soc");
+    const chart = this._extraChart(index);
     chart.height = "160px";
     chart.options = {
       xAxis: { type: "time", min, max },
-      yAxis: { type: "value", min: 0, max: 100, interval: 50, axisLabel: { formatter: percent } },
+      yAxis: extra.percent
+        ? { type: "value", min: 0, max: 100, interval: 50, axisLabel: { formatter: percent } }
+        : { type: "value", scale: true, splitNumber: 2, axisLabel: { formatter: percent } },
       legend: { show: false },
       grid: { left: this._power ? 64 : 48, right: 16, top: 12, bottom: 28, containLabel: false },
       tooltip: {
@@ -1231,8 +1293,23 @@ export class EnerLensDetail extends LitElement {
     this.requestUpdate();
   }
 
+  /** The chart of the index-th value below the power, made once like the others. */
+  private _extraChart(index: number): ChartElement {
+    const slot = `_extra${index}`;
+    if (this._renew && !this._renewed.has(slot)) {
+      this._renewed.add(slot);
+      this._extraCharts[index] = undefined;
+    }
+    const chart =
+      this._extraCharts[index] ?? (document.createElement(detailSetup.chartTag) as ChartElement);
+    chart.className = "chart soc";
+    chart.hass = this._hass;
+    this._extraCharts[index] = chart;
+    return chart;
+  }
+
   /** The chart element of a slot, made once and then only given new figures. */
-  private _chartFor(slot: "_chart" | "_socChart", kind: string): ChartElement {
+  private _chartFor(slot: "_chart", kind: string): ChartElement {
     if (this._renew && !this._renewed.has(slot)) {
       this._renewed.add(slot);
       this[slot] = undefined;
@@ -1379,7 +1456,9 @@ export class EnerLensDetail extends LitElement {
     const drawn = this._drawn;
     if (drawn.power) this._drawPower(drawn.power.range, drawn.power.rows);
     else if (this._view) this._drawEnergy(this._view);
-    if (drawn.soc) this._drawSoc(drawn.soc.data, drawn.soc.min, drawn.soc.max);
+    drawn.extras?.forEach((e, i) => {
+      if (e) this._drawSoc(i, e.data, e.min, e.max);
+    });
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
@@ -1426,7 +1505,7 @@ export class EnerLensDetail extends LitElement {
     const plan = planOf(params.node, state.config, hass, this._shown);
     const sides = plan.series;
     const marks = view?.marks.roles;
-    const soc = plan.soc;
+    const extras = extrasShown(plan, !this._power);
     const more = (entity: string) => (ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
     return html`
@@ -1552,18 +1631,18 @@ export class EnerLensDetail extends LitElement {
           // Until the first chart is there: something is coming (DF-10).
           this._chart ?? html`<div class="loading" role="progressbar" aria-busy="true"></div>`
         }
-        ${
-          soc && this._socChart
+        ${extras.map((extra, i) => {
+          const chart = this._extraCharts[i];
+          const name = extra.label || localize("detail.soc", hass);
+          return chart
             ? html`<button
                 class="sum soc-name"
-                aria-label=${localize("detail.open", hass, {
-                  name: plan.socLabel || localize("detail.soc", hass),
-                })}
-                @click=${more(soc)}
-              >${plan.socLabel || localize("detail.soc", hass)}</button>
-              ${this._socChart}`
-            : nothing
-        }
+                aria-label=${localize("detail.open", hass, { name })}
+                @click=${more(extra.entity)}
+              >${name}</button>
+              ${chart}`
+            : nothing;
+        })}
       </div>
     `;
   }

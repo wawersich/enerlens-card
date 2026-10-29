@@ -88,7 +88,6 @@ import {
   type GridStatusSpec,
   type HomeAssistant,
   type Model,
-  type NormalizedCharge,
   type NormalizedConsumer,
   type OutageState,
   type PvScale,
@@ -220,8 +219,8 @@ class EnerLensCard extends LitElement {
   /** The last value of each PV source: night or fault (REQ PV-2). */
   private readonly _solarMemory = new SolarMemory();
   /** Hands the model a consumer's charge as the tracker knows it now. */
-  private readonly _chargeOf = (charge: NormalizedCharge) =>
-    this._charge.state(this._hass as HomeAssistant, charge);
+  private readonly _chargeOf = (entity: string) =>
+    this._charge.state(this._hass as HomeAssistant, entity);
   /** Conditions remember their last answer across an unavailable sensor (REQ L-18). */
   private readonly _holds = new HoldTracker();
   /** A period has no "now" to ask a condition about; only `always` holds there. */
