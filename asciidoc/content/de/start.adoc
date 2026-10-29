@@ -24,8 +24,10 @@ link:layout.html[Anordnungen]).
 *Verbraucher können optional angegeben werden.* Sofern einzelne Verbraucher
 erfasst werden (z. B. eine Wärmepumpe oder ein mit einem Shelly gemessenes
 Gerät), können ihre Entitäten hinterlegt werden. Die Liste neben dem Haus-Knoten
-und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest fasst
-zusammen, was nicht einzeln gemessen wird.
+und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest ist
+der Hauswert minus die _sichtbaren_ Verbraucher: Er enthält, was nicht einzeln
+gemessen wird, und dazu gemessene Verbraucher, die gerade unter ihrer Schwelle
+liegen oder vom Limit verdrängt sind.
 
 *Zeitlicher Mittelwert.* Ein Live-Leistungsdiagramm springt binnen Sekunden
 um Kilowatt. Alternativ zeigt die Karte gleitende Mittelwerte — voreingestellt
@@ -88,7 +90,9 @@ Einzel-Buttons, aufgeklappt:
 festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
 Filter-Knopf oben zeigt auf Wunsch *alle* Verbraucher unabhängig von ihrer
 Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
-ist.
+ist. Dabei wird der Rest kleiner, weil die bisher ausgeblendeten Verbraucher
+eine eigene Zeile bekommen. Wer sehen will, wie viel Leistung keinem Sensor
+zugeordnet ist, schaltet den Filter deshalb aus.
 
 *Der Ring zieht mit.* Ändert sich die Reihenfolge, wandern seine Segmente an
 ihren neuen Platz und überholen auf einer inneren Bahn — in jeder Karte auf

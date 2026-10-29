@@ -80,8 +80,10 @@ stehen die PV-Zeilen links der Zeichnung, die Verbraucher rechts (siehe
 <p><strong>Verbraucher können optional angegeben werden.</strong> Sofern einzelne Verbraucher
 erfasst werden (z. B. eine Wärmepumpe oder ein mit einem Shelly gemessenes
 Gerät), können ihre Entitäten hinterlegt werden. Die Liste neben dem Haus-Knoten
-und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest fasst
-zusammen, was nicht einzeln gemessen wird.</p>
+und der Ring darum zeigen dann, woraus der Hauswert besteht. Der Rest ist
+der Hauswert minus die <em>sichtbaren</em> Verbraucher: Er enthält, was nicht einzeln
+gemessen wird, und dazu gemessene Verbraucher, die gerade unter ihrer Schwelle
+liegen oder vom Limit verdrängt sind.</p>
 </div>
 <div class="paragraph">
 <p><strong>Zeitlicher Mittelwert.</strong> Ein Live-Leistungsdiagramm springt binnen Sekunden
@@ -137,7 +139,9 @@ Jede Karte merkt sich, worauf sie zuletzt stand (siehe
 festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
 Filter-Knopf oben zeigt auf Wunsch <strong>alle</strong> Verbraucher unabhängig von ihrer
 Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
-ist.</p>
+ist. Dabei wird der Rest kleiner, weil die bisher ausgeblendeten Verbraucher
+eine eigene Zeile bekommen. Wer sehen will, wie viel Leistung keinem Sensor
+zugeordnet ist, schaltet den Filter deshalb aus.</p>
 </div>
 <div class="paragraph">
 <p><strong>Der Ring zieht mit.</strong> Ändert sich die Reihenfolge, wandern seine Segmente an
@@ -194,6 +198,6 @@ verwendeten gleich mit anbietet.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=d991eaef"></script>
+<script type="module" src="../assets/site.js?v=d12ee5ec"></script>
 </body>
 </html>

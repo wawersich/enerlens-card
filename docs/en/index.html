@@ -79,7 +79,9 @@ the drawing and the consumers right of it (see <a href="layout.html">Arrangement
 <p><strong>Consumers are optional.</strong> If individual consumers are measured (a heat pump,
 say, or a device behind a Shelly), their entities can be added. The list beside
 the house node and the ring around it then show what makes up the house value.
-The remainder holds everything that is not measured individually.</p>
+The remainder is the house value minus the <em>visible</em> consumers: it holds
+everything that is not measured individually, plus measured consumers that are
+below their threshold or pushed out by the limit right now.</p>
 </div>
 <div class="paragraph">
 <p><strong>Moving average.</strong> A live power diagram jumps by kilowatts within seconds.
@@ -132,7 +134,9 @@ same on every device. Every card remembers where it was left (see
 <p><strong>The consumer list sorts itself and glides.</strong> Rows reorder by power on a fixed
 beat and slide to their new position. A small filter button at the top shows
 <strong>every</strong> consumer on request, regardless of power — for tapping the history of
-a device that has just gone quiet.</p>
+a device that has just gone quiet. The remainder shrinks while it is on,
+because the consumers hidden so far get rows of their own. To see how much
+power belongs to no sensor at all, switch the filter off.</p>
 </div>
 <div class="paragraph">
 <p><strong>The ring follows along.</strong> When the order changes, its segments travel to
@@ -188,6 +192,6 @@ the card already uses.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=d991eaef"></script>
+<script type="module" src="../assets/site.js?v=d12ee5ec"></script>
 </body>
 </html>

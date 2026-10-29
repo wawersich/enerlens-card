@@ -13,6 +13,12 @@ The header has up to four quick buttons; each tap steps to the next value:
 |*List scope* |filtered list, every consumer |`list.scope`: `filtered`, `full` |both
 |===
 
+*List scope and remainder:* the remainder is always the house value minus the
+visible consumers. In the filtered list it therefore also holds small consumers
+and those pushed out by the limit. With _every consumer_ only what has no sensor
+of its own is left in it - which shows how much power goes into unknown
+consumers.
+
 This is how they look by default - try them, each tap steps on (the card
 below them is left out here):
 

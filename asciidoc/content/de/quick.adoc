@@ -14,6 +14,12 @@ nächsten Wert:
 |*Listenumfang* |gefilterte Liste, alle Verbraucher |`list.scope`: `filtered`, `full` |beide
 |===
 
+*Listenumfang und Rest:* Der Rest ist immer der Hauswert minus die sichtbaren
+Verbraucher. In der gefilterten Liste enthält er deshalb auch kleine und vom
+Limit verdrängte Verbraucher. Mit _alle Verbraucher_ bleibt im Rest nur, was
+keinen eigenen Sensor hat - so sieht man, wie viel Leistung in unbekannten
+Verbrauchern verschwindet.
+
 So sehen sie im Standard aus – zum Ausprobieren, jeder Tipp schaltet weiter
 (die Karte darunter ist hier weggelassen):
 

@@ -23,7 +23,9 @@ the drawing and the consumers right of it (see link:layout.html[Arrangements]).
 *Consumers are optional.* If individual consumers are measured (a heat pump,
 say, or a device behind a Shelly), their entities can be added. The list beside
 the house node and the ring around it then show what makes up the house value.
-The remainder holds everything that is not measured individually.
+The remainder is the house value minus the _visible_ consumers: it holds
+everything that is not measured individually, plus measured consumers that are
+below their threshold or pushed out by the limit right now.
 
 *Moving average.* A live power diagram jumps by kilowatts within seconds.
 Alternatively the card shows moving averages — over 2 and 15 minutes by
@@ -83,7 +85,9 @@ Single buttons, expanded:
 *The consumer list sorts itself and glides.* Rows reorder by power on a fixed
 beat and slide to their new position. A small filter button at the top shows
 *every* consumer on request, regardless of power — for tapping the history of
-a device that has just gone quiet.
+a device that has just gone quiet. The remainder shrinks while it is on,
+because the consumers hidden so far get rows of their own. To see how much
+power belongs to no sensor at all, switch the filter off.
 
 *The ring follows along.* When the order changes, its segments travel to
 their new places and overtake on an inner lane — to be seen in every card on
