@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`power.decimals` and `power.digits` out of range** showed an error card;
   like every other number they are now drawn to the nearest limit, with a
   warning.
+- **A misspelt key inside a block** (`flow.dot_colour`, `entities.batery`)
+  vanished without a word; the browser console now names it, as it already
+  did for top-level keys.
 
 ## [1.2.0] - 2026-10-27
 

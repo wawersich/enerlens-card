@@ -891,6 +891,103 @@ describe("unknown keys (E-1)", () => {
     expect(String(warn.mock.calls[0][0])).toContain("colours");
   });
 
+  // A typo one level down (flow.dot_colour) used to vanish without a word.
+  // Found reviewing the YAML history, 30.10.2026.
+  it("warns about an unknown key inside a block, naming its path (E-1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const typos = {
+      list: { titel: "x" },
+      ring: { enable: true },
+      view: { mode: "current" },
+      flow: { dot_colour: "red" },
+      colors: { solar_colour: "red" },
+      icons: { pv: "mdi:sun" },
+      power: { units: "W" },
+    };
+    expect(() => normalizeConfig(cfg(typos))).not.toThrow();
+    const said = warn.mock.calls.map((c) => String(c[0]));
+    for (const path of [
+      "list.titel",
+      "ring.enable",
+      "view.mode",
+      "flow.dot_colour",
+      "colors.solar_colour",
+      "icons.pv",
+      "power.units",
+    ]) {
+      expect(
+        said.some((m) => m.includes("error.config.unknown_key") && m.includes(path)),
+        path,
+      ).toBe(true);
+    }
+    expect(warn).toHaveBeenCalledTimes(7);
+  });
+
+  it("warns about an unknown key in entities", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    normalizeConfig({ ...cfg(), entities: { ...cfg().entities, batery: "sensor.b" } } as RawConfig);
+    expect(warn.mock.calls.map((c) => String(c[0])).join()).toContain("entities.batery");
+  });
+
+  // Every key the card reads must stay quiet - older spellings above all
+  // (view.show_selector, list.rest_label): they are read, not unknown.
+  it("stays quiet about every key the card reads, older spellings included", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    normalizeConfig(
+      cfg({
+        list: {
+          enabled: true,
+          title: "T",
+          rest_label: "Other",
+          always_below: false,
+          solar: true,
+        },
+        ring: { enabled: true, animation: "fade", solar: true },
+        view: {
+          default_mode: "current",
+          avg_short_minutes: 2,
+          avg_long_minutes: 15,
+          show_selector: true,
+          remember: true,
+          expanded: ["modes"],
+        },
+        flow: {
+          min_w: 10,
+          peak_w: 6000,
+          max_dots: 5,
+          slow_s: 5,
+          fast_s: 1.8,
+          animation: "auto",
+          inactive_lines: "dim",
+          design: "none",
+          dot_color: "red",
+          dot_size: 100,
+          line_width: 100,
+        },
+        colors: {
+          solar: "red",
+          house: "red",
+          grid_import: "red",
+          grid_export: "red",
+          battery_charge: "red",
+          battery_discharge: "red",
+          rest: "grey",
+          arrows: "direction",
+          solar_inside: "red",
+          solar_label: "red",
+          grid_inside: "red",
+          grid_label: "red",
+          house_inside: "red",
+          house_label: "red",
+          battery_label: "red",
+        },
+        icons: { solar: "mdi:a", grid: "mdi:b", house: "mdi:c", battery: "mdi:d", rest: "mdi:e" },
+        power: { unit: "kW", decimals: 2, digits: 3 },
+      }),
+    );
+    expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([]);
+  });
+
   it("stays quiet about keys Lovelace adds itself (E-1)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     normalizeConfig(cfg({ view_layout: { position: "sidebar" }, grid_options: { columns: 12 } }));

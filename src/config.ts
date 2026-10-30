@@ -1237,7 +1237,75 @@ function warnUnknownKeys(raw: Record<string, unknown>, hass?: HomeAssistant): vo
     if (KNOWN_KEYS.has(key) || HOST_KEYS.has(key)) continue;
     console.warn(localize("error.config.unknown_key", hass, { field: key }));
   }
+  for (const [block, known] of Object.entries(BLOCK_KEYS)) {
+    if (isRecord(raw[block])) warnUnknownIn(raw[block], known, block, hass);
+  }
 }
+
+/**
+ * The keys each block is read for, so that a typo one level down
+ * (`flow.dot_colour`) is named instead of vanishing - a warning, never an
+ * error card (E-1). `nodes` checks its own.
+ *
+ * Older spellings stay listed for as long as they are read (N-10,
+ * dev-docs/yaml-formats.md): `view.show_selector`, `list.rest_label`.
+ */
+const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
+  entities: new Set(["solar", "grid", "battery", "house", "battery_soc", "grid_status"]),
+  list: new Set([
+    "enabled",
+    "title",
+    "rest_label",
+    "always_below",
+    "scope",
+    "default_scope",
+    "solar",
+  ]),
+  ring: new Set(["enabled", "animation", "solar"]),
+  view: new Set([
+    "default_mode",
+    "avg_short_minutes",
+    "avg_long_minutes",
+    "show_selector",
+    "remember",
+    "modes",
+    "energy_periods",
+    "default_energy",
+    "pv_scales",
+    "default_pv_scale",
+    "expanded",
+    "quick_style",
+  ]),
+  flow: new Set([
+    "min_w",
+    "peak_w",
+    "slow_below_w",
+    "full_speed_w",
+    "more_dots_above_w",
+    "max_dots_at_w",
+    "max_dots",
+    "slow_s",
+    "fast_s",
+    "animation",
+    "inactive_lines",
+    "design",
+    "dot_color",
+    "dot_size",
+    "line_width",
+    "lines",
+  ]),
+  // battery_inside has a warning of its own (not_for_node).
+  colors: new Set([
+    ...COLOR_KEYS,
+    ...EXTRA_COLOR_KEYS,
+    "battery_inside",
+    "arrows",
+    "soc_stops",
+    "consumer_palette",
+  ]),
+  icons: new Set(["solar", "grid", "house", "battery", "rest"]),
+  power: new Set(["unit", "decimals", "digits"]),
+};
 
 // ---------------------------------------------------------------------------
 // Entry points
