@@ -293,16 +293,26 @@ describe("power format (K-7)", () => {
       digits: 3,
     });
     expect(normalizeConfig(cfg({ power: { decimals: 3 } })).power.decimals).toBe(3);
-    expect(() => normalizeConfig(cfg({ power: { decimals: 4 } }))).toThrow();
     expect(() => normalizeConfig(cfg({ power: { unit: "MW" } }))).toThrow();
+  });
+
+  // Like every other number since 0.11.0 (E-1): drawn to the limit with a
+  // warning, never an error card. Found reviewing the YAML history, 30.10.2026.
+  it("draws decimals and significant digits to their limits instead of refusing", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(normalizeConfig(cfg({ power: { decimals: 4 } })).power.decimals).toBe(3);
+    expect(normalizeConfig(cfg({ power: { decimals: 0 } })).power.decimals).toBe(1);
+    expect(normalizeConfig(cfg({ power: { decimals: 2.4 } })).power.decimals).toBe(2);
+    expect(normalizeConfig(cfg({ power: { digits: 1 } })).power.digits).toBe(2);
+    expect(normalizeConfig(cfg({ power: { digits: 5 } })).power.digits).toBe(4);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("takes the significant digits for the automatic unit, two to four", () => {
     expect(normalizeConfig(cfg({ power: { unit: "auto" } })).power.digits).toBe(3);
     expect(normalizeConfig(cfg({ power: { unit: "auto", digits: 2 } })).power.digits).toBe(2);
     expect(normalizeConfig(cfg({ power: { digits: 4 } })).power.digits).toBe(4);
-    expect(() => normalizeConfig(cfg({ power: { digits: 1 } }))).toThrow();
-    expect(() => normalizeConfig(cfg({ power: { digits: 5 } }))).toThrow();
   });
 });
 

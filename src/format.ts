@@ -21,11 +21,11 @@ function baseLanguage(language: string | undefined): string {
 /**
  * The unit a value picks for itself (REQ K-7).
  *
- * "auto" decides the unit and nothing else: whole watts below a kilowatt,
- * kilowatts above. How many decimals those kilowatts get stays the user's
- * choice - the two questions only look like one. A fixed kilowatt column
- * writes a fridge at 30 W as "0,0 kW", which is the part no number of decimals
- * can fix; the decimals themselves are a matter of taste and better left set.
+ * "auto" picks whole watts below a kilowatt and kilowatts above. A fixed
+ * kilowatt column writes a fridge at 30 W as "0,0 kW", which no number of
+ * decimals can fix. Under "auto" the kilowatts are written to `power.digits`
+ * significant digits (significantDecimals); `power.decimals` only applies to
+ * a fixed "kW" (since 0.5.2 - in 0.5.1 "auto" still used `decimals`).
  *
  * The step is decided on the *rounded* number, so 999.6 W comes out as
  * "1,0 kW" rather than as "1000 W".

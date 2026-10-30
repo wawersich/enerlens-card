@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   "one entity", "split" or "several sources") showed an error card in the
   preview. The editor now keeps the last valid card, writes nothing until the
   choice is complete, and says what is missing.
+- **`power.decimals` and `power.digits` out of range** showed an error card;
+  like every other number they are now drawn to the nearest limit, with a
+  warning.
 
 ## [1.2.0] - 2026-10-27
 

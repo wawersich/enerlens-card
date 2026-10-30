@@ -201,17 +201,6 @@ function readNumber(value: unknown, field: string, fallback: number, hass?: Home
   return value;
 }
 
-function readInteger(
-  value: unknown,
-  field: string,
-  fallback: number,
-  hass?: HomeAssistant,
-): number {
-  const n = readNumber(value, field, fallback, hass);
-  if (!Number.isInteger(n)) throw fail("error.config.integer", field, hass);
-  return n;
-}
-
 /** A number the card uses instead of the one configured - for the editor to
  *  say so under the field (E-1, 22.10.2026). */
 export interface ConfigNote {
@@ -249,6 +238,8 @@ export const NUMBER_LIMITS: Readonly<
   "consumers.min_w": { min: 0 },
   "entities.solar.kwp": { min: 0.01, max: 10000 },
   "nodes.size": { min: 60, max: 150 },
+  "power.decimals": { min: 1, max: 3, integer: true },
+  "power.digits": { min: 2, max: 4, integer: true },
 };
 
 /**
@@ -329,17 +320,6 @@ function ordered(
     });
   }
   return out;
-}
-
-function inRange(
-  value: number,
-  min: number,
-  max: number,
-  field: string,
-  hass?: HomeAssistant,
-): number {
-  if (value < min || value > max) throw fail("error.config.range", field, hass, { min, max });
-  return value;
 }
 
 function readEnum<T extends string>(
@@ -822,16 +802,10 @@ function readPower(value: unknown, hass?: HomeAssistant): PowerFormat {
     // The default stays kW: an installation that never touched this should
     // not change its look because a new option appeared.
     unit: readEnum(raw.unit, POWER_UNITS_DISPLAY, "power.unit", "kW", hass),
-    decimals: inRange(
-      readInteger(raw.decimals, "power.decimals", 2, hass),
-      1,
-      3,
-      "power.decimals",
-      hass,
-    ),
+    decimals: readLimited(raw.decimals, "power.decimals", 2, hass),
     // Two is the fewest that still tells 2,6 kW from 2,5 kW; four writes out
     // more than a house meter knows.
-    digits: inRange(readInteger(raw.digits, "power.digits", 3, hass), 2, 4, "power.digits", hass),
+    digits: readLimited(raw.digits, "power.digits", 3, hass),
   };
 }
 

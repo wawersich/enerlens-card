@@ -64,12 +64,13 @@ describe("localize (REQ N-7, E-1)", () => {
     expect(localize("view.since", makeHass("de"), { time: "07:42" })).toBe("seit 07:42");
     expect(localize("view.since", makeHass("en"), { time: "07:42" })).toBe("since 07:42");
     expect(
-      localize("error.config.range", makeHass("en"), {
+      localize("error.config.clamped", makeHass("en"), {
         field: "flow.max_dots",
         min: 2,
         max: 10,
+        value: 10,
       }),
-    ).toBe("flow.max_dots must be between 2 and 10.");
+    ).toBe("flow.max_dots must be between 2 and 10 - 10 is used.");
   });
 
   it("leaves unfilled placeholders alone", () => {
