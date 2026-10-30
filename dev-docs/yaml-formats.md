@@ -307,7 +307,7 @@ and is ignored. Nested blocks are not checked for unknown keys.
   red and green by default. `colors.arrows: direction` restores the
   pre-1.2.0 colours.
 
-## 1.3.0 (unreleased) - `dev`
+## 1.3.0 - 2026-10-30 - tag `v1.3.0` (commit: `git rev-list -n1 v1.3.0`)
 
 - `power.decimals`, `power.digits` out of range: **CHANGED-COMPATIBLE.** Drawn
   to the nearest limit with a warning instead of an error card, like every

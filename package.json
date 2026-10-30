@@ -1,6 +1,6 @@
 {
   "name": "enerlens-card",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "EnerLens - energy flow card for Home Assistant (PV, battery, heat pump, grid)",
   "type": "module",
   "private": true,
