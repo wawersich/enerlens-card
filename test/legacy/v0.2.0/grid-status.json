@@ -1,0 +1,17 @@
+{
+  "type": "custom:enerlens-card",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house",
+    "grid_status": {
+      "entity": "sensor.example_grid_status",
+      "outage": [
+        "off_grid"
+      ],
+      "ok": [
+        "on_grid"
+      ]
+    }
+  }
+}

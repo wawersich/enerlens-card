@@ -1,0 +1,24 @@
+{
+  "type": "custom:enerlens-card",
+  "layout": "triangle_battery",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house",
+    "battery": "sensor.example_battery",
+    "battery_soc": "sensor.example_battery_soc"
+  },
+  "colors": {
+    "arrows": "direction"
+  },
+  "consumers": [
+    {
+      "entity": "sensor.example_printer",
+      "name": "3D printer",
+      "charge": {
+        "soc": "sensor.example_print_progress",
+        "label": "Print progress"
+      }
+    }
+  ]
+}

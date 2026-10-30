@@ -1,0 +1,23 @@
+{
+  "type": "custom:enerlens-card",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house"
+  },
+  "consumers": [
+    {
+      "entity": "sensor.example_heat_pump",
+      "name": "Heat pump",
+      "min_w": 20
+    },
+    {
+      "entity": "sensor.example_dishwasher",
+      "color": "#8e24aa",
+      "icon": "mdi:dishwasher"
+    }
+  ],
+  "ring": {
+    "animation": "fade"
+  }
+}

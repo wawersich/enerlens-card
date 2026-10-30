@@ -1,0 +1,163 @@
+{
+  "layout": "cross",
+  "title": "Energy",
+  "sources": {
+    "solar": {
+      "kind": "single",
+      "entity": "sensor.example_solar",
+      "invert": false
+    },
+    "grid": {
+      "kind": "split",
+      "positive": "sensor.example_grid_import",
+      "negative": "sensor.example_grid_export"
+    },
+    "battery": {
+      "kind": "single",
+      "entity": "sensor.example_battery",
+      "invert": false
+    },
+    "house": {
+      "kind": "derived"
+    },
+    "batterySoc": "sensor.example_battery_soc"
+  },
+  "solarSources": [],
+  "consumers": [
+    {
+      "key": "sensor.example_heat_pump",
+      "entity": "sensor.example_heat_pump",
+      "name": "Heat pump",
+      "color": "#1976d2",
+      "minW": 20
+    },
+    {
+      "key": "sensor.example_dishwasher",
+      "entity": "sensor.example_dishwasher",
+      "color": "#8e24aa",
+      "icon": "mdi:dishwasher"
+    }
+  ],
+  "minConsumerW": 15,
+  "maxConsumers": 5,
+  "updateIntervalS": 3,
+  "list": {
+    "enabled": true,
+    "restLabel": "Other",
+    "title": "Consumers",
+    "alwaysBelow": false,
+    "solar": false,
+    "scope": [
+      "filtered",
+      "full"
+    ],
+    "defaultScope": "filtered"
+  },
+  "ring": {
+    "enabled": true,
+    "animation": "overtake",
+    "solar": true
+  },
+  "view": {
+    "modes": [
+      "current",
+      "avg_short",
+      "avg_long"
+    ],
+    "defaultMode": "avg_short",
+    "avgShortMinutes": 5,
+    "avgLongMinutes": 30,
+    "remember": false,
+    "power": true,
+    "energyPeriods": [
+      "today",
+      "24h",
+      "week"
+    ],
+    "energyDefault": true,
+    "defaultEnergy": "power",
+    "pvScales": [],
+    "defaultPvScale": "share",
+    "quickStyle": "segment",
+    "expanded": []
+  },
+  "flow": {
+    "minW": 20,
+    "slowBelowW": 666.6666666666666,
+    "fullSpeedW": 2666.6666666666665,
+    "moreDotsAboveW": 2666.6666666666665,
+    "maxDotsAtW": 8000,
+    "maxDots": 6,
+    "slowS": 4,
+    "fastS": 1.5,
+    "animation": "on",
+    "design": "none",
+    "dotSize": 100,
+    "lineWidth": 100,
+    "lines": "curved",
+    "inactiveLines": "dim"
+  },
+  "appearance": "auto",
+  "colors": {
+    "solar": "#ff9800",
+    "house": "#2196f3",
+    "grid_import": "#e91e63",
+    "grid_export": "#9c27b0",
+    "battery_charge": "#4caf50",
+    "battery_discharge": "#8bc34a",
+    "rest": "#9e9e9e",
+    "socStops": [
+      {
+        "at": 0,
+        "color": "#f44336"
+      },
+      {
+        "at": 100,
+        "color": "#4caf50"
+      }
+    ],
+    "consumerPalette": [
+      "#1976d2",
+      "#388e3c"
+    ],
+    "arrows": "red_green"
+  },
+  "icons": {
+    "solar": "mdi:solar-panel",
+    "grid": "mdi:transmission-tower",
+    "house": "mdi:home",
+    "battery": "mdi:battery"
+  },
+  "nodes": {
+    "solar": {
+      "showName": true,
+      "showState": true
+    },
+    "grid": {
+      "showName": true,
+      "showState": true
+    },
+    "house": {
+      "showName": true,
+      "showState": true
+    },
+    "battery": {
+      "showName": true,
+      "showState": true
+    }
+  },
+  "extraColors": {
+    "solar_inside": "var(--secondary-text-color)",
+    "solar_label": "var(--secondary-text-color)",
+    "grid_inside": "var(--secondary-text-color)",
+    "grid_label": "var(--secondary-text-color)",
+    "house_inside": "var(--secondary-text-color)",
+    "house_label": "var(--secondary-text-color)",
+    "battery_label": "var(--secondary-text-color)"
+  },
+  "power": {
+    "unit": "W",
+    "decimals": 1,
+    "digits": 3
+  }
+}

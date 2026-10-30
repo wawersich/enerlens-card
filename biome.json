@@ -23,5 +23,5 @@
       }
     }
   },
-  "files": { "ignore": ["dist/**", "node_modules/**"] }
+  "files": { "ignore": ["dist/**", "node_modules/**", "test/legacy/*/**"] }
 }

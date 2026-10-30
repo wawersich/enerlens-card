@@ -1,0 +1,16 @@
+{
+  "type": "custom:enerlens-card",
+  "title": "Energy",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house"
+  },
+  "consumers": [
+    {
+      "entity": "sensor.example_kettle"
+    }
+  ],
+  "min_consumer_w": 10,
+  "update_interval_s": 5
+}

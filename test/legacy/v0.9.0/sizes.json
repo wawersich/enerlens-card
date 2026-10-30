@@ -1,0 +1,12 @@
+{
+  "type": "custom:enerlens-card",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house"
+  },
+  "flow": {
+    "dot_size": 80,
+    "line_width": 120
+  }
+}

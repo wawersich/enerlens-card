@@ -1,0 +1,190 @@
+{
+  "layout": "square_right",
+  "sources": {
+    "solar": {
+      "kind": "sum"
+    },
+    "grid": {
+      "kind": "single",
+      "entity": "sensor.example_grid",
+      "invert": false
+    },
+    "battery": {
+      "kind": "absent"
+    },
+    "house": {
+      "kind": "single",
+      "entity": "sensor.example_house",
+      "invert": false
+    }
+  },
+  "solarSources": [
+    {
+      "key": "sensor.example_pv_south",
+      "entity": "sensor.example_pv_south",
+      "color": "#e65100",
+      "invert": false,
+      "excluded": false
+    },
+    {
+      "key": "sensor.example_pv_west",
+      "entity": "sensor.example_pv_west",
+      "name": "West",
+      "kwp": 4.2,
+      "icon": "mdi:solar-panel",
+      "color": "#ff9800",
+      "invert": false,
+      "excluded": false
+    }
+  ],
+  "consumers": [
+    {
+      "key": "sensor.example_heat_pump",
+      "entity": "sensor.example_heat_pump",
+      "name": "Heat pump",
+      "color": "#7e57c2",
+      "minW": 20
+    },
+    {
+      "key": "sensor.example_dishwasher",
+      "entity": "sensor.example_dishwasher",
+      "color": "#8e24aa",
+      "icon": "mdi:dishwasher"
+    }
+  ],
+  "minConsumerW": 10,
+  "maxConsumers": null,
+  "updateIntervalS": 5,
+  "list": {
+    "enabled": true,
+    "alwaysBelow": false,
+    "solar": true,
+    "scope": [
+      "filtered",
+      "full"
+    ],
+    "defaultScope": "full"
+  },
+  "ring": {
+    "enabled": true,
+    "animation": "overtake",
+    "solar": true
+  },
+  "view": {
+    "modes": [
+      "current",
+      "avg_short",
+      "avg_long"
+    ],
+    "defaultMode": "current",
+    "avgShortMinutes": 2,
+    "avgLongMinutes": 15,
+    "remember": true,
+    "power": true,
+    "energyPeriods": [
+      "today",
+      "24h",
+      "week"
+    ],
+    "energyDefault": true,
+    "defaultEnergy": "power",
+    "pvScales": [
+      "share"
+    ],
+    "defaultPvScale": "share",
+    "quickStyle": "segment_compact",
+    "expanded": [
+      "modes"
+    ]
+  },
+  "flow": {
+    "minW": 10,
+    "slowBelowW": 500,
+    "fullSpeedW": 2000,
+    "moreDotsAboveW": 2000,
+    "maxDotsAtW": 6000,
+    "maxDots": 5,
+    "slowS": 5,
+    "fastS": 1.8,
+    "animation": "auto",
+    "design": "none",
+    "dotSize": 100,
+    "lineWidth": 100,
+    "lines": "straight",
+    "inactiveLines": "show"
+  },
+  "appearance": "auto",
+  "colors": {
+    "solar": "var(--energy-solar-color, #ff9800)",
+    "house": "var(--primary-color)",
+    "grid_import": "var(--energy-grid-consumption-color, #488fc2)",
+    "grid_export": "var(--energy-grid-return-color, #8353d1)",
+    "battery_charge": "var(--energy-battery-in-color, #f06292)",
+    "battery_discharge": "var(--energy-battery-out-color, #4db6ac)",
+    "rest": "#7d7d7d",
+    "socStops": [
+      {
+        "at": 0,
+        "color": "#e53935"
+      },
+      {
+        "at": 50,
+        "color": "#fdd835"
+      },
+      {
+        "at": 100,
+        "color": "#43a047"
+      }
+    ],
+    "consumerPalette": [
+      "#7e57c2",
+      "#26a69a",
+      "#ec407a",
+      "#8d6e63",
+      "#5c6bc0",
+      "#ffca28",
+      "#66bb6a",
+      "#78909c",
+      "#ab47bc",
+      "#29b6f6"
+    ],
+    "arrows": "red_green"
+  },
+  "icons": {
+    "solar": "mdi:white-balance-sunny",
+    "grid": "mdi:transmission-tower",
+    "house": "mdi:home"
+  },
+  "nodes": {
+    "solar": {
+      "showName": true,
+      "showState": true
+    },
+    "grid": {
+      "showName": true,
+      "showState": true
+    },
+    "house": {
+      "showName": true,
+      "showState": true
+    },
+    "battery": {
+      "showName": true,
+      "showState": true
+    }
+  },
+  "extraColors": {
+    "solar_inside": "var(--secondary-text-color)",
+    "solar_label": "var(--secondary-text-color)",
+    "grid_inside": "var(--secondary-text-color)",
+    "grid_label": "var(--secondary-text-color)",
+    "house_inside": "var(--secondary-text-color)",
+    "house_label": "var(--secondary-text-color)",
+    "battery_label": "var(--secondary-text-color)"
+  },
+  "power": {
+    "unit": "kW",
+    "decimals": 2,
+    "digits": 3
+  }
+}

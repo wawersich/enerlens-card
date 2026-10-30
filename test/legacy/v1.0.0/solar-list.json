@@ -1,0 +1,56 @@
+{
+  "type": "custom:enerlens-card",
+  "layout": "square_right",
+  "entities": {
+    "solar": [
+      "sensor.example_pv_south",
+      {
+        "entity": "sensor.example_pv_west",
+        "name": "West",
+        "kwp": 4.2,
+        "icon": "mdi:solar-panel",
+        "color": "#ff9800"
+      }
+    ],
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house"
+  },
+  "consumers": [
+    {
+      "entity": "sensor.example_heat_pump",
+      "name": "Heat pump",
+      "min_w": 20
+    },
+    {
+      "entity": "sensor.example_dishwasher",
+      "color": "#8e24aa",
+      "icon": "mdi:dishwasher"
+    }
+  ],
+  "ring": {
+    "solar": true
+  },
+  "list": {
+    "solar": true,
+    "default_scope": "full",
+    "scope": [
+      "filtered",
+      "full"
+    ]
+  },
+  "view": {
+    "pv_scales": [
+      "share",
+      "peak"
+    ],
+    "default_pv_scale": "peak",
+    "default_mode": "current",
+    "expanded": [
+      "modes"
+    ],
+    "quick_style": "segment_compact"
+  },
+  "flow": {
+    "lines": "straight"
+  }
+}

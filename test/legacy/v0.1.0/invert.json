@@ -1,0 +1,14 @@
+{
+  "type": "custom:enerlens-card",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": {
+      "entity": "sensor.example_grid",
+      "invert": true
+    },
+    "battery": {
+      "discharge": "sensor.example_bat_out",
+      "charge": "sensor.example_bat_in"
+    }
+  }
+}

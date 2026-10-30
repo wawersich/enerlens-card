@@ -1,0 +1,18 @@
+{
+  "type": "custom:enerlens-card",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house"
+  },
+  "consumers": [
+    {
+      "entity": "sensor.example_wallbox",
+      "charge": {
+        "soc": "sensor.example_car_soc",
+        "show": "plugged",
+        "plugged": "binary_sensor.example_plug"
+      }
+    }
+  ]
+}

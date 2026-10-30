@@ -1,0 +1,86 @@
+{
+  "type": "custom:enerlens-card",
+  "title": "Energy",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": {
+      "import": "sensor.example_grid_import",
+      "export": "sensor.example_grid_export"
+    },
+    "house": "derived",
+    "battery": "sensor.example_battery",
+    "battery_soc": "sensor.example_battery_soc"
+  },
+  "consumers": [
+    {
+      "entity": "sensor.example_heat_pump",
+      "name": "Heat pump",
+      "min_w": 20
+    },
+    {
+      "entity": "sensor.example_dishwasher",
+      "color": "#8e24aa",
+      "icon": "mdi:dishwasher"
+    }
+  ],
+  "min_consumer_w": 15,
+  "max_consumers": 5,
+  "update_interval_s": 3,
+  "list": {
+    "enabled": true,
+    "rest_label": "Other",
+    "title": "Consumers"
+  },
+  "ring": {
+    "enabled": true
+  },
+  "view": {
+    "default_mode": "avg_short",
+    "avg_short_minutes": 5,
+    "avg_long_minutes": 30,
+    "show_selector": true,
+    "remember": false
+  },
+  "flow": {
+    "min_w": 20,
+    "peak_w": 8000,
+    "max_dots": 6,
+    "slow_s": 4,
+    "fast_s": 1.5,
+    "animation": "on",
+    "inactive_lines": "dim"
+  },
+  "colors": {
+    "solar": "#ff9800",
+    "house": "#2196f3",
+    "grid_import": "#e91e63",
+    "grid_export": "#9c27b0",
+    "battery_charge": "#4caf50",
+    "battery_discharge": "#8bc34a",
+    "rest": "#9e9e9e",
+    "soc_stops": [
+      {
+        "at": 0,
+        "color": "#f44336"
+      },
+      {
+        "at": 100,
+        "color": "#4caf50"
+      }
+    ],
+    "consumer_palette": [
+      "#1976d2",
+      "#388e3c"
+    ]
+  },
+  "icons": {
+    "solar": "mdi:solar-panel",
+    "grid": "mdi:transmission-tower",
+    "house": "mdi:home",
+    "battery": "mdi:battery"
+  },
+  "power": {
+    "unit": "W",
+    "decimals": 1
+  }
+}

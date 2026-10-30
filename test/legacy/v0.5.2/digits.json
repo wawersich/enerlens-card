@@ -1,0 +1,12 @@
+{
+  "type": "custom:enerlens-card",
+  "entities": {
+    "solar": "sensor.example_solar",
+    "grid": "sensor.example_grid",
+    "house": "sensor.example_house"
+  },
+  "power": {
+    "unit": "auto",
+    "digits": 2
+  }
+}
