@@ -53,20 +53,40 @@ export async function loadFormElements(page: Page, config: object): Promise<void
     el.requestUpdate();
     await el.updateComplete;
   }, CARD);
-  await page.waitForFunction(
-    () =>
-      ["ha-entity-picker", "ha-icon-picker", "ha-select", "ha-switch"].every((t) =>
-        customElements.get(t),
-      ),
-    null,
-    { timeout: 30_000 },
+  await settle(
+    page.waitForFunction(
+      () =>
+        ["ha-entity-picker", "ha-icon-picker", "ha-select", "ha-switch"].every((t) =>
+          customElements.get(t),
+        ),
+      null,
+      { timeout: 30_000 },
+    ),
   );
   await page.waitForTimeout(1500);
   await closeDialog(page);
 }
 
+/**
+ * Handles to elements of the editor, given back before the next editor or
+ * dialog opens. A handle Playwright still holds keeps its element - and with
+ * it the whole removed editor - alive in the page: kept, they filled the
+ * browser over the 90 mounts of GT-4 until the run was stopped (30.10.2026).
+ */
+const held: { dispose(): Promise<void> }[] = [];
+
+async function release(): Promise<void> {
+  for (const handle of held.splice(0)) await handle.dispose().catch(() => undefined);
+}
+
+/** Waits, then drops what the wait handed back - it may be an element. */
+async function settle(wait: Promise<{ dispose(): Promise<void> }>): Promise<void> {
+  await (await wait).dispose();
+}
+
 /** The real edit dialog, shown with our configuration; never saved (GT-2). */
 export async function openDialog(page: Page, config: object): Promise<void> {
+  await release();
   // Edit mode, and a card's edit wrapper to borrow the dialog from. After a
   // change of language or theme the dashboard draws anew and may miss the
   // switch: then off and on again.
@@ -80,13 +100,15 @@ export async function openDialog(page: Page, config: object): Promise<void> {
       lovelace.setEditMode(true);
     }, attempt > 0);
     try {
-      await page.waitForFunction(
-        () =>
-          (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep(
-            "hui-card-edit-mode",
-          )[0],
-        null,
-        { timeout: 10_000 },
+      await settle(
+        page.waitForFunction(
+          () =>
+            (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep(
+              "hui-card-edit-mode",
+            )[0],
+          null,
+          { timeout: 10_000 },
+        ),
       );
       break;
     } catch (e) {
@@ -97,13 +119,15 @@ export async function openDialog(page: Page, config: object): Promise<void> {
     const deep = (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep;
     (deep("hui-card-edit-mode")[0] as unknown as { _editCard(): void })._editCard();
   });
-  await page.waitForFunction(
-    () =>
-      (
-        (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep(
-          "hui-dialog-edit-card",
-        )[0] as unknown as { _params?: object }
-      )?._params,
+  await settle(
+    page.waitForFunction(
+      () =>
+        (
+          (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep(
+            "hui-dialog-edit-card",
+          )[0] as unknown as { _params?: object }
+        )?._params,
+    ),
   );
   // The borrowed card's editor loads first; then ours takes its place.
   await page.waitForTimeout(2500);
@@ -119,10 +143,12 @@ export async function openDialog(page: Page, config: object): Promise<void> {
     await new Promise((r) => setTimeout(r, 800));
     await dialog.showDialog({ ...params, cardConfig: config, saveCardConfig: async () => {} });
   }, config);
-  await page.waitForFunction(
-    (card) =>
-      (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep(`${card}-editor`)[0],
-    CARD,
+  await settle(
+    page.waitForFunction(
+      (card) =>
+        (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep(`${card}-editor`)[0],
+      CARD,
+    ),
   );
   await page.waitForTimeout(1500);
 }
@@ -163,6 +189,7 @@ export async function closeDialog(page: Page): Promise<void> {
  * does. What it saves last is in `window.__saved`.
  */
 export async function mountEditor(page: Page, config: object): Promise<void> {
+  await release();
   await page.evaluate(
     async ({ card, config }) => {
       const w = window as unknown as { __saved?: unknown; __editorEl?: HTMLElement };
@@ -303,6 +330,7 @@ async function selector(page: Page, key: string): Promise<ElementHandle<HTMLElem
       null
     );
   }, key);
+  held.push(handle);
   const element = handle.asElement() as ElementHandle<HTMLElement> | null;
   if (!element) throw new Error(`Feld ${key} nicht gezeichnet`);
   return element;
@@ -342,6 +370,7 @@ async function inside(
       )[0] ?? null,
     css,
   );
+  held.push(handle);
   return handle.asElement() as ElementHandle<HTMLElement> | null;
 }
 
@@ -395,7 +424,8 @@ export async function operate(page: Page, field: Field): Promise<unknown> {
       return "GUI-Test";
     }
     case "number": {
-      const step = field.step ?? 1;
+      // `step: "any"` (min and max of an extra value) is a free number: one on.
+      const step = typeof field.step === "number" ? field.step : 1;
       const min = field.min ?? 0;
       const max = field.max ?? min + 1000;
       const now = typeof field.value === "number" ? field.value : min;
@@ -409,7 +439,8 @@ export async function operate(page: Page, field: Field): Promise<unknown> {
       return next;
     }
     case "select": {
-      const other = field.options.find((o) => o.value !== field.value);
+      // Unset is the option "" (standard): picking it again would change nothing.
+      const other = field.options.find((o) => o.value !== (field.value ?? ""));
       if (!other) return undefined;
       const picker = await inside(page, field.key, "ha-picker-field");
       await picker?.click();
@@ -421,6 +452,7 @@ export async function operate(page: Page, field: Field): Promise<unknown> {
             .find((i) => (i as unknown as { value: unknown }).value === value) ?? null,
         other.value,
       );
+      held.push(item);
       const element = item.asElement();
       if (!element) throw new Error(`${field.key}: Eintrag ${String(other.value)} fehlt`);
       await (element as ElementHandle<HTMLElement>).click();

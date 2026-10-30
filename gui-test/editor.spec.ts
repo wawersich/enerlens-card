@@ -64,14 +64,40 @@ function changed(before: object, after: object): string[] {
 }
 
 /**
- * Fields that by design write nothing until another field of their form is
- * set: an extra value of a consumer needs its entity first (E-4, L-20).
+ * Fields of an extra value, which by design write nothing until the row has
+ * a slot with an entity (E-4, L-20). Read from the form's data: the names
+ * repeat in every slot, so a field named "entity" would be the row's own.
  */
-const NEEDS: Record<string, string> = {
-  label: "entity",
-  min: "entity",
-  max: "entity",
-};
+const SLOT_FIELDS = new Set(["label", "min", "max", "in_energy", "idle_value"]);
+
+async function hasSlot(page: Page, form: number): Promise<boolean> {
+  return page.evaluate((index) => {
+    const w = window as unknown as { __forms: () => (HTMLElement & { data?: unknown })[] };
+    const data = w.__forms()[index]?.data as { indicators?: Record<string, unknown> } | undefined;
+    return Object.values(data?.indicators ?? {}).some(
+      (slot) =>
+        typeof slot === "object" &&
+        slot !== null &&
+        "entity" in slot &&
+        Boolean((slot as { entity?: unknown }).entity),
+    );
+  }, form);
+}
+
+/**
+ * YAML values that change by design beside the one operated: a consumer in
+ * the old form is written in the new one once it is changed (E-4, L-18,
+ * L-20), and the rest takes its older keys along into its entry (L-21).
+ */
+function expectedAlong(before: RawLike, path: string): boolean {
+  const m = /^consumers\.(\d+)\./.exec(path);
+  const row = m ? (before.consumers as unknown[] | undefined)?.[Number(m[1])] : undefined;
+  if (row && typeof row === "object" && "charge" in row) return true;
+  if (/^(list\.rest_label|icons\.rest|colors\.rest)$/.test(path)) return true;
+  return /^consumers\.\d+\.(type|name|icon|color)$/.test(path) && restWritten;
+}
+type RawLike = { consumers?: unknown };
+let restWritten = false;
 
 /** Fields whose change rebuilds the form around them: tested on their own. */
 const STRUCTURE = (f: Field) => f.name.endsWith("_source");
@@ -123,9 +149,8 @@ test("GT-4: each field operated, saved, opened again - the value is still there"
     const now = await fields(page);
     const field = now.find((f) => f.key === planned.key);
     if (!field) continue;
-    const needs = NEEDS[field.name];
-    const form = field.key.split(":")[0];
-    if (needs && !now.find((f) => f.key === `${form}:${needs}`)?.value) continue;
+    const form = Number(field.key.split(":")[0]);
+    if (SLOT_FIELDS.has(field.name) && !(await hasSlot(page, form))) continue;
     let value: unknown;
     try {
       value = await operate(page, field);
@@ -146,8 +171,12 @@ test("GT-4: each field operated, saved, opened again - the value is still there"
     }
     // One field, one value in the YAML: a second change is a value the user
     // did not touch - written from what a form showed wrongly, or dropped.
-    const diff = changed(RICH, config);
-    if (diff.length !== 1) {
+    const all = changed(RICH, config);
+    restWritten = all.some((p) => /^consumers\.\d+\.type$/.test(p));
+    const along = all.filter((p) => expectedAlong(RICH, p));
+    const diff = all.filter((p) => !expectedAlong(RICH, p));
+    // The operated value may itself be one of those that move along.
+    if (diff.length > 1 || (diff.length === 0 && along.length === 0)) {
       findings.push(
         `${field.key} = ${JSON.stringify(value)}: ${diff.length} YAML-Werte geändert: ${diff.join(", ")}`,
       );
@@ -158,7 +187,13 @@ test("GT-4: each field operated, saved, opened again - the value is still there"
       findings.push(`${field.key}: nach dem Wiederöffnen nicht mehr da`);
       continue;
     }
-    if (JSON.stringify(again.value) !== JSON.stringify(value)) {
+    // Unset reads back as unset: the option "" of a select (standard), and
+    // in_energy off - only `true` is written (L-20).
+    const same = (a: unknown) =>
+      (field.kind === "select" && a === "") || (field.name === "in_energy" && a === false)
+        ? undefined
+        : a;
+    if (JSON.stringify(same(again.value)) !== JSON.stringify(same(value))) {
       findings.push(
         `${field.key}: gesetzt ${JSON.stringify(value)}, wieder geöffnet ${JSON.stringify(again.value)}`,
       );
