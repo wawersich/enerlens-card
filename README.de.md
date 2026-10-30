@@ -33,7 +33,11 @@ woraus der Hauswert und die PV-Anteile eigentlich bestehen.
   Darstellungen.
 - **Bewegung nach Wahl:** Punkte in sieben Designs, Anzahl, Größe und Tempo
   einstellbar; der Ring überholt, blendet über oder springt.
-- **E-Auto an der Wallbox:** Ein Ring um das Symbol zeigt den Ladestand.
+- **Zusatzwerte an den Verbrauchern:** Ring, zwei Balken und Füllung je Zeile —
+  der Ladestand des Autos an der Wallbox, das Warmwasser der Wärmepumpe, der
+  Fortschritt des 3D-Druckers. Zeilen lassen sich oben oder unten anpinnen, in
+  der Liste halten und hervorheben; der Rest ebenso
+  ([mehr](https://wawersich.github.io/enerlens-card/de/consumers.html)).
 - **Zusatzwerte an den Knoten:** Tagesertrag, Autarkie, Restenergie und alles
   andere, was eine Entität hergibt.
 - **Netzausfall:** rote Leiste und durchgestrichener Netz-Knoten statt „0 W“.

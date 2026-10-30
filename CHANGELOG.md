@@ -14,9 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Indicators (#6, #31):** a consumer can carry up to four extra values -
   `indicators.ring`, `bar_top`, `bar_bottom` and `fill`, each with entity,
   `min`/`max`, label and (ring, bars) its own colour. `idle_value` names the
-  one the value column shows while the consumer draws nothing, `in_energy`
-  keeps them in the energy mode; the detail window draws each in a chart.
-- **Highlight a consumer:** `highlight: { bold: true, band: true }` - name and
+  one the value column shows while the consumer is below its threshold,
+  `in_energy` keeps them in the energy mode; the detail window draws each in
+  a chart.
+- **Highlight a consumer (#6):** `highlight: { bold: true, band: true }` - name and
   value in bold, the row backed in its colour; each on its own.
 - **The rest row like a consumer (#6):** an entry `type: rest` in `consumers`
   sets its name, icon, colour, own `min_w`, `position`, `show: always` (a dash

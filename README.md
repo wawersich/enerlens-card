@@ -32,7 +32,11 @@ the house figure and the PV shares are actually made of.
   scope with one tap — stepping on or expanded, in three styles.
 - **Motion to taste:** dots in seven designs, their number, size and speed
   adjustable; the ring overtakes, cross-fades or jumps.
-- **EV at the wallbox:** a ring around the icon shows the state of charge.
+- **Extra values at the consumers:** a ring, two bars and a fill per row —
+  the car's charge at the wallbox, the heat pump's hot water, a printer's
+  progress. Rows can be pinned to the top or bottom, kept in the list and
+  highlighted; the remainder too
+  ([more](https://wawersich.github.io/enerlens-card/en/consumers.html)).
 - **Extra values at the nodes:** today's yield, self-sufficiency, energy left
   in the battery and anything else an entity provides.
 - **Grid outage:** a red banner and a crossed-out grid node instead of "0 W".
