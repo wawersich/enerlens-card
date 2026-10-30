@@ -183,7 +183,8 @@ describe("B: the forms show what the YAML says", () => {
     // purpose; a row - one PV source, one consumer - is its own form.
     const el = await mount(RICH);
     const rows = forms(el).filter((form) => fieldNames(form.schema).has("entity"));
-    expect(rows).toHaveLength(3 + 2);
+    // Three PV sources, two consumers and the rest (L-21).
+    expect(rows).toHaveLength(3 + 2 + 1);
     const stray: string[] = [];
     for (const form of rows) {
       const names = fieldNames(form.schema);

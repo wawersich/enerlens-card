@@ -50,6 +50,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
     },
     consumers: [],
     minConsumerW: 10,
+    rest: { always: false },
     maxConsumers: Number.POSITIVE_INFINITY,
     updateIntervalS: 5,
     list: {

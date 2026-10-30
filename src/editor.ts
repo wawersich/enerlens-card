@@ -192,6 +192,48 @@ export function consumerView(entry: Record<string, unknown>): Record<string, unk
 }
 
 /**
+ * Marks the rest entry the editor shows while the YAML has none (REQ L-21).
+ * It never reaches the YAML: only a change to the rest, or a move across it,
+ * turns it into a `type: rest` entry.
+ */
+const VIRTUAL_REST = "__virtual";
+
+const isRestRow = (row: unknown): boolean => isRecord(row) && row.type === "rest";
+
+/** The consumer list as the form holds it: with a rest entry, at the end if the YAML has none. */
+function withRest(consumers: unknown): unknown {
+  // Something that is no list stays as the YAML has it (issue #19).
+  if (consumers !== undefined && consumers !== null && !Array.isArray(consumers)) return consumers;
+  const list: unknown[] = Array.isArray(consumers) ? consumers : [];
+  return list.some(isRestRow) ? list : [...list, { type: "rest", [VIRTUAL_REST]: true }];
+}
+
+/**
+ * The rest entry as the YAML should hold it (REQ L-21): what the rest cannot
+ * have left out - an entity, a condition, an idle value - and what is empty.
+ */
+function cleanRest(entry: Record<string, unknown>): Record<string, unknown> {
+  const {
+    [VIRTUAL_REST]: _virtual,
+    entity: _entity,
+    condition: _condition,
+    charge: _charge,
+    ...kept
+  } = entry;
+  const extras = isRecord(entry.indicators) ? { ...entry.indicators } : undefined;
+  if (extras) extras.idle_value = undefined;
+  return (
+    prune<Record<string, unknown>>({
+      ...kept,
+      type: "rest",
+      show: entry.show === "always" ? "always" : undefined,
+      highlight: cleanHighlight(entry.highlight),
+      indicators: cleanIndicators(extras),
+    }) ?? { type: "rest" }
+  );
+}
+
+/**
  * What the consumer's form is handed: the consumer in the new form, its
  * highlight as ticks - { bold, band } -> ["bold", "band"] (L-19).
  */
@@ -209,7 +251,7 @@ function formView(row: Record<string, unknown>): Record<string, unknown> {
  * the entity's own options, on/off for a switch - and as one number for the
  * comparisons.
  */
-function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
+function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>, rest = false) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   const condition = isRecord(entry.condition) ? entry.condition : {};
   const conditionEntity = typeof condition.entity === "string" ? condition.entity : "";
@@ -261,13 +303,14 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
           options: [
             { value: "", label: t("show_power") },
             { value: "always", label: t("show_always") },
-            { value: "condition", label: t("show_condition") },
+            // The rest has no entity of its own to hang a condition on (L-21).
+            ...(rest ? [] : [{ value: "condition", label: t("show_condition") }]),
           ],
         },
       },
     },
   ];
-  if (entry.show === "condition") {
+  if (entry.show === "condition" && !rest) {
     display.push({
       name: "condition",
       type: "grid",
@@ -358,25 +401,32 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>) {
           },
         ],
       })),
-      {
-        name: "idle_value",
-        labelKey: "idle_value",
-        selector: {
-          select: {
-            mode: "dropdown",
-            // Only what is there to show (L-20).
-            options: [
-              { value: "", label: t("idle_power") },
-              ...configured.map((slot) => ({ value: slot, label: t(`indicator_${slot}`) })),
-            ],
-          },
-        },
-      },
+      // The rest has no threshold of a device to fall below (L-21).
+      ...(rest
+        ? []
+        : [
+            {
+              name: "idle_value",
+              labelKey: "idle_value",
+              selector: {
+                select: {
+                  mode: "dropdown",
+                  // Only what is there to show (L-20).
+                  options: [
+                    { value: "", label: t("idle_power") },
+                    ...configured.map((slot) => ({ value: slot, label: t(`indicator_${slot}`) })),
+                  ],
+                },
+              },
+            },
+          ]),
       { name: "in_energy", labelKey: "in_energy", selector: { boolean: {} } },
     ],
   });
   return [
-    { name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } },
+    ...(rest
+      ? []
+      : [{ name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } }]),
     { name: "name", selector: { text: {} } },
     // No colour here: it has a row with a swatch under "Colours", and two
     // places to set one thing is one place too many.
@@ -816,7 +866,7 @@ function toFlat(config: RawConfig): FlatConfig {
     grid_status: typeof status === "string" ? status : statusRecord?.entity,
     grid_status_outage: statusRecord?.outage,
     grid_status_ok: statusRecord?.ok,
-    consumers: config.consumers,
+    consumers: withRest(config.consumers),
     max_consumers: config.max_consumers,
     min_consumer_w: config.min_consumer_w,
     update_interval_s: config.update_interval_s,
@@ -971,8 +1021,24 @@ function cleanConsumers(value: unknown): RawConfig["consumers"] {
   if (!Array.isArray(value)) return undefined;
   const seen = new Set<string>();
   const list: Record<string, unknown>[] = [];
+  let rest = false;
   for (const entry of value) {
     if (!isRecord(entry)) continue;
+    // The rest entry at its place; the one the editor only shows is not
+    // written (REQ L-21), a second one never.
+    if (entry.type === "rest" && !rest) {
+      if (entry[VIRTUAL_REST] === true) continue;
+      rest = true;
+      list.push(cleanRest(entry));
+      continue;
+    }
+    // A further rest entry, or a kind of entry this version does not know:
+    // the card skips it with a warning, the editor leaves it as written.
+    if (entry.type !== undefined) {
+      const as = kept(entry);
+      if (isRecord(as)) list.push(as);
+      continue;
+    }
     const cleaned = prune<Record<string, unknown>>({
       ...entry,
       charge: cleanCharge(entry.charge),
@@ -1716,7 +1782,11 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   const shown = shownLists(flat);
   const powerOn = shown.energy_periods.includes("power");
-  const hasConsumers = Array.isArray(flat.consumers) && flat.consumers.length > 0;
+  // The rest has its entry in the consumer list - as long as that is a list.
+  const restInList = Array.isArray(flat.consumers);
+  // The rest entry is no consumer: without consumers there is no filter button (L-21).
+  const hasConsumers =
+    Array.isArray(flat.consumers) && flat.consumers.some((row) => isRecord(row) && !row.type);
   const derivedBy = QUANTITIES.filter((q) => flat[`${q}_source`] === "derived");
   // Several PV sources: their panel, the PV scale, the switches for ring and rows.
   const sources = flat.solar_source === "sources";
@@ -1885,7 +1955,9 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           name: "min_consumer_w",
           selector: { number: { ...limitsOf("min_consumer_w"), mode: "box" } },
         },
-        { name: "rest_label", selector: { text: {} } },
+        // The rest's name is set in its entry of the consumer list (L-21) -
+        // unless that list is something the form cannot show (issue #19).
+        ...(restInList ? [] : [{ name: "rest_label", selector: { text: {} } }]),
         {
           name: "power_unit",
           selector: {
@@ -2193,7 +2265,11 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
       type: "expandable",
       flatten: true,
       title: t("icons"),
-      schema: ICON_KEYS.map((key) => ({ name: `icon_${key}`, selector: { icon: {} } })),
+      // The rest's icon is set in its entry of the consumer list (L-21).
+      schema: ICON_KEYS.filter((key) => key !== "rest" || !restInList).map((key) => ({
+        name: `icon_${key}`,
+        selector: { icon: {} },
+      })),
     },
   ];
 }
@@ -2446,6 +2522,13 @@ class EnerLensCardEditor extends LitElement {
   private _setColor(key: ColorKey, value: string): void {
     if (!this._flat) return;
     const next = value.trim() === "" ? undefined : value;
+    // A change to the rest: written into its entry (L-21).
+    const rows = this._consumerRows();
+    const rest = rows.findIndex(isRestRow);
+    if (key === "rest" && rest >= 0) {
+      this._writeRest(rows, rest, { color: next });
+      return;
+    }
     this._emit({ ...(this._flat as FlatRecord), [`color_${key}`]: next } as FlatConfig);
   }
 
@@ -2541,7 +2624,11 @@ class EnerLensCardEditor extends LitElement {
   }
 
   private _renderNodeColor(key: ColorKey): TemplateResult {
-    const raw = (this._flat as FlatRecord | undefined)?.[`color_${key}`];
+    // The rest's colour belongs to its entry once there is one (L-21).
+    const raw =
+      key === "rest"
+        ? this._restColour()
+        : (this._flat as FlatRecord | undefined)?.[`color_${key}`];
     const label = localize(`editor.color_${key}`, this.hass);
     return this._colorRow({
       id: `node:${key}`,
@@ -2631,16 +2718,23 @@ class EnerLensCardEditor extends LitElement {
       .filter((row): row is { entry: Record<string, unknown>; index: number } =>
         isRecord(row.entry),
       );
-    if (rows.length === 0) return html``;
+    if (rows.every(({ entry }) => isRestRow(entry) && !isRecord(entry.indicators))) return html``;
     const palette = DEFAULT_CONSUMER_PALETTE;
+    let rests = 0;
     return html`
       ${this._group(localize("editor.colors_consumers", this.hass))}
       ${rows.map(({ entry, index }) => {
-        const name =
-          (typeof entry.name === "string" && entry.name.trim()) ||
-          (typeof entry.entity === "string" ? entry.entity : `#${index + 1}`);
+        const rest = isRestRow(entry);
+        if (rest) rests++;
+        const name = rest
+          ? (this._restView(entry).name as string | undefined) || localize("list.rest", this.hass)
+          : (typeof entry.name === "string" && entry.name.trim()) ||
+            (typeof entry.entity === "string" ? entry.entity : `#${index + 1}`);
         const own = typeof entry.color === "string" ? entry.color : "";
-        const consumerColor = own || palette[index % palette.length];
+        // The rest's own colour is the node row above; the palette skips it (C-4, L-21).
+        const consumerColor = rest
+          ? this._restColour() || DEFAULT_COLORS.rest
+          : own || palette[(index - rests) % palette.length];
         // Ring and bars have a colour of their own, empty = the consumer's
         // (REQ L-20); only for a slot that is there. The fill is the mark.
         const view = consumerView(entry);
@@ -2649,13 +2743,17 @@ class EnerLensCardEditor extends LitElement {
           const one = extras[slot];
           return isRecord(one) && nonEmpty(one.entity);
         });
-        return html`${this._colorRow({
-          id: `consumer:${index}`,
-          label: name,
-          name,
-          value: own,
-          preset: consumerColor,
-        })}${slots.map((slot) => {
+        return html`${
+          rest
+            ? nothing
+            : this._colorRow({
+                id: `consumer:${index}`,
+                label: name,
+                name,
+                value: own,
+                preset: consumerColor,
+              })
+        }${slots.map((slot) => {
           const one = extras[slot] as Record<string, unknown>;
           const text = `${name} · ${localize(`editor.indicator_${slot}`, this.hass)}`;
           return this._colorRow({
@@ -3005,9 +3103,15 @@ class EnerLensCardEditor extends LitElement {
 
     for (const key of COLOR_KEYS) add(flat[`color_${key}`] ?? DEFAULT_COLORS[key]);
     const consumers = Array.isArray(flat.consumers) ? flat.consumers : [];
+    // The rest's colour is among the node colours above; it takes no palette place (C-4, L-21).
+    let skipped = 0;
     consumers.forEach((entry, index) => {
-      if (!isRecord(entry)) return;
-      add(entry.color ?? DEFAULT_CONSUMER_PALETTE[index % DEFAULT_CONSUMER_PALETTE.length]);
+      if (isRestRow(entry)) skipped++;
+      if (!isRecord(entry) || isRestRow(entry)) return;
+      add(
+        entry.color ??
+          DEFAULT_CONSUMER_PALETTE[(index - skipped) % DEFAULT_CONSUMER_PALETTE.length],
+      );
     });
     for (const stop of this._socStops() ?? []) add(stop.color);
     // No cut: a card with a dozen consumers pushed the last of them out of a
@@ -3562,7 +3666,16 @@ class EnerLensCardEditor extends LitElement {
     const t = (key: string) => localize(`editor.${key}`, this.hass);
     const rows = this._consumerRows();
     const keys = this._keysFor(rows.length);
-    const items = rows.map((row, index) => ({ row, index, key: keys[index] }));
+    // The palette skips the rest entry, as the card does (C-4, L-21).
+    let rests = 0;
+    const items = rows.map((row, index) => {
+      const rest = isRestRow(row);
+      if (rest) rests++;
+      // Only the first rest entry counts; a further one, or a type this
+      // version does not know, is shown as skipped (L-21).
+      const ignored = isRecord(row) && row.type !== undefined && !(rest && rests === 1);
+      return { row, index, key: keys[index], colour: index - rests, ignored };
+    });
     return html`
       <ha-expansion-panel outlined class="consumers-panel">
         <div slot="header" role="heading" aria-level="3">${t("consumers")}</div>
@@ -3574,7 +3687,12 @@ class EnerLensCardEditor extends LitElement {
               ${repeat(
                 items,
                 (item) => item.key,
-                (item) => this._renderConsumer(item.row, item.index, item.key),
+                (item) =>
+                  item.ignored
+                    ? this._renderIgnored(item.row as Record<string, unknown>, item.index)
+                    : isRestRow(item.row)
+                      ? this._renderRest(item.row as Record<string, unknown>, item.index, item.key)
+                      : this._renderConsumer(item.row, item.index, item.key, item.colour),
               )}
             </div>
           </ha-sortable>
@@ -3611,7 +3729,12 @@ class EnerLensCardEditor extends LitElement {
     </p>`;
   }
 
-  private _renderConsumer(raw: unknown, index: number, key: number): TemplateResult {
+  private _renderConsumer(
+    raw: unknown,
+    index: number,
+    key: number,
+    colourIndex: number,
+  ): TemplateResult {
     const t = (k: string) => localize(`editor.${k}`, this.hass);
     const row = isRecord(raw) ? raw : {};
     const entity = typeof row.entity === "string" ? row.entity : "";
@@ -3631,7 +3754,7 @@ class EnerLensCardEditor extends LitElement {
     const colour =
       typeof row.color === "string" && row.color.trim() !== ""
         ? row.color
-        : palette[index % palette.length];
+        : palette[colourIndex % palette.length];
     return html`
       <ha-expansion-panel
         outlined
@@ -3654,31 +3777,9 @@ class EnerLensCardEditor extends LitElement {
       >
         <div slot="header" class="consumer-head">
           ${
-            customElements.get("ha-sortable")
-              ? html`<ha-icon
-                  class="handle"
-                  icon="mdi:drag"
-                  @click=${(ev: Event) => ev.stopPropagation()}
-                  @keydown=${(ev: Event) => ev.stopPropagation()}
-                ></ha-icon>`
-              : // HA loads its drag helper only for some views; without it the
-                // entries move by buttons instead of silently not at all.
-                html`<span class="move">
-                  ${[-1, 1].map(
-                    (step) => html`<button
-                      type="button"
-                      aria-label=${t(step < 0 ? "consumer_up" : "consumer_down")}
-                      ?disabled=${index + step < 0 || index + step >= this._consumerRows().length}
-                      @click=${(ev: Event) => {
-                        ev.stopPropagation();
-                        this._moveTo(index, index + step);
-                      }}
-                      @keydown=${(ev: Event) => ev.stopPropagation()}
-                    >
-                      <ha-icon icon=${step < 0 ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
-                    </button>`,
-                  )}
-                </span>`
+            // HA loads its drag helper only for some views; without it the
+            // entries move by buttons instead of silently not at all.
+            this._moveControls(index)
           }
           <ha-icon
             class="consumer-icon"
@@ -3733,6 +3834,209 @@ class EnerLensCardEditor extends LitElement {
     `;
   }
 
+  /**
+   * The rest row as an entry of the list (REQ L-21): no entity, no remove
+   * button, draggable like the consumers. Name, icon and colour come from the
+   * older keys as long as the entry does not set them.
+   */
+  private _renderRest(row: Record<string, unknown>, index: number, key: number): TemplateResult {
+    const t = (k: string) => localize(`editor.${k}`, this.hass);
+    const view = this._restView(row);
+    const title =
+      (typeof view.name === "string" && view.name.trim()) || localize("list.rest", this.hass);
+    const colour = this._restColour() || DEFAULT_COLORS.rest;
+    return html`
+      <ha-expansion-panel
+        outlined
+        class="rest-entry"
+        .expanded=${this._openConsumers.has(key)}
+        @expanded-will-change=${(ev: CustomEvent<{ expanded: boolean }>) => {
+          if (ev.target !== ev.currentTarget || !ev.detail.expanded) return;
+          if (this._builtConsumers.has(key)) return;
+          this._builtConsumers = new Set([...this._builtConsumers, key]);
+        }}
+        @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => {
+          if (ev.target !== ev.currentTarget) return;
+          const next = new Set(this._openConsumers);
+          if (ev.detail.expanded) next.add(key);
+          else next.delete(key);
+          this._openConsumers = next;
+        }}
+      >
+        <div slot="header" class="consumer-head">
+          ${this._moveControls(index)}
+          <ha-icon
+            class="consumer-icon"
+            icon=${typeof view.icon === "string" && view.icon ? view.icon : "mdi:cloud-question"}
+            style="color:${colour}"
+          ></ha-icon>
+          <span class="consumer-title">
+            <span class="consumer-name">${title}</span>
+            <small>${t("rest_entry")}</small>
+          </span>
+        </div>
+        ${
+          this._builtConsumers.has(key)
+            ? html`<ha-form
+                .hass=${this.hass}
+                .data=${formView(view)}
+                .schema=${consumerSchema(this.hass as HomeAssistant, formView(view), true)}
+                .computeLabel=${this._consumerLabel}
+                .computeHelper=${this._restHelper}
+                @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
+                  ev.stopPropagation();
+                  this._setRest(index, ev.detail.value);
+                }}
+              ></ha-form>`
+            : nothing
+        }
+      </ha-expansion-panel>
+    `;
+  }
+
+  /** An entry the card skips: shown so it can be removed, never edited (L-21). */
+  private _renderIgnored(row: Record<string, unknown>, index: number): TemplateResult {
+    const t = (k: string) => localize(`editor.${k}`, this.hass);
+    return html`
+      <div class="ignored-entry">
+        <div class="consumer-head">
+          ${this._moveControls(index)}
+          <ha-icon class="consumer-icon" icon="mdi:help-circle-outline"></ha-icon>
+          <span class="consumer-title">
+            <span class="consumer-name">type: ${String(row.type)}</span>
+            <small>${t("entry_ignored")}</small>
+          </span>
+          <button
+            class="remove"
+            type="button"
+            aria-label=${t("consumer_remove")}
+            title=${t("consumer_remove")}
+            @click=${() => this._removeConsumer(index)}
+          >
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** The rest as its form shows it: its entry, the older keys where it sets nothing (N-12). */
+  private _restView(row: Record<string, unknown>): Record<string, unknown> {
+    const flat = (this._flat ?? {}) as FlatRecord;
+    // Without `type`: the form has no field for it, _writeRest puts it back.
+    const { [VIRTUAL_REST]: _virtual, type: _type, ...entry } = row;
+    return (prune({
+      ...entry,
+      name: nonEmpty(entry.name) ? entry.name : flat.rest_label,
+      icon: nonEmpty(entry.icon) ? entry.icon : flat.icon_rest,
+    }) ?? {}) as Record<string, unknown>;
+  }
+
+  /** The rest's colour as the card takes it: its entry's, else colors.rest. */
+  private _restColour(): string {
+    const flat = (this._flat ?? {}) as FlatRecord;
+    const row = this._consumerRows().find(isRestRow) as Record<string, unknown> | undefined;
+    const own = row?.color;
+    if (typeof own === "string" && own.trim() !== "") return own;
+    return typeof flat.color_rest === "string" ? flat.color_rest : "";
+  }
+
+  /**
+   * Writes the rest entry: what it had, the values of the older keys it did
+   * not set, then the change - and the older keys go in the same step, so the
+   * YAML never holds both (REQ L-21, N-12).
+   */
+  private _writeRest(
+    rows: unknown[],
+    index: number,
+    change: Record<string, unknown>,
+    keys = [...this._consumerKeys],
+  ): void {
+    if (!this._flat) return;
+    const flat = this._flat as FlatRecord;
+    const before = isRecord(rows[index]) ? (rows[index] as Record<string, unknown>) : {};
+    const { [VIRTUAL_REST]: _virtual, ...entry } = before;
+    const next = [...rows];
+    next[index] = prune({
+      name: flat.rest_label,
+      icon: flat.icon_rest,
+      color: flat.color_rest,
+      ...entry,
+      ...change,
+      type: "rest",
+    });
+    this._consumerKeys = keys;
+    this._emit({
+      ...flat,
+      consumers: next,
+      rest_label: undefined,
+      icon_rest: undefined,
+      color_rest: undefined,
+    } as FlatConfig);
+  }
+
+  private _setRest(index: number, value: Record<string, unknown>): void {
+    const rows = this._consumerRows();
+    const before = isRecord(rows[index]) ? (rows[index] as Record<string, unknown>) : {};
+    // The form handed back as it was shown changes nothing (E-1).
+    if (JSON.stringify(formView(this._restView(before))) === JSON.stringify(value)) return;
+    const ticks = value.highlight;
+    const change = Array.isArray(ticks)
+      ? {
+          ...value,
+          highlight: {
+            ...unknownKeys(before.highlight, [...HIGHLIGHTS]),
+            bold: ticks.includes("bold"),
+            band: ticks.includes("band"),
+          },
+        }
+      : value;
+    // Cleared fields go, whether HA hands them back empty or leaves them out
+    // - also a name or icon the form showed from the older keys.
+    const shown = formView(this._restView(before));
+    const cleared = Object.fromEntries(
+      Object.keys(shown)
+        .filter((k) => !(k in change))
+        .map((k) => [k, undefined]),
+    );
+    this._writeRest(rows, index, { ...cleared, ...change });
+  }
+
+  private _restHelper = (item: { name: string; labelKey?: string }): string => {
+    if (item.name === "min_w") return localize("editor_help.rest_min_w", this.hass);
+    if (item.name === "position") return localize("editor_help.rest_position", this.hass);
+    if (item.name === "show") return localize("editor_help.rest_show", this.hass);
+    return this._consumerHelper(item);
+  };
+
+  /** Drag handle, or up/down buttons where HA has not loaded its drag helper. */
+  private _moveControls(index: number): TemplateResult {
+    const t = (k: string) => localize(`editor.${k}`, this.hass);
+    return customElements.get("ha-sortable")
+      ? html`<ha-icon
+          class="handle"
+          icon="mdi:drag"
+          @click=${(ev: Event) => ev.stopPropagation()}
+          @keydown=${(ev: Event) => ev.stopPropagation()}
+        ></ha-icon>`
+      : html`<span class="move">
+          ${[-1, 1].map(
+            (step) => html`<button
+              type="button"
+              aria-label=${t(step < 0 ? "consumer_up" : "consumer_down")}
+              ?disabled=${index + step < 0 || index + step >= this._consumerRows().length}
+              @click=${(ev: Event) => {
+                ev.stopPropagation();
+                this._moveTo(index, index + step);
+              }}
+              @keydown=${(ev: Event) => ev.stopPropagation()}
+            >
+              <ha-icon icon=${step < 0 ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
+            </button>`,
+          )}
+        </span>`;
+  }
+
   private _consumerLabel = (item: { name: string; labelKey?: string }): string => {
     if (item.labelKey === "") return "";
     if (item.labelKey) return localize(`editor.${item.labelKey}`, this.hass);
@@ -3773,12 +4077,20 @@ class EnerLensCardEditor extends LitElement {
 
   /** A new entry stays in the form until it has an entity; the YAML only gets it then (E-1). */
   private _addConsumer = (): void => {
-    const rows = [...this._consumerRows(), {}];
-    const keys = [...this._keysFor(rows.length - 1), this._nextConsumerKey++];
-    this._openConsumers = new Set([...this._openConsumers, keys[keys.length - 1]]);
+    const before = this._consumerRows();
+    const keys = [...this._keysFor(before.length)];
+    // Before a rest that is not in the YAML yet: it stays last, and is not
+    // written by being passed (L-21).
+    const last = before[before.length - 1];
+    const at = isRecord(last) && last[VIRTUAL_REST] === true ? before.length - 1 : before.length;
+    const rows = [...before];
+    const key = this._nextConsumerKey++;
+    rows.splice(at, 0, {});
+    keys.splice(at, 0, key);
+    this._openConsumers = new Set([...this._openConsumers, key]);
     // Opened from code, so the panel announces nothing: built here, and kept
     // when it is folded like any other (REQ E-3).
-    this._builtConsumers = new Set([...this._builtConsumers, keys[keys.length - 1]]);
+    this._builtConsumers = new Set([...this._builtConsumers, key]);
     this._writeConsumers(rows, keys);
   };
 
@@ -3799,8 +4111,17 @@ class EnerLensCardEditor extends LitElement {
     const rows = [...this._consumerRows()];
     const keys = [...this._consumerKeys];
     if (oldIndex === newIndex || oldIndex >= rows.length) return;
+    const restBefore = rows.findIndex(isRestRow);
     rows.splice(newIndex, 0, ...rows.splice(oldIndex, 1));
     keys.splice(newIndex, 0, ...keys.splice(oldIndex, 1));
+    // The rest moved, or something across it: its place now says something,
+    // so a rest the YAML did not have is written there (L-21).
+    const restAfter = rows.findIndex(isRestRow);
+    const virtual = isRecord(rows[restAfter]) && rows[restAfter][VIRTUAL_REST] === true;
+    if (virtual && restAfter !== restBefore) {
+      this._writeRest(rows, restAfter, {}, keys);
+      return;
+    }
     this._writeConsumers(rows, keys);
   }
 
@@ -3898,9 +4219,18 @@ class EnerLensCardEditor extends LitElement {
       gap: 8px;
     }
 
-    .consumer {
+    .consumer,
+    .rest-entry {
       --expansion-panel-summary-padding: 0 8px 0 4px;
       --expansion-panel-content-padding: 4px 12px 12px;
+    }
+
+    /* An entry the card skips (L-21): framed like the others, nothing to unfold. */
+    .ignored-entry {
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-card-border-radius, 12px);
+      padding: 8px 8px 8px 4px;
+      color: var(--secondary-text-color);
     }
 
     .consumer-head {

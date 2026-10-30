@@ -390,6 +390,8 @@ export function buildModelFrom(
     };
   });
 
+  // The rest's extra values show any entity, e.g. the outside temperature (L-21).
+  const restIndicators = config?.rest?.indicators;
   return {
     solar,
     solarSources,
@@ -398,5 +400,9 @@ export function buildModelFrom(
     soc: readSoc(hass, sources.batterySoc),
     house,
     consumers,
+    rest:
+      restIndicators && chargeOf
+        ? { indicators: readIndicators(restIndicators, chargeOf) }
+        : undefined,
   };
 }

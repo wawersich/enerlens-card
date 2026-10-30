@@ -110,7 +110,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>consumers</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Liste aus <code>{entity, name, color, icon, min_w, position, show, condition, highlight, indicators}</code> – alle außer den ersten fünf siehe <em>Zusatzwerte an den Verbrauchern</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Liste aus <code>{entity, name, color, icon, min_w, position, show, condition, highlight, indicators}</code> – alle außer den ersten fünf siehe <em>Zusatzwerte an den Verbrauchern</em>; ein Eintrag <code>type: rest</code> stellt die Rest-Zeile ein</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>min_consumer_w</code></p></td>
@@ -150,7 +150,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.rest_label</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">lokalisiert</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Bezeichnung des Rests</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bezeichnung des Rests – ältere Schreibweise, siehe <em>Die Rest-Zeile</em> (<code>type: rest</code>) unter <em>Zusatzwerte an den Verbrauchern</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.title</code></p></td>
@@ -345,7 +345,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>icons.*</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">mdi-Standard</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Icon je Knoten; <code>icons.rest</code> gibt auch der Rest-Zeile eines, statt des Farbpunkts. Eine über das Dashboard neu angelegte Karte bringt dort <code>mdi:cloud-question</code> mit; wird es gelöscht, erscheint wieder der Farbpunkt</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Icon je Knoten; <code>icons.rest</code> gibt auch der Rest-Zeile eines, statt des Farbpunkts (ältere Schreibweise, siehe <em>Die Rest-Zeile</em>). Eine über das Dashboard neu angelegte Karte bringt dort <code>mdi:cloud-question</code> mit; wird es gelöscht, erscheint wieder der Farbpunkt</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;knoten&gt;.show_name</code></p></td>
@@ -387,6 +387,6 @@ Linie.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=5c8b5a13"></script>
+<script type="module" src="../assets/site.js?v=b2dca818"></script>
 </body>
 </html>

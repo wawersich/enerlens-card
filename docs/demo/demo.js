@@ -13,7 +13,7 @@
 
 import { ENERGY_COLOURS, NAMES, THEME, consumers as listOf } from "./shared.js?v=a8f5fbc6";
 
-const ICONS = await fetch(new URL("./icons.json?v=f5fdf9f3", import.meta.url)).then((r) => r.json());
+const ICONS = await fetch(new URL("./icons.json?v=45e1d8f1", import.meta.url)).then((r) => r.json());
 
 customElements.define(
   "ha-card",
@@ -53,7 +53,7 @@ customElements.define(
   },
 );
 
-await import("./enerlens-card.js?v=8ed430c7");
+await import("./enerlens-card.js?v=d7457f1e");
 
 /* What a tap on a node would open in Home Assistant, said instead. */
 const TAP = {

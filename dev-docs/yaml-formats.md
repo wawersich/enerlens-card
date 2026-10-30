@@ -312,6 +312,23 @@ and is ignored. Nested blocks are not checked for unknown keys.
 - `power.decimals`, `power.digits` out of range: **CHANGED-COMPATIBLE.** Drawn
   to the nearest limit with a warning instead of an error card, like every
   other number (`NUMBER_LIMITS`). YAML that was refused is now accepted.
+- `consumers[]` entry `{ type: rest, name, icon, color, min_w, position, show:
+  always, highlight, indicators }`: **ADDED** (REQ L-21). Not a consumer; at
+  most one counts (`readRest` in `src/config.ts`). `entity`, `show: condition`,
+  `condition` and `indicators.idle_value` are named in the console and left
+  out. Any other `type` is skipped with a warning.
+  - **Older versions** skip an entry without `entity` with a warning (no error
+    card); their default consumer colours shift behind it, and their editor
+    drops it on the next edit of the list.
+  - `consumers[]` palette index: the rest entry is skipped, so the consumers
+    keep their default colours wherever it stands.
+- `list.rest_label`, `icons.rest`, `colors.rest`: **LEGACY-MAPPED (deprecated).**
+  Still read as before; the entry's `name` / `icon` / `color` win where both
+  are set (warning `rest_both`). Marked deprecated like `charge` with Markus'
+  approval (30.10.2026: "mache es einheitlich"); still supported (N-12). The
+  editor writes the entry and drops these keys only once the rest is changed
+  or moved. Tests: `test/rest-entry.test.ts`, `test/editor-rest.test.ts`,
+  `test/legacy/v0.1.0/all-blocks`, `test/legacy/v0.5.0/look`.
 - Unknown keys inside `entities`, `list`, `ring`, `view`, `flow`, `colors`,
   `icons`, `power`: **CHANGED-COMPATIBLE.** Named in the console
   (`BLOCK_KEYS` in `src/config.ts`), never an error card. Older spellings that
@@ -414,6 +431,7 @@ and is ignored. Nested blocks are not checked for unknown keys.
 | `consumers[].charge.show: plugged` + `plugged` + `unplugged[]` | `show: condition`, `condition: {entity, operator: "!=", value: [...]}` | 1.3.0 | yes | `readCharge` | `consumer-hold.test.ts`, `migration-l18.test.ts`, `editor.test.ts` |
 | `consumers[].charge.show: charging` / unset | no `show` | 1.3.0 | yes | `readCharge` | `consumer-hold.test.ts` |
 | `consumers[].charge.soc` (+ `label`) | `indicators: {ring: {entity, label}, idle_value: ring, in_energy: true}` | 1.3.0 | yes | `readCharge` | `indicators.test.ts`, `migration-l18.test.ts`, `editor.test.ts` |
+| `list.rest_label`, `icons.rest`, `colors.rest` | `consumers[]` entry `type: rest` with `name`, `icon`, `color` | 1.3.0 | yes | `readRest` / `restValue` (normalizeConfig) | `rest-entry.test.ts`, `editor-rest.test.ts`, `legacy/` |
 | `power.unit: auto` + `decimals` (0.5.1) | `power.unit: auto` + `digits` | 0.5.2 | no (`decimals` ignored for `auto`) | - | - |
 
 Not legacy, but accepted and ignored since it was introduced:

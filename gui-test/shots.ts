@@ -46,6 +46,13 @@ const SENSORS: Record<string, Sensor> = {
   heat_pump: W("Wärmepumpe", "Heat pump", 25),
   hot_water: { de: "Warmwasser", en: "Hot water", state: 52, unit: "°C", cls: "temperature" },
   flow_temp: { de: "Vorlauf", en: "Flow temperature", state: 27, unit: "°C", cls: "temperature" },
+  outside: {
+    de: "Außentemperatur",
+    en: "Outside temperature",
+    state: 14,
+    unit: "°C",
+    cls: "temperature",
+  },
   today: { de: "PV-Ertrag heute", en: "Solar today", state: 23.4, unit: "kWh", cls: "energy" },
   forecast: {
     de: "PV-Prognose Rest",
@@ -136,6 +143,44 @@ const PLACE = {
 const folded = (...places: (keyof typeof PLACE)[]): Record<Lang, string[]> => ({
   de: places.map((p) => PLACE[p].de),
   en: places.map((p) => PLACE[p].en),
+});
+
+const REST_CONFIG = (lang: Lang) => ({
+  ...BASIC(lang),
+  consumers: [
+    {
+      entity: `${DOC}wallbox`,
+      name: "Wallbox",
+      icon: "mdi:ev-station",
+      position: "top",
+    },
+    {
+      entity: `${DOC}heat_pump`,
+      name: lang === "de" ? "Wärmepumpe" : "Heat pump",
+      icon: "mdi:heat-pump-outline",
+    },
+    {
+      type: "rest",
+      name: lang === "de" ? "Sonstiges" : "Other",
+      icon: "mdi:cloud-question",
+      position: "bottom",
+      show: "always",
+      highlight: { band: true },
+      indicators: {
+        bar_bottom: {
+          entity: `${DOC}outside`,
+          min: -10,
+          max: 35,
+          label: lang === "de" ? "Außen" : "Outside",
+        },
+      },
+    },
+    {
+      entity: `${DOC}washer`,
+      name: lang === "de" ? "Waschmaschine" : "Washing machine",
+      position: "bottom",
+    },
+  ],
 });
 
 /** The pictures. Page "Balkonkraftwerk und weitere PV" (balcony.adoc). */
@@ -241,6 +286,20 @@ const SHOTS: Shot[] = [
     from: "position",
     to: "in_energy",
     fold: folded("ring", "bar_bottom", "fill"),
+  },
+  // The rest as an entry of the consumer list (L-21): the list with the rest
+  // between the pinned rows, then the rest's own entry.
+  {
+    name: "editor-rest-list",
+    config: (lang) => REST_CONFIG(lang),
+    part: ".consumers-panel:not(.sources-panel)",
+    closed: true,
+  },
+  {
+    name: "editor-rest",
+    config: (lang) => REST_CONFIG(lang),
+    part: ".rest-entry",
+    fold: folded("ring", "bar_top", "fill"),
   },
   // Page "Zusatzwerte an den Knoten" (extras.adoc).
   {
@@ -362,7 +421,9 @@ async function frame(page: Page, shot: Omit<Shot, "config" | "fold"> & { fold?: 
       for (let round = 0; round < 4; round++) {
         for (const panel of deep("ha-expansion-panel", editor.shadowRoot as ParentNode)) {
           const inside = !shot.closed && deep("ha-expansion-panel", part).includes(panel);
-          (panel as unknown as { expanded: boolean }).expanded = panel === part || inside;
+          // The panels around the part too: the rest entry sits in the consumers' (L-21).
+          const around = panel !== part && panel.contains(part);
+          (panel as unknown as { expanded: boolean }).expanded = panel === part || inside || around;
         }
         await new Promise((r) => setTimeout(r, 400));
       }

@@ -300,8 +300,11 @@ function renderRow(
   // Every row opens its window: a consumer's, a PV source's, the rest's -
   // the last needs a measured house (DF-18, DF-19). Power and every extra
   // value are in it (DF-15).
+  // With a calculated house the rest has no line of its own; its extra
+  // values alone still open the window (L-21).
   const detail: DetailNode | undefined = entry.isRest
-    ? config.sources.house.kind === "single"
+    ? config.sources.house.kind === "single" ||
+      (entry.indicators && (!energy || entry.indicators.inEnergy))
       ? "rest"
       : undefined
     : entry.entity

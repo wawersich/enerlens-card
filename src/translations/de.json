@@ -82,6 +82,10 @@
       "charge_no_plugged": "{field}: show plugged braucht eine plugged-Entität - stattdessen nach Leistung.",
       "condition_incomplete": "{field} braucht Entität, Operator und Wert - bis dahin wie nach Leistung.",
       "condition_number": "{field}: {operator} vergleicht mit genau einer Zahl - die Bedingung ist nie erfüllt.",
+      "unknown_type": "{field}: unbekannter Typ – der Eintrag wird übersprungen.",
+      "rest_twice": "{field}: ein weiterer Rest-Eintrag – nur der erste gilt.",
+      "rest_not_here": "{field} gibt es beim Rest nicht und wird ignoriert.",
+      "rest_both": "{field} und der Rest-Eintrag setzen beide diesen Wert – der Eintrag gilt.",
       "show_twice": "{field}: show und charge.show sind beide gesetzt - show gilt, charge.show wird ignoriert.",
       "extra_no_entity": "{field} hat keine entity und wird ignoriert.",
       "not_for_node": "{field} gibt es bei diesem Knoten nicht und wird ignoriert.",
@@ -336,7 +340,9 @@
     "in_energy": "Auch im Energie-Modus zeigen",
     "highlight": "Hervorheben",
     "incomplete": "{name}: noch nicht vollständig ausgewählt.",
-    "held": "{message} Die Vorschau zeigt den letzten gültigen Stand; geschrieben wird erst, wenn das ergänzt ist."
+    "held": "{message} Die Vorschau zeigt den letzten gültigen Stand; geschrieben wird erst, wenn das ergänzt ist.",
+    "rest_entry": "Rest – was die gezeigten Verbraucher nicht erklären",
+    "entry_ignored": "Wird von der Karte übersprungen (nur ein Rest-Eintrag zählt, unbekannte Typen gar nicht)."
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest. Standard: 10 W.",
@@ -427,7 +433,10 @@
     "indicator_min": "Leer = 0. Wert bei leerer Anzeige.",
     "indicator_max": "Leer = 100. Wert bei voller Anzeige.",
     "idle_value": "Was als Wert angezeigt wird, solange der Verbraucher unter seiner Mindestleistung liegt, also aus ist. Mit Leistung, also wenn er an ist, steht dort immer die Leistung. Sinnvoll etwa bei einer Wallbox: Wird nicht geladen, steht statt der Leistung der Ladestand des Autos da.",
-    "in_energy": "Im Energie-Modus zeigen Ring, Balken und Füllung dann den aktuellen Wert; die Wertspalte zeigt weiter kWh."
+    "in_energy": "Im Energie-Modus zeigen Ring, Balken und Füllung dann den aktuellen Wert; die Wertspalte zeigt weiter kWh.",
+    "rest_min_w": "Darunter verschwindet der Rest aus der Liste. Leer: die Mindestleistung der Verbraucher. Ein hoher Wert blendet nicht zugeordnete Leistung aus; der Filter-Knopf hebt ihn nicht auf.",
+    "rest_position": "Wirkt nur mit oben/unten: dann zählt der Platz in dieser Liste, auch gegenüber angepinnten Verbrauchern. Sonst wird der Rest nach Leistung einsortiert.",
+    "rest_show": "„Immer“: Der Rest bleibt auch unter seiner Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort „—“. Er zählt nicht zur Höchstzahl der Verbraucher."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

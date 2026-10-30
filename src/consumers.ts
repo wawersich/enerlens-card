@@ -38,6 +38,9 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
     order.set(consumer.key, i);
     if (consumer.position) position.set(consumer.key, consumer.position);
   });
+  // The rest stands where its entry stands among the pinned rows (L-21).
+  order.set(REST_KEY, config.rest?.order ?? model.consumers.length);
+  if (config.rest?.position) position.set(REST_KEY, config.rest.position);
   for (const consumer of model.consumers) {
     if (!consumer.reading.available && config.energy?.consumers[consumer.entity] !== undefined) {
       unknown.push({
@@ -85,30 +88,18 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
   const room = showAll ? Number.POSITIVE_INFINITY : Math.max(0, config.maxConsumers - held.length);
   const shown = held.concat(sortDescending(candidates).slice(0, room));
 
-  // 3. Rest, only with an available house value and at or above the threshold
-  // (REQ L-5). A negative rest - sum of shown > house - fails that test too.
+  // 3. Rest, only with an available house value and at or above its threshold
+  // (REQ L-5) - its own `min_w`, which the filter button leaves alone (L-12,
+  // L-21). A negative rest - sum of shown > house - fails that test too. It
+  // comes on top of the limit, held or not (L-4).
+  const rest = restEntry(model, config, shown);
+  if (rest) shown.push(rest);
   const sorted: ListEntry[] = [];
   const top: ListEntry[] = [];
   const bottom: ListEntry[] = [];
   for (const entry of shown) {
     const place = position.get(entry.key);
     (place === "top" ? top : place === "bottom" ? bottom : sorted).push(entry);
-  }
-  if (model.house.available) {
-    const rest = model.house.w - shown.reduce((sum, entry) => sum + entry.w, 0);
-    if (rest >= config.minConsumerW) {
-      sorted.push({
-        key: REST_KEY,
-        // Empty when unconfigured; the renderer localizes it (REQ L-5).
-        name: config.list.restLabel ?? "",
-        w: rest,
-        color: config.colors.rest,
-        // Unset the list falls back to the plain dot, as it always did.
-        icon: config.icons.rest,
-        threshold: config.minConsumerW,
-        isRest: true,
-      });
-    }
   }
 
   // 4. The rest is sorted in like any other entry (REQ L-6). It was appended
@@ -124,6 +115,36 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
     else if (place === "bottom") bottom.push(entry);
   }
   return top.sort(byConfig).concat(sortDescending(sorted), bottom.sort(byConfig), loose);
+}
+
+/**
+ * The rest row of one tick, or none (REQ L-5, L-21). With `show: always` it
+ * stays below its threshold too; negative, or with the house unavailable, it
+ * then shows a dash - never an invented 0 W, never the negative figure - and
+ * counts as 0 W for sorting (rule 8).
+ */
+function restEntry(model: Model, config: Config, shown: ListEntry[]): ListEntry | undefined {
+  const threshold = config.rest?.minW ?? config.minConsumerW;
+  const w = model.house.available
+    ? model.house.w - shown.reduce((sum, entry) => sum + entry.w, 0)
+    : undefined;
+  const listed = w !== undefined && w >= threshold;
+  if (!listed && !config.rest?.always) return undefined;
+  const known = w !== undefined && w >= 0;
+  return {
+    key: REST_KEY,
+    // Empty when unconfigured; the renderer localizes it (REQ L-5).
+    name: config.list.restLabel ?? "",
+    w: known ? w : 0,
+    color: config.colors.rest,
+    // Unset the list falls back to the plain dot, as it always did.
+    icon: config.icons.rest,
+    threshold,
+    isRest: true,
+    powerUnknown: known ? undefined : true,
+    highlight: config.rest?.highlight,
+    indicators: model.rest?.indicators,
+  };
 }
 
 /**
@@ -155,7 +176,13 @@ function idleOf(consumer: ConsumerReading, w: number, threshold: number, config:
  * filter is lifted. Whether dots run is a different question and stays with
  * `flow.min_w` alone.
  */
-export function carries(entry: { w: number; threshold: number }, config: Config): boolean {
+export function carries(
+  entry: { w: number; threshold: number; powerUnknown?: boolean; isRest?: boolean },
+  config: Config,
+): boolean {
+  // The rest's dash says nothing is known: no colour, no segment (R-2, L-21).
+  // Only the rest's - a held consumer's dash stays as it always was (N-12).
+  if (entry.isRest && entry.powerUnknown) return false;
   return entry.w >= entry.threshold || dotParams(entry.w, config) !== null;
 }
 
@@ -223,7 +250,7 @@ export function refreshBreakdownValues(
 
   const entries = breakdown.entries.map((entry) =>
     entry.isRest
-      ? entry
+      ? { ...entry, indicators: model.rest?.indicators ?? entry.indicators }
       : {
           ...entry,
           w: live.get(entry.key) ?? (entry.powerUnknown ? 0 : entry.w),
@@ -236,7 +263,9 @@ export function refreshBreakdownValues(
   // The rest keeps absorbing whatever the shown consumers do not account for.
   const shown = entries.filter((e) => !e.isRest).reduce((sum, e) => sum + e.w, 0);
   const restIndex = entries.findIndex((e) => e.isRest);
-  if (restIndex >= 0) {
+  // A dash stays a dash until the next tick decides again (L-21); a value
+  // does not go below 0 W in between (L-7, 30.10.2026).
+  if (restIndex >= 0 && !entries[restIndex].powerUnknown) {
     const rest = model.house.available ? model.house.w - shown : entries[restIndex].w;
     entries[restIndex] = { ...entries[restIndex], w: Math.max(0, rest) };
   }

@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   keeps them in the energy mode; the detail window draws each in a chart.
 - **Highlight a consumer:** `highlight: { bold: true, band: true }` - name and
   value in bold, the row backed in its colour; each on its own.
+- **The rest row like a consumer (#6):** an entry `type: rest` in `consumers`
+  sets its name, icon, colour, own `min_w`, `position`, `show: always` (a dash
+  when the rest is negative), `highlight` and `indicators`. In the editor the
+  rest is an entry of the consumer list. A card that uses the entry needs
+  1.3.0 or later - older versions skip it.
 
 ### Deprecated
 - `charge.show`, `charge.plugged` and `charge.unplugged`: still read, and they
@@ -26,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `charge` itself: still read as a ring of 0-100 % with `idle_value: ring`
   and `in_energy: true`; the editor writes `indicators` once the consumer is
   changed.
+- `list.rest_label`, `icons.rest` and `colors.rest`: still read as the rest's
+  name, icon and colour; the editor writes the entry `type: rest` once the
+  rest is changed.
 
 ### Changed
 - **`max_consumers` counts held rows:** a plugged-in wallbox used to come on
@@ -43,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Every node in detail:** a house or solar with one entity, and grid or
   battery with one signed sensor, open the detail window too; such a battery is
   one tap target, its charge in the window.
+- **Editor: the rest's name and icon** moved from "List" and "Icons" into the
+  rest entry of the consumer list. Changing the rest there - its colour
+  included - writes the entry and takes the values of the older keys along.
 - **Less work in the background:** the lines to the list follow the rows
   only while they glide, instead of for a moment after every update.
 

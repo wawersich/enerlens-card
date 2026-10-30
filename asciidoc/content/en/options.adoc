@@ -13,7 +13,7 @@
 |`entities.battery` |— |Battery power, signed
 |`entities.battery_soc` |— |State of charge in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — see _Grid outage_
-|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, highlight, indicators}` - all but the first five see _Extra values at the consumers_
+|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, highlight, indicators}`; an entry `type: rest` sets the rest row - all but the first five see _Extra values at the consumers_
 |`min_consumer_w` |`10` |Consumers below this are folded into the remainder (unless the filter is off, see quick buttons); a consumer's own `min_w` overrides it
 |`max_consumers` |all |Maximum number of consumer rows; held ones (`show`) count and come first, the strongest get the remaining places
 |`update_interval_s` |`5` |How often the list reorders
@@ -21,7 +21,7 @@
 |`power.decimals` |`2` |Decimals for a fixed `kW`: 1, 2 or 3. Watts are always whole
 |`power.digits` |`3` |Significant digits for `auto`: 2, 3 or 4 - `1.23 kW`, `12.3 kW`, `123 kW`. A decimal place says something different at every size; this keeps what the figure tells constant
 |`list.enabled` |on with consumers |Show the list
-|`list.rest_label` |localised |Name of the remainder
+|`list.rest_label` |localised |Name of the remainder - older spelling, see _The rest row_ (`type: rest`) under _Extra values at the consumers_
 |`list.title` |— |Heading above the list
 |`list.solar` |`false` |PV rows above the consumers, one per source (with several sources)
 |`list.always_below` |`false` |Keep the list under the drawing even when there is room beside it
@@ -60,7 +60,7 @@
 |`colors.soc_stops` |red → yellow → green |Gradient for the charge level
 |`colors.consumer_palette` |10 colours |Cycled through consumers without a colour of their own
 |`colors.arrows` |`red_green` |Arrows at grid and battery: `red_green` (import and discharge red, export and charge green) or `direction` (their direction's colour)
-|`icons.++*++` |mdi defaults |Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with `mdi:cloud-question` there; delete it for the colour dot
+|`icons.++*++` |mdi defaults |Per-node icon; `icons.rest` gives the remainder row one too, in place of the colour dot (older spelling, see _The rest row_). A card added through the dashboard starts with `mdi:cloud-question` there; delete it for the colour dot
 |`nodes.++<++node++>++.show_name` |`true` |Show the node's name (`solar`, `grid`, `house`, `battery`)
 |`nodes.++<++node++>++.show_state` |`true` |Show the state word - `grid` and `battery` only
 |`nodes.++<++node++>++.inside` |— |Extra value in the circle: `++{++entity, position, decimals, size, weight}`, defaults `above`, `ha`, `100`, `normal` - not for `battery`. See _Extra values at the nodes_

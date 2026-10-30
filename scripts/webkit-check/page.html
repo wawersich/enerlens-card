@@ -105,6 +105,9 @@ card.setConfig({
       indicators: { ring: { entity: "sensor.share" }, bar_top: { entity: "sensor.share" },
         bar_bottom: { entity: "sensor.share" }, fill: { entity: "sensor.share" } } },
     { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
+    // The rest as an entry (L-21): pinned below, bold, with a bar of its own.
+    { type: "rest", name: "Sonstiges", position: "bottom", highlight: { bold: true },
+      indicators: { bar_bottom: { entity: "sensor.share" } } },
   ],
   flow: { min_w: 20, peak_w: 8000 },
   ...(scene === "extras" || scene === "nobatt" ? { nodes: {

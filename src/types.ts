@@ -187,6 +187,11 @@ export interface SolarSourceConfig {
 export type GridStatusRef = string | { entity: string; outage?: string[]; ok?: string[] };
 
 export interface ConsumerConfig {
+  /**
+   * `rest`: this entry is the rest row, not a consumer - no entity, and it
+   * sets name, icon, colour, threshold and display of the rest (REQ L-21).
+   */
+  type?: "rest";
   entity: string;
   name?: string;
   color?: string;
@@ -457,6 +462,27 @@ export interface NormalizedConsumer {
   highlight?: Highlight;
 }
 
+/**
+ * The rest row as a `type: rest` entry sets it (REQ L-21). Name, icon and
+ * colour stay where they always were - `list.restLabel`, `icons.rest`,
+ * `colors.rest` - filled from the entry when it has them.
+ */
+export interface NormalizedRest {
+  /** Own threshold in W, undefined = `min_consumer_w`. */
+  minW?: number;
+  position?: ConsumerPosition;
+  /** `show: always`: listed below its threshold too, a dash when negative. */
+  always: boolean;
+  highlight?: Highlight;
+  /** Never with an `idleValue` other than power: the rest has no device threshold. */
+  indicators?: NormalizedIndicators;
+  /**
+   * Its place among the consumers for pinned rows (L-18): halfway between the
+   * consumer before and the one after the entry. Undefined without an entry.
+   */
+  order?: number;
+}
+
 /** Where a consumer row stands in the list (REQ L-18); unset = sorted by power. */
 export type ConsumerPosition = "top" | "bottom";
 
@@ -537,6 +563,8 @@ export interface Config {
   /** The PV sources when `entities.solar` is a list; empty for one entity (REQ PV-1). */
   solarSources: NormalizedSolarSource[];
   consumers: NormalizedConsumer[];
+  /** The rest row beyond name, icon and colour (REQ L-21). */
+  rest: NormalizedRest;
   minConsumerW: number;
   maxConsumers: number;
   updateIntervalS: number;
@@ -800,6 +828,8 @@ export interface SolarSourceReading {
 }
 
 export interface Model {
+  /** The rest row's extra values, live (REQ L-21). */
+  rest?: { indicators?: RowIndicators };
   solar: Reading;
   /** The sources behind `solar`; empty for one entity (REQ PV-2). */
   solarSources: SolarSourceReading[];

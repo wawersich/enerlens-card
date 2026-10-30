@@ -58,6 +58,15 @@ async function mount(config: RawConfig): Promise<Editor> {
   return el;
 }
 
+/**
+ * The rest's colour as the editor writes it: into the rest entry since
+ * 30.10.2026 - a colour change is a change to the rest (REQ L-21).
+ */
+const restColourOf = (config?: RawConfig): string | undefined =>
+  (config?.consumers as { type?: string; color?: string }[] | undefined)?.find(
+    (entry) => entry.type === "rest",
+  )?.color;
+
 const form = (el: Editor): Form => el.shadowRoot?.querySelector("ha-form") as Form;
 
 /** Every ha-form in the editor - the colours split it into more than one. */
@@ -898,7 +907,7 @@ describe("editor - the colour wheel lives inside the dialog (REQ E-3)", () => {
     strip.dispatchEvent(pointer("pointerup", 100, 7));
     await el.updateComplete;
     expect(seen).toHaveLength(1);
-    expect(seen[0].colors?.rest).toMatch(/^#[\da-f]{6}$/);
+    expect(restColourOf(seen[0])).toMatch(/^#[\da-f]{6}$/);
   });
 
   it("moves on the arrow keys, so the wheel is not the only way in", async () => {
@@ -916,7 +925,7 @@ describe("editor - the colour wheel lives inside the dialog (REQ E-3)", () => {
     await el.updateComplete;
 
     // Ten degrees along the wheel from red, and written straight away.
-    expect(saved?.colors?.rest).toBe("#ff2a00");
+    expect(restColourOf(saved)).toBe("#ff2a00");
   });
 });
 
@@ -1131,7 +1140,7 @@ describe("editor - the other ways into a colour (REQ E-3)", () => {
       hex.value = "#3366cc";
       hex.dispatchEvent(new Event("change"));
     });
-    expect(saved.colors?.rest).toBe("#3366cc");
+    expect(restColourOf(saved)).toBe("#3366cc");
     // The wheel moved with it, rather than staying on the old colour.
     const after = el.shadowRoot?.querySelector(".picker .hex") as HTMLInputElement;
     expect(after.value).toBe("#3366cc");
@@ -1212,7 +1221,7 @@ describe("editor - the other ways into a colour (REQ E-3)", () => {
       c.getAttribute("title")?.startsWith("var("),
     ) as HTMLButtonElement;
     const withVar = await act(el, () => themed.click());
-    expect(withVar.colors?.rest).toMatch(/^var\(--/);
+    expect(restColourOf(withVar)).toMatch(/^var\(--/);
   });
 });
 
@@ -1277,7 +1286,7 @@ describe("editor - reading a colour by its channels (REQ E-3)", () => {
     green.dispatchEvent(new Event("change"));
     await el.updateComplete;
     expect(seen).toHaveLength(1);
-    expect(seen[0].colors?.rest).toBe("#ff0000");
+    expect(restColourOf(seen[0])).toBe("#ff0000");
   });
 
   it("takes a number typed into a channel straight away", async () => {
@@ -1293,7 +1302,7 @@ describe("editor - reading a colour by its channels (REQ E-3)", () => {
     blue.value = "255";
     blue.dispatchEvent(new Event("change"));
     await el.updateComplete;
-    expect(saved?.colors?.rest).toBe("#ff98ff");
+    expect(restColourOf(saved)).toBe("#ff98ff");
   });
 
   it("stays in the notation it was left in, row after row", async () => {

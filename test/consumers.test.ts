@@ -57,6 +57,7 @@ function config(
     },
     consumers: [],
     minConsumerW: over.minConsumerW ?? 10,
+    rest: { always: false },
     maxConsumers: over.maxConsumers ?? Number.POSITIVE_INFINITY,
     updateIntervalS: 5,
     list: {

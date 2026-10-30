@@ -13,7 +13,7 @@
 |`entities.battery` |— |Batterieleistung, signiert
 |`entities.battery_soc` |— |Ladezustand in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — siehe _Netzausfall_
-|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, position, show, condition, highlight, indicators}` – alle außer den ersten fünf siehe _Zusatzwerte an den Verbrauchern_
+|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, position, show, condition, highlight, indicators}` – alle außer den ersten fünf siehe _Zusatzwerte an den Verbrauchern_; ein Eintrag `type: rest` stellt die Rest-Zeile ein
 |`min_consumer_w` |`10` |Verbraucher darunter zählen zum Rest (außer mit ausgeschaltetem Filter, siehe Quick-Buttons); ein eigenes `min_w` am Verbraucher hat Vorrang
 |`max_consumers` |alle |Höchstzahl der Verbraucherzeilen; gehaltene (`show`) zählen mit und kommen zuerst, die übrigen Plätze bekommen die stärksten
 |`update_interval_s` |`5` |Wie oft die Liste neu sortiert
@@ -21,7 +21,7 @@
 |`power.decimals` |`2` |Nachkommastellen bei festem `kW`: 1, 2 oder 3. Watt sind immer ganz
 |`power.digits` |`3` |Relevante Stellen bei `auto`: 2, 3 oder 4 — `1,23 kW`, `12,3 kW`, `123 kW`. Eine Nachkommastelle bedeutet bei jeder Größe etwas anderes; so bleibt gleich, wie viel die Zahl aussagt
 |`list.enabled` |an mit Verbrauchern |Liste anzeigen
-|`list.rest_label` |lokalisiert |Bezeichnung des Rests
+|`list.rest_label` |lokalisiert |Bezeichnung des Rests – ältere Schreibweise, siehe _Die Rest-Zeile_ (`type: rest`) unter _Zusatzwerte an den Verbrauchern_
 |`list.title` |— |Überschrift über der Liste
 |`list.solar` |`false` |PV-Zeilen über den Verbrauchern, je Quelle eine (bei mehreren Quellen)
 |`list.always_below` |`false` |Liste auch dann unter der Zeichnung halten, wenn daneben Platz wäre
@@ -60,7 +60,7 @@
 |`colors.soc_stops` |rot → gelb → grün |Verlauf für den Ladezustand
 |`colors.consumer_palette` |10 Farben |Reihum für Verbraucher ohne eigene Farbe
 |`colors.arrows` |`red_green` |Pfeile an Netz und Batterie: `red_green` (Bezug und Entladen rot, Einspeisung und Laden grün) oder `direction` (Farbe der Richtung)
-|`icons.++*++` |mdi-Standard |Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts. Eine über das Dashboard neu angelegte Karte bringt dort `mdi:cloud-question` mit; wird es gelöscht, erscheint wieder der Farbpunkt
+|`icons.++*++` |mdi-Standard |Icon je Knoten; `icons.rest` gibt auch der Rest-Zeile eines, statt des Farbpunkts (ältere Schreibweise, siehe _Die Rest-Zeile_). Eine über das Dashboard neu angelegte Karte bringt dort `mdi:cloud-question` mit; wird es gelöscht, erscheint wieder der Farbpunkt
 |`nodes.++<++knoten++>++.show_name` |`true` |Namen des Knotens zeigen (`solar`, `grid`, `house`, `battery`)
 |`nodes.++<++knoten++>++.show_state` |`true` |Zustandswort zeigen – nur `grid` und `battery`
 |`nodes.++<++knoten++>++.inside` |— |Zusatzwert im Kreis: `++{++entity, position, decimals, size, weight}`, Standard `above`, `ha`, `100`, `normal` – nicht bei `battery`. Siehe _Zusatzwerte an den Knoten_

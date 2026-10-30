@@ -158,3 +158,61 @@ or both, and no extra room.
 In the energy mode position and `always` apply the same way; a condition
 describes the state now and is not evaluated there.
 
+
+[[rest]]
+== The rest row
+
+The rest is the house value minus the consumers shown. It can be set like a
+consumer - with an entry `type: rest` instead of an entity in the consumer
+list:
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_power
+    position: top
+  - type: rest
+    name: Other
+    icon: mdi:cloud-question
+    position: bottom
+    show: always
+    highlight: { band: true }
+    indicators:
+      bar_bottom: { entity: sensor.outside_temperature, min: -10, max: 35, label: Outside }
+  - entity: sensor.washing_machine_power
+    position: bottom
+----
+
+* *Name, icon, colour* (`name`, `icon`, `color`) as for a consumer.
+* *Minimum power* (`min_w`): below it the rest disappears; without it
+  `min_consumer_w` applies. The filter button does not lift it.
+* *Position* (`position`): `top` or `bottom`. Among the pinned rows the place of
+  the entry in the list counts - in the example the rest stands at the bottom,
+  above the washing machine. Without a position it is sorted in by power.
+* *Show in the list* (`show: always`): the rest stays below its minimum power
+  too. Negative, or without a house value, it shows "—" instead of a figure. It
+  does not count towards the maximum number of consumers.
+* *Highlight* and *extra values* as for a consumer - the extra values with any
+  entity, e.g. the outside temperature.
+
+Not for the rest: a condition and "Show without power"; it has no entity and
+no device threshold of its own.
+
+In the editor the rest is an entry of its own in the consumer list, without a
+remove button, moved by dragging. Its colour is under *Colours*.
+
+[.only-light]
+image::editor-rest-list-en-light.png["Consumer list with the rest entry in the editor",490]
+
+[.only-dark]
+image::editor-rest-list-en-dark.png["Consumer list with the rest entry in the editor",490]
+
+[.only-light]
+image::editor-rest-en-light.png["The rest entry unfolded",490]
+
+[.only-dark]
+image::editor-rest-en-dark.png["The rest entry unfolded",490]
+
+*Older spelling:* `list.rest_label`, `icons.rest` and `colors.rest` still apply.
+Change the rest in the editor and it writes the entry `type: rest`, taking these
+values along.

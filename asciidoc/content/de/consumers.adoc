@@ -163,3 +163,61 @@ geht einzeln oder zusammen und braucht keinen zusätzlichen Platz.
 Im Energie-Modus gelten Position und `always` genauso; eine Bedingung beschreibt
 den Zustand jetzt und wird dort nicht ausgewertet.
 
+
+[[rest]]
+== Die Rest-Zeile
+
+Der Rest ist der Hauswert minus die gezeigten Verbraucher. Er lässt sich wie
+ein Verbraucher einstellen – mit einem Eintrag `type: rest` statt einer
+Entität in der Verbraucherliste:
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_leistung
+    position: top
+  - type: rest
+    name: Sonstiges
+    icon: mdi:cloud-question
+    position: bottom
+    show: always
+    highlight: { band: true }
+    indicators:
+      bar_bottom: { entity: sensor.aussentemperatur, min: -10, max: 35, label: Außen }
+  - entity: sensor.waschmaschine_leistung
+    position: bottom
+----
+
+* *Name, Icon, Farbe* (`name`, `icon`, `color`) wie beim Verbraucher.
+* *Mindestleistung* (`min_w`): darunter verschwindet der Rest; ohne Angabe gilt
+  `min_consumer_w`. Der Filter-Knopf hebt sie nicht auf.
+* *Position* (`position`): `top` oder `bottom`. Unter den angepinnten Zeilen
+  zählt der Platz des Eintrags in der Liste – im Beispiel steht der Rest unten
+  über der Waschmaschine. Ohne Position wird er nach Leistung einsortiert.
+* *In der Liste zeigen* (`show: always`): Der Rest bleibt auch unter seiner
+  Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort
+  „—“ statt einer Zahl. Er zählt nicht zur Höchstzahl der Verbraucher.
+* *Hervorheben* und *Zusatzanzeigen* wie beim Verbraucher – die Zusatzanzeigen
+  mit jeder beliebigen Entität, etwa der Außentemperatur.
+
+Nicht beim Rest: eine Bedingung und „Ohne Leistung zeigen“; dafür fehlt ihm
+eine eigene Entität bzw. eine Geräteschwelle.
+
+Im Editor steht der Rest als eigener Eintrag in der Verbraucherliste, ohne
+Löschen-Knopf, per Ziehen verschiebbar. Seine Farbe steht unter *Farben*.
+
+[.only-light]
+image::editor-rest-list-de-light.png["Verbraucherliste mit Rest-Eintrag im Editor",490]
+
+[.only-dark]
+image::editor-rest-list-de-dark.png["Verbraucherliste mit Rest-Eintrag im Editor",490]
+
+[.only-light]
+image::editor-rest-de-light.png["Der Rest-Eintrag aufgeklappt",490]
+
+[.only-dark]
+image::editor-rest-de-dark.png["Der Rest-Eintrag aufgeklappt",490]
+
+*Ältere Schreibweise:* `list.rest_label`, `icons.rest` und `colors.rest` gelten
+weiter. Ändert man den Rest im Editor, schreibt er den Eintrag `type: rest` und
+übernimmt diese Werte dorthin.

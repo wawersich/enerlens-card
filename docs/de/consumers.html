@@ -259,10 +259,85 @@ den Zustand jetzt und wird dort nicht ausgewertet.</p>
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="rest"><a class="anchor" href="#rest"></a>Die Rest-Zeile</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Der Rest ist der Hauswert minus die gezeigten Verbraucher. Er lässt sich wie
+ein Verbraucher einstellen – mit einem Eintrag <code>type: rest</code> statt einer
+Entität in der Verbraucherliste:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">consumers:
+  - entity: sensor.wallbox_leistung
+    position: top
+  - type: rest
+    name: Sonstiges
+    icon: mdi:cloud-question
+    position: bottom
+    show: always
+    highlight: { band: true }
+    indicators:
+      bar_bottom: { entity: sensor.aussentemperatur, min: -10, max: 35, label: Außen }
+  - entity: sensor.waschmaschine_leistung
+    position: bottom</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>Name, Icon, Farbe</strong> (<code>name</code>, <code>icon</code>, <code>color</code>) wie beim Verbraucher.</li>
+<li><strong>Mindestleistung</strong> (<code>min_w</code>): darunter verschwindet der Rest; ohne Angabe gilt
+<code>min_consumer_w</code>. Der Filter-Knopf hebt sie nicht auf.</li>
+<li><strong>Position</strong> (<code>position</code>): <code>top</code> oder <code>bottom</code>. Unter den angepinnten Zeilen
+zählt der Platz des Eintrags in der Liste – im Beispiel steht der Rest unten
+über der Waschmaschine. Ohne Position wird er nach Leistung einsortiert.</li>
+<li><strong>In der Liste zeigen</strong> (<code>show: always</code>): Der Rest bleibt auch unter seiner
+Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort
+„—“ statt einer Zahl. Er zählt nicht zur Höchstzahl der Verbraucher.</li>
+<li><strong>Hervorheben</strong> und <strong>Zusatzanzeigen</strong> wie beim Verbraucher – die Zusatzanzeigen
+mit jeder beliebigen Entität, etwa der Außentemperatur.</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Nicht beim Rest: eine Bedingung und „Ohne Leistung zeigen“; dafür fehlt ihm
+eine eigene Entität bzw. eine Geräteschwelle.</p>
+</div>
+<div class="paragraph">
+<p>Im Editor steht der Rest als eigener Eintrag in der Verbraucherliste, ohne
+Löschen-Knopf, per Ziehen verschiebbar. Seine Farbe steht unter <strong>Farben</strong>.</p>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-rest-list-de-light.png" alt="Verbraucherliste mit Rest-Eintrag im Editor" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-rest-list-de-dark.png" alt="Verbraucherliste mit Rest-Eintrag im Editor" width="490">
+</div>
+</div>
+<div class="imageblock only-light">
+<div class="content">
+<img src="../images/editor-rest-de-light.png" alt="Der Rest-Eintrag aufgeklappt" width="490">
+</div>
+</div>
+<div class="imageblock only-dark">
+<div class="content">
+<img src="../images/editor-rest-de-dark.png" alt="Der Rest-Eintrag aufgeklappt" width="490">
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Ältere Schreibweise:</strong> <code>list.rest_label</code>, <code>icons.rest</code> und <code>colors.rest</code> gelten
+weiter. Ändert man den Rest im Editor, schreibt er den Eintrag <code>type: rest</code> und
+übernimmt diese Werte dorthin.</p>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=5c8b5a13"></script>
+<script type="module" src="../assets/site.js?v=b2dca818"></script>
 </body>
 </html>

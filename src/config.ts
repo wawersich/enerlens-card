@@ -40,6 +40,7 @@ import {
   type NormalizedHold,
   type NormalizedIndicator,
   type NormalizedIndicators,
+  type NormalizedRest,
   type NormalizedSolarSource,
   type PowerFormat,
   type PowerUnit,
@@ -1021,6 +1022,10 @@ export function collectChargeIds(config: Config): string[] {
     const extras = Object.values(consumer.indicators?.slots ?? {}).map((i) => i.entity);
     for (const id of [...extras, condition]) if (id && !ids.includes(id)) ids.push(id);
   }
+  // The rest's extra values (L-21).
+  for (const indicator of Object.values(config.rest?.indicators?.slots ?? {})) {
+    if (!ids.includes(indicator.entity)) ids.push(indicator.entity);
+  }
   return ids;
 }
 
@@ -1201,19 +1206,42 @@ function readPlace(
   };
 }
 
+/** The `type: rest` entry as the consumer list holds it (REQ L-21). */
+interface RestEntry {
+  entry: Record<string, unknown>;
+  field: string;
+  /** Consumers read before it. */
+  after: number;
+}
+
 function readConsumers(
   value: unknown,
   palette: string[],
   hass?: HomeAssistant,
-): NormalizedConsumer[] {
-  if (isUnset(value)) return [];
+): { consumers: NormalizedConsumer[]; rest?: RestEntry } {
+  if (isUnset(value)) return { consumers: [] };
   if (!Array.isArray(value)) throw fail("error.config.list", "consumers", hass);
 
   const seen = new Set<string>();
   const consumers: NormalizedConsumer[] = [];
+  let rest: RestEntry | undefined;
+  // The rest entry takes no colour of the palette: the consumers keep their
+  // default colours wherever it stands (REQ C-4, L-21).
+  let restsBefore = 0;
   for (let i = 0; i < value.length; i++) {
     const entry: unknown = value[i];
     const field = `consumers[${i}]`;
+    if (isRecord(entry) && !isUnset(entry.type)) {
+      if (entry.type !== "rest") {
+        // Room for kinds of entry yet to come; an older card skips them too.
+        console.warn(localize("error.config.unknown_type", hass, { field: `${field}.type` }));
+        continue;
+      }
+      restsBefore++;
+      if (rest) console.warn(localize("error.config.rest_twice", hass, { field }));
+      else rest = { entry, field, after: consumers.length };
+      continue;
+    }
     // A row without an entity (picker cleared) or a sensor picked twice are
     // ordinary editor states; the entry is dropped with a warning (REQ E-1).
     if (!isRecord(entry) || typeof entry.entity !== "string" || entry.entity.trim() === "") {
@@ -1231,7 +1259,9 @@ function readConsumers(
       entity,
       name: readString(entry.name, `${field}.name`, hass),
       // Palette wraps so that even 100 consumers get a colour (REQ C-4, L-11).
-      color: readString(entry.color, `${field}.color`, hass) ?? palette[i % palette.length],
+      color:
+        readString(entry.color, `${field}.color`, hass) ??
+        palette[(i - restsBefore) % palette.length],
       icon: readString(entry.icon, `${field}.icon`, hass),
       minW: isUnset(entry.min_w)
         ? undefined
@@ -1239,7 +1269,76 @@ function readConsumers(
       ...readPlace(entry, field, hass),
     });
   }
-  return consumers;
+  return { consumers, rest };
+}
+
+/**
+ * The rest row as its entry sets it (REQ L-21). What a consumer has and the
+ * rest cannot - an entity, a condition, an idle value - is named and left
+ * out, never refused: whoever copies a consumer's block writes values that
+ * are valid in themselves (E-1).
+ */
+function readRest(
+  rest: RestEntry | undefined,
+  hass?: HomeAssistant,
+): { rest: NormalizedRest; name?: string; icon?: string; color?: string } {
+  if (!rest) return { rest: { always: false } };
+  const { entry, field } = rest;
+  const ignored = (key: string) =>
+    console.warn(localize("error.config.rest_not_here", hass, { field: `${field}.${key}` }));
+  if (!isUnset(entry.entity)) ignored("entity");
+  if (!isUnset(entry.charge)) ignored("charge");
+  let always = false;
+  if (!isUnset(entry.show)) {
+    always = readEnum(entry.show, SHOWS, `${field}.show`, "always", hass) === "always";
+    if (!always) ignored("show");
+  }
+  if (!isUnset(entry.condition)) ignored("condition");
+  let rawIndicators = entry.indicators;
+  if (isRecord(rawIndicators) && !isUnset(rawIndicators.idle_value)) {
+    ignored("indicators.idle_value");
+    const { idle_value: _dropped, ...kept } = rawIndicators;
+    rawIndicators = kept;
+  }
+  return {
+    rest: {
+      minW: isUnset(entry.min_w)
+        ? undefined
+        : readLimited(entry.min_w, `${field}.min_w`, 0, hass, NUMBER_LIMITS["consumers.min_w"]),
+      position: isUnset(entry.position)
+        ? undefined
+        : readEnum(entry.position, POSITIONS, `${field}.position`, "top", hass),
+      always,
+      highlight: readHighlight(entry.highlight, `${field}.highlight`, hass),
+      indicators: readIndicators(rawIndicators, `${field}.indicators`, hass),
+      // Between the consumer before it and the one after (L-18, L-21).
+      order: rest.after - 0.5,
+    },
+    name: readString(entry.name, `${field}.name`, hass),
+    icon: readString(entry.icon, `${field}.icon`, hass),
+    color: readString(entry.color, `${field}.color`, hass),
+  };
+}
+
+/**
+ * The entry's value where it has one, the older key's otherwise; both set,
+ * the entry wins with a word in the console (N-12, L-21).
+ *
+ * LEGACY (N-12): `list.rest_label`, `icons.rest` and `colors.rest` are the
+ * older spelling of the rest entry's name, icon and colour, read since 0.1.0 /
+ * 0.5.0. Never remove or narrow this without Markus' explicit approval - see
+ * dev-docs/yaml-formats.md.
+ */
+function restValue(
+  entryValue: string | undefined,
+  oldValue: string | undefined,
+  oldField: string,
+  oldSet: boolean,
+  hass?: HomeAssistant,
+): string | undefined {
+  if (entryValue === undefined) return oldValue;
+  if (oldSet) console.warn(localize("error.config.rest_both", hass, { field: oldField }));
+  return entryValue;
 }
 
 function warnUnknownKeys(raw: Record<string, unknown>, hass?: HomeAssistant): void {
@@ -1405,7 +1504,21 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   const gridStatus = readGridStatus(rawEntities.grid_status, "entities.grid_status", hass);
 
   const colors = readColors(rawRecord.colors, hass);
-  const consumers = readConsumers(rawRecord.consumers, colors.consumerPalette, hass);
+  const { consumers, rest: restEntry } = readConsumers(
+    rawRecord.consumers,
+    colors.consumerPalette,
+    hass,
+  );
+  // Name, icon and colour of the rest: its entry, else the older keys (L-21, N-12).
+  const rest = readRest(restEntry, hass);
+  const rawColors = isRecord(rawRecord.colors) ? rawRecord.colors : {};
+  const rawIcons = isRecord(rawRecord.icons) ? rawRecord.icons : {};
+  colors.rest =
+    restValue(rest.color, colors.rest, "colors.rest", !isUnset(rawColors.rest), hass) ??
+    colors.rest;
+  const icons = readIcons(rawRecord.icons, hass);
+  const restIcon = restValue(rest.icon, icons.rest, "icons.rest", !isUnset(rawIcons.rest), hass);
+  if (restIcon) icons.rest = restIcon;
 
   const minConsumerW = readLimited(rawRecord.min_consumer_w, "min_consumer_w", 10, hass);
   // No limit configured means no limit at all (REQ section 3, L-4).
@@ -1514,12 +1627,19 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     gridStatus,
     solarSources,
     consumers,
+    rest: rest.rest,
     minConsumerW,
     maxConsumers,
     updateIntervalS,
     list: {
       enabled: readBoolean(rawList.enabled, "list.enabled", hasConsumers, hass),
-      restLabel: readString(rawList.rest_label, "list.rest_label", hass),
+      restLabel: restValue(
+        rest.name,
+        readString(rawList.rest_label, "list.rest_label", hass),
+        "list.rest_label",
+        !isUnset(rawList.rest_label),
+        hass,
+      ),
       title: readString(rawList.title, "list.title", hass),
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
       // Off by default: existing boards must not change on their own (PV-7).
@@ -1596,7 +1716,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
     },
     appearance: readEnum(rawRecord.appearance, APPEARANCES, "appearance", "auto", hass),
     colors,
-    icons: readIcons(rawRecord.icons, hass),
+    icons,
     nodes: readNodes(rawRecord.nodes, hass),
     extraColors: readExtraColors(rawRecord.colors, hass),
     power: readPower(rawRecord.power, hass),

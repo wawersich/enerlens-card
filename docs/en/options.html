@@ -110,7 +110,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>consumers</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">List of <code>{entity, name, color, icon, min_w, position, show, condition, highlight, indicators}</code> - all but the first five see <em>Extra values at the consumers</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">List of <code>{entity, name, color, icon, min_w, position, show, condition, highlight, indicators}</code>; an entry <code>type: rest</code> sets the rest row - all but the first five see <em>Extra values at the consumers</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>min_consumer_w</code></p></td>
@@ -150,7 +150,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.rest_label</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">localised</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the remainder</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the remainder - older spelling, see <em>The rest row</em> (<code>type: rest</code>) under <em>Extra values at the consumers</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>list.title</code></p></td>
@@ -345,7 +345,7 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>icons.*</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">mdi defaults</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Per-node icon; <code>icons.rest</code> gives the remainder row one too, in place of the colour dot. A card added through the dashboard starts with <code>mdi:cloud-question</code> there; delete it for the colour dot</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Per-node icon; <code>icons.rest</code> gives the remainder row one too, in place of the colour dot (older spelling, see <em>The rest row</em>). A card added through the dashboard starts with <code>mdi:cloud-question</code> there; delete it for the colour dot</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodes.&lt;node&gt;.show_name</code></p></td>
@@ -387,6 +387,6 @@ energy flows.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=5c8b5a13"></script>
+<script type="module" src="../assets/site.js?v=b2dca818"></script>
 </body>
 </html>

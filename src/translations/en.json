@@ -82,6 +82,10 @@
       "charge_no_plugged": "{field}: show plugged needs a plugged entity - listed by power instead.",
       "condition_incomplete": "{field} needs an entity, an operator and a value - shown by power until then.",
       "condition_number": "{field}: {operator} compares with exactly one number - the condition is never met.",
+      "unknown_type": "{field}: unknown type - the entry is skipped.",
+      "rest_twice": "{field}: a further rest entry - only the first one is used.",
+      "rest_not_here": "{field} does not apply to the rest and is ignored.",
+      "rest_both": "{field} and the rest entry both set this - the entry is used.",
       "show_twice": "{field}: show and charge.show are both set - show is used, charge.show ignored.",
       "extra_no_entity": "{field} has no entity and is ignored.",
       "not_for_node": "{field} does not exist for this node and is ignored.",
@@ -336,7 +340,9 @@
     "in_energy": "Show in the energy mode too",
     "highlight": "Highlight",
     "incomplete": "{name}: not completely chosen yet.",
-    "held": "{message} The preview shows the last valid state; nothing is written until this is completed."
+    "held": "{message} The preview shows the last valid state; nothing is written until this is completed.",
+    "rest_entry": "Rest – what the listed consumers do not explain",
+    "entry_ignored": "Skipped by the card (only one rest entry counts, unknown types none)."
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder. Default: 10 W.",
@@ -427,7 +433,10 @@
     "indicator_min": "Empty = 0. The value at an empty display.",
     "indicator_max": "Empty = 100. The value at a full display.",
     "idle_value": "What is shown as the value while the consumer is below its minimum power, that is, while it is off. With power, that is, while it is on, the power is always shown there. Useful for a wallbox, say: while it is not charging, the car's state of charge is shown instead of the power.",
-    "in_energy": "In the energy mode ring, bars and fill then show the value of now; the value column keeps showing kWh."
+    "in_energy": "In the energy mode ring, bars and fill then show the value of now; the value column keeps showing kWh.",
+    "rest_min_w": "Below this the rest leaves the list. Empty: the consumers' minimum power. A high value hides power nothing accounts for; the filter button does not lift it.",
+    "rest_position": "Only with top/bottom: then its place in this list counts, also among pinned consumers. Otherwise the rest is sorted in by power.",
+    "rest_show": "\"Always\": the rest stays below its minimum power too. Negative, or without a house value, it shows \"—\". It does not count towards the maximum number of consumers."
   },
   "outage": {
     "banner": "Island mode — no grid",

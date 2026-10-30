@@ -22,7 +22,14 @@ import { formatEnergy, formatPower, localeFor } from "./format";
 import { localize } from "./localize";
 import { type DetailNode, arrowsFor, openMoreInfo } from "./render/cross";
 import { radioStep } from "./render/header";
-import type { Config, DirectionKey, EnergyMark, EnergyPeriod, HomeAssistant } from "./types";
+import type {
+  Config,
+  DirectionKey,
+  EnergyMark,
+  EnergyPeriod,
+  HomeAssistant,
+  NormalizedIndicators,
+} from "./types";
 
 /** Sent by a card that leaves the page: its window closes with it (DF-2). */
 export const CARD_GONE = "enerlens-card-gone";
@@ -149,7 +156,7 @@ interface Plan {
   parts?: Part[];
 }
 
-function planOf(
+export function planOf(
   node: DetailNode,
   config: Config,
   hass?: HomeAssistant,
@@ -170,21 +177,7 @@ function planOf(
         { entity: consumer.entity, name: title, color: consumer.color, sign: 1, role: "house" },
       ],
       // Every extra value of the row, each in a chart of its own (L-20).
-      extras: Object.entries(consumer.indicators?.slots ?? {}).map(([slot, ind]) => ({
-        entity: ind.entity,
-        // Named as the row names it: own label, "State of charge" for the
-        // ring, else the entity's name or its id (L-20).
-        label:
-          ind.label ??
-          (slot === "ring"
-            ? undefined
-            : ((hass?.states?.[ind.entity]?.attributes?.friendly_name as string | undefined) ??
-              ind.entity)),
-        percent:
-          ind.percent === true ||
-          (ind.min === 0 && ind.max === 100 && unitOf(hass, ind.entity) === "%"),
-        inEnergy: consumer.indicators?.inEnergy ?? false,
-      })),
+      extras: extrasOf(consumer.indicators, hass),
     };
   }
   if (node.startsWith("source:")) {
@@ -263,11 +256,15 @@ function planOf(
     // the rest as its row has it (DF-18).
     const house = config.sources.house;
     const title = config.list.restLabel || localize("list.rest", hass);
-    if (house.kind !== "single") return { title, series: [], layout: "total" };
+    // Its extra values below, like a consumer's (L-21); with a calculated
+    // house there is no line of its own, and they are all there is.
+    const extras = extrasOf(config.rest?.indicators, hass);
+    if (house.kind !== "single") return { title, series: [], layout: "total", extras };
     const past = config.solarSources.filter((source) => source.excluded);
     return {
       title,
       layout: "total",
+      extras,
       series: [
         {
           entity: house.entity,
@@ -385,6 +382,25 @@ function planOf(
 }
 
 /** The values a window draws below the power: in a period only those asked for there (L-20). */
+/** A row's extra values as charts of their own (L-20, L-21). */
+function extrasOf(indicators: NormalizedIndicators | undefined, hass?: HomeAssistant): Extra[] {
+  return Object.entries(indicators?.slots ?? {}).map(([slot, ind]) => ({
+    entity: ind.entity,
+    // Named as the row names it: own label, "State of charge" for the
+    // ring, else the entity's name or its id (L-20).
+    label:
+      ind.label ??
+      (slot === "ring"
+        ? undefined
+        : ((hass?.states?.[ind.entity]?.attributes?.friendly_name as string | undefined) ??
+          ind.entity)),
+    percent:
+      ind.percent === true ||
+      (ind.min === 0 && ind.max === 100 && unitOf(hass, ind.entity) === "%"),
+    inEnergy: indicators?.inEnergy ?? false,
+  }));
+}
+
 function extrasShown(plan: Plan, energy: boolean): Extra[] {
   return (plan.extras ?? []).filter((e) => !energy || e.inEnergy !== false);
 }
@@ -477,6 +493,9 @@ async function fiveMinutes(
   from: number,
   now: number,
 ): Promise<Record<string, StatRow5[]>> {
+  // Nothing to ask for - a rest with only extra values (L-21). HA refuses an
+  // empty list of ids rather than answering with nothing.
+  if (ids.length === 0) return {};
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(
@@ -868,6 +887,9 @@ export class EnerLensDetail extends LitElement {
           const half = (d.step === "hour" ? HOUR : 24 * HOUR) / 2;
           axis = { from: d.axisFrom, to: d.axisTo, min: d.axisFrom - half, max: d.axisTo + half };
           step = d.step;
+        } else if (plan.series.length === 0) {
+          // Only extra values (a rest with a calculated house, L-21): the period itself.
+          axis = { from: view.from, to: view.to, min: view.from, max: view.to };
         }
       } else {
         const rows = (await figures) as Record<string, StatRow5[]>;
@@ -1613,7 +1635,7 @@ export class EnerLensDetail extends LitElement {
       </div>
       ${
         // Says what the line is: a mean, its band the readings around it (DF-4).
-        this._power
+        this._power && sides.length > 0
           ? html`<div class="note">${localize(plan.layout === "mirrored" || plan.layout === "single" ? "detail.aggregation" : "detail.mean", hass)}</div>`
           : nothing
       }
@@ -1628,8 +1650,11 @@ export class EnerLensDetail extends LitElement {
       }
       <div class="charts ${this._busy ? "busy" : ""}">
         ${
-          // Until the first chart is there: something is coming (DF-10).
-          this._chart ?? html`<div class="loading" role="progressbar" aria-busy="true"></div>`
+          // Until the first chart is there: something is coming (DF-10). A
+          // rest without a line of its own has only its extra values (L-21).
+          sides.length === 0
+            ? nothing
+            : (this._chart ?? html`<div class="loading" role="progressbar" aria-busy="true"></div>`)
         }
         ${extras.map((extra, i) => {
           const chart = this._extraCharts[i];
