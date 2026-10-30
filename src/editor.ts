@@ -1564,6 +1564,9 @@ const COLORS_HINT = { name: "colors_hint", type: "constant" };
  * each, its start value (QB-7). Keys set anew win and stay as written; the
  * list scope only with consumers. Undefined when there is nothing to do, or
  * when the card would reject the configuration anyway.
+ *
+ * LEGACY (N-12): keeps old cards editable; never remove without Markus'
+ * explicit approval (dev-docs/yaml-formats.md).
  */
 function translateSelector(config: RawConfig): RawConfig | undefined {
   const view = config.view as Record<string, unknown> | undefined;

@@ -194,7 +194,11 @@ export interface ConsumerConfig {
   min_w?: number;
   /** Optional mdi icon shown in front of the name (REQ L-2). */
   icon?: string;
-  /** A state of charge that belongs to this consumer - an EV at its wallbox (REQ L-15). */
+  /**
+   * A state of charge that belongs to this consumer - an EV at its wallbox (REQ L-15).
+   * LEGACY (N-12): older spelling of `show`/`condition` and `indicators.ring`;
+   * still read, never remove without approval (dev-docs/yaml-formats.md).
+   */
   charge?: ChargeConfig;
   /** Ring, bars and fill with values of their own (REQ L-20); `charge` is its old spelling. */
   indicators?: IndicatorsConfig;
@@ -322,7 +326,11 @@ export interface RawConfig extends LovelaceCardConfig {
     default_mode?: ViewMode;
     avg_short_minutes?: number;
     avg_long_minutes?: number;
-    /** Deprecated: false fixes every quick button on its start value (REQ QB-7). */
+    /**
+     * Deprecated: false fixes every quick button on its start value (REQ QB-7).
+     * LEGACY (N-12): still read, never remove without approval
+     * (dev-docs/yaml-formats.md).
+     */
     show_selector?: boolean;
     remember?: boolean;
     /** Power and the periods the quick button power/energy offers (REQ QB-2, EM-1). */

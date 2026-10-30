@@ -415,6 +415,10 @@ function readChoices<T extends string>(
  * The three quick buttons (REQ 2.16): what each offers and where it starts.
  * One value offered = fixed. The deprecated `show_selector: false` fixes
  * every button not configured anew on its start value (QB-7).
+ *
+ * LEGACY (N-12): `view.show_selector` is an older spelling, read since 0.11.0.
+ * Never remove or narrow this without Markus' explicit approval - see
+ * dev-docs/yaml-formats.md.
  */
 function readQuickButtons(
   rawView: Record<string, unknown>,
@@ -831,6 +835,12 @@ const CHARGE_SHOWS: readonly ChargeShow[] = ["charging", "plugged", "always"];
  *
  * `show`, `plugged` and `unplugged` are the old spelling of what L-18 calls
  * `show` and `condition`; they come back as the hold they stand for.
+ *
+ * LEGACY (N-12): the whole `charge` block is an older spelling (of
+ * `show`/`condition` and `indicators.ring`, since 1.3.0) that 1.2.0
+ * configurations rely on. Never remove or narrow this without Markus'
+ * explicit approval - see dev-docs/yaml-formats.md and
+ * test/migration-l18.test.ts.
  */
 function readCharge(
   value: unknown,
@@ -1247,7 +1257,7 @@ function warnUnknownKeys(raw: Record<string, unknown>, hass?: HomeAssistant): vo
  * (`flow.dot_colour`) is named instead of vanishing - a warning, never an
  * error card (E-1). `nodes` checks its own.
  *
- * Older spellings stay listed for as long as they are read (N-10,
+ * Older spellings stay listed for as long as they are read (N-12,
  * dev-docs/yaml-formats.md): `view.show_selector`, `list.rest_label`.
  */
 const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
