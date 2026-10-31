@@ -6,9 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Fixed
-- **Zoom in the detail window:** zooming one chart now zooms the charts
-  below it to the same times, so the curves stay one below the other.
+### Changed
+- **Zoom in the detail window:** zooming one chart zooms all charts of the
+  window to the same times, so the curves stay one below the other.
 
 ## [1.3.0] - 2026-10-30
 

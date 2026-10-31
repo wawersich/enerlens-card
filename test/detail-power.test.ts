@@ -200,6 +200,8 @@ type Chart = HTMLElement & {
   options: { xAxis: { min: number; max: number } };
   window: Zoom;
   asked: Zoom[];
+  limit?: [number, number];
+  lateEcho: boolean;
   chart: { dispatchAction: (a: Zoom & { type: string }) => void };
   zoom: (start: number, end: number) => void;
 };
@@ -258,18 +260,30 @@ beforeAll(async () => {
         /** The zoom window as HA's chart keeps it, and what was asked of it. */
         window: Zoom = { start: 0, end: 100 };
         asked: Zoom[] = [];
+        /** Its axis, where ECharts cuts a window off (energy mode: half a bar narrower). */
+        limit?: [number, number];
+        /** Announce the window a moment later instead of at once. */
+        lateEcho = false;
         // Like HA's chart: every change of the window is announced, also one
         // set from outside ("silent" does not stop it).
         private _set(w: Zoom) {
-          this.window = w;
+          const [lo, hi] = this.limit ?? [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
+          const cut = { ...w };
+          if (cut.startValue !== undefined)
+            cut.startValue = Math.min(hi, Math.max(lo, cut.startValue));
+          if (cut.endValue !== undefined) cut.endValue = Math.min(hi, Math.max(lo, cut.endValue));
+          this.window = cut;
           this.asked.push(w);
-          this.dispatchEvent(
-            new CustomEvent("chart-zoom", {
-              detail: { start: w.start ?? 0, end: w.end ?? 100 },
-              bubbles: true,
-              composed: true,
-            }),
-          );
+          const announce = () =>
+            this.dispatchEvent(
+              new CustomEvent("chart-zoom", {
+                detail: { start: cut.start ?? 0, end: cut.end ?? 100 },
+                bubbles: true,
+                composed: true,
+              }),
+            );
+          if (this.lateEcho) setTimeout(announce, 0);
+          else announce();
         }
         chart = {
           getOption: () => ({ dataZoom: [this.window] }),
@@ -560,6 +574,62 @@ describe("a consumer with a state of charge: power and charge in one window (REQ
     expect(series.some((s) => s.name.endsWith("-span"))).toBe(true);
     expect(chart(d, "soc")).toBeTruthy();
     expect(text(d.shadowRoot?.querySelector(".soc-name"))).toBe("Ladestand");
+  });
+
+  describe("zoom with two values below (DF-5)", () => {
+    const TWO = {
+      ...CONFIG,
+      consumers: [
+        {
+          entity: "sensor.wallbox",
+          name: "Wallbox",
+          indicators: { ring: { entity: "sensor.car" }, bar_top: { entity: "sensor.soc" } },
+        },
+      ],
+    };
+    const charts = (d: Dialog) => [
+      ...(d.shadowRoot?.querySelectorAll<Chart>(".chart.power, .chart.soc") ?? []),
+    ];
+
+    it("a chart that cuts the window off does not move the one being zoomed", async () => {
+      const el = await mount(TWO);
+      const d = await openRow(el, "sensor.wallbox");
+      const [power, first, second] = charts(d);
+      expect(second, "two values below the power").toBeTruthy();
+      // As in the energy mode: the power axis half a bar narrower.
+      power.limit = [NOW - 20 * H, NOW];
+      first.chart.dispatchAction({
+        type: "dataZoom",
+        start: 0,
+        end: 50,
+        startValue: NOW - 24 * H,
+        endValue: NOW - 12 * H,
+      });
+      expect(power.window).toMatchObject({ startValue: NOW - 20 * H, endValue: NOW - 12 * H });
+      expect(second.window).toMatchObject({ startValue: NOW - 24 * H, endValue: NOW - 12 * H });
+      // The power chart's echo (cut off, so different) is not passed back.
+      expect(first.asked).toHaveLength(1);
+      expect(first.window).toMatchObject({ startValue: NOW - 24 * H });
+    });
+
+    it("an echo that comes late ends at the charts already there", async () => {
+      const el = await mount(TWO);
+      const d = await openRow(el, "sensor.wallbox");
+      const all = charts(d);
+      for (const c of all) c.lateEcho = true;
+      const [power] = all;
+      power.chart.dispatchAction({
+        type: "dataZoom",
+        start: 75,
+        end: 100,
+        startValue: NOW - 6 * H,
+        endValue: NOW,
+      });
+      for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
+      expect(all.map((c) => c.asked.length)).toEqual([1, 1, 1]);
+      for (const c of all)
+        expect(c.window).toMatchObject({ startValue: NOW - 6 * H, endValue: NOW });
+    });
   });
 
   it("the charge chart under its own label (issue #31)", async () => {
