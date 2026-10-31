@@ -194,9 +194,14 @@ type Series = {
   stack?: string;
   itemStyle?: { color?: string };
 };
+type Zoom = { start?: number; end?: number; startValue?: number; endValue?: number };
 type Chart = HTMLElement & {
   data: Series[];
   options: { xAxis: { min: number; max: number } };
+  window: Zoom;
+  asked: Zoom[];
+  chart: { dispatchAction: (a: Zoom & { type: string }) => void };
+  zoom: (start: number, end: number) => void;
 };
 
 async function settle(el: { updateComplete: Promise<unknown> }) {
@@ -250,6 +255,32 @@ beforeAll(async () => {
         options: unknown;
         hass: unknown;
         height: unknown;
+        /** The zoom window as HA's chart keeps it, and what was asked of it. */
+        window: Zoom = { start: 0, end: 100 };
+        asked: Zoom[] = [];
+        // Like HA's chart: every change of the window is announced, also one
+        // set from outside ("silent" does not stop it).
+        private _set(w: Zoom) {
+          this.window = w;
+          this.asked.push(w);
+          this.dispatchEvent(
+            new CustomEvent("chart-zoom", {
+              detail: { start: w.start ?? 0, end: w.end ?? 100 },
+              bubbles: true,
+              composed: true,
+            }),
+          );
+        }
+        chart = {
+          getOption: () => ({ dataZoom: [this.window] }),
+          dispatchAction: (a: Zoom & { type: string }) => {
+            const { type: _, ...w } = a;
+            this._set(w);
+          },
+        };
+        zoom(start: number, end: number) {
+          this._set({ start, end });
+        }
       },
     );
   }
@@ -350,6 +381,39 @@ describe("the state of charge below (REQ DF-5)", () => {
     // Same axis as the power chart above.
     expect(c?.options.xAxis.min).toBe(NOW - 24 * H);
     expect(c?.options.xAxis.max).toBe(NOW);
+  });
+
+  it("zooms with the power chart, and back: the curves stay one below the other", async () => {
+    const el = await mount();
+    const d = await open(el, "battery");
+    const power = chart(d, "power") as Chart;
+    const soc = chart(d, "soc") as Chart;
+    // The user zooms the power chart: the same times, not the same percent.
+    const from = NOW - 6 * H;
+    power.chart.dispatchAction({
+      type: "dataZoom",
+      start: 75,
+      end: 100,
+      startValue: from,
+      endValue: NOW,
+    });
+    expect(soc.window).toMatchObject({ startValue: from, endValue: NOW });
+    // At once, not animated: it would trail the zoomed chart.
+    expect(soc.window).toMatchObject({ animation: { duration: 0 } });
+    // Each chart is set once; the echo of the one set from outside ends there.
+    expect(soc.asked).toHaveLength(1);
+    expect(power.asked).toHaveLength(1);
+    // And the other way round, then back to the whole period.
+    soc.chart.dispatchAction({
+      type: "dataZoom",
+      start: 50,
+      end: 75,
+      startValue: NOW - 12 * H,
+      endValue: from,
+    });
+    expect(power.window).toMatchObject({ startValue: NOW - 12 * H, endValue: from });
+    power.zoom(0, 100);
+    expect(soc.window).toMatchObject({ start: 0, end: 100, animation: { duration: 0 } });
   });
 
   it("fills the time before the history with a band of hourly min and max, never a mean", async () => {

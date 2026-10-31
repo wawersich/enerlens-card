@@ -57,6 +57,48 @@ const RANGE_LABELS: Record<PowerRange, string> = {
 
 type ChartElement = HTMLElement & Record<string, unknown>;
 
+/** The zoom window of HA's chart: in percent and, once zoomed, in time. */
+interface ZoomWindow {
+  start?: number;
+  end?: number;
+  startValue?: number;
+  endValue?: number;
+}
+
+/**
+ * A chart that follows a zoom jumps there: animated it trailed the one being
+ * zoomed by more than half a second (Markus, 31.10.2026).
+ */
+const AT_ONCE = { animation: { duration: 0 } };
+
+/** Two windows this close in time are the same one (DF-5 zoom). */
+const ZOOM_SAME_MS = 1000;
+
+/** HA's chart as far as the zoom needs it: its ECharts instance. */
+interface HaChart {
+  chart?: { getOption?: () => { dataZoom?: ZoomWindow[] }; dispatchAction?: (a: object) => void };
+}
+
+function chartOf(el: ChartElement) {
+  const chart = (el as HaChart).chart;
+  const { getOption, dispatchAction } = chart ?? {};
+  return chart && getOption && dispatchAction
+    ? {
+        getOption: () => getOption.call(chart),
+        dispatchAction: (a: object) => dispatchAction.call(chart, a),
+      }
+    : undefined;
+}
+
+/** The whole period: a window known in percent that spans it all. */
+function isWhole(w: ZoomWindow): boolean {
+  return w.start !== undefined && w.end !== undefined && w.start <= 0 && w.end >= 100;
+}
+
+function zoomOf(el: ChartElement): ZoomWindow | undefined {
+  return chartOf(el)?.getOption()?.dataZoom?.[0];
+}
+
 /** The state of charge: measured states, and hourly extremes before them (DF-5). */
 interface SocData {
   line: [number, number | null][];
@@ -1315,6 +1357,55 @@ export class EnerLensDetail extends LitElement {
     this.requestUpdate();
   }
 
+  /** Set while the window passes a zoom on, so the echo it raises is ignored. */
+  private _zoomFollowing = false;
+
+  /**
+   * Zoom one chart, zoom them all: the power and the values below share the
+   * time axis (DF-5), so a zoom in one moves the others to the same times. By
+   * time, not percent - with bars the axes differ by half a bar. HA's chart
+   * announces a window set from outside as well (its "silent" does not reach
+   * ECharts); that echo is ignored, and a chart already there is left alone.
+   */
+  private _onZoom = (ev: Event): void => {
+    if (this._zoomFollowing) return;
+    const source = ev.target as ChartElement;
+    const span = zoomOf(source);
+    if (!span) return;
+    const whole = isWhole(span);
+    const others = [this._chart, ...this._extraCharts].filter(
+      (c): c is ChartElement => c !== undefined && c !== source,
+    );
+    this._zoomFollowing = true;
+    try {
+      for (const chart of others) {
+        const own = zoomOf(chart);
+        if (whole) {
+          if (!own || !isWhole(own))
+            chartOf(chart)?.dispatchAction({ type: "dataZoom", start: 0, end: 100, ...AT_ONCE });
+        } else if (
+          span.startValue !== undefined &&
+          span.endValue !== undefined &&
+          !(
+            own?.startValue !== undefined &&
+            own.endValue !== undefined &&
+            Math.abs(own.startValue - span.startValue) < ZOOM_SAME_MS &&
+            Math.abs(own.endValue - span.endValue) < ZOOM_SAME_MS
+          )
+        ) {
+          chartOf(chart)?.dispatchAction({
+            type: "dataZoom",
+            startValue: span.startValue,
+            endValue: span.endValue,
+            ...AT_ONCE,
+          });
+        }
+      }
+    } finally {
+      this._zoomFollowing = false;
+    }
+  };
+
   /** The chart of the index-th value below the power, made once like the others. */
   private _extraChart(index: number): ChartElement {
     const slot = `_extra${index}`;
@@ -1648,7 +1739,7 @@ export class EnerLensDetail extends LitElement {
           </div>`
           : nothing
       }
-      <div class="charts ${this._busy ? "busy" : ""}">
+      <div class="charts ${this._busy ? "busy" : ""}" @chart-zoom=${this._onZoom}>
         ${
           // Until the first chart is there: something is coming (DF-10). A
           // rest without a line of its own has only its extra values (L-21).
