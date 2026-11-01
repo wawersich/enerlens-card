@@ -69,6 +69,8 @@ async function readCard() {
     const node = (k: string) => root.querySelector(`.node.${k} .circle, .node.${k}`);
     return {
       card: edges(root.querySelector("ha-card")),
+      content: edges(root.querySelector(".content")),
+      controls: edges(root.querySelector(".controls")),
       cross: edges(root.querySelector(".cross")),
       pvSide: edges(root.querySelector(".list.pv-side")),
       list: edges(root.querySelector(".list:not(.pv-side)")),
@@ -190,6 +192,77 @@ for (const layout of Object.keys(PLACES)) {
     });
   }
 }
+
+/*
+ * The width of the content (AN-7, issue #33) and the list at the right edge
+ * (L-13, 01.11.2026): only a real browser lays it out. 1400 px is a panel
+ * view; 900 px of content is what the issue's mockup asked for.
+ */
+test("GT-6: a wide card without content.max_width - the list ends where the quick buttons end (L-13)", async () => {
+  await mountCard({ ...CONFIG, layout: "cross" }, 1400);
+  const card = await readCard();
+  expect(card.stacked).toBe(false);
+  const list = card.list as NonNullable<typeof card.list>;
+  const controls = card.controls as NonNullable<typeof card.controls>;
+  expect(Math.abs(list.right - controls.right), "Liste bündig mit den Quick-Buttons").toBeLessThan(
+    3,
+  );
+  expect((card.card as typeof list).right - list.right).toBeLessThan(24);
+});
+
+for (const align of ["left", "center", "right"] as const) {
+  test(`GT-6: content.max_width 900, align ${align}, on a 1400 px card (AN-7)`, async () => {
+    await mountCard({ ...CONFIG, layout: "cross", content: { max_width: 900, align } }, 1400);
+    const card = await readCard();
+    const outer = card.card as NonNullable<typeof card.card>;
+    const block = card.content as NonNullable<typeof card.content>;
+    expect(Math.round(block.right - block.left)).toBe(900);
+    // The card's ground stays the full width.
+    expect(Math.round(outer.right - outer.left)).toBe(1400);
+    // Inside ha-card's 1 px border.
+    if (align === "left") expect(Math.abs(block.left - outer.left)).toBeLessThan(2);
+    if (align === "right") expect(Math.abs(block.right - outer.right)).toBeLessThan(2);
+    if (align === "center") {
+      expect(Math.abs(block.left - outer.left - (outer.right - block.right))).toBeLessThan(1);
+    }
+    // Header, drawing and list inside the block, the list beside the cross
+    // and in line with the quick buttons.
+    const list = card.list as typeof block;
+    const controls = card.controls as typeof block;
+    expect(card.stacked).toBe(false);
+    expect(Math.abs(list.right - controls.right)).toBeLessThan(3);
+    for (const part of [card.cross, list, controls] as (typeof block)[]) {
+      expect(part.left).toBeGreaterThanOrEqual(block.left - 1);
+      expect(part.right).toBeLessThanOrEqual(block.right + 1);
+    }
+    expect(card.outside).toEqual([]);
+  });
+}
+
+test("GT-6: a narrow content block puts the list below on a wide card - measured on the block (AN-7, L-1)", async () => {
+  await mountCard({ ...CONFIG, layout: "cross", content: { max_width: 400 } }, 1400);
+  const card = await readCard();
+  expect(card.stacked).toBe(true);
+  expect(
+    Math.round(
+      (card.content as NonNullable<typeof card.content>).right -
+        (card.content as NonNullable<typeof card.content>).left,
+    ),
+  ).toBe(400);
+  expect(card.outside).toEqual([]);
+});
+
+test("GT-6: square, solar left inside a 900 px block - a list each side, both inside (AN-7, AN-3)", async () => {
+  await mountCard({ ...CONFIG, layout: "square_left", content: { max_width: 900 } }, 1400);
+  const card = await readCard();
+  const block = card.content as NonNullable<typeof card.content>;
+  const cross = card.cross as typeof block;
+  expect(card.stacked).toBe(false);
+  expect((card.pvSide as typeof block).left).toBeGreaterThanOrEqual(block.left - 1);
+  expect((card.pvSide as typeof block).right).toBeLessThanOrEqual(cross.left + 1);
+  expect((card.list as typeof block).left).toBeGreaterThanOrEqual(cross.right - 1);
+  expect((card.list as typeof block).right).toBeLessThanOrEqual(block.right + 1);
+});
 
 /** The card with two sensors each for grid and battery: they open the detail window (DF-1). */
 const PAIRS = {
