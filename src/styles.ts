@@ -370,13 +370,25 @@ export const styles = css`
     .quick-group[data-quick="energy_periods"]
     .quick-option.selected:not(.late) {
     background: var(--accent-color, #ff9800);
-    border-color: var(--accent-color, #ff9800);
+    /* A single button - the folded chip, a value in the single style - keeps
+       the blue edge of its neighbours rather than turning orange all over
+       (QB-15, Markus 01.11.2026: "die Einzelbutton sollen einen bekommen").
+       In a segment see below. */
+    border-color: var(--primary-color);
     /* Dark, not the theme's white: white on orange reads at 2.2:1, dark at
        about 9:1 (review; Markus 01.11.2026: "dunkel ist besser"). */
     color: rgba(0, 0, 0, 0.87);
   }
   /* A late start among them: amber framed, not filled - filled it looked
      just like the accent (review, EM-9). */
+  /* In a segment the group draws the frame: the chosen value's separator to
+     its left neighbour stays orange, as it was (QB-15, Markus' pick on dev2). */
+  .controls.energy-accent:not(.qs-single)
+    .quick-group[data-quick="energy_periods"]
+    .quick-option.selected:not(.late) {
+    border-color: var(--accent-color, #ff9800);
+  }
+
   .controls.energy-accent:not(.qs-single)
     .quick-group[data-quick="energy_periods"]
     .quick-option.late.selected {

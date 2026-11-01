@@ -212,6 +212,23 @@ describe("energy mode on the card (REQ 2.15)", () => {
     );
   });
 
+  it("frames the filled single button in the primary colour, like its neighbours (QB-15)", async () => {
+    const { styles } = await import("../src/styles");
+    const text = styles.cssText.replace(/\s+/g, " ");
+    const rule =
+      text.match(
+        /\.controls\.energy-accent \.energy-chip:not\(\.pv-scale-chip\):not\(\.late\),[^{]*\{[^}]*\}/,
+      )?.[0] ?? "";
+    expect(rule).toContain("background: var(--accent-color, #ff9800)");
+    expect(rule).toContain("border-color: var(--primary-color)");
+    expect(rule).not.toMatch(/border-color: var\(--accent-color/);
+    // In a segment the selected value stays as it was: its separator orange,
+    // the group draws the frame (QB-15, Markus' pick on dev2).
+    expect(text).toMatch(
+      /\.controls\.energy-accent:not\(\.qs-single\) \.quick-group\[data-quick="energy_periods"\] \.quick-option\.selected:not\(\.late\) \{ border-color: var\(--accent-color, #ff9800\);/,
+    );
+  });
+
   it("offers one chip left of the filter that steps kW → Heute → Monat → kW (EM-2)", async () => {
     const { el } = await mount({
       ...CONFIG,
