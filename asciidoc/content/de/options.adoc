@@ -57,7 +57,7 @@
 |`flow.more_dots_above_w` |`2000` |Ab hier kommen Punkte hinzu
 |`flow.max_dots_at_w` |`6000` |Wo die Punktzahl ihr Maximum erreicht
 |`flow.max_dots` |`5` |Obergrenze für Punkte
-|`flow.slow_s` |`5` |Sekunden pro Durchlauf an der unteren Schwelle
+|`flow.slow_s` |`5` |Sekunden pro Durchlauf an der unteren Schwelle; darunter bis 30 % langsamer
 |`flow.fast_s` |`1.8` |Sekunden pro Durchlauf an der oberen Schwelle
 |`colors.++*++` |HA-Energiefarben |Jeder CSS-Wert, auch `var(--…)`
 |`colors.soc_stops` |rot → gelb → grün |Verlauf für den Ladezustand

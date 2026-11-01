@@ -54,7 +54,9 @@ Try it: here all values stand still and nothing re-sorts - only the dots move.
 The switches choose the design, the sliders the maximum number of dots (the
 card takes 2 to 10, default 5), the dot size (40 to 150 %, default 100) and
 the speed: seconds a run at the lower and
-at the upper threshold, default 5 and 1.8.
+at the upper threshold, default 5 and 1.8. Below the lower threshold a dot
+still slows a little with less power, about 5 % per halving, at most 30 % -
+so several small sources do not run in lockstep.
 
 ++++
 <div class="card-demo" data-demo="dots" data-controls="design,dots,dotsize,speed"></div>
@@ -77,6 +79,6 @@ flow:
   animation: auto          # auto | on | off
   design: neutrino
   max_dots: 8
-  slow_s: 8                # seconds a run with little power
+  slow_s: 8                # seconds a run at the lower threshold
   fast_s: 3                # ... with a lot of power
 ----

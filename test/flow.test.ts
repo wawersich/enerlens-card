@@ -240,9 +240,9 @@ describe("planDots - Abnahme P (REQ 4.6, P-3)", () => {
     expect(plan(10).count).toBe(1);
   });
 
-  it("300 W -> 1 dot, 5.00 s", () => {
+  it("300 W -> 1 dot, 5.20 s (slower below S1, REQ P-3 since 01.11.2026)", () => {
     expect(plan(300).count).toBe(1);
-    expect(plan(300).durationS).toBeCloseTo(5.0, 2);
+    expect(plan(300).durationS).toBeCloseTo(5.196, 2);
   });
 
   it("exactly 500 W -> 1 dot, 5.00 s", () => {
@@ -368,5 +368,59 @@ describe("dotParams - full speed and more dots as separate thresholds (REQ P-3)"
   it("keeps the old behaviour without full_speed_w", () => {
     const flow = withFlow({}).flow;
     expect(flow.fullSpeedW).toBe(flow.moreDotsAboveW);
+  });
+});
+
+describe("dotParams - resting pace below S1 still follows the power (REQ P-3, 01.11.2026)", () => {
+  const withFlow = (flow: Record<string, number>): Config =>
+    normalizeConfig({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.s", grid: "sensor.g" },
+      flow,
+    });
+  const lap = (w: number, config: Config = withFlow({})): number =>
+    dotParams(w, config)?.durationS ?? Number.NaN;
+
+  it("keeps slow_s exactly at S1, so the ramp above joins without a step", () => {
+    expect(lap(500)).toBeCloseTo(5, 6);
+    expect(lap(500.001)).toBeCloseTo(5, 3);
+  });
+
+  it("slows down by at most 30 %, reached at S1/50 and below", () => {
+    expect(lap(10)).toBeCloseTo(6.5, 6);
+    expect(lap(5, withFlow({ min_w: 0 }))).toBeCloseTo(6.5, 6);
+    expect(lap(0, withFlow({ min_w: 0 }))).toBeCloseTo(6.5, 6);
+  });
+
+  it("separates the three small rows that used to run in lockstep", () => {
+    // Three small sources side by side - before, all took exactly 5 s.
+    expect(lap(46)).toBeCloseTo(5.915, 3);
+    expect(lap(26)).toBeCloseTo(6.134, 3);
+    expect(lap(24)).toBeCloseTo(6.164, 3);
+  });
+
+  it("adds the same step for every halving of the power", () => {
+    const step = lap(100) - lap(200);
+    expect(lap(50) - lap(100)).toBeCloseTo(step, 6);
+    expect(step).toBeCloseTo((5 * 0.3 * Math.LN2) / Math.log(50), 6);
+  });
+
+  it("is never faster for less power", () => {
+    let previous = lap(500);
+    for (let w = 490; w >= 10; w -= 10) {
+      const current = lap(w);
+      expect(current).toBeGreaterThanOrEqual(previous);
+      previous = current;
+    }
+  });
+
+  it("scales with slow_s and with S1", () => {
+    expect(lap(10, withFlow({ slow_s: 8 }))).toBeCloseTo(10.4, 6);
+    // S1 = 1000 W (peak 12 kW): 20 W is S1/50.
+    expect(lap(20, withFlow({ peak_w: 12000 }))).toBeCloseTo(6.5, 6);
+  });
+
+  it("stays at slow_s when S1 is 0", () => {
+    expect(lap(0, withFlow({ min_w: 0, slow_below_w: 0 }))).toBeCloseTo(5, 6);
   });
 });

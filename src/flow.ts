@@ -88,6 +88,11 @@ export function splitFlows(
   return flows;
 }
 
+/** How much slower than slow_s a dot runs at the bottom of the resting range (REQ P-3). */
+const REST_SLOWDOWN = 0.3;
+/** The resting range spans S1 / REST_RANGE to S1; below it the pace stays put. */
+const REST_RANGE = 50;
+
 /** Dot count and speed per connection (REQ 4.6). Connections below `flow.minW` are omitted. */
 /**
  * The step rule of REQ 4.6 for a single power figure: how many dots travel a
@@ -101,12 +106,19 @@ export function dotParams(w: number, config: Config): { count: number; durationS
     config.flow;
   if (!Number.isFinite(w) || w < minW) return null;
 
-  // Speed: resting pace below S1, ramping up to fast_s at full_speed_w.
+  // Speed: resting pace at S1, ramping up to fast_s at full_speed_w.
   let durationS = slowS;
   if (w >= fullSpeedW) durationS = fastS;
   else if (w > slowBelowW) {
     const ramp = (w - slowBelowW) / (fullSpeedW - slowBelowW);
     durationS = slowS - ramp * (slowS - fastS);
+  } else if (slowBelowW > 0) {
+    // Below S1 the pace still follows the power, logarithmically: every
+    // halving adds the same step, up to REST_SLOWDOWN at S1 / REST_RANGE.
+    // Without it, small sources ran in exact lockstep (REQ P-3, 01.11.2026).
+    const floor = slowBelowW / REST_RANGE;
+    const share = Math.log(slowBelowW / Math.max(w, floor)) / Math.log(REST_RANGE);
+    durationS = slowS * (1 + REST_SLOWDOWN * share);
   }
 
   // Count: one dot below more_dots_above_w, then growing to max_dots at S3.

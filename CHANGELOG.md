@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   a sections column, a phone - look as before; for the old, tighter look set
   `content.max_width`. Header and body now sit in a `.content` block inside
   `ha-card`, so a card-mod rule `ha-card > .header` needs `ha-card .header`.
+- **Small flows no longer run in lockstep:** below the lower threshold
+  (`flow.slow_below_w`, default 500 W) every dot used to take exactly
+  `slow_s`, so a few small sources started and arrived together. The pace now
+  still follows the power there, gently: each halving adds about 5 % of
+  `slow_s`, at most 30 % at a fiftieth of the threshold. `slow_s` itself is
+  still the pace at the threshold; nothing to configure.
 
 ## [1.3.0] - 2026-10-30
 

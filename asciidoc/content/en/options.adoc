@@ -57,7 +57,7 @@
 |`flow.more_dots_above_w` |`2000` |More dots beyond here
 |`flow.max_dots_at_w` |`6000` |Where the dot count peaks
 |`flow.max_dots` |`5` |Upper limit on dots
-|`flow.slow_s` |`5` |Seconds per pass at the low threshold
+|`flow.slow_s` |`5` |Seconds per pass at the low threshold; below it up to 30 % slower
 |`flow.fast_s` |`1.8` |Seconds per pass at the top threshold
 |`colors.++*++` |HA energy colours |Any CSS value, including `var(--…)`
 |`colors.soc_stops` |red → yellow → green |Gradient for the charge level
