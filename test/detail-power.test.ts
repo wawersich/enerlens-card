@@ -5,6 +5,7 @@
  * charging mirrored below zero, and a min-max band where the history no longer
  * reaches. Invented figures (N-9).
  */
+import { render } from "lit";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DETAIL_NAME } from "../src/const";
 import type { HomeAssistant } from "../src/types";
@@ -115,6 +116,10 @@ const FIVE: Record<string, [number, number, number, number][]> = {
     [MIDNIGHT + 6 * H, 3700, 3600, 3800],
     [MIDNIGHT + 6 * H + 300_000, 1000, 0, 3700],
   ],
+  // Ran yesterday only: in 48 h, not in 24 h (DF-21).
+  "sensor.dryer": [[NOW - 30 * H, 2000, 1900, 2100]],
+  // Below a watt, then no row: on the log axis' floor, then a gap (DF-21).
+  "sensor.idle": [[MIDNIGHT + 6 * H, 0.4, 0.3, 0.5]],
   "sensor.roof": [
     [MIDNIGHT + 6 * H, 1000, 900, 1100],
     [MIDNIGHT + 6 * H + 300_000, 2000, 1800, 2200],
@@ -157,9 +162,11 @@ function fakeHass(): HomeAssistant {
         // Watts whatever the sensor's unit: the recorder converts (units: power W).
         expect(msg.units).toEqual({ power: "W" });
         const out: Record<string, { start: number; mean: number; min: number; max: number }[]> = {};
+        const from = Date.parse(String(msg.start_time));
         for (const id of msg.statistic_ids as string[]) {
-          const rows = FIVE[id];
-          if (rows) out[id] = rows.map(([start, mean, min, max]) => ({ start, mean, min, max }));
+          const rows = FIVE[id]?.filter(([start]) => start >= from);
+          if (rows?.length)
+            out[id] = rows.map(([start, mean, min, max]) => ({ start, mean, min, max }));
         }
         return out as never;
       }
@@ -785,5 +792,237 @@ describe("every node opens its window, one entity or not (REQ DF-20)", () => {
     const d = await open(el, "battery");
     expect(mean(d, "Batterie")).toEqual([-800, 400]);
     expect(chart(d, "soc")).toBeTruthy();
+  });
+});
+
+describe("the house with its consumers (REQ DF-21)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const WITH = {
+    ...CONFIG,
+    consumers: [
+      { entity: "sensor.c1", name: "Herd" },
+      // Ran, but never up to its own threshold: not picked.
+      { entity: "sensor.c2", name: "Lampe", min_w: 200 },
+      // No statistics at all: not picked.
+      { entity: "sensor.plug", name: "Stecker" },
+      { entity: "sensor.dryer", name: "Trockner" },
+      { entity: "sensor.idle", name: "Standby" },
+    ],
+  };
+  type Axis = {
+    type?: string;
+    min?: number | ((v: { min: number; max: number }) => number);
+    axisLabel?: { formatter?: (v: number) => string };
+  };
+  const toggle = (d: Dialog, key: string) =>
+    d.shadowRoot?.querySelector<HTMLElement>(`button.toggle[data-toggle="${key}"]`);
+  const pick = (d: Dialog, key: string) =>
+    d.shadowRoot?.querySelector<HTMLElement>(`.picks button[data-key="${key}"]`);
+  const names = (d: Dialog) => (chart(d, "power")?.data ?? []).map((s) => s.name);
+  const series = (d: Dialog, name: string) =>
+    chart(d, "power")?.data.find((s) => s.name === name) as Series & {
+      areaStyle?: unknown;
+      lineStyle?: { width?: number };
+    };
+  const yAxis = (d: Dialog) => (chart(d, "power")?.options as unknown as { yAxis: Axis }).yAxis;
+
+  it("opens as before, the consumers one tap away", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    expect(toggle(d, "consumers")?.getAttribute("aria-pressed")).toBe("false");
+    expect(toggle(d, "log"), "log only with the consumers").toBeFalsy();
+    expect(pick(d, "sensor.c1")).toBeFalsy();
+    expect(names(d)).toContain("Haus");
+    expect(names(d)).not.toContain("Herd");
+  });
+
+  it("each consumer a line of its own, not stacked; picked is who ran; the rest as its row", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    expect(toggle(d, "consumers")?.getAttribute("aria-pressed")).toBe("true");
+    const ids = asked
+      .filter((m) => m.period === "5minute")
+      .flatMap((m) => m.statistic_ids as string[]);
+    expect(ids).toEqual(expect.arrayContaining(["sensor.c1", "sensor.c2", "sensor.plug"]));
+    expect(pick(d, "sensor.c1")?.getAttribute("aria-pressed")).toBe("true");
+    expect(pick(d, "sensor.c2")?.getAttribute("aria-pressed")).toBe("false");
+    expect(pick(d, "sensor.plug")?.getAttribute("aria-pressed")).toBe("false");
+    expect(pick(d, "rest")?.getAttribute("aria-pressed")).toBe("true");
+    expect(names(d)).toEqual(expect.arrayContaining(["Haus", "Herd", "Rest"]));
+    expect(names(d)).not.toContain("Lampe");
+    const herd = series(d, "Herd");
+    expect(values(herd)).toEqual([400, 600]);
+    expect(herd.stack).toBeUndefined();
+    expect(herd.areaStyle).toBeUndefined();
+    // The house the strongest line, without its band among the consumers.
+    expect(series(d, "Haus").lineStyle?.width).toBeGreaterThan(herd.lineStyle?.width ?? 0);
+    expect(names(d).some((n) => n.endsWith("-span"))).toBe(false);
+    // The rest: the house minus what the list shows (DF-18).
+    const state = (el as unknown as { detailState: () => { shown: string[] } }).detailState();
+    const minus = (k: number) =>
+      state.shown.reduce((sum, id) => sum + (FIVE[id]?.[k]?.[1] ?? 0), 0);
+    expect(values(series(d, "Rest"))).toEqual([1000 - minus(0), 2000 - minus(1)]);
+  });
+
+  it("picks by hand, all and none; a period rebuilds the picks until one picks by hand", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    pick(d, "sensor.c2")?.click();
+    await settle(d);
+    expect(names(d)).toContain("Lampe");
+    d.shadowRoot?.querySelector<HTMLElement>(".picks button.none")?.click();
+    await settle(d);
+    expect(names(d)).toEqual(["Haus"]);
+    d.shadowRoot?.querySelector<HTMLElement>(".picks button.all")?.click();
+    await settle(d);
+    expect(names(d)).toEqual(expect.arrayContaining(["Haus", "Herd", "Lampe", "Stecker", "Rest"]));
+    // Picked by hand: another period keeps them.
+    chips(d)[2].click();
+    await settle(d);
+    expect(pick(d, "sensor.c2")?.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a period rebuilds the picks while nobody picked", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    // The dryer ran yesterday: not in 24 h, picked in 48 h.
+    expect(pick(d, "sensor.dryer")?.getAttribute("aria-pressed")).toBe("false");
+    chips(d)[2].click();
+    await settle(d);
+    expect(pick(d, "sensor.dryer")?.getAttribute("aria-pressed")).toBe("true");
+    expect(pick(d, "sensor.c1")?.getAttribute("aria-pressed")).toBe("true");
+    expect(pick(d, "sensor.c2")?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("the tooltip: the house in bold, then the picked ones by size, as measured", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    const tip = (
+      chart(d, "power")?.options as unknown as {
+        tooltip: { formatter: (p: unknown) => unknown };
+      }
+    ).tooltip.formatter([{ value: [MIDNIGHT + 6 * H, 0], axisValueLabel: "06:00" }]);
+    const box = document.createElement("div");
+    render(tip as never, box);
+    const lines = box.innerHTML.replace(/<!--[^>]*-->/g, "").split("<br>");
+    expect(lines[1]).toMatch(/^<b>Haus: /);
+    const names = lines.slice(2).map((l) => l.split(":")[0]);
+    // By size: the rest (1000 W less the shown 400 W) before the stove's 400 W.
+    expect(names.slice(0, 2)).toEqual(["Rest", "Herd"]);
+  });
+
+  it("log: from 1 W, that line called 0 W, anything below on it", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    expect(yAxis(d).type ?? "value").toBe("value");
+    // Linear: down only to the lowest reading, not a rounded -1000 W.
+    const min = yAxis(d).min as (v: { min: number; max: number }) => number;
+    expect(min({ min: -9, max: 2000 })).toBe(-9);
+    expect(min({ min: 5, max: 2000 })).toBe(0);
+    toggle(d, "log")?.click();
+    await settle(d);
+    expect(toggle(d, "log")?.getAttribute("aria-pressed")).toBe("true");
+    expect(yAxis(d).type).toBe("log");
+    expect(yAxis(d).min).toBe(1);
+    // Written as the card writes power, "0 W" or "0,00 kW" by the unit setting.
+    expect(yAxis(d).axisLabel?.formatter?.(1)).toMatch(/^0(,0+)? k?W$/);
+    d.shadowRoot?.querySelector<HTMLElement>(".picks button.all")?.click();
+    await settle(d);
+    // Nothing below 1 W is drawn below the axis.
+    for (const s of chart(d, "power")?.data ?? []) {
+      for (const v of values(s)) expect(v).toBeGreaterThanOrEqual(1);
+    }
+    // 0.4 W lies on the floor; where it has no row, a gap stays a gap.
+    const idle = series(d, "Standby").data.map((p) => (Array.isArray(p) ? p : p.value));
+    expect(idle).toContainEqual([MIDNIGHT + 6 * H, 1]);
+    expect(idle).toContainEqual([MIDNIGHT + 6 * H + 300_000, null]);
+  });
+
+  it("a mouse on a pick lifts its line; a finger or the chart itself fades nothing", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    type Styled = Series & { lineStyle?: { opacity?: number }; emphasis?: { disabled?: boolean } };
+    const opacity = (name: string) => (series(d, name) as Styled).lineStyle?.opacity;
+    // ECharts' own emphasis is off: a finger over the chart only shows the tooltip.
+    for (const s of chart(d, "power")?.data ?? []) {
+      expect((s as Styled).emphasis?.disabled).toBe(true);
+    }
+    const herd = pick(d, "sensor.c1") as HTMLElement;
+    herd.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "touch" }));
+    await settle(d);
+    expect(opacity("Rest")).toBe(1);
+    herd.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
+    await settle(d);
+    expect(opacity("Rest")).toBeLessThan(1);
+    expect(opacity("Herd")).toBe(1);
+    herd.dispatchEvent(new PointerEvent("pointerleave", { pointerType: "mouse" }));
+    await settle(d);
+    expect(opacity("Rest")).toBe(1);
+  });
+
+  it("pointing at a line that is not drawn fades nothing", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    pick(d, "sensor.c2")?.dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
+    await settle(d);
+    const opacity = (name: string) =>
+      (series(d, name) as Series & { lineStyle?: { opacity?: number } }).lineStyle?.opacity;
+    expect(opacity("Haus")).toBe(1);
+    expect(opacity("Herd")).toBe(1);
+  });
+
+  it("says mean only, no band, among the consumers", async () => {
+    const el = await mount(WITH);
+    const d = await open(el, "house");
+    expect(text(d.shadowRoot?.querySelector(".note"))).toMatch(/Fläche/);
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    expect(text(d.shadowRoot?.querySelector(".note"))).not.toMatch(/Fläche/);
+  });
+
+  it("a corrected house: its line and the rest with the PV past its meter (PV-3, DF-18)", async () => {
+    const el = await mount({
+      ...WITH,
+      entities: {
+        ...CONFIG.entities,
+        solar: [
+          { entity: "sensor.roof", name: "Dach" },
+          { entity: "sensor.balcony", name: "Balkon", house: "excluded" },
+        ],
+      },
+    });
+    const d = await open(el, "house");
+    toggle(d, "consumers")?.click();
+    await settle(d);
+    // 1000 + 50 W at 06:00; the balcony wrote no row at 06:05: 0.
+    expect(values(series(d, "Haus"))).toEqual([1050, 2000]);
+    const state = (el as unknown as { detailState: () => { shown: string[] } }).detailState();
+    const minus = (k: number) =>
+      state.shown.reduce((sum, id) => sum + (FIVE[id]?.[k]?.[1] ?? 0), 0);
+    expect(values(series(d, "Rest"))).toEqual([1050 - minus(0), 2000 - minus(1)]);
+  });
+
+  it("not in the energy view, not at the grid", async () => {
+    const el = await mount(WITH);
+    const g = await open(el, "grid");
+    expect(toggle(g, "consumers")).toBeFalsy();
   });
 });

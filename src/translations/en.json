@@ -463,6 +463,11 @@
     "open": "{name}: open history",
     "48h": "48 h",
     "mean": "Five-minute mean",
-    "aggregation": "5-minute mean · band: lowest to highest reading"
+    "aggregation": "5-minute mean · band: lowest to highest reading",
+    "consumers": "Consumers",
+    "log": "log",
+    "all": "all",
+    "none": "none",
+    "picks": "Pick lines"
   }
 }

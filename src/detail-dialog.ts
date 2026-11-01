@@ -71,6 +71,12 @@ interface ZoomWindow {
  */
 const AT_ONCE = { animation: { duration: 0 } };
 
+/** The house window's pick for the rest line (DF-21). */
+const REST_PICK = "rest";
+
+/** Where a log axis starts, called "0 W": 1 W is noise (DF-21, Markus 31.10.2026). */
+const LOG_FLOOR = 1;
+
 /** Two windows this close in time are the same one (DF-5 zoom). */
 const ZOOM_SAME_MS = 1000;
 
@@ -516,8 +522,26 @@ async function socData(
  * A tooltip of several lines. HA's chart renders what a formatter returns
  * with Lit, so a string's <br> would show as text - a template is needed.
  */
-function tipLines(lines: string[]) {
+function tipLines(lines: (string | ReturnType<typeof html>)[]) {
   return html`${lines.map((line, i) => (i === 0 ? html`${line}` : html`<br />${line}`))}`;
+}
+
+/**
+ * A figure the card adds up, at one five-minute start: each part turned as
+ * the card turns it, a quiet one 0, a missing loud one a gap (DF-14, DF-17).
+ */
+function sumAt(parts: Part[], means: Map<number, number | null>[], t: number): number | null {
+  let sum = 0;
+  for (const [i, part] of parts.entries()) {
+    const v = means[i].get(t);
+    if (v === undefined || v === null) {
+      if (part.quiet) continue;
+      return null;
+    }
+    const own = part.invert ? -v : v;
+    sum += part.minus ? -own : own;
+  }
+  return sum;
 }
 
 /** One five-minute row of HA's statistics, in watts. */
@@ -618,6 +642,13 @@ export class EnerLensDetail extends LitElement {
    * drawing and header all take the rest from the same selection (DF-18).
    */
   private _shown: string[] = [];
+  /** The house with its consumers (DF-21): shown, on a log axis, what is picked. */
+  private _withConsumers = false;
+  private _log = false;
+  private _picked = new Set<string>();
+  private _pickedByHand = false;
+  /** The picks are made anew: on opening and for another period (DF-21). */
+  private _repick = true;
   /** Whether anything was drawn yet: a later failure keeps it up (DF-7). */
   private _loaded = false;
   private _chart?: ChartElement;
@@ -644,6 +675,8 @@ export class EnerLensDetail extends LitElement {
     _range: { state: true },
     _view: { state: true },
     _busy: { state: true },
+    _withConsumers: { state: true },
+    _log: { state: true },
   };
 
   static styles = css`
@@ -672,6 +705,16 @@ export class EnerLensDetail extends LitElement {
       color: var(--secondary-text-color);
       cursor: pointer;
     }
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .toggles {
+      display: flex;
+      gap: 6px;
+    }
+    .chip[aria-pressed="true"],
     .chip[aria-checked="true"] {
       background: var(--primary-color);
       border-color: var(--primary-color);
@@ -698,6 +741,32 @@ export class EnerLensDetail extends LitElement {
     }
     .sum.total {
       cursor: default;
+    }
+    .picks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pick {
+      font: inherit;
+      font-size: 13px;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 14px;
+      border: 1px solid var(--divider-color);
+      background: none;
+      color: var(--secondary-text-color);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pick[aria-pressed="true"] {
+      color: var(--primary-text-color);
+      border-color: var(--secondary-text-color);
+    }
+    .pick[aria-pressed="false"] .swatch {
+      opacity: 0.35;
     }
     .swatch {
       display: inline-block;
@@ -768,6 +837,14 @@ export class EnerLensDetail extends LitElement {
     this._busy = false;
     this._giveWayTo = undefined;
     this._loaded = false;
+    this._withConsumers = false;
+    this._log = false;
+    this._picked = new Set();
+    this._pickedByHand = false;
+    this._repick = true;
+    this._lines = [];
+    this._lifted = undefined;
+    this._houseSeries = undefined;
     window.addEventListener(CARD_GONE, this._onCardGone);
     const state = params.card.detailState();
     this._period = state?.period ?? null;
@@ -893,7 +970,16 @@ export class EnerLensDetail extends LitElement {
         ? params.card.detailEnergy(energy)
         : fiveMinutes(
             hass,
-            (plan.parts ?? plan.series).map((s) => s.entity),
+            [
+              ...new Set([
+                ...(plan.parts ?? plan.series).map((s) => s.entity),
+                // The house with its consumers: theirs too (DF-21).
+                // Fetched with the house, so the chip only redraws (review).
+                ...(this._canShowConsumers(state.config)
+                  ? state.config.consumers.map((c) => c.entity)
+                  : []),
+              ]),
+            ],
             range.from,
             Date.now(),
           );
@@ -996,6 +1082,7 @@ export class EnerLensDetail extends LitElement {
   private _pickRange(range: PowerRange): void {
     if (range === this._range) return;
     this._range = range;
+    this._repick = true;
     this._renew = true;
     this._renewed.clear();
     void this._load(true);
@@ -1030,6 +1117,10 @@ export class EnerLensDetail extends LitElement {
     const state = params?.card.detailState();
     if (!params || !hass || !state) return;
     const plan = planOf(params.node, state.config, hass, this._shown);
+    if (this._houseWithConsumers(state.config)) {
+      this._drawHouse(plan, range, rows);
+      return;
+    }
     if (plan.layout === "total" && plan.parts) {
       this._drawTotal(plan, plan.parts, range, rows);
       return;
@@ -1129,6 +1220,274 @@ export class EnerLensDetail extends LitElement {
     this.requestUpdate();
   }
 
+  /** The house window can show its consumers: power view of a measured house (DF-21). */
+  private _canShowConsumers(config: Config): boolean {
+    return this._params?.node === "house" && this._power && config.sources.house.kind === "single";
+  }
+
+  private _houseWithConsumers(config: Config): boolean {
+    return this._withConsumers && this._canShowConsumers(config);
+  }
+
+  /**
+   * The house as a line with each picked consumer as a line of its own on
+   * its axis - not stacked, a peak stays with its device - and the rest as
+   * its row has it (DF-21, DF-18). Picked, until one picks by hand: who ran
+   * in the period, up to the threshold of his row; and the rest.
+   */
+  private _drawHouse(
+    plan: Plan,
+    range: { from: number; to: number },
+    rows: Record<string, StatRow5[]>,
+  ): void {
+    const hass = this._hass;
+    const state = this._params?.card.detailState();
+    const own = plan.series[0];
+    const house = state?.config.sources.house;
+    if (!hass || !state || !own || house?.kind !== "single") return;
+    const config = state.config;
+    const parts: Part[] = plan.parts ?? [
+      { entity: house.entity, invert: house.invert, quiet: false },
+    ];
+    const meansOf = (entity: string) => new Map((rows[entity] ?? []).map((r) => [r.start, r.mean]));
+    const starts = [
+      ...new Set(
+        [...parts.map((p) => p.entity), ...config.consumers.map((c) => c.entity)].flatMap((e) =>
+          (rows[e] ?? []).map((r) => r.start),
+        ),
+      ),
+    ].sort((a, b) => a - b);
+    const houseMeans = parts.map((p) => meansOf(p.entity));
+    const restParts: Part[] = [
+      ...parts,
+      ...this._shown.map((entity) => ({ entity, invert: false, quiet: true, minus: true })),
+    ];
+    const restMeans = restParts.map((p) => meansOf(p.entity));
+    const lines: { id: string; name: string; color: string; values: (number | null)[] }[] = [
+      ...config.consumers.map((c) => {
+        const m = meansOf(c.entity);
+        return {
+          id: c.key,
+          name:
+            c.name ??
+            (hass.states?.[c.entity]?.attributes?.friendly_name as string | undefined) ??
+            c.entity,
+          color: c.color,
+          values: starts.map((t) => m.get(t) ?? null),
+        };
+      }),
+      {
+        id: REST_PICK,
+        name: config.list.restLabel || localize("list.rest", hass),
+        color: "var(--secondary-text-color)",
+        values: starts.map((t) => sumAt(restParts, restMeans, t)),
+      },
+    ];
+    if (this._repick && !this._pickedByHand) {
+      this._repick = false;
+      this._picked = new Set([
+        ...config.consumers
+          .filter((c, i) => {
+            const peak = Math.max(...lines[i].values.map((v) => v ?? Number.NEGATIVE_INFINITY));
+            return peak >= (c.minW ?? config.minConsumerW);
+          })
+          .map((c) => c.key),
+        REST_PICK,
+      ]);
+    }
+    this._lines = lines;
+    const houseValues = starts.map((t) => sumAt(parts, houseMeans, t));
+    const watts = (v: number) =>
+      `${v < 0 ? "−" : ""}${formatPower(Math.abs(v), hass, config.power)}`;
+    const log = this._log;
+    // A log axis cannot show 0: below 1 W a value lies on its lowest line,
+    // called "0 W" - a mark, the tooltip keeps the reading (DF-21, rule 8).
+    const drawn = (v: number | null) => (v !== null && log && v < LOG_FLOOR ? LOG_FLOOR : v);
+    // Worked out once per drawing: picking and pointing only hand the
+    // chart new series, not the whole computation again (review).
+    const paints = new Map(lines.map((l) => [l.id, this._paint(l.color)]));
+    const housePaint = this._paint(own.color);
+    const points = new Map(lines.map((l) => [l.id, starts.map((t, k) => [t, drawn(l.values[k])])]));
+    const housePoints = starts.map((t, k) => [t, drawn(houseValues[k])]);
+    const picked = () => lines.filter((l) => this._picked.has(l.id));
+    const line = (id: string, name: string, paint: string, data: unknown[], width: number) => {
+      // A pick pointed at lifts its line, the others fade. Done here, not by
+      // ECharts' emphasis: that also caught a finger moving over the chart
+      // for the tooltip, and a tap on a pick left every line faded (iPhone).
+      // Only a line that is drawn lifts; pointing at another fades nothing.
+      const lifted =
+        this._lifted !== undefined && this._picked.has(this._lifted) ? this._lifted : undefined;
+      const faded = lifted !== undefined && lifted !== id;
+      return {
+        id,
+        name,
+        type: "line",
+        showSymbol: false,
+        lineStyle: { width: lifted === id ? width + 1 : width, opacity: faded ? 0.15 : 1 },
+        itemStyle: { color: paint },
+        emphasis: { disabled: true },
+        data,
+      };
+    };
+    this._houseSeries = () => [
+      ...picked().map((l) =>
+        line(l.id, l.name, paints.get(l.id) ?? l.color, points.get(l.id) ?? [], 1.2),
+      ),
+      { ...line(own.entity, own.name, housePaint, housePoints, 2), z: 10 },
+    ];
+    const chart = this._chartFor("_chart", "power");
+    chart.options = {
+      xAxis: { type: "time", min: range.from, max: range.to },
+      yAxis: log
+        ? {
+            type: "log",
+            logBase: 10,
+            min: LOG_FLOOR,
+            axisLabel: { formatter: (v: number) => watts(v <= LOG_FLOOR ? 0 : v) },
+          }
+        : {
+            type: "value",
+            // Down only as far as the lowest reading: ECharts would round a
+            // standby's -9 W to -1000 W.
+            min: (v: { min: number }) => Math.min(0, v.min),
+            axisLabel: { formatter: watts },
+          },
+      legend: { show: false },
+      grid: { left: 64, right: 16, top: 16, bottom: 28, containLabel: false },
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        // The house, then the picked ones by size - their readings, not the axis' marks.
+        formatter: (raw: unknown) => {
+          const points = (Array.isArray(raw) ? raw : [raw]) as {
+            value: [number, number | null];
+            axisValueLabel?: string;
+          }[];
+          const k = starts.indexOf(points[0]?.value[0] ?? Number.NaN);
+          const total = k < 0 ? null : houseValues[k];
+          const rest = picked()
+            .map((l) => ({ name: l.name, v: k < 0 ? null : l.values[k] }))
+            .filter((l): l is { name: string; v: number } => l.v !== null)
+            .sort((a, b) => b.v - a.v)
+            .map((l) => `${l.name}: ${watts(l.v)}`);
+          return tipLines([
+            points[0]?.axisValueLabel ?? "",
+            html`<b>${plan.series[0]?.name}: ${total === null ? "—" : watts(total)}</b>`,
+            ...rest,
+          ]);
+        },
+      },
+    };
+    chart.data = this._houseSeries();
+    this.requestUpdate();
+  }
+
+  /** The house window's series as picked and pointed at now (DF-21). */
+  private _houseSeries?: () => unknown[];
+
+  /** New series only: the picks or the line pointed at changed. */
+  private _reseries(): void {
+    if (this._chart && this._houseSeries) this._chart.data = this._houseSeries();
+    this.requestUpdate();
+  }
+
+  /** Every line the house window can show, for its picks (DF-21). */
+  private _lines: { id: string; name: string; color: string }[] = [];
+
+  private _toggleConsumers(): void {
+    this._withConsumers = !this._withConsumers;
+    // A period still loading draws it when its figures are there - the old
+    // period's would pick from the wrong hours (review).
+    if (this._renew) return;
+    // Another drawing: a new element, not the old curves morphed into it.
+    this._renew = true;
+    this._renewed.clear();
+    this._redrawPower();
+    this._renew = false;
+    this._renewed.clear();
+  }
+
+  private _toggleLog(): void {
+    this._log = !this._log;
+    this._redrawPower();
+  }
+
+  private _pickLines(ids: Iterable<string>): void {
+    this._picked = new Set(ids);
+    this._pickedByHand = true;
+    this._reseries();
+  }
+
+  private _redrawPower(): void {
+    const power = this._drawn?.power;
+    if (power) this._drawPower(power.range, power.rows);
+  }
+
+  /** Pointing at a pick lifts its line (DF-21). */
+  private _lifted?: string;
+
+  private _lift(id: string, on: boolean): void {
+    const next = on ? id : this._lifted === id ? undefined : this._lifted;
+    if (next === this._lifted) return;
+    this._lifted = next;
+    this._reseries();
+  }
+
+  private _renderToggles(config: Config) {
+    const hass = this._hass;
+    if (!hass || !this._canShowConsumers(config)) return nothing;
+    return html`<span class="toggles">
+      <button
+        class="chip toggle"
+        data-toggle="consumers"
+        aria-pressed=${this._withConsumers ? "true" : "false"}
+        @click=${() => this._toggleConsumers()}
+      >${localize("detail.consumers", hass)}</button>
+      ${
+        this._withConsumers
+          ? html`<button
+              class="chip toggle"
+              data-toggle="log"
+              aria-pressed=${this._log ? "true" : "false"}
+              @click=${() => this._toggleLog()}
+            >${localize("detail.log", hass)}</button>`
+          : nothing
+      }
+    </span>`;
+  }
+
+  private _renderPicks(config: Config) {
+    const hass = this._hass;
+    if (!hass || !this._houseWithConsumers(config) || this._lines.length === 0) return nothing;
+    return html`<div class="picks" role="group" aria-label=${localize("detail.picks", hass)}>
+      ${this._lines.map((l) => {
+        const on = this._picked.has(l.id);
+        return html`<button
+          class="pick"
+          data-key=${l.id}
+          aria-pressed=${on ? "true" : "false"}
+          @click=${() => {
+            const next = new Set(this._picked);
+            if (on) next.delete(l.id);
+            else next.add(l.id);
+            this._pickLines(next);
+          }}
+          @pointerenter=${(ev: PointerEvent) => ev.pointerType === "mouse" && this._lift(l.id, true)}
+          @pointerleave=${(ev: PointerEvent) => ev.pointerType === "mouse" && this._lift(l.id, false)}
+          @focus=${(ev: FocusEvent) =>
+            (ev.currentTarget as HTMLElement).matches(":focus-visible") && this._lift(l.id, true)}
+          @blur=${() => this._lift(l.id, false)}
+        ><span class="swatch" style="background:${l.color}"></span>${l.name}</button>`;
+      })}
+      <button class="pick all" @click=${() => this._pickLines(this._lines.map((l) => l.id))}>
+        ${localize("detail.all", hass)}
+      </button>
+      <button class="pick none" @click=${() => this._pickLines([])}>
+        ${localize("detail.none", hass)}
+      </button>
+    </div>`;
+  }
+
   /**
    * The parts of a sum stacked, each its five-minute mean turned as the card
    * turns it, a quiet one 0 - their top the node's figure - and the sum as a
@@ -1218,19 +1577,7 @@ export class EnerLensDetail extends LitElement {
       (part) => new Map((rows[part.entity] ?? []).map((r) => [r.start, r.mean])),
     );
     const starts = [...new Set(means.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
-    const data = starts.map((t): [number, number | null] => {
-      let sum = 0;
-      for (const [i, part] of parts.entries()) {
-        const v = means[i].get(t);
-        if (v === undefined || v === null) {
-          if (part.quiet) continue;
-          return [t, null];
-        }
-        const own = part.invert ? -v : v;
-        sum += part.minus ? -own : own;
-      }
-      return [t, sum];
-    });
+    const data = starts.map((t): [number, number | null] => [t, sumAt(parts, means, t)]);
     const watts = (v: number) =>
       `${v < 0 ? "−" : ""}${formatPower(Math.abs(v), hass, state.config.power)}`;
     const color = this._paint(own.color);
@@ -1624,12 +1971,14 @@ export class EnerLensDetail extends LitElement {
     return html`
       ${
         this._power
-          ? this._chips(
-              Object.keys(POWER_RANGES) as PowerRange[],
-              this._range,
-              (r) => localize(RANGE_LABELS[r], hass),
-              (r) => this._pickRange(r),
-            )
+          ? html`<div class="bar">
+              ${this._chips(
+                Object.keys(POWER_RANGES) as PowerRange[],
+                this._range,
+                (r) => localize(RANGE_LABELS[r], hass),
+                (r) => this._pickRange(r),
+              )}${this._renderToggles(state.config)}
+            </div>`
           : this._chips(
               state.periods,
               this._period,
@@ -1727,7 +2076,14 @@ export class EnerLensDetail extends LitElement {
       ${
         // Says what the line is: a mean, its band the readings around it (DF-4).
         this._power && sides.length > 0
-          ? html`<div class="note">${localize(plan.layout === "mirrored" || plan.layout === "single" ? "detail.aggregation" : "detail.mean", hass)}</div>`
+          ? html`<div class="note">${localize(
+              (plan.layout === "mirrored" || plan.layout === "single") &&
+                // The house among its consumers has no band (DF-21).
+                !this._houseWithConsumers(state.config)
+                ? "detail.aggregation"
+                : "detail.mean",
+              hass,
+            )}</div>`
           : nothing
       }
       ${
@@ -1747,6 +2103,7 @@ export class EnerLensDetail extends LitElement {
             ? nothing
             : (this._chart ?? html`<div class="loading" role="progressbar" aria-busy="true"></div>`)
         }
+        ${this._renderPicks(state.config)}
         ${extras.map((extra, i) => {
           const chart = this._extraCharts[i];
           const name = extra.label || localize("detail.soc", hass);

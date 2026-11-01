@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **The house with its consumers:** in the power view of the house window, the
+  chip "Consumers" draws each consumer and the rest as a line of its own on the
+  house's axis - not stacked, so a peak stays with its device. Picked are those
+  that ran in the period; a chip row picks by hand. "log" puts the axis on a
+  log scale from 1 W, so small consumers show too.
+
 ### Changed
 - **Zoom in the detail window:** zooming one chart zooms all charts of the
   window to the same times, so the curves stay one below the other.
