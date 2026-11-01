@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   log scale from 1 W, so small consumers show too.
 
 ### Changed
+- **Battery: tap the charge to see it first (#34):** with a state of charge
+  the battery has two halves again, both opening the detail window - the charge
+  large on top (in steps of 10 %) and the power small below, or the power first
+  as before.
 - **Zoom in the detail window:** zooming one chart zooms all charts of the
   window to the same times, so the curves stay one below the other.
 

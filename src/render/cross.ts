@@ -63,6 +63,8 @@ export interface DetailRequest {
   node: DetailNode;
   /** The entity to open instead, where the window cannot (DF-2, DF-7). */
   entity?: string;
+  /** The battery's charge was tapped: the window puts it first (I-2). */
+  focus?: "soc";
 }
 
 /** Asks the card for the detail window; the card decides how (REQ DF-2). */
@@ -272,7 +274,7 @@ function renderHits(
   v: NodeView,
   config: Config,
   hass: HomeAssistant,
-  tap: (entity?: string, detail?: DetailNode) => (ev: Event) => void,
+  tap: (entity?: string, detail?: DetailNode, focus?: "soc") => (ev: Event) => void,
   /** The label stands above the node (AN-5). */
   labelAbove = v.key === "solar",
 ): TemplateResult | string {
@@ -284,9 +286,14 @@ function renderHits(
   const above = options.inside?.position === "above" && !config.energy ? options.inside : undefined;
   const upper = v.figures?.upper?.entity
     ? { entity: v.figures.upper.entity, text: v.figures.upper.text }
-    : // With two sensors the window shows the charge too: one target (I-2, DF-1).
-      v.socEntity && v.detail !== "battery"
-      ? { entity: v.socEntity, text: v.socValue ?? "" }
+    : // The charge its own half again: with the window it opens that with the
+      // charge first (I-2, Markus 01.11.2026), else its more-info.
+      v.socEntity
+      ? {
+          entity: v.socEntity,
+          text: v.socValue ?? "",
+          focus: v.detail ? ("soc" as const) : undefined,
+        }
       : above
         ? {
             entity: above.entity,
@@ -308,7 +315,9 @@ function renderHits(
         aria-label=${`${v.label} ${upper.text}`}
         @click=${
           // A period's upper figure is one of the pair: the window too (DF-1, EM-13).
-          tap(upper.entity, v.figures?.upper ? v.detail : undefined)
+          "focus" in upper && upper.focus
+            ? tap(upper.entity, v.detail, upper.focus)
+            : tap(upper.entity, v.figures?.upper ? v.detail : undefined)
         }
       ></button>
       <button
@@ -748,8 +757,9 @@ export function renderCross(
         ${views.map((v) => {
           const pos = nodePercentOf(g, v.key);
           const above = g.labelAbove[v.key];
-          const tap = (entity?: string, detail?: DetailNode) => (ev: Event) => {
-            if (detail) openDetail(ev.currentTarget as EventTarget, { node: detail, entity });
+          const tap = (entity?: string, detail?: DetailNode, focus?: "soc") => (ev: Event) => {
+            if (detail)
+              openDetail(ev.currentTarget as EventTarget, { node: detail, entity, focus });
             else if (entity) openMoreInfo(ev.currentTarget as EventTarget, entity);
           };
           const ring =

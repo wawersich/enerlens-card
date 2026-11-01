@@ -856,7 +856,13 @@ class EnerLensCard extends LitElement {
           dialogTag: DETAIL_NAME,
           // The element comes with the bundle (G-4): nothing to load.
           dialogImport: () => Promise.resolve(),
-          dialogParams: { card: this, node: request.node, origin, entity: request.entity },
+          dialogParams: {
+            card: this,
+            node: request.node,
+            origin,
+            entity: request.entity,
+            focus: request.focus,
+          },
         },
       }),
     );

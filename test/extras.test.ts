@@ -858,8 +858,8 @@ describe("room and tap targets for extra values", () => {
     const order = [...node(el, "battery").querySelectorAll("button")].map((b) =>
       b.className.split(" ").slice(0, 2).join(" "),
     );
-    // One target for the node, the charge in its window (I-2, DF-20), then the field.
-    expect(order).toEqual(["hit", "extra-label extra"]);
+    // The charge, the power - both the window (I-2, 01.11.2026) - then the field.
+    expect(order).toEqual(["hit upper", "hit lower", "extra-label extra"]);
     el.remove();
   });
 });

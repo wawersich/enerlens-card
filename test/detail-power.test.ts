@@ -229,12 +229,15 @@ async function mount(config: Record<string, unknown> = CONFIG) {
   return el;
 }
 
-async function open(el: Card, key: string, index = 0) {
+async function open(el: Card, key: string, index = 0, upper = false) {
   let params: unknown;
   el.addEventListener("show-dialog", (ev) => {
     params = (ev as CustomEvent).detail.dialogParams;
   });
-  el.shadowRoot?.querySelectorAll<HTMLElement>(`.node.${key} .hit`)[index]?.click();
+  // The node's own target; the half above it (the battery's charge) on request.
+  el.shadowRoot
+    ?.querySelectorAll<HTMLElement>(`.node.${key} .hit${upper ? ".upper" : ":not(.upper)"}`)
+    [index]?.click();
   const dialog = document.createElement(DETAIL_NAME) as Dialog;
   document.body.appendChild(dialog);
   await dialog.showDialog(params);
@@ -435,6 +438,52 @@ describe("the state of charge below (REQ DF-5)", () => {
     expect(power.window).toMatchObject({ startValue: NOW - 12 * H, endValue: from });
     power.zoom(0, 100);
     expect(soc.window).toMatchObject({ start: 0, end: 100, animation: { duration: 0 } });
+  });
+
+  it("a tap on the charge puts it first and large, the power small below (REQ I-2)", async () => {
+    const el = await mount();
+    const order = (d: Dialog) =>
+      [...(d.shadowRoot?.querySelectorAll<Chart & { height?: string }>(".chart") ?? [])].map(
+        (c) => `${c.classList.contains("power") ? "power" : "soc"} ${c.height}`,
+      );
+    const byPower = await open(el, "battery");
+    expect(order(byPower)).toEqual(["power 300px", "soc 160px"]);
+    const byCharge = await open(el, "battery", 0, true);
+    expect(order(byCharge)).toEqual(["soc 300px", "power 160px"]);
+    // Large, it is read closely: steps of 10 %, small 0 · 25 · 50 · 75 · 100.
+    const interval = (d: Dialog) =>
+      (chart(d, "soc")?.options as unknown as { yAxis: { interval?: number } }).yAxis.interval;
+    expect(interval(byCharge)).toBe(10);
+    expect(interval(byPower)).toBe(25);
+    // Its name stays the way to its more-info, above it (DF-9).
+    const first = byCharge.shadowRoot?.querySelector(".charts > *");
+    expect(first?.classList.contains("soc-name")).toBe(true);
+  });
+
+  it("the charge first but not to be had: the power alone and large (REQ I-2)", async () => {
+    const el = await mount();
+    const real = el.hass.callWS;
+    el.hass = {
+      ...el.hass,
+      callWS: async (msg: Record<string, unknown>) => {
+        const ids = [
+          ...((msg.entity_ids as string[]) ?? []),
+          ...((msg.statistic_ids as string[]) ?? []),
+        ];
+        // The window's hourly charge fails; the card's own calls go through.
+        if (ids.includes("sensor.soc") && msg.period === "hour") throw new Error("recorder away");
+        return real(msg as never);
+      },
+    } as HomeAssistant;
+    await settle(el);
+    const d = await open(el, "battery", 0, true);
+    const charts = [
+      ...(d.shadowRoot?.querySelectorAll<Chart & { height?: string }>(".chart") ?? []),
+    ];
+    expect(
+      charts.map((c) => `${c.classList.contains("power") ? "power" : "soc"} ${c.height}`),
+    ).toEqual(["power 300px"]);
+    expect(d.shadowRoot?.querySelector(".loading")).toBeNull();
   });
 
   it("fills the time before the history with a band of hourly min and max, never a mean", async () => {
@@ -788,7 +837,7 @@ describe("every node opens its window, one entity or not (REQ DF-20)", () => {
       ...CONFIG,
       entities: { ...CONFIG.entities, battery: "sensor.batnet" },
     });
-    expect(el.shadowRoot?.querySelectorAll(".node.battery .hit")).toHaveLength(1);
+    expect(el.shadowRoot?.querySelectorAll(".node.battery .hit")).toHaveLength(2);
     const d = await open(el, "battery");
     expect(mean(d, "Batterie")).toEqual([-800, 400]);
     expect(chart(d, "soc")).toBeTruthy();

@@ -487,23 +487,28 @@ describe("battery node", () => {
     expect(fill?.style.height).toBe("72%");
   });
 
-  it("offers one target with two sensors: the window holds the charge too (REQ I-2, DF-1)", async () => {
+  it("two targets with two sensors, both the window: the charge first or the power (REQ I-2, DF-1)", async () => {
     const el = await mountBattery("50");
     const seen: string[] = [];
     el.addEventListener("hass-more-info", (ev) => {
       seen.push((ev as CustomEvent<{ entityId: string }>).detail.entityId);
     });
-    const dialogs: string[] = [];
+    const dialogs: { node: string; focus?: string }[] = [];
     el.addEventListener("show-dialog", (ev) => {
-      dialogs.push(
-        (ev as CustomEvent<{ dialogParams: { node: string } }>).detail.dialogParams.node,
-      );
+      const p = (ev as CustomEvent<{ dialogParams: { node: string; focus?: string } }>).detail
+        .dialogParams;
+      dialogs.push({ node: p.node, focus: p.focus });
     });
-    const hits = el.shadowRoot?.querySelectorAll<HTMLElement>(".node.battery .hit");
-    expect(hits?.length).toBe(1);
-    hits?.[0].click();
+    const upper = el.shadowRoot?.querySelector<HTMLElement>(".node.battery .hit.upper");
+    const lower = el.shadowRoot?.querySelector<HTMLElement>(".node.battery .hit.lower");
+    expect(upper?.getAttribute("aria-label")).toContain("50");
+    upper?.click();
+    lower?.click();
     expect(seen).toEqual([]);
-    expect(dialogs).toEqual(["battery"]);
+    expect(dialogs).toEqual([
+      { node: "battery", focus: "soc" },
+      { node: "battery", focus: undefined },
+    ]);
   });
 
   it("one target with one signed sensor too: the window holds the charge (REQ I-2, DF-20)", async () => {
@@ -526,10 +531,11 @@ describe("battery node", () => {
       dialogs.push((ev as CustomEvent).detail.dialogParams.node),
     );
     const hits = el.shadowRoot?.querySelectorAll<HTMLElement>(".node.battery .hit");
-    expect(hits?.length).toBe(1);
-    hits?.[0].click();
+    // With its charge: two targets here too, both the window (I-2, 01.11.2026).
+    expect(hits?.length).toBe(2);
+    for (const hit of hits ?? []) hit.click();
     expect(seen).toEqual([]);
-    expect(dialogs).toEqual(["battery"]);
+    expect(dialogs).toEqual(["battery", "battery"]);
     el.remove();
   });
 

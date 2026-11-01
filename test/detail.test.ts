@@ -112,14 +112,22 @@ describe("which target opens the detail window (REQ DF-1)", () => {
     expect((seen.dialogs[0].dialogParams as { node: string }).node).toBe("grid");
   });
 
-  it("the whole battery as one target, its charge in the window (I-2)", async () => {
+  it("the battery's two halves both open the window, the charge's with it first (I-2)", async () => {
     const el = await mount();
     const seen = listen(el);
     const targets = hits(el, "battery");
-    expect(targets).toHaveLength(1);
-    targets[0].click();
+    expect(targets).toHaveLength(2);
+    for (const t of targets) t.click();
     expect(seen.more).toEqual([]);
-    expect(seen.dialogs.map((d) => (d.dialogParams as { node: string }).node)).toEqual(["battery"]);
+    expect(
+      seen.dialogs.map((d) => {
+        const p = d.dialogParams as { node: string; focus?: string };
+        return [p.node, p.focus];
+      }),
+    ).toEqual([
+      ["battery", "soc"],
+      ["battery", undefined],
+    ]);
   });
 
   it("a single signed sensor opens the window too, its entity the way out (DF-20)", async () => {
@@ -152,9 +160,10 @@ describe("which target opens the detail window (REQ DF-1)", () => {
     const el = await mount({}, STATES, true);
     const seen = listen(el);
     hits(el, "grid")[0].click();
-    hits(el, "battery")[0].click();
+    // The charge's half its own entity, the power's the running direction.
+    for (const t of hits(el, "battery")) t.click();
     expect(seen.dialogs).toEqual([]);
-    expect(seen.more).toEqual(["sensor.export", "sensor.in"]);
+    expect(seen.more).toEqual(["sensor.export", "sensor.soc", "sensor.in"]);
   });
 });
 

@@ -132,6 +132,8 @@ export interface DetailParams {
   origin?: HTMLElement;
   /** What the target opened before: the way out when the window cannot (DF-7). */
   entity?: string;
+  /** The battery's charge was tapped: it comes first and large (I-2). */
+  focus?: "soc";
 }
 
 /**
@@ -642,6 +644,17 @@ export class EnerLensDetail extends LitElement {
    * drawing and header all take the rest from the same selection (DF-18).
    */
   private _shown: string[] = [];
+  /**
+   * The battery's charge was tapped: it first and large, the power below - in
+   * the power view, where the node shows the charge (I-2, 01.11.2026).
+   */
+  private get _socFirst(): boolean {
+    return this._params?.focus === "soc" && this._power;
+  }
+
+  /** The charge chart could not be had: the power stands alone (I-2). */
+  private _socGone = false;
+
   /** The house with its consumers (DF-21): shown, on a log axis, what is picked. */
   private _withConsumers = false;
   private _log = false;
@@ -837,6 +850,7 @@ export class EnerLensDetail extends LitElement {
     this._busy = false;
     this._giveWayTo = undefined;
     this._loaded = false;
+    this._socGone = false;
     this._withConsumers = false;
     this._log = false;
     this._picked = new Set();
@@ -1047,7 +1061,14 @@ export class EnerLensDetail extends LitElement {
         );
         all.forEach((r, i) => {
           if (r.status === "fulfilled") this._drawSoc(i, r.value, axis.min, axis.max);
-          else console.warn(r.reason);
+          else {
+            console.warn(r.reason);
+            // The charge first, but it failed: the power alone, not waiting for it.
+            if (i === 0) {
+              this._socGone = true;
+              this.requestUpdate();
+            }
+          }
         });
       }
       this._drawn = drawn;
@@ -1668,11 +1689,21 @@ export class EnerLensDetail extends LitElement {
       data: data.line,
     });
     const chart = this._extraChart(index);
-    chart.height = "160px";
+    // The charge tapped: it first and large, the power small below (I-2).
+    chart.height = index === 0 && this._socFirst ? "300px" : "160px";
+    if (index === 0 && this._socFirst && this._chart) this._chart.height = "160px";
     chart.options = {
       xAxis: { type: "time", min, max },
       yAxis: extra.percent
-        ? { type: "value", min: 0, max: 100, interval: 50, axisLabel: { formatter: percent } }
+        ? {
+            type: "value",
+            min: 0,
+            max: 100,
+            // Large on top, the charge tapped: steps of 10; small below: 25
+            // (Markus 01.11.2026).
+            interval: index === 0 && this._socFirst ? 10 : 25,
+            axisLabel: { formatter: percent },
+          }
         : { type: "value", scale: true, splitNumber: 2, axisLabel: { formatter: percent } },
       legend: { show: false },
       grid: { left: this._power ? 64 : 48, right: 16, top: 12, bottom: 28, containLabel: false },
@@ -1777,7 +1808,8 @@ export class EnerLensDetail extends LitElement {
     const chart = this[slot] ?? (document.createElement(detailSetup.chartTag) as ChartElement);
     chart.className = `chart ${kind}`;
     chart.hass = this._hass;
-    chart.height = "300px";
+    // Small below the charge - large while there is no charge chart (review).
+    chart.height = this._socFirst && this._extraCharts[0] ? "160px" : "300px";
     this[slot] = chart;
     return chart;
   }
@@ -1968,6 +2000,19 @@ export class EnerLensDetail extends LitElement {
     const extras = extrasShown(plan, !this._power);
     const more = (entity: string) => (ev: Event) =>
       openMoreInfo(ev.currentTarget as EventTarget, entity);
+    // The values below the power - or above it, the charge tapped (I-2).
+    const below = extras.map((extra, i) => {
+      const chart = this._extraCharts[i];
+      const name = extra.label || localize("detail.soc", hass);
+      return chart
+        ? html`<button
+            class="sum soc-name"
+            aria-label=${localize("detail.open", hass, { name })}
+            @click=${more(extra.entity)}
+          >${name}</button>
+          ${chart}`
+        : nothing;
+    });
     return html`
       ${
         this._power
@@ -2096,26 +2141,19 @@ export class EnerLensDetail extends LitElement {
           : nothing
       }
       <div class="charts ${this._busy ? "busy" : ""}" @chart-zoom=${this._onZoom}>
+        ${this._socFirst ? below : nothing}
         ${
           // Until the first chart is there: something is coming (DF-10). A
           // rest without a line of its own has only its extra values (L-21).
           sides.length === 0
             ? nothing
-            : (this._chart ?? html`<div class="loading" role="progressbar" aria-busy="true"></div>`)
+            : // The charge first: the power waits for it, so nothing jumps (I-2).
+              this._chart && !(this._socFirst && !this._extraCharts[0] && !this._socGone)
+              ? this._chart
+              : html`<div class="loading" role="progressbar" aria-busy="true"></div>`
         }
         ${this._renderPicks(state.config)}
-        ${extras.map((extra, i) => {
-          const chart = this._extraCharts[i];
-          const name = extra.label || localize("detail.soc", hass);
-          return chart
-            ? html`<button
-                class="sum soc-name"
-                aria-label=${localize("detail.open", hass, { name })}
-                @click=${more(extra.entity)}
-              >${name}</button>
-              ${chart}`
-            : nothing;
-        })}
+        ${this._socFirst ? nothing : below}
       </div>
     `;
   }
