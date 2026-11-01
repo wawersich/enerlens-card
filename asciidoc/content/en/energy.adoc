@@ -121,6 +121,28 @@ with power and energy:
   its row – so you see when the consumption not measured on its own was high.
   Needs a measured house value.
 
+*The house with its consumers.* In the house window the button *Consumers*
+draws each consumer and the rest as a line of its own on the house's axis –
+not stacked, so a peak stays with its device. A row of buttons below picks the
+lines one by one, with "all" and "none". Picked are those that ran in the
+period; another period picks anew until you pick yourself. The tooltip names
+the house and the picked lines by size. *log* puts the axis on a log scale
+(0 · 10 · 100 · 1,000 W), so small consumers show too; anything below 1 W sits
+on the 0 line. Power view only, and only with a measured house value.
+
+[.only-light]
+image::detail-house-en-light.png["The house window with heat pump, washing machine, wallbox and the rest as lines of their own",560]
+
+[.only-dark]
+image::detail-house-en-dark.png["The house window with heat pump, washing machine, wallbox and the rest as lines of their own",560]
+
+*Battery with a state of charge.* The circle has two halves, both open the
+window: a tap on the charge (%) shows it large on top in steps of 10 % with the
+power small below, a tap on the power shows the power on top as before.
+
+*Zooming.* Zoom into one chart of the window and the others follow to the same
+times, so the curves stay one below the other.
+
 [.only-light]
 image::detail-energy-en-light.png["The grid's window over 7 days",560]
 

@@ -128,6 +128,30 @@ jeweils mit Leistung und Energie:
   genau wie in der Zeile – so sieht man, wann der nicht einzeln gemessene
   Verbrauch hoch war. Braucht einen gemessenen Hauswert.
 
+*Das Haus mit seinen Verbrauchern.* Im Haus-Fenster blendet der Knopf
+*Verbraucher* jeden Verbraucher und den Rest als eigene Linie auf der Achse des
+Hauses ein – nicht gestapelt, ein Ausschlag bleibt also bei seinem Gerät.
+Darunter wählt eine Knopfreihe die Linien einzeln, dazu „alle“ und „keine“.
+Vorausgewählt ist, wer im Zeitraum lief; ein anderer Zeitraum wählt neu, bis
+man selbst gewählt hat. Der Tooltip nennt das Haus und die gewählten Linien nach
+Größe. *log* teilt die Achse logarithmisch (0 · 10 · 100 · 1.000 W), so
+erkennt man auch kleine Verbraucher; was unter 1 W liegt, steht auf der
+0-Linie. Nur in der Leistungsansicht und nur mit gemessenem Hauswert.
+
+[.only-light]
+image::detail-house-de-light.png["Das Haus-Fenster mit Wärmepumpe, Waschmaschine, Wallbox und Rest als eigene Linien",560]
+
+[.only-dark]
+image::detail-house-de-dark.png["Das Haus-Fenster mit Wärmepumpe, Waschmaschine, Wallbox und Rest als eigene Linien",560]
+
+*Batterie mit Ladestand.* Der Kreis hat zwei Hälften, beide öffnen das
+Fenster: ein Tipp auf den Ladestand (%) zeigt ihn oben groß in 10-%-Schritten
+und die Leistung klein darunter, ein Tipp auf die Leistung zeigt sie oben wie
+gewohnt.
+
+*Zoomen.* Zoomt man in ein Diagramm des Fensters, folgen die anderen auf
+dieselbe Zeit, so stehen die Kurven weiter untereinander.
+
 [.only-light]
 image::detail-energy-de-light.png["Das Fenster des Netzes über 7 Tage",560]
 

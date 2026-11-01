@@ -552,7 +552,20 @@ async function inventStatistics(page: Page): Promise<void> {
       const day = Math.floor(t / (24 * H));
       const weather = 0.15 + 0.85 * Math.abs(Math.sin(day * 1.7));
       const sun = Math.max(0, Math.sin(((hour - 6) / 13) * Math.PI)) * 4500 * weather;
-      const house = 450 + (hour >= 17 && hour <= 21 ? 900 : 0) + (hour >= 7 && hour <= 8 ? 500 : 0);
+      // The house window with its consumers (DF-21): a heat pump with a
+      // morning peak, a washing machine and a car on some days, the rest the
+      // household around them.
+      const minute = (hour * 60 + new Date(t).getUTCMinutes()) % 1440;
+      const wiggle = Math.sin(t / 900_000) * 60;
+      const heat = 380 + wiggle + (minute >= 360 && minute < 450 ? 2100 : 0);
+      const washer =
+        day % 2 === 0 && minute >= 600 && minute < 690 ? (minute < 625 ? 2000 : 180) : 0;
+      const wallbox = day % 3 === 0 && minute >= 780 && minute < 900 ? 3700 : 0;
+      const base = 450 + (hour >= 17 && hour <= 21 ? 900 : 0) + (hour >= 7 && hour <= 8 ? 500 : 0);
+      const house = base + heat + washer + wallbox;
+      if (id.endsWith("heat")) return heat;
+      if (id.endsWith("washer")) return washer;
+      if (id.endsWith("wallbox")) return wallbox;
       if (id.endsWith("roof")) return sun;
       if (id.endsWith("house")) return house;
       if (id.endsWith("grid_import")) return Math.max(0, house - sun);
@@ -636,6 +649,76 @@ test("doc shots: detail window", async ({ browser }) => {
       );
       await page.waitForTimeout(6000);
       // The dialog's own box, as HA draws it.
+      const clip = await page.evaluate((card) => {
+        const deep = (window as unknown as { __deep: (s: string, r?: ParentNode) => HTMLElement[] })
+          .__deep;
+        const adaptive = deep("ha-adaptive-dialog").find((d) =>
+          d.getRootNode() instanceof ShadowRoot
+            ? (d.getRootNode() as ShadowRoot).host.localName === `${card}-detail`
+            : false,
+        );
+        const panel = adaptive?.shadowRoot
+          ? deep("[part~=dialog], dialog", adaptive.shadowRoot)[0]
+          : undefined;
+        const box = (panel ?? adaptive)?.getBoundingClientRect();
+        if (!box) throw new Error("detail window not found");
+        return { x: box.left, y: box.top, width: box.width, height: box.height };
+      }, CARD);
+      await page.screenshot({ path: resolve("docs/images", file), clip });
+      await page.close();
+    }
+  }
+});
+
+/** The house window with its consumers as lines (DF-21) for the energy page. */
+test("doc shots: house window", async ({ browser }) => {
+  test.setTimeout(20 * 60_000);
+  for (const lang of ["de", "en"] as const) {
+    await sensors(lang);
+    for (const dark of [false, true]) {
+      const theme = dark ? "dark" : "light";
+      const file = `detail-house-${lang}-${theme}.png`;
+      if (ONLY && !ONLY.test(file.replace(".png", ""))) continue;
+      const page = await browser.newPage({ viewport: { width: 1000, height: 1000 } });
+      await signIn(page);
+      await look(page, lang, dark);
+      await inventStatistics(page);
+      await page.evaluate(
+        async ({ card, doc, config }) => {
+          const w = window as unknown as { __deep: (s: string) => HTMLElement[] };
+          const host = document.createElement("div");
+          host.style.cssText = "position:fixed;left:0;top:0;width:500px;z-index:1";
+          const el = document.createElement(card) as HTMLElement & {
+            setConfig(c: object): void;
+            hass: unknown;
+          };
+          el.setConfig({
+            ...config,
+            entities: {
+              solar: `${doc}roof`,
+              grid: { import: `${doc}grid_import`, export: `${doc}grid_export` },
+              house: `${doc}house`,
+            },
+            view: { remember: false },
+          });
+          el.hass = (document.querySelector("home-assistant") as unknown as { hass: unknown }).hass;
+          host.appendChild(el);
+          (w.__deep("home-assistant-main")[0]?.shadowRoot ?? document.body).appendChild(host);
+          await new Promise((r) => setTimeout(r, 2500));
+          el.shadowRoot?.querySelector<HTMLElement>(".node.house .hit")?.click();
+        },
+        { card: CARD, doc: DOC, config: BASIC(lang) },
+      );
+      await page.waitForTimeout(5000);
+      // The consumers on: the button in the window.
+      await page.evaluate((card) => {
+        const deep = (window as unknown as { __deep: (s: string) => HTMLElement[] }).__deep;
+        const dialog = deep(`${card}-detail`)[0];
+        dialog?.shadowRoot
+          ?.querySelector<HTMLElement>('button.toggle[data-toggle="consumers"]')
+          ?.click();
+      }, CARD);
+      await page.waitForTimeout(3000);
       const clip = await page.evaluate((card) => {
         const deep = (window as unknown as { __deep: (s: string, r?: ParentNode) => HTMLElement[] })
           .__deep;
