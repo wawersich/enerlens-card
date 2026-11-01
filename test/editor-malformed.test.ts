@@ -282,6 +282,8 @@ describe("every form field reaches the YAML (issue #19)", () => {
       battery: { label: { entity: "sensor.y" } },
     },
     power: { unit: "kW" },
+    // With a width, or the alignment has nothing to place (AN-7).
+    content: { max_width: 900 },
   };
 
   /** A value of the field's own kind that differs from the one it has. */

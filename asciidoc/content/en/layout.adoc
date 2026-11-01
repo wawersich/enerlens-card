@@ -70,3 +70,22 @@ layout: square_left        # cross | square_right | square_left | triangle | tri
 flow:
   lines: curved            # curved | straight
 ----
+
+== Wide dashboards
+
+With the list beside the drawing, it reaches the card's right edge, in line
+with the quick buttons. On a very wide dashboard – a panel view or a large
+monitor – the lines to the list then grow long. `content.max_width` keeps the
+title, quick buttons, drawing and list together as one block; the card's
+background stays the full width. `content.align` places the block left, in the
+centre (default) or right. On a card narrower than the value nothing changes.
+
+In the editor: _Display → Maximum content width_; the alignment appears once a
+width is set.
+
+[source,yaml]
+----
+content:
+  max_width: 900           # pixels, 400 to 2000 · no value, no limit
+  align: center            # left | center | right
+----

@@ -154,10 +154,34 @@ flow:
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="wide-dashboards"><a class="anchor" href="#wide-dashboards"></a>Wide dashboards</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With the list beside the drawing, it reaches the card&#8217;s right edge, in line
+with the quick buttons. On a very wide dashboard – a panel view or a large
+monitor – the lines to the list then grow long. <code>content.max_width</code> keeps the
+title, quick buttons, drawing and list together as one block; the card&#8217;s
+background stays the full width. <code>content.align</code> places the block left, in the
+centre (default) or right. On a card narrower than the value nothing changes.</p>
+</div>
+<div class="paragraph">
+<p>In the editor: <em>Display → Maximum content width</em>; the alignment appears once a
+width is set.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">content:
+  max_width: 900           # pixels, 400 to 2000 · no value, no limit
+  align: center            # left | center | right</code></pre>
+</div>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=1c694388"></script>
+<script type="module" src="../assets/site.js?v=703736b5"></script>
 </body>
 </html>

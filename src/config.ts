@@ -14,6 +14,7 @@ import {
   type Config,
   ConfigError,
   type ConsumerPosition,
+  type ContentAlign,
   type EnergyChoice,
   type EnergyPeriod,
   type ExtraColorKey,
@@ -99,6 +100,7 @@ export const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "icons",
   "power",
   "appearance",
+  "content",
   "nodes",
   "memory_id",
   "layout",
@@ -241,6 +243,7 @@ export const NUMBER_LIMITS: Readonly<
   "nodes.size": { min: 60, max: 150 },
   "power.decimals": { min: 1, max: 3, integer: true },
   "power.digits": { min: 2, max: 4, integer: true },
+  "content.max_width": { min: 400, max: 2000, integer: true },
 };
 
 /**
@@ -354,6 +357,23 @@ function readLenient<T extends string>(
     localize("error.config.unknown_value", hass, { field, allowed: allowed.join(", ") }),
   );
   return fallback;
+}
+
+const CONTENT_ALIGNS: readonly ContentAlign[] = ["left", "center", "right"];
+
+/**
+ * The widest the content gets (REQ AN-7, issue #33): header, drawing, fans and
+ * lists as one block, the card's ground still the full width. No width, no
+ * block - an alignment alone has nothing to place.
+ */
+function readContent(value: unknown, hass?: HomeAssistant): Pick<Config, "content"> {
+  const raw = readBlock(value, "content", hass);
+  // Read either way, so a misspelt alignment is named even before a width.
+  const align = readLenient(raw.align, CONTENT_ALIGNS, "content.align", "center", hass);
+  if (isUnset(raw.max_width)) return {};
+  return {
+    content: { maxWidth: readLimited(raw.max_width, "content.max_width", 0, hass), align },
+  };
 }
 
 const LAYOUTS: readonly LayoutName[] = [
@@ -1371,6 +1391,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "solar",
   ]),
   ring: new Set(["enabled", "animation", "solar"]),
+  content: new Set(["max_width", "align"]),
   view: new Set([
     "default_mode",
     "avg_short_minutes",
@@ -1718,6 +1739,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       ),
     },
     appearance: readEnum(rawRecord.appearance, APPEARANCES, "appearance", "auto", hass),
+    ...readContent(rawRecord.content, hass),
     colors,
     icons,
     nodes: readNodes(rawRecord.nodes, hass),

@@ -156,6 +156,21 @@ export const styles = css`
     overflow: visible;
   }
 
+  /* Header, drawing, fans and lists as one block (REQ AN-7). Without a width
+     it spans the card; with one (an inline max-width) it stands in the
+     middle, or to one side. The card's ground stays the full width. */
+  .content {
+    margin-inline: auto;
+  }
+
+  .content.align-left {
+    margin-inline: 0 auto;
+  }
+
+  .content.align-right {
+    margin-inline: auto 0;
+  }
+
   /* Overlay for the fan: spans the whole card body so it can reach from the
      house node into the list. Never takes clicks - the rows underneath do. */
   svg.fan {
@@ -1012,10 +1027,13 @@ export const styles = css`
      (L-13). The list itself takes what the cross leaves over (grow 1 against
      99), so on a narrow card the cross keeps its size and the names get the
      ellipsis. Wrapped below the cross the list keeps its flex basis, so a wider
-     card can bring it back up. */
+     card can bring it back up. No cap on its share: up to 01.11.2026 it was
+     held to 55 % of the body, which on cards above about 820 px (cross 320 px
+     plus its padding and the gap: the cap bit at 0.45 x body > 356 px) left an empty
+     strip at the right, the rows out of line with the quick buttons (L-13,
+     issue #33). Who wants it tighter limits the content (AN-7). */
   .list:not(.stacked) {
     flex: 1 1 145px;
-    max-width: 55%;
   }
 
   /* Beside the drawing the blocks share one column, as wide as the widest

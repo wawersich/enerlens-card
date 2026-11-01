@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   house's axis - not stacked, so a peak stays with its device. Picked are those
   that ran in the period; a chip row picks by hand. "log" puts the axis on a
   log scale from 1 W, so small consumers show too.
+- **Content width for wide dashboards (#33):** `content.max_width` (400-2000 px)
+  keeps title, quick buttons, drawing and list together as one block, so the
+  lines to the list do not run across a whole panel view; `content.align` puts
+  the block left, centre (default) or right. The card's background stays the
+  full width. In the editor under Display.
 
 ### Changed
 - **Battery: tap the charge to see it first (#34):** with a state of charge
@@ -24,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   as before.
 - **Zoom in the detail window:** zooming one chart zooms all charts of the
   window to the same times, so the curves stay one below the other.
+- **The list reaches the right edge (#33):** beside the drawing it was held to
+  55 % of the card, which on cards wider than about 820 px left an empty strip
+  at the right. It now stands in line with the quick buttons. Narrower cards -
+  a sections column, a phone - look as before; for the old, tighter look set
+  `content.max_width`. Header and body now sit in a `.content` block inside
+  `ha-card`, so a card-mod rule `ha-card > .header` needs `ha-card .header`.
 
 ## [1.3.0] - 2026-10-30
 

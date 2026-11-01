@@ -262,6 +262,8 @@ class EnerLensCard extends LitElement {
   private _visible = true;
   /** True while the list wraps below the cross - the lanes only run there. */
   private _stacked = false;
+  /** The content width the path zoom was last measured for (AN-7). */
+  private _zoomedFor?: number;
   /** The body's width when the lists last went below (AN-3 hysteresis). */
   private _stackedWidth = 0;
   /**
@@ -1912,6 +1914,12 @@ class EnerLensCard extends LitElement {
       // resizes (issue #7).
       this._dots.setPathZoom(this._pathZoom);
       this._measurePathZoom();
+      this._zoomedFor = this._config.content?.maxWidth;
+    } else if (this._config.content?.maxWidth !== this._zoomedFor) {
+      // A new content width resizes the drawing without resizing the card,
+      // so no observer reports it (AN-7, issue #7).
+      this._zoomedFor = this._config.content?.maxWidth;
+      this._measurePathZoom();
     }
     // Handed over on every render: the same object does nothing, but a
     // reloaded design file returns a new one under the same id, and that has
@@ -2051,51 +2059,59 @@ class EnerLensCard extends LitElement {
         ? openDetail(ev.currentTarget as EventTarget, { node: detail, entity: entity || undefined })
         : openMoreInfo(ev.currentTarget as EventTarget, entity);
 
+    // Header, drawing, fans and lists as one block: limited, it keeps them
+    // together and every width rule measures it rather than the card (AN-7).
+    const content = this._config.content;
     return html`
       <ha-card
         translate="no"
         @hass-more-info=${this._onMoreInfo}
         @enerlens-detail=${this._onDetail}
       >
-        ${renderHeader(
-          this._config,
-          this._hass,
-          this._rawConfig?.title,
-          this._mode,
-          this._since,
-          (mode) => this._setMode(mode),
-          this._showAll,
-          () => this._toggleShowAll(),
-          this._energyChip(this._hass, this._config),
-          this._pvScaleChip(this._hass, this._config),
-        )}
-        ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
-        ${this._example ? renderExampleBanner(this._hass) : nothing}
         <div
-          class="body layout-${this._config.layout.replace("_", "-")} ${this._stacked ? "stacked" : ""} ${
-            this._config.list.alwaysBelow || (this._stacked && this._splitsLists())
-              ? "force-below"
-              : ""
-          } ${solarApart ? "split" : ""} ${this._config.list.enabled || solarRows.length > 0 ? "" : "no-list"}"
-          style=${labelRoom(this._config, model.battery !== null)}
+          class="content align-${content?.align ?? "center"}"
+          style=${content ? `max-width: ${content.maxWidth}px` : ""}
         >
-          <svg class="fan" aria-hidden="true"></svg>
-          <svg class="fan pv-fan" aria-hidden="true"></svg>
-          ${solarApart ? renderSolarSide(breakdown, shown, this._hass, openEntry, solarRows) : nothing}
-          ${renderCross(
-            model,
-            shown,
+          ${renderHeader(
+            this._config,
             this._hass,
-            active,
-            this._config.ring.enabled ? breakdown.segments : [],
-            this._nodePx,
-            this._outage === true,
-            this._animationsWanted,
-            this._holeR,
-            this._seeThrough,
-            solarRing,
+            this._rawConfig?.title,
+            this._mode,
+            this._since,
+            (mode) => this._setMode(mode),
+            this._showAll,
+            () => this._toggleShowAll(),
+            this._energyChip(this._hass, this._config),
+            this._pvScaleChip(this._hass, this._config),
           )}
-          ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart)}
+          ${this._outage === true ? renderOutageBanner(this._hass) : nothing}
+          ${this._example ? renderExampleBanner(this._hass) : nothing}
+          <div
+            class="body layout-${this._config.layout.replace("_", "-")} ${this._stacked ? "stacked" : ""} ${
+              this._config.list.alwaysBelow || (this._stacked && this._splitsLists())
+                ? "force-below"
+                : ""
+            } ${solarApart ? "split" : ""} ${this._config.list.enabled || solarRows.length > 0 ? "" : "no-list"}"
+            style=${labelRoom(this._config, model.battery !== null)}
+          >
+            <svg class="fan" aria-hidden="true"></svg>
+            <svg class="fan pv-fan" aria-hidden="true"></svg>
+            ${solarApart ? renderSolarSide(breakdown, shown, this._hass, openEntry, solarRows) : nothing}
+            ${renderCross(
+              model,
+              shown,
+              this._hass,
+              active,
+              this._config.ring.enabled ? breakdown.segments : [],
+              this._nodePx,
+              this._outage === true,
+              this._animationsWanted,
+              this._holeR,
+              this._seeThrough,
+              solarRing,
+            )}
+            ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart)}
+          </div>
         </div>
       </ha-card>
     `;

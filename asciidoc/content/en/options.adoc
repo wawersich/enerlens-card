@@ -25,6 +25,8 @@
 |`list.title` |— |Heading above the list
 |`list.solar` |`false` |PV rows above the consumers, one per source (with several sources)
 |`list.always_below` |`false` |Keep the list under the drawing even when there is room beside it
+|`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
+|`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house
 |`ring.solar` |`true` |PV ring at the PV node: each source's share (with several sources)
 |`ring.animation` |`overtake` |How the consumer ring follows a reordered list. `overtake`: every segment travels to its new place, one moving forward passes on an inner lane. `fade`: the places stay, their colours blend into the new order. `jump`: the ring does not move, new values show at once - dots and list keep moving

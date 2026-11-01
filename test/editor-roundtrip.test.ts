@@ -58,6 +58,7 @@ const RICH: RawConfig = {
     },
   ],
   min_consumer_w: 10,
+  content: { max_width: 900, align: "left" },
   max_consumers: 5,
   update_interval_s: 5,
   appearance: "dark",
@@ -151,7 +152,9 @@ describe("A: every drawn form, handed back unchanged, changes nothing (E-1)", ()
     expect(el.shadowRoot?.querySelectorAll(".sources-panel .source ha-form")).toHaveLength(3);
   });
 
-  it("each form on its own", async () => {
+  // Every form of a rich config, one at a time: past 5 s while the other
+  // files run alongside, alone about 2 s (01.11.2026).
+  it("each form on its own", { timeout: 30000 }, async () => {
     // The card's memory id (V-12) is handed out on the first save, on purpose.
     const plain = (config: RawConfig) => {
       const { memoryId: _id, ...rest } = normalizeConfig(config);

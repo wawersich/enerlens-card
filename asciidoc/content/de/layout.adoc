@@ -69,3 +69,23 @@ layout: square_left        # cross | square_right | square_left | triangle | tri
 flow:
   lines: curved            # curved | straight
 ----
+
+== Breite Dashboards
+
+Steht die Liste neben der Zeichnung, reicht sie bis an den rechten Rand der
+Karte, bündig mit den Quick-Buttons. Auf einem sehr breiten Dashboard – einer
+Panel-Ansicht oder einem großen Monitor – werden die Linien zur Liste dann
+lang. `content.max_width` hält Titel, Quick-Buttons, Zeichnung und Liste als
+einen Block zusammen; der Hintergrund der Karte bleibt voll breit.
+`content.align` stellt den Block links, mittig (Standard) oder rechts in die
+Karte. Ist die Karte schmaler als der Wert, ändert sich nichts.
+
+Im Editor: _Darstellung → Größte Inhaltsbreite_, die Ausrichtung erscheint,
+sobald eine Breite eingetragen ist.
+
+[source,yaml]
+----
+content:
+  max_width: 900           # Pixel, 400 bis 2000 · ohne Wert keine Grenze
+  align: center            # left | center | right
+----

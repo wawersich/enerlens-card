@@ -591,6 +591,8 @@ interface FlatConfig {
   list_enabled?: boolean;
   list_always_below?: boolean;
   list_solar?: boolean;
+  content_max_width?: number;
+  content_align?: string;
   ring_enabled?: boolean;
   ring_solar?: boolean;
   ring_animation?: string;
@@ -875,6 +877,8 @@ function toFlat(config: RawConfig): FlatConfig {
     appearance: config.appearance,
     list_enabled: config.list?.enabled,
     list_always_below: config.list?.always_below,
+    content_max_width: config.content?.max_width,
+    content_align: config.content?.align,
     ring_enabled: config.ring?.enabled,
     ring_animation: config.ring?.animation,
     power_unit: config.power?.unit,
@@ -1228,6 +1232,7 @@ export function fieldOwner(name: string): string | undefined {
   )
     return "list";
   if (name.startsWith("ring_")) return "ring";
+  if (name.startsWith("content_")) return "content";
   if (name.startsWith("power_")) return "power";
   if (VIEW_FIELDS.includes(name)) return "view";
   if (FLOW_FIELDS.includes(name)) return "flow";
@@ -1402,6 +1407,20 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
           animation: opt(flat.ring_animation) as RingAnimation | undefined,
         }),
       raw.ring,
+    ),
+    // The alignment goes with the width: without one it has nothing to place
+    // (AN-7). Keys the form has no field for stay.
+    content: part(
+      "content",
+      () => {
+        const width = num(f.content_max_width);
+        return prune({
+          ...unknownKeys(raw.content, ["max_width", "align"]),
+          max_width: width,
+          align: width === undefined ? undefined : opt(f.content_align),
+        });
+      },
+      raw.content,
     ),
     power: part(
       "power",
@@ -1686,7 +1705,7 @@ const NOTABLE = new Set(
 /** The form field a note of the card belongs to; none for the consumers'. */
 function noteField(field: string): string | undefined {
   if (field.startsWith("view.") || field.startsWith("flow.")) return field.slice(5);
-  if (field.startsWith("power.")) return field.replace(".", "_");
+  if (field.startsWith("power.") || field.startsWith("content.")) return field.replace(".", "_");
   return field.includes(".") || field.includes("[") ? undefined : field;
 }
 
@@ -1748,6 +1767,7 @@ function shownDefaults(flat: FlatRecord): Record<string, unknown> {
     // Curved for the cross, straight for the others (AN-2).
     flow_lines: or(flat.flow_lines, layout === "cross" ? "curved" : "straight"),
     appearance: or(flat.appearance, "auto"),
+    content_align: or(flat.content_align, "center"),
     ring_animation: or(flat.ring_animation, "overtake"),
     power_unit: or(flat.power_unit, "kW"),
     power_decimals: or(flat.power_decimals, 2),
@@ -1936,6 +1956,31 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
             },
           },
         },
+        // The widest the content gets; where it stands only once it has a
+        // width (AN-7, issue #33).
+        {
+          name: "content_max_width",
+          selector: {
+            number: { ...limitsOf("content.max_width"), mode: "box", unit_of_measurement: "px" },
+          },
+        },
+        ...(num(flat.content_max_width) === undefined
+          ? []
+          : [
+              {
+                name: "content_align",
+                selector: {
+                  select: {
+                    mode: "dropdown",
+                    options: [
+                      { value: "left", label: t("content_align_left") },
+                      { value: "center", label: t("content_align_center") },
+                      { value: "right", label: t("content_align_right") },
+                    ],
+                  },
+                },
+              },
+            ]),
         { name: "list_enabled", selector: { boolean: {} } },
         ...(sources ? [{ name: "list_solar", selector: { boolean: {} } }] : []),
         { name: "list_always_below", selector: { boolean: {} } },

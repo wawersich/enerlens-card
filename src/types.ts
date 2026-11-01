@@ -138,6 +138,9 @@ export interface FlowDesign {
  */
 export type Appearance = "auto" | "light" | "dark";
 
+/** Where a limited content block stands in the card (REQ AN-7). */
+export type ContentAlign = "left" | "center" | "right";
+
 /** How connections without flow are drawn (REQ P-9). */
 export type InactiveLines = "show" | "dim" | "hide";
 /** How the ring changes when the list reorders or its values change (REQ R-4). */
@@ -323,6 +326,8 @@ export interface RawConfig extends LovelaceCardConfig {
   ring?: { enabled?: boolean; animation?: RingAnimation; solar?: boolean };
   /** Which half of a flow design applies (REQ P-10). */
   appearance?: Appearance;
+  /** The widest the content gets, and where it stands then (REQ AN-7). */
+  content?: { max_width?: number; align?: ContentAlign };
   /** How every power figure is written: kW with 1-3 decimals, or whole watts (REQ K-7). */
   power?: { unit?: PowerUnit; decimals?: number; digits?: number };
   view?: {
@@ -638,6 +643,8 @@ export interface Config {
   };
   /** Which half of a flow design applies (REQ P-10). */
   appearance: Appearance;
+  /** Only with a width: no block means the content spans the card (REQ AN-7). */
+  content?: { maxWidth: number; align: ContentAlign };
   colors: Record<ColorKey, string> & {
     socStops: SocStop[];
     consumerPalette: string[];

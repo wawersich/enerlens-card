@@ -25,6 +25,8 @@
 |`list.title` |— |Überschrift über der Liste
 |`list.solar` |`false` |PV-Zeilen über den Verbrauchern, je Quelle eine (bei mehreren Quellen)
 |`list.always_below` |`false` |Liste auch dann unter der Zeichnung halten, wenn daneben Platz wäre
+|`content.max_width` |— |Größte Breite des Inhalts in Pixeln (400–2000): Titel, Quick-Buttons, Zeichnung und Liste bleiben auf breiten Dashboards als ein Block zusammen, der Kartenhintergrund bleibt voll breit. Ohne Wert reicht die Liste bis an den rechten Rand
+|`content.align` |`center` |Wo der begrenzte Inhalt steht: `left`, `center` oder `right`. Nur mit `content.max_width`
 |`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen
 |`ring.solar` |`true` |PV-Ring am PV-Knoten: Anteil jeder Quelle (bei mehreren Quellen)
 |`ring.animation` |`overtake` |Wie der Verbraucher-Ring einer umsortierten Liste folgt. `overtake`: Jedes Segment wandert an seinen neuen Platz, wer nach vorn rückt, überholt auf einer inneren Bahn. `fade`: Die Plätze bleiben, ihre Farben blenden in die neue Reihenfolge über. `jump`: Der Ring bewegt sich nicht, neue Werte sind sofort da – Punkte und Liste bewegen sich weiter

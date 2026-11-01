@@ -153,10 +153,35 @@ flow:
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="breite-dashboards"><a class="anchor" href="#breite-dashboards"></a>Breite Dashboards</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Steht die Liste neben der Zeichnung, reicht sie bis an den rechten Rand der
+Karte, bündig mit den Quick-Buttons. Auf einem sehr breiten Dashboard – einer
+Panel-Ansicht oder einem großen Monitor – werden die Linien zur Liste dann
+lang. <code>content.max_width</code> hält Titel, Quick-Buttons, Zeichnung und Liste als
+einen Block zusammen; der Hintergrund der Karte bleibt voll breit.
+<code>content.align</code> stellt den Block links, mittig (Standard) oder rechts in die
+Karte. Ist die Karte schmaler als der Wert, ändert sich nichts.</p>
+</div>
+<div class="paragraph">
+<p>Im Editor: <em>Darstellung → Größte Inhaltsbreite</em>, die Ausrichtung erscheint,
+sobald eine Breite eingetragen ist.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">content:
+  max_width: 900           # Pixel, 400 bis 2000 · ohne Wert keine Grenze
+  align: center            # left | center | right</code></pre>
+</div>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=1c694388"></script>
+<script type="module" src="../assets/site.js?v=703736b5"></script>
 </body>
 </html>
