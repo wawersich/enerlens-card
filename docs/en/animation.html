@@ -125,7 +125,9 @@ glow. The design changes only the look, never speed or number.</p>
 The switches choose the design, the sliders the maximum number of dots (the
 card takes 2 to 10, default 5), the dot size (40 to 150 %, default 100) and
 the speed: seconds a run at the lower and
-at the upper threshold, default 5 and 1.8.</p>
+at the upper threshold, default 5 and 1.8. Below the lower threshold a dot
+still slows a little with less power, about 5 % per halving, at most 30 % -
+so several small sources do not run in lockstep.</p>
 </div>
 <div class="card-demo" data-demo="dots" data-controls="design,dots,dotsize,speed"></div>
 <div class="paragraph">
@@ -150,7 +152,7 @@ flow:
   animation: auto          # auto | on | off
   design: neutrino
   max_dots: 8
-  slow_s: 8                # seconds a run with little power
+  slow_s: 8                # seconds a run at the lower threshold
   fast_s: 3                # ... with a lot of power</code></pre>
 </div>
 </div>
@@ -160,6 +162,6 @@ flow:
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=703736b5"></script>
+<script type="module" src="../assets/site.js?v=32f2cdef"></script>
 </body>
 </html>

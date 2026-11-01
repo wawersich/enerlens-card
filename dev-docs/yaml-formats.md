@@ -51,7 +51,7 @@ consumers:
 ```
 
 Top-level keys are only those listed under 0.1.0 (`KNOWN_KEYS`) and the ones
-added later at top level (`appearance` in 0.5.0).
+added later at top level (`appearance` in 0.5.0, `content` in 1.4.0).
 
 
 **Tags with no YAML change:** v0.1.1 (one meaning change only, see 0.1.1),
@@ -418,6 +418,31 @@ and is ignored. Nested blocks are not checked for unknown keys.
      `flow.min_w` value, which also changes when the row is listed. Covered by
      `test/indicators.test.ts` ("shows the extra value below the row's own
      threshold").
+
+
+## 1.4.0 - 2026-11-01 - tag `v1.4.0` (commit: `git rev-list -n1 v1.4.0`)
+
+- `view.energy_highlight` (bool, default `true`): **ADDED + CHANGED-COMPATIBLE.**
+  (REQ QB-15.) While the energy mode shows a period, the power/energy quick
+  button is filled in the theme's accent colour. Old configurations without
+  the key get the new look; `view.energy_highlight: false` restores the
+  pre-1.4.0 chip.
+- `content { max_width, align }`: **ADDED** as a new top-level block (REQ AN-7,
+  issue #33).
+  - `max_width`: integer px, 400-2000 (`NUMBER_LIMITS`), drawn to the limit with
+    a warning; text is refused like every number. No value = no limit.
+  - `align`: `left | center | right`, default `center`, lenient (unknown value
+    -> warning, centre). Read even without a width, so a typo is named, but it
+    takes effect only with one.
+  - Unknown keys in the block are named (`BLOCK_KEYS`).
+- No key, but **CHANGED-COMPATIBLE** in how existing YAML renders (REQ L-13):
+  the list beside the drawing is no longer held to 55 % of the body. Cards
+  wider than about 820 px now show the list at the right edge, in line with
+  the quick buttons; narrower cards are unchanged. `content.max_width` gives
+  the tighter look back. Header, banners and body now sit in a `.content` div
+  inside `ha-card`: a card-mod child selector `ha-card > .header` no longer
+  matches (`ha-card .header` does).
+- No new legacy spelling, so no new configuration under `test/legacy/`.
 
 ---
 
