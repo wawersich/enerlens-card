@@ -95,6 +95,13 @@ Einzel-Buttons, alle aufgeklappt:
 <div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
 ++++
 
+*Energie-Modus in Farbe.* Zeigt die Karte einen Zeitraum, ist der Quick-Button
+Leistung/Energie in der Akzentfarbe des Themes gefüllt – eingeklappt der ganze
+Button, aufgeklappt der gewählte Zeitraum. So sieht man auf einen Blick, dass
+die Karte Energie über einen Zeitraum zeigt und nicht die Leistung von jetzt.
+Abschalten im Editor unter *Leistung/Energie* oder mit
+`view.energy_highlight: false`.
+
 *Der Energie-Standard.* Ist `energy_periods` nicht gesetzt, bietet die Karte
 Leistung, Heute, 24 h und Woche an - aber nur, wenn PV, Netz, Batterie und Haus
 eine Langzeitstatistik haben. Das prüft sie einmal beim Laden (nur Metadaten,

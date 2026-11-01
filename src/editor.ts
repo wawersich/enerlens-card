@@ -608,6 +608,7 @@ interface FlatConfig {
   pv_scales?: string[];
   default_pv_scale?: string;
   quick_style?: string;
+  energy_highlight?: boolean;
   expanded_modes?: boolean;
   expanded_energy_periods?: boolean;
   expanded_pv_scales?: boolean;
@@ -909,6 +910,7 @@ function toFlat(config: RawConfig): FlatConfig {
     flattenQuantity(quantity, e[quantity] as EntityRef | undefined, out);
   out.pv_scales = names(config.view?.pv_scales);
   out.quick_style = config.view?.quick_style;
+  out.energy_highlight = config.view?.energy_highlight;
   // One switch per quick button; a single name counts as a list (QB-14).
   const expanded = expandedList(config.view?.expanded);
   for (const q of QUICK_NAMES) out[`expanded_${q}`] = expanded.includes(q) ? true : undefined;
@@ -1144,6 +1146,7 @@ const FLOW_FIELDS = [
 ];
 const VIEW_FIELDS = [
   "quick_style",
+  "energy_highlight",
   "expanded_modes",
   "expanded_energy_periods",
   "expanded_pv_scales",
@@ -1428,8 +1431,11 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "default_pv_scale",
             "quick_style",
             "expanded",
+            "energy_highlight",
           ]),
           quick_style: opt(flat.quick_style),
+          // On by default: only switching it off is written (QB-15).
+          energy_highlight: flat.energy_highlight === false ? false : undefined,
           expanded: expandedOut(
             flat as unknown as FlatRecord,
             isRecord(raw.view) ? raw.view.expanded : undefined,
@@ -1737,6 +1743,7 @@ function shownDefaults(flat: FlatRecord): Record<string, unknown> {
     ring_enabled: or(flat.ring_enabled, consumers),
     ring_solar: or(flat.ring_solar, true),
     quick_style: or(flat.quick_style, "segment"),
+    energy_highlight: or(flat.energy_highlight, true),
     layout,
     // Curved for the cross, straight for the others (AN-2).
     flow_lines: or(flat.flow_lines, layout === "cross" ? "curved" : "straight"),
@@ -2074,6 +2081,11 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
           },
         },
         ...expand("energy_periods", shown.energy_periods, !energyReady(flat)),
+        // Only on a quick button that can show a period (QB-15); a single
+        // value is a note, not a button (QB-3).
+        ...(shown.energy_periods.length > 1 && shown.energy_periods.some((p) => p !== "power")
+          ? [{ name: "energy_highlight", selector: { boolean: {} } }]
+          : []),
       ];
       const scope = hasConsumers
         ? [

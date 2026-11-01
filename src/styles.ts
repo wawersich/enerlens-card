@@ -346,6 +346,30 @@ export const styles = css`
     color: var(--primary-color);
   }
 
+  /* A period shown: the energy quick button in the theme's accent colour,
+     folded the chip, unfolded the chosen period - "Watt" and the frame stay
+     blue (QB-15, Markus 01.11.2026: "wir nehmen 1b"). A late start keeps its
+     amber. */
+  .controls.energy-accent .energy-chip:not(.pv-scale-chip):not(.late),
+  .controls.energy-accent
+    .quick-group[data-quick="energy_periods"]
+    .quick-option.selected:not(.late) {
+    background: var(--accent-color, #ff9800);
+    border-color: var(--accent-color, #ff9800);
+    /* Dark, not the theme's white: white on orange reads at 2.2:1, dark at
+       about 9:1 (review; Markus 01.11.2026: "dunkel ist besser"). */
+    color: rgba(0, 0, 0, 0.87);
+  }
+  /* A late start among them: amber framed, not filled - filled it looked
+     just like the accent (review, EM-9). */
+  .controls.energy-accent:not(.qs-single)
+    .quick-group[data-quick="energy_periods"]
+    .quick-option.late.selected {
+    background: none;
+    color: var(--el-warn2);
+    box-shadow: inset 0 0 0 2px var(--el-warn2);
+  }
+
   /* Counted from a late start: amber, the date only in the tooltip (EM-9, QB-14). */
   .quick-option.late {
     color: var(--el-warn2);

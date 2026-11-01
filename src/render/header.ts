@@ -342,7 +342,12 @@ export function renderHeader(
   return html`
     <div class="header">
       ${title ? html`<div class="title">${title}</div>` : html`<span></span>`}
-      <div class="controls qs-${config.view.quickStyle.replace("_", "-")}">
+      <div
+        class="controls qs-${config.view.quickStyle.replace("_", "-")} ${
+          // A period shown: the quick button in the accent colour (QB-15).
+          config.view.energyHighlight && energy?.inPeriod ? "energy-accent" : ""
+        }"
+      >
         ${
           // A period's figures are energies; a mean of them is no view (EM-2):
           // the chip stays, greyed out.

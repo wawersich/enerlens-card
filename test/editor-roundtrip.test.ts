@@ -425,6 +425,44 @@ describe("E: style and expand of the quick buttons in the editor (QB-12, QB-14, 
   });
 });
 
+describe("E2: highlight the energy mode in the editor (QB-15)", () => {
+  const CFG = {
+    ...RICH,
+    view: { energy_periods: ["power", "today"] },
+  } as RawConfig;
+  const names = (el: Editor) => forms(el).flatMap((f) => [...fieldNames(f.schema)]);
+
+  it("shows the switch on while unset, writes only switching it off", async () => {
+    const el = await mount(CFG);
+    expect(names(el)).toContain("energy_highlight");
+    const form = forms(el)[0];
+    expect(form.data.energy_highlight).toBe(true);
+    const left = echo(el, form, { ...form.data, title: "T" });
+    expect((left?.view as Record<string, unknown>).energy_highlight).toBeUndefined();
+    const off = echo(el, form, { ...form.data, energy_highlight: false });
+    expect((off?.view as Record<string, unknown>).energy_highlight).toBe(false);
+  });
+
+  it("switched on again: the key goes, the default is on", async () => {
+    const el = await mount({
+      ...CFG,
+      view: { ...(CFG.view as object), energy_highlight: false },
+    } as RawConfig);
+    const form = forms(el)[0];
+    expect(form.data.energy_highlight).toBe(false);
+    const on = echo(el, form, { ...form.data, energy_highlight: true });
+    expect((on?.view as Record<string, unknown>).energy_highlight).toBeUndefined();
+  });
+
+  it("no switch without a period", async () => {
+    const el = await mount({ ...CFG, view: { energy_periods: ["power"] } } as RawConfig);
+    expect(names(el)).not.toContain("energy_highlight");
+    // One period alone is no button but a note: nothing to colour (QB-3).
+    const one = await mount({ ...CFG, view: { energy_periods: ["today"] } } as RawConfig);
+    expect(names(one)).not.toContain("energy_highlight");
+  });
+});
+
 describe("F: a select left out of the YAML shows the card's default (E-1)", () => {
   // The same as for the switches (block C): shown, never written while left
   // alone - an empty select said nothing about what the card does (25.10.2026).

@@ -193,6 +193,25 @@ describe("energy mode on the card (REQ 2.15)", () => {
     document.body.innerHTML = "";
   });
 
+  it("fills the quick button in the accent colour while a period shows, by default (QB-15)", async () => {
+    const { el } = await mount();
+    const controls = () => el.shadowRoot?.querySelector(".controls");
+    // Power: as before.
+    expect(controls()?.classList.contains("energy-accent")).toBe(false);
+    await tap(el);
+    expect(label(el)).toBe("Heute");
+    expect(controls()?.classList.contains("energy-accent")).toBe(true);
+    // Switched off: as before in the period too.
+    const off = await mount({
+      ...CONFIG,
+      view: { ...(CONFIG.view as object), energy_highlight: false },
+    });
+    await tap(off.el);
+    expect(off.el.shadowRoot?.querySelector(".controls")?.classList.contains("energy-accent")).toBe(
+      false,
+    );
+  });
+
   it("offers one chip left of the filter that steps kW → Heute → Monat → kW (EM-2)", async () => {
     const { el } = await mount({
       ...CONFIG,

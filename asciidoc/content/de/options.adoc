@@ -37,6 +37,7 @@
 |`view.pv_scales` |beide, soweit möglich |Quick-Button PV-Skala: `share` (100 %, Anteile am Ring), `peak` (% kWp, braucht `kwp` an jeder Quelle); einer = fest
 |`list.scope` |beide |Quick-Button Listenumfang: `filtered`, `full`; einer = fest
 |`view.quick_style` |`segment` |Darstellung aller Quick-Buttons: `segment` (Segment-Buttons), `segment_compact` (Segment-Buttons kompakt, flacher), `single` (Einzel-Buttons)
+|`view.energy_highlight` |`true` |Im Energie-Modus den Quick-Button Leistung/Energie in der Akzentfarbe des Themes füllen
 |`view.expanded` |— |Aufgeklappte Quick-Buttons, jeder Wert ein eigener Button: `modes`, `energy_periods`, `pv_scales`, `scope`
 |`view.show_selector` |— |Veraltet: `false` stellt jeden Quick-Button fest auf einen Wert
 |`appearance` |`auto` |`auto`, `light` oder `dark` — zeigt *diese eine Karte* hell oder dunkel, unabhängig vom Theme, und legt damit auch den Wertesatz des Fluss-Designs fest

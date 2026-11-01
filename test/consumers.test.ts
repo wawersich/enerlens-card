@@ -75,6 +75,7 @@ function config(
       avgShortMinutes: 5,
       avgLongMinutes: 15,
       remember: true,
+      energyHighlight: true,
       power: true,
       energyPeriods: [],
       energyDefault: false,

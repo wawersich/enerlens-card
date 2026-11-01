@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Energy mode in colour:** while the card shows a period, the power/energy
+  quick button is filled in the theme's accent colour, so the energy mode no
+  longer looks like the power view. On by default; `view.energy_highlight:
+  false` or the editor switch turns it off.
 - **The house with its consumers:** in the power view of the house window, the
   chip "Consumers" draws each consumer and the rest as a line of its own on the
   house's axis - not stacked, so a peak stays with its device. Picked are those

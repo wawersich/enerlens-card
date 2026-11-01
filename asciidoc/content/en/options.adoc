@@ -37,6 +37,7 @@
 |`view.pv_scales` |both, as far as possible |Quick button PV scale: `share` (100%, shares on the ring), `peak` (% kWp, needs `kwp` on every source); one = fixed
 |`list.scope` |both |Quick button list scope: `filtered`, `full`; one = fixed
 |`view.quick_style` |`segment` |Style of all quick buttons: `segment` (segment buttons), `segment_compact` (segment buttons, compact - flatter), `single` (single buttons)
+|`view.energy_highlight` |`true` |In the energy mode, fill the power/energy quick button in the theme's accent colour
 |`view.expanded` |— |Expanded quick buttons, every value its own button: `modes`, `energy_periods`, `pv_scales`, `scope`
 |`view.show_selector` |— |Deprecated: `false` fixes every quick button on one value
 |`appearance` |`auto` |`auto`, `light` or `dark` - shows *this one card* light or dark whatever the theme says, and settles the flow design's value set with it

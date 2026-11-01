@@ -536,6 +536,7 @@ describe("defaults (section 3)", () => {
       avgShortMinutes: 2,
       avgLongMinutes: 15,
       remember: true,
+      energyHighlight: true,
       power: true,
       energyPeriods: ["today", "24h", "week"],
       energyDefault: true,
@@ -949,6 +950,7 @@ describe("unknown keys (E-1)", () => {
           avg_long_minutes: 15,
           show_selector: true,
           remember: true,
+          energy_highlight: true,
           expanded: ["modes"],
         },
         flow: {

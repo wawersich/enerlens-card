@@ -1377,6 +1377,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "avg_long_minutes",
     "show_selector",
     "remember",
+    "energy_highlight",
     "modes",
     "energy_periods",
     "default_energy",
@@ -1658,6 +1659,8 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       avgShortMinutes,
       avgLongMinutes: avgLongFixed,
       remember: readBoolean(rawView.remember, "view.remember", true, hass),
+      // On unless switched off - also for a configuration from before (QB-15).
+      energyHighlight: readBoolean(rawView.energy_highlight, "view.energy_highlight", true, hass),
       power: buttons.power,
       energyPeriods: buttons.energyPeriods,
       energyDefault: buttons.energyDefault,

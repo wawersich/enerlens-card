@@ -293,6 +293,8 @@ describe("every form field reaches the YAML (issue #19)", () => {
     if (name === "pv_scales") return ["peak"];
     // Unset expand switches are off (QB-10): the other value is on.
     if (name.startsWith("expanded_")) return value !== true;
+    // Unset is on (QB-15): the other value is off.
+    if (name === "energy_highlight") return value === false;
     if (typeof value === "boolean") return !value;
     if (typeof value === "number") return value === 100 ? 120 : value + 1;
     if (Array.isArray(value))

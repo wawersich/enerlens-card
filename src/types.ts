@@ -338,6 +338,8 @@ export interface RawConfig extends LovelaceCardConfig {
      */
     show_selector?: boolean;
     remember?: boolean;
+    /** The energy mode in the theme's accent colour (REQ QB-15); default on. */
+    energy_highlight?: boolean;
     /** Power and the periods the quick button power/energy offers (REQ QB-2, EM-1). */
     energy_periods?: EnergyChoice[];
     default_energy?: EnergyChoice;
@@ -590,6 +592,8 @@ export interface Config {
     avgShortMinutes: number;
     avgLongMinutes: number;
     remember: boolean;
+    /** The energy mode in the theme's accent colour (REQ QB-15). */
+    energyHighlight: boolean;
     /** The power view is offered (REQ QB-2). Without a period it always is. */
     power: boolean;
     /** Offered periods; empty = energy mode off, also when its prerequisite

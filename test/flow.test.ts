@@ -67,6 +67,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       avgShortMinutes: 5,
       avgLongMinutes: 15,
       remember: true,
+      energyHighlight: true,
       power: true,
       energyPeriods: [],
       energyDefault: false,
