@@ -225,10 +225,12 @@ Diagramm: Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden nach unten, bei
 der Batterie der Ladestand darunter. In der Leistungsansicht zeigt es wie der
 Verlauf von Home Assistant das 5-Minuten-Mittel und blass die Spanne vom
 kleinsten bis zum größten Wert, über Heute, 24 h, 48 h oder 7 Tage (die Karte
-merkt sich deine letzte Wahl), im Energie-Modus die kWh je Stunde oder Tag
+merkt sich deine letzte Wahl). Weil Home Assistant einen 5-Minuten-Wert erst
+nach Ende der 5 Minuten schreibt, geht die Linie danach bis jetzt mit den
+Messwerten selbst weiter. Im Energie-Modus zeigt es die kWh je Stunde oder Tag
 (siehe <a href="energy.html#detail">Energie</a>). Auch der Energie-Modus kann nur mit
-einem Paar beide Richtungen zeigen. Mit einem vorzeichenbehafteten Sensor öffnet
-der Tipp dessen eigenen Verlauf aus Home Assistant.</p>
+einem Paar beide Richtungen zeigen. Mit einem vorzeichenbehafteten Sensor zeigt
+das Fenster eine Linie mit Vorzeichen, Einspeisung bzw. Laden unter null.</p>
 </div>
 </div>
 </div>
@@ -236,6 +238,6 @@ der Tipp dessen eigenen Verlauf aus Home Assistant.</p>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=ee10634a"></script>
+<script type="module" src="../assets/site.js?v=ac72a2a4"></script>
 </body>
 </html>

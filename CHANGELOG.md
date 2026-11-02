@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the range you picked last on this card (today, 24 h, 48 h or 7 days)
   instead of always on 24 h, like the quick buttons and with
   `view.remember: false` switched off.
+- **The detail window reaches up to now:** Home Assistant writes a 5-minute
+  mean only once the 5 minutes are over, so the chart lagged up to ten
+  minutes behind the card. After the last mean the line now goes on with the
+  readings themselves, marked "reading" in the tooltip, and keeps growing
+  while the window is open.
+- **The state of charge below the chart can be read at any time:** a state
+  holds until the next one, so the line now repeats it every five minutes and
+  the tooltip finds the value at the time pointed at, not the next change
+  hours away. The same holds for an EV's charge and other extra values.
 
 ## [1.4.0] - 2026-11-01
 

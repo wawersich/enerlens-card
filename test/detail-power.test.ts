@@ -12,6 +12,7 @@ import type { HomeAssistant } from "../src/types";
 import { fakeMotion } from "./motion";
 
 const H = 3_600_000;
+const MIN = 60_000;
 const NOW = Date.parse("2026-10-19T12:30:00Z");
 const MIDNIGHT = Date.parse("2026-10-19T00:00:00Z");
 
@@ -48,6 +49,16 @@ const STATES: Record<string, [string, string]> = {
   "sensor.c2": ["5", "W"],
   "sensor.gridnet": ["500", "W"],
   "sensor.batnet": ["-800", "W"],
+  "sensor.pump": ["3.1", "kW"],
+  "sensor.imp2": ["0", "W"],
+  "sensor.exp2": ["800", "W"],
+  "sensor.pv1": ["1200", "W"],
+  "sensor.pv2": ["500", "W"],
+  "sensor.pv3": ["50", "W"],
+  "sensor.c3": ["3000", "W"],
+  "sensor.fast": ["100", "W"],
+  "sensor.bout": ["300", "W"],
+  "sensor.bin": ["0", "W"],
 };
 
 /** What the recorder keeps: power from 06:00, the state of charge from 10:00 only. */
@@ -63,6 +74,35 @@ const HISTORY: Record<string, [number, string][]> = {
   "sensor.out": [[MIDNIGHT + 6 * H, "0"]],
   "sensor.in": [[MIDNIGHT + 6 * H, "900"]],
   "sensor.car": [[MIDNIGHT + 6 * H, "30"]],
+  // The live end (DF-22): in kW, switched up after HA's last five minutes.
+  "sensor.pump": [
+    [MIDNIGHT + 12 * H, "0.6"],
+    [NOW - 6 * MIN, "2"],
+    [NOW - 3 * MIN, "3.1"],
+  ],
+  "sensor.imp2": [
+    [MIDNIGHT + 12 * H, "500"],
+    [NOW - 2 * MIN, "0"],
+  ],
+  "sensor.exp2": [[NOW - 2 * MIN, "800"]],
+  "sensor.bout": [[NOW - 20 * MIN, "300"]],
+  "sensor.bin": [[NOW - 20 * MIN, "0"]],
+  // pv2 has means but no readings; pv3 readings but no statistics.
+  "sensor.pv1": [
+    [NOW - 20 * MIN, "1000"],
+    [NOW - MIN, "1200"],
+  ],
+  "sensor.pv3": [[NOW - 20 * MIN, "50"]],
+  // Small in its means, a moment's spike in the readings.
+  "sensor.c3": [
+    [NOW - 20 * MIN, "10"],
+    [NOW - 2 * MIN, "3000"],
+  ],
+  // A reading every second.
+  "sensor.fast": Array.from({ length: 240 }, (_, i): [number, string] => [
+    NOW - 4 * MIN + i * 1000,
+    String(100 + i),
+  ]),
   "sensor.soc": [
     [MIDNIGHT + 10 * H, "40"],
     [MIDNIGHT + 11 * H, "unavailable"],
@@ -120,6 +160,22 @@ const FIVE: Record<string, [number, number, number, number][]> = {
   "sensor.dryer": [[NOW - 30 * H, 2000, 1900, 2100]],
   // Below a watt, then no row: on the log axis' floor, then a gap (DF-21).
   "sensor.idle": [[MIDNIGHT + 6 * H, 0.4, 0.3, 0.5]],
+  // HA's last five minutes end at 12:25, five minutes before now (DF-22).
+  "sensor.pump": [
+    [NOW - 15 * MIN, 600, 590, 610],
+    [NOW - 10 * MIN, 650, 600, 700],
+  ],
+  "sensor.imp2": [
+    [NOW - 15 * MIN, 500, 450, 550],
+    [NOW - 10 * MIN, 500, 450, 550],
+  ],
+  "sensor.exp2": [[NOW - 10 * MIN, 0, 0, 0]],
+  "sensor.pv1": [[NOW - 10 * MIN, 1000, 900, 1100]],
+  "sensor.pv2": [[NOW - 10 * MIN, 500, 400, 600]],
+  "sensor.c3": [[NOW - 10 * MIN, 10, 10, 10]],
+  "sensor.fast": [[NOW - 10 * MIN, 100, 100, 100]],
+  "sensor.bout": [[NOW - 10 * MIN, 300, 250, 350]],
+  "sensor.bin": [[NOW - 10 * MIN, 0, 0, 0]],
   "sensor.roof": [
     [MIDNIGHT + 6 * H, 1000, 900, 1100],
     [MIDNIGHT + 6 * H + 300_000, 2000, 1800, 2200],
@@ -507,6 +563,17 @@ describe("the state of charge below (REQ DF-5)", () => {
     expect(line?.data).toContainEqual([MIDNIGHT + 10 * H, 40]);
     expect(line?.data).toContainEqual([MIDNIGHT + 11 * H, null]);
     expect(line?.data.at(-1)).toEqual([NOW, 70]);
+    // Held every five minutes between two readings, so the tooltip finds the
+    // state at any time (Markus 02.11.2026); none in a gap.
+    expect(line?.data).toContainEqual([MIDNIGHT + 10 * H + 5 * MIN, 40]);
+    // Held right up to the gap, not one step short (review).
+    expect(line?.data).toContainEqual([MIDNIGHT + 11 * H, 40]);
+    expect(line?.data).toContainEqual([MIDNIGHT + 12 * H + 25 * MIN, 70]);
+    expect(
+      (line?.data as [number, number | null][]).some(
+        (p) => p[0] > MIDNIGHT + 11 * H && p[0] < MIDNIGHT + 12 * H,
+      ),
+    ).toBe(false);
     // Same axis as the power chart above.
     expect(c?.options.xAxis.min).toBe(NOW - 24 * H);
     expect(c?.options.xAxis.max).toBe(NOW);
@@ -1178,5 +1245,314 @@ describe("the house with its consumers (REQ DF-21)", () => {
     const el = await mount(WITH);
     const g = await open(el, "grid");
     expect(toggle(g, "consumers")).toBeFalsy();
+  });
+});
+
+describe("the live end: readings after HA's last five minutes (REQ DF-22)", () => {
+  afterEach(() => {
+    asked = [];
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  const PUMP = { ...CONFIG, consumers: [{ entity: "sensor.pump", name: "Pumpe" }] };
+  const T = (s: Series) => s.data.map((p) => (Array.isArray(p) ? p[0] : p.value[0]));
+  const Y = (s: Series) => s.data.map((p) => (Array.isArray(p) ? p[1] : p.value[1]));
+
+  async function openRow(el: Card, key: string) {
+    let params: unknown;
+    el.addEventListener("show-dialog", (ev) => {
+      params = (ev as CustomEvent).detail.dialogParams;
+    });
+    el.shadowRoot?.querySelector<HTMLElement>(`.row[data-key="${key}"] .row-hit`)?.click();
+    const dialog = document.createElement(DETAIL_NAME) as Dialog;
+    document.body.appendChild(dialog);
+    await dialog.showDialog(params);
+    await settle(dialog);
+    return dialog;
+  }
+
+  it("goes on from the last five minutes with the readings, in watts, up to now", async () => {
+    const el = await mount(PUMP);
+    const d = await openRow(el, "sensor.pump");
+    const series = chart(d, "power")?.data ?? [];
+    const mean = series.find((s) => s.name === "Pumpe") as Series;
+    // The means, then from 12:25 each reading held until the next, then now.
+    expect(T(mean)).toEqual([NOW - 15 * MIN, NOW - 10 * MIN, NOW - 5 * MIN, NOW - 3 * MIN, NOW]);
+    expect(Y(mean)).toEqual([600, 650, 2000, 3100, 3100]);
+    // No band where there is no smallest and largest reading.
+    const span = series.find((s) => s.name.endsWith("-span")) as Series;
+    expect(Y(span).slice(2)).toEqual([null, null, null]);
+    expect(asked.filter((m) => m.type === "history/history_during_period")).toHaveLength(1);
+  });
+
+  it("names a reading as such in the tooltip, a mean as before", async () => {
+    const el = await mount(PUMP);
+    const d = await openRow(el, "sensor.pump");
+    const c = chart(d, "power");
+    const tip = (c?.options as unknown as { tooltip: { formatter: (p: unknown) => unknown } })
+      .tooltip.formatter;
+    const at = (t: number) => {
+      const box = document.createElement("div");
+      const points = (c?.data ?? []).map((s) => ({
+        seriesName: s.name,
+        value: (s.data as [number, number | null][]).find((p) => p[0] === t) ?? [t, null],
+        axisValueLabel: "T",
+      }));
+      render(tip(points) as never, box);
+      return text(box);
+    };
+    expect(at(NOW - 3 * MIN)).toBe("T · MesswertPumpe: 3,10 kW");
+    expect(at(NOW - 10 * MIN)).toBe("TPumpe: 0,65 kW (0,60 kW – 0,70 kW)");
+    expect(at(NOW - 10 * MIN)).not.toContain("Messwert");
+  });
+
+  it("lines a mirrored pair up on common moments, an unknown reading a gap", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, grid: { import: "sensor.imp2", export: "sensor.exp2" } },
+    });
+    const d = await open(el, "grid");
+    const series = chart(d, "power")?.data ?? [];
+    const imp = series.find((s) => s.name === "Bezug") as Series;
+    const exp = series.find((s) => s.name === "Einspeisung") as Series;
+    expect(T(imp).slice(-3)).toEqual([NOW - 5 * MIN, NOW - 2 * MIN, NOW]);
+    expect(T(exp).slice(-3)).toEqual([NOW - 5 * MIN, NOW - 2 * MIN, NOW]);
+    expect(Y(imp).slice(-3)).toEqual([500, 0, 0]);
+    expect(Y(exp).slice(-3)).toEqual([null, -800, -800]);
+  });
+
+  it("not when HA's last five minutes lie further back: a quiet sensor, not a lag", async () => {
+    const el = await mount();
+    const d = await open(el, "grid");
+    const imp = (chart(d, "power")?.data ?? []).find((s) => s.name === "Bezug") as Series;
+    expect(values(imp)).toEqual([800, 0]);
+  });
+
+  it("the means alone when the history fails", async () => {
+    const el = await mount(PUMP);
+    const hass = fakeHass();
+    const ask = hass.callWS;
+    el.hass = {
+      ...hass,
+      callWS: (async (msg: Record<string, unknown>) => {
+        if (msg.type === "history/history_during_period") throw new Error("recorder away");
+        return ask(msg as never);
+      }) as HomeAssistant["callWS"],
+    };
+    const d = await openRow(el, "sensor.pump");
+    const mean = (chart(d, "power")?.data ?? []).find((s) => s.name === "Pumpe") as Series;
+    expect(Y(mean)).toEqual([600, 650]);
+  });
+
+  it("stacks the readings; a source without one a gap, never a made-up 0 (review)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: {
+        ...CONFIG.entities,
+        solar: [
+          { entity: "sensor.pv1", name: "Dach" },
+          { entity: "sensor.pv2", name: "Garage" },
+          { entity: "sensor.pv3", name: "Balkon" },
+        ],
+      },
+    });
+    const d = await open(el, "solar");
+    const series = chart(d, "power")?.data ?? [];
+    const of = (name: string) => series.find((s) => s.name === name) as Series;
+    expect(T(of("Dach")).slice(-3)).toEqual([NOW - 5 * MIN, NOW - MIN, NOW]);
+    expect(Y(of("Dach")).slice(-3)).toEqual([1000, 1200, 1200]);
+    // Means, but no reading: a gap, and so is the sum.
+    expect(Y(of("Garage"))).toEqual([500, null, null, null]);
+    // No statistics, so no live end: 0 as a quiet source, as before.
+    expect(Y(of("Balkon"))).toEqual([0, 0, 0, 0]);
+    expect(
+      Y(
+        series.find(
+          (s) => s.name !== "Dach" && s.name !== "Garage" && s.name !== "Balkon",
+        ) as Series,
+      ),
+    ).toEqual([1500, null, null, null]);
+    const tip = (
+      chart(d, "power")?.options as unknown as {
+        tooltip: { formatter: (p: unknown) => unknown };
+      }
+    ).tooltip.formatter;
+    const box = document.createElement("div");
+    render(
+      tip([
+        { seriesName: "Dach", value: [NOW - MIN, 1200], axisValue: NOW - MIN, axisValueLabel: "T" },
+      ]) as never,
+      box,
+    );
+    expect(text(box)).toContain("Messwert");
+  });
+
+  it("gives a sensor without statistics no live end of its own", async () => {
+    const el = await mount({
+      ...CONFIG,
+      consumers: [
+        { entity: "sensor.pump", name: "Pumpe" },
+        { entity: "sensor.pv3", name: "Ohne" },
+      ],
+    });
+    const d = await open(el, "house");
+    d.shadowRoot?.querySelector<HTMLElement>('button.toggle[data-toggle="consumers"]')?.click();
+    await settle(d);
+    const pump = (chart(d, "power")?.data ?? []).find((s) => s.name === "Pumpe") as Series;
+    expect(Y(pump).at(-1)).toBe(3100);
+    const lines = (d as unknown as { _lines: { id: string }[] })._lines.map((l) => l.id);
+    expect(lines).toContain("sensor.pv3");
+    const ohne = (chart(d, "power")?.data ?? []).find((s) => s.name === "Ohne") as
+      | Series
+      | undefined;
+    expect(ohne ? values(ohne) : []).toEqual([]);
+  });
+
+  it("picks a consumer by its means, not by a moment's reading (review)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      consumers: [{ entity: "sensor.c3", name: "Kurz", min_w: 100 }],
+    });
+    const d = await open(el, "house");
+    d.shadowRoot?.querySelector<HTMLElement>('button.toggle[data-toggle="consumers"]')?.click();
+    await settle(d);
+    expect(
+      d.shadowRoot
+        ?.querySelector('.picks button[data-key="sensor.c3"]')
+        ?.getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  it("thins a sensor read every second to one moment per ten seconds", async () => {
+    const el = await mount({ ...CONFIG, consumers: [{ entity: "sensor.fast", name: "Schnell" }] });
+    const d = await openRow(el, "sensor.fast");
+    const mean = (chart(d, "power")?.data ?? []).find((s) => s.name === "Schnell") as Series;
+    const tail = T(mean).filter((t) => t >= NOW - 5 * MIN);
+    expect(tail.length).toBeLessThanOrEqual(4 * 6 + 2);
+    expect(tail.at(-1)).toBe(NOW);
+    // Each one a reading as measured: the last one, 339 W, up to now.
+    expect(Y(mean).at(-1)).toBe(339);
+  });
+
+  it("grows while open: each new state on the end, at most every ten seconds", async () => {
+    const el = await mount(PUMP);
+    const d = (await openRow(el, "sensor.pump")) as Dialog & { hass?: HomeAssistant };
+    const hassWith = (pump: string) => {
+      const hass = fakeHass();
+      hass.states["sensor.pump"] = { ...hass.states["sensor.pump"], state: pump };
+      return hass;
+    };
+    const pump = () => (chart(d, "power")?.data ?? []).find((s) => s.name === "Pumpe") as Series;
+    try {
+      vi.setSystemTime(NOW + 11_000);
+      d.hass = hassWith("4");
+      await settle(d);
+      expect(T(pump()).at(-1)).toBe(NOW + 11_000);
+      expect(Y(pump()).at(-1)).toBe(4000);
+      // The axis along up to now.
+      expect(chart(d, "power")?.options.xAxis.max).toBe(NOW + 11_000);
+      // Not again within ten seconds.
+      vi.setSystemTime(NOW + 15_000);
+      d.hass = hassWith("5");
+      await settle(d);
+      expect(Y(pump()).at(-1)).toBe(4000);
+      vi.setSystemTime(NOW + 22_000);
+      d.hass = hassWith("unavailable");
+      await settle(d);
+      expect(T(pump()).at(-1)).toBe(NOW + 22_000);
+      expect(Y(pump()).at(-1)).toBeNull();
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("does not grow without a live end", async () => {
+    const el = await mount();
+    const d = (await open(el, "grid")) as Dialog & { hass?: HomeAssistant };
+    const before = (chart(d, "power")?.data ?? []).map((s) => s.data.length);
+    try {
+      vi.setSystemTime(NOW + 60_000);
+      d.hass = fakeHass();
+      await settle(d);
+      expect((chart(d, "power")?.data ?? []).map((s) => s.data.length)).toEqual(before);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("puts a change at the time HA took it, and holds it up to now (review)", async () => {
+    const el = await mount(PUMP);
+    const d = (await openRow(el, "sensor.pump")) as Dialog & { hass?: HomeAssistant };
+    const pump = () => (chart(d, "power")?.data ?? []).find((s) => s.name === "Pumpe") as Series;
+    try {
+      vi.setSystemTime(NOW + 11_000);
+      const hass = fakeHass();
+      hass.states["sensor.pump"] = {
+        ...hass.states["sensor.pump"],
+        state: "4",
+        last_updated: new Date(NOW + 5_000).toISOString(),
+      };
+      d.hass = hass;
+      await settle(d);
+      // The old "now" gave way: the change at 12:30:05, held up to 12:30:11.
+      expect(T(pump()).slice(-3)).toEqual([NOW - 3 * MIN, NOW + 5_000, NOW + 11_000]);
+      expect(Y(pump()).slice(-3)).toEqual([3100, 4000, 4000]);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("keeps today's axis at midnight while it grows", async () => {
+    localStorage.setItem("enerlens-detail-range", "today");
+    const el = await mount(PUMP);
+    const d = (await openRow(el, "sensor.pump")) as Dialog & { hass?: HomeAssistant };
+    try {
+      vi.setSystemTime(NOW + 11_000);
+      d.hass = fakeHass();
+      await settle(d);
+      expect(chart(d, "power")?.options.xAxis.max).toBe(MIDNIGHT + 24 * H);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("grows the state of charge below with the power, a new reading in its place", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: { discharge: "sensor.bout", charge: "sensor.bin" } },
+    });
+    const d = (await open(el, "battery")) as Dialog & { hass?: HomeAssistant };
+    const soc = () => chart(d, "soc")?.data.find((s) => s.name === "Ladestand") as Series;
+    try {
+      vi.setSystemTime(NOW + 6 * MIN);
+      const hass = fakeHass();
+      hass.states["sensor.soc"] = {
+        ...hass.states["sensor.soc"],
+        state: "71",
+        last_updated: new Date(NOW + 2 * MIN).toISOString(),
+      };
+      d.hass = hass;
+      await settle(d);
+      const data = soc().data as [number, number | null][];
+      // 70 held up to the new reading, 71 from then on, up to now.
+      expect(data.filter((p) => p[0] >= NOW)).toEqual([
+        [NOW, 70],
+        [NOW + 2 * MIN, 71],
+        [NOW + 5 * MIN, 71],
+        [NOW + 6 * MIN, 71],
+      ]);
+      expect(chart(d, "soc")?.options.xAxis.max).toBe(NOW + 6 * MIN);
+      // Ticks off the grid leave no trail of held points behind (review).
+      for (const later of [6 * MIN + 17_000, 6 * MIN + 31_000, 6 * MIN + 45_000]) {
+        vi.setSystemTime(NOW + later);
+        d.hass = { ...hass };
+        await settle(d);
+      }
+      expect((soc().data as [number, number | null][]).filter((p) => p[0] > NOW + 5 * MIN)).toEqual(
+        [[NOW + 6 * MIN + 45_000, 71]],
+      );
+    } finally {
+      vi.setSystemTime(NOW);
+    }
   });
 });

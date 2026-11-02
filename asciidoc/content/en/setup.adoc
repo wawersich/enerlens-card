@@ -117,8 +117,10 @@ with both directions in one chart: import or discharge upwards, export or
 charge downwards, and for the battery its state of charge below. In the power
 view it shows, like Home Assistant's own history, the 5-minute mean and faintly
 the range from the lowest to the highest reading, over today, 24 h, 48 h or
-7 days (the card remembers your last choice); in the energy mode the kWh per
+7 days (the card remembers your last choice). As Home Assistant writes a 5-minute
+mean only once the 5 minutes are over, the line then goes on up to now with
+the readings themselves. In the energy mode it shows the kWh per
 hour or day (see link:energy.html#detail[Energy]). The energy mode, too, can
-only show both directions with a pair. With a signed sensor the tap opens that
-sensor's own history in Home Assistant.
+only show both directions with a pair. With a signed sensor the window shows one
+line with its sign, export or charging below zero.
 

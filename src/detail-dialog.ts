@@ -20,6 +20,7 @@ import {
 import { type EnergyView, firstWeekday, formatDay, timeZoneOf } from "./energy-view";
 import { formatEnergy, formatPower, localeFor } from "./format";
 import { localize } from "./localize";
+import { POWER_UNITS, readPowerW } from "./model";
 import { type DetailNode, arrowsFor, openMoreInfo } from "./render/cross";
 import { radioStep } from "./render/header";
 import type {
@@ -115,6 +116,10 @@ function rememberedRange(stored: string | null): PowerRange {
 /** The state of charge: measured states, and hourly extremes before them (DF-5). */
 interface SocData {
   line: [number, number | null][];
+  /** When the last reading was taken: what came after it is held (DF-5). */
+  last?: number;
+  /** The spacing of the held points, five minutes or an hour beside days. */
+  step?: number;
   band: { start: number; min: number; max: number }[];
 }
 
@@ -495,6 +500,27 @@ function held(
 }
 
 /**
+ * A held value repeated at each step between two readings (DF-5, Markus
+ * 02.11.2026: the tooltip found only the next change, hours away). The state
+ * holds until the next one - measured, not worked out (rule 8). Repeats
+ * nothing it already has, so it can run again over its own result.
+ */
+export function filled(line: [number, number | null][], step: number): [number, number | null][] {
+  const out: [number, number | null][] = [];
+  for (const [k, point] of line.entries()) {
+    out.push(point);
+    const next = line[k + 1];
+    if (!next || point[1] === null) continue;
+    for (let t = Math.floor(point[0] / step) * step + step; t < next[0]; t += step) {
+      out.push([t, point[1]]);
+    }
+    // Held right up to a gap, not one step short of it (review).
+    if (next[1] === null && next[0] > point[0]) out.push([next[0], point[1]]);
+  }
+  return out;
+}
+
+/**
  * The state of charge as measured. Where the history no longer reaches (the
  * recorder keeps ten days by default), the hours before it as a band of their
  * smallest and largest value - measured extremes, never a mean (DF-5, ENT-13).
@@ -513,9 +539,15 @@ async function socData(
     Math.ceil((now - from) / 60_000),
     HISTORY_TIMEOUT_MS,
   );
-  const line = held(history[entity] ?? [], from, now, (v) => v);
+  const samples = history[entity] ?? [];
+  const spacing = step === "day" ? HOUR : FIVE_MINUTES;
+  const line = filled(
+    held(samples, from, now, (v) => v),
+    spacing,
+  );
+  const last = samples.at(-1)?.t;
   const first = line[0]?.[0] ?? now;
-  if (first - from <= HOUR) return { line, band: [] };
+  if (first - from <= HOUR) return { line, band: [], last, step: spacing };
   const stats = (await hass.callWS({
     type: "recorder/statistics_during_period",
     start_time: new Date(from).toISOString(),
@@ -527,7 +559,37 @@ async function socData(
   const band = (stats?.[entity] ?? [])
     .filter((r) => r.min !== null && r.max !== null && r.start < first)
     .map((r) => ({ start: r.start, min: r.min as number, max: r.max as number }));
-  return { line, band };
+  return { line, band, last, step: spacing };
+}
+
+/** A tooltip's first line: the time, and from the live end on "reading" (DF-22). */
+function headOf(
+  point:
+    | { value: [number, number | null]; axisValue?: unknown; axisValueLabel?: string }
+    | undefined,
+  live: number,
+  hass: HomeAssistant,
+): string {
+  const label = point?.axisValueLabel ?? "";
+  // Where the pointer is on the axis, not where one series' point happens to be.
+  const at = typeof point?.axisValue === "number" ? point.axisValue : point?.value[0];
+  return at !== undefined && at >= live ? `${label} · ${localize("detail.reading", hass)}` : label;
+}
+
+/** The plain tooltip of a stack or a sum: the time, then each series (DF-22). */
+function plainTip(raw: unknown, live: number, hass: HomeAssistant, watts: (v: number) => string) {
+  const points = (Array.isArray(raw) ? raw : [raw]) as {
+    seriesName: string;
+    value: [number, number | null];
+    axisValue?: unknown;
+    axisValueLabel?: string;
+  }[];
+  return tipLines([
+    headOf(points[0], live, hass),
+    ...points.map(
+      (p) => `${p.seriesName}: ${typeof p.value[1] === "number" ? watts(p.value[1]) : "—"}`,
+    ),
+  ]);
 }
 
 /**
@@ -562,6 +624,120 @@ interface StatRow5 {
   mean: number | null;
   min: number | null;
   max: number | null;
+  /** A reading after the last five minutes, not a mean (DF-22). */
+  live?: boolean;
+  /** The last reading held up to now - moves along as the window grows. */
+  held?: boolean;
+}
+
+const FIVE_MINUTES = 5 * 60_000;
+/** The live end covers HA's lag, not a sensor gone quiet for longer (DF-22). */
+const LIVE_MAX_MS = 15 * 60_000;
+
+/** One live moment at most per this long: a 1 Hz sensor would bring hundreds (review). */
+const LIVE_STEP_MS = 10_000;
+
+/** A reading's factor to watts, as the card reads the node (K-8); undefined: not used. */
+function wattsFactor(hass: HomeAssistant, entity: string): number | undefined {
+  const unit = unitOf(hass, entity);
+  if (unit) return POWER_UNITS[unit];
+  return hass.states?.[entity]?.attributes?.device_class === "power" ? 1 : undefined;
+}
+
+/** Where the live end starts: the end of the latest five minutes, if recent (DF-22). */
+function liveStart(rows: Record<string, StatRow5[]>, ids: string[], now: number) {
+  const ends = ids.flatMap((id) => {
+    const last = rows[id]?.at(-1);
+    return last ? [last.start + FIVE_MINUTES] : [];
+  });
+  if (ends.length === 0) return undefined;
+  const from = Math.max(...ends);
+  return from < now && now - from <= LIVE_MAX_MS ? from : undefined;
+}
+
+/**
+ * The time after HA's last five-minute row up to now, as the readings
+ * themselves (DF-22). Only for a sensor whose own rows reach that far - one
+ * without statistics, or gone quiet long ago, gets none. One common start,
+ * the end of the latest row; at each moment one of them changed (at most one
+ * per ten seconds, the latest), every such sensor with its last reading, or
+ * a gap where there is none - so sums and stacks line up. In watts (K-8).
+ */
+export function liveEnd(
+  hass: HomeAssistant,
+  rows: Record<string, StatRow5[]>,
+  history: Record<string, { t: number; v: number | null }[]>,
+  from: number,
+  now: number,
+): Record<string, StatRow5[]> {
+  const readings = new Map<string, { t: number; v: number | null }[]>();
+  for (const [entity, own] of Object.entries(rows)) {
+    const last = own.at(-1);
+    if (!last || last.start + FIVE_MINUTES < now - LIVE_MAX_MS) continue;
+    const factor = wattsFactor(hass, entity);
+    const samples = factor === undefined ? [] : (history[entity] ?? []);
+    readings.set(
+      entity,
+      samples.map((s) => ({
+        t: s.t,
+        v: s.v === null || factor === undefined ? null : s.v * factor,
+      })),
+    );
+  }
+  const latest = new Map<number, number>();
+  for (const samples of readings.values()) {
+    for (const { t } of samples) {
+      if (t <= from || t >= now) continue;
+      const slot = Math.floor((t - from) / LIVE_STEP_MS);
+      latest.set(slot, Math.max(latest.get(slot) ?? t, t));
+    }
+  }
+  const times = [...new Set([from, ...latest.values(), now])].sort((a, b) => a - b);
+  const out = { ...rows };
+  for (const [entity, samples] of readings) {
+    let k = -1;
+    const tail: StatRow5[] = times.map((t) => {
+      while (k + 1 < samples.length && samples[k + 1].t <= t) k++;
+      const v = k < 0 ? null : samples[k].v;
+      return { start: t, mean: v, min: null, max: null, live: true, held: t === now };
+    });
+    out[entity] = [...out[entity], ...tail];
+  }
+  return out;
+}
+
+/**
+ * A value below the power with its state now (DF-22): a reading taken since
+ * the last one replaces what was held after it, the last is held up to now.
+ */
+function grown(
+  data: SocData,
+  state: { state: string; last_updated: string } | undefined,
+  now: number,
+): SocData {
+  const step = data.step ?? FIVE_MINUTES;
+  let last = data.last;
+  // What was held to an earlier now goes: the grid and the next now hold it (review).
+  let line = data.line.filter(([t]) => last === undefined || t <= last || t % step === 0);
+  // A clock ahead of the browser's: the reading now, not never (review).
+  const at = Math.min(now, Date.parse(state?.last_updated ?? ""));
+  if (state && Number.isFinite(at) && (last === undefined || at > last)) {
+    const value = Number.parseFloat(state.state);
+    line = [...line.filter(([t]) => t < at), [at, Number.isFinite(value) ? value : null]];
+    last = at;
+  }
+  const end = line.at(-1);
+  if (end && end[0] < now) line = [...line, [now, end[1]]];
+  return { ...data, line: filled(line, step), last };
+}
+
+/** Where the readings begin, if they do (DF-22). */
+function liveFrom(rows: Record<string, StatRow5[]>): number {
+  let from = Number.POSITIVE_INFINITY;
+  for (const list of Object.values(rows)) {
+    for (const r of list) if (r.live && r.start < from) from = r.start;
+  }
+  return from;
 }
 
 /** Five-minute mean, min and max per entity, in watts whatever the unit (DF-4). */
@@ -979,6 +1155,8 @@ export class EnerLensDetail extends LitElement {
     const state = params?.card.detailState();
     if (!params || !hass || !state) return;
     const ticket = ++this._ticket;
+    // No growing on the old figures while new ones come (DF-22, review).
+    this._loading = true;
     const current = () => ticket === this._ticket;
     // Dimmed while another period loads - not at the five-minute refresh (DF-10).
     if (dim) this._busy = true;
@@ -990,23 +1168,24 @@ export class EnerLensDetail extends LitElement {
       const range = this._powerRange(hass);
       this._shown = state.shown ?? [];
       const plan = planOf(params.node, state.config, hass, this._shown);
+      const ids = [
+        ...new Set([
+          ...(plan.parts ?? plan.series).map((s) => s.entity),
+          // The house with its consumers: theirs too (DF-21).
+          // Fetched with the house, so the chip only redraws (review).
+          ...(this._canShowConsumers(state.config)
+            ? state.config.consumers.map((c) => c.entity)
+            : []),
+        ]),
+      ];
       const figures = energy
         ? params.card.detailEnergy(energy)
-        : fiveMinutes(
-            hass,
-            [
-              ...new Set([
-                ...(plan.parts ?? plan.series).map((s) => s.entity),
-                // The house with its consumers: theirs too (DF-21).
-                // Fetched with the house, so the chip only redraws (review).
-                ...(this._canShowConsumers(state.config)
-                  ? state.config.consumers.map((c) => c.entity)
-                  : []),
-              ]),
-            ],
-            range.from,
-            Date.now(),
-          );
+        : fiveMinutes(hass, ids, range.from, Date.now());
+      // The readings for the live end, asked for with the means (DF-22, review).
+      const readings = energy
+        ? undefined
+        : fetchHistory(hass, ids, LIVE_MAX_MS / 60_000 + 2, HISTORY_TIMEOUT_MS);
+      readings?.catch(() => undefined);
       // Not left unhandled while the chart element is waited for.
       figures.catch(() => undefined);
       const ready = await this._chartReady();
@@ -1044,15 +1223,28 @@ export class EnerLensDetail extends LitElement {
           axis = { from: view.from, to: view.to, min: view.from, max: view.to };
         }
       } else {
-        const rows = (await figures) as Record<string, StatRow5[]>;
+        const means = (await figures) as Record<string, StatRow5[]>;
         if (!current()) return;
         if (
           !this._loaded &&
           plan.layout === "single" &&
-          !rows[plan.series[0]?.entity ?? ""]?.length
+          !means[plan.series[0]?.entity ?? ""]?.length
         ) {
           if (!this._backTo24h()) this._giveWay();
           return;
+        }
+        // Never past the axis' end, taken when the load began (review).
+        const now = Math.min(Date.now(), range.to);
+        const from = liveStart(means, ids, now);
+        let rows = means;
+        if (from !== undefined && readings) {
+          try {
+            rows = liveEnd(hass, means, await readings, from, now);
+          } catch (error) {
+            // Without the readings, the means alone.
+            console.warn(error);
+          }
+          if (!current()) return;
         }
         drawn.power = { range, rows };
         this._drawPower(range, rows);
@@ -1104,7 +1296,10 @@ export class EnerLensDetail extends LitElement {
         this._renewed.clear();
       }
     } finally {
-      if (current()) this._busy = false;
+      if (current()) {
+        this._busy = false;
+        this._loading = false;
+      }
     }
   }
 
@@ -1179,6 +1374,7 @@ export class EnerLensDetail extends LitElement {
     }
     const sides = plan.series;
     const power = state.config.power;
+    const live = liveFrom(rows);
     const mirrored = plan.layout === "mirrored";
     // A mirrored pair's lower half has no minus (DF-3); anything else keeps its sign.
     const watts = (v: number) =>
@@ -1260,7 +1456,7 @@ export class EnerLensDetail extends LitElement {
               : [low, low + span];
             return `${side.name}: ${watts(mean)} (${watts(a)} – ${watts(b)})`;
           });
-          return tipLines([points[0]?.axisValueLabel ?? "", ...lines]);
+          return tipLines([headOf(points[0], live, hass), ...lines]);
         },
       },
     };
@@ -1306,6 +1502,7 @@ export class EnerLensDetail extends LitElement {
       ),
     ].sort((a, b) => a - b);
     const houseMeans = parts.map((p) => meansOf(p.entity));
+    const live = liveFrom(rows);
     const restParts: Part[] = [
       ...parts,
       ...this._shown.map((entity) => ({ entity, invert: false, quiet: true, minus: true })),
@@ -1336,7 +1533,12 @@ export class EnerLensDetail extends LitElement {
       this._picked = new Set([
         ...config.consumers
           .filter((c, i) => {
-            const peak = Math.max(...lines[i].values.map((v) => v ?? Number.NEGATIVE_INFINITY));
+            // Picked by the means, not by a moment's reading (DF-22, review).
+            const peak = Math.max(
+              ...lines[i].values.map((v, k) =>
+                v === null || starts[k] >= live ? Number.NEGATIVE_INFINITY : v,
+              ),
+            );
             return peak >= (c.minW ?? config.minConsumerW);
           })
           .map((c) => c.key),
@@ -1419,7 +1621,7 @@ export class EnerLensDetail extends LitElement {
             .sort((a, b) => b.v - a.v)
             .map((l) => `${l.name}: ${watts(l.v)}`);
           return tipLines([
-            points[0]?.axisValueLabel ?? "",
+            headOf(points[0], live, hass),
             html`<b>${plan.series[0]?.name}: ${total === null ? "—" : watts(total)}</b>`,
             ...rest,
           ]);
@@ -1554,10 +1756,14 @@ export class EnerLensDetail extends LitElement {
       (part) => new Map((rows[part.entity] ?? []).map((r) => [r.start, r.mean])),
     );
     const starts = [...new Set(means.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
+    const live = liveFrom(rows);
     const own = parts.map((part, i) =>
       starts.map((t) => {
         const v = means[i].get(t);
-        return v === undefined || v === null ? 0 : part.invert ? -v : v;
+        // A quiet source writes no five minutes: 0. A reading not to be had is a gap (DF-22).
+        if (v === undefined) return 0;
+        if (v === null) return t >= live ? null : 0;
+        return part.invert ? -v : v;
       }),
     );
     const watts = (v: number) =>
@@ -1572,8 +1778,8 @@ export class EnerLensDetail extends LitElement {
       tooltip: {
         trigger: "axis",
         confine: true,
-        // In its sign: a source's standby below zero shows as such.
-        valueFormatter: (v: unknown) => (typeof v === "number" ? watts(v) : "—"),
+        // In its sign: a source's standby below zero shows as such; "reading" at the live end.
+        formatter: (raw: unknown) => plainTip(raw, live, hass, watts),
       },
     };
     chart.data = [
@@ -1599,7 +1805,10 @@ export class EnerLensDetail extends LitElement {
         z: 10,
         lineStyle: { width: 0.8, color: grey },
         itemStyle: { color: grey },
-        data: starts.map((t, k) => [t, own.reduce((sum, v) => sum + v[k], 0)]),
+        data: starts.map((t, k) => [
+          t,
+          own.some((v) => v[k] === null) ? null : own.reduce((sum, v) => sum + (v[k] as number), 0),
+        ]),
       },
     ];
     this.requestUpdate();
@@ -1625,6 +1834,7 @@ export class EnerLensDetail extends LitElement {
       (part) => new Map((rows[part.entity] ?? []).map((r) => [r.start, r.mean])),
     );
     const starts = [...new Set(means.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
+    const live = liveFrom(rows);
     const data = starts.map((t): [number, number | null] => [t, sumAt(parts, means, t)]);
     const watts = (v: number) =>
       `${v < 0 ? "−" : ""}${formatPower(Math.abs(v), hass, state.config.power)}`;
@@ -1638,8 +1848,8 @@ export class EnerLensDetail extends LitElement {
       tooltip: {
         trigger: "axis",
         confine: true,
-        // In its sign: a source's standby below zero shows as such.
-        valueFormatter: (v: unknown) => (typeof v === "number" ? watts(v) : "—"),
+        // In its sign: a source's standby below zero shows as such; "reading" at the live end.
+        formatter: (raw: unknown) => plainTip(raw, live, hass, watts),
       },
     };
     chart.data = [
@@ -1971,12 +2181,85 @@ export class EnerLensDetail extends LitElement {
     const dark = (this.hass?.themes as { darkMode?: boolean } | undefined)?.darkMode;
     const before = this._dark;
     this._dark = dark;
-    if (before === undefined || before === dark || !this._drawn) return;
+    if (before === undefined || before === dark || !this._drawn) {
+      this._liveTick();
+      return;
+    }
     const drawn = this._drawn;
     if (drawn.power) this._drawPower(drawn.power.range, drawn.power.rows);
     else if (this._view) this._drawEnergy(this._view);
     drawn.extras?.forEach((e, i) => {
       if (e) this._drawSoc(i, e.data, e.min, e.max);
+    });
+  }
+
+  /** When the live end grew last (DF-22). */
+  private _grownAt = 0;
+
+  /** Set while figures load: the live end waits for them (review). */
+  private _loading = false;
+
+  /**
+   * The live end grows while the window is open (DF-22, Markus 02.11.2026),
+   * at most every ten seconds: a reading that changed since goes on the end
+   * at the time HA took it, every sensor with its state then - so sums line
+   * up - and the last reading is held up to now. The axes move along, today
+   * stays at midnight. The means stay with the five-minute load (DF-10).
+   */
+  private _liveTick(): void {
+    const hass = this._hass;
+    const power = this._drawn?.power;
+    if (!hass || !power || !this._power || this._loading || document.hidden) return;
+    const now = Date.now();
+    if (now - this._grownAt < LIVE_STEP_MS) return;
+    const growing = Object.entries(power.rows).filter(([, list]) => list.at(-1)?.live);
+    if (growing.length === 0) return;
+    this._grownAt = now;
+    const rows = { ...power.rows };
+    const kept = growing.map(([entity, list]) => {
+      const own = list.at(-1)?.held ? list.slice(0, -1) : list;
+      return [entity, own] as const;
+    });
+    const last = Math.max(...kept.map(([, own]) => own.at(-1)?.start ?? 0));
+    const changed = Math.min(
+      now,
+      Math.max(
+        ...growing.map(([entity]) => {
+          const at = Date.parse(hass.states?.[entity]?.last_updated ?? "");
+          return Number.isFinite(at) ? at : 0;
+        }),
+      ),
+    );
+    for (const [entity, own] of kept) {
+      const value = readPowerW(hass, entity);
+      const tail: StatRow5[] = [];
+      if (changed > last)
+        tail.push({ start: changed, mean: value, min: null, max: null, live: true });
+      if (now > Math.max(changed, last)) {
+        tail.push({ start: now, mean: value, min: null, max: null, live: true, held: true });
+      }
+      rows[entity] = [...own, ...tail];
+    }
+    // Today ends at midnight; a range back from now moves its end along.
+    const to = this._range === "today" ? power.range.to : Math.max(power.range.to, now);
+    const range = { from: power.range.from, to };
+    const drawn = this._drawn as NonNullable<typeof this._drawn>;
+    drawn.power = { range, rows };
+    this._drawPower(range, rows);
+    // The values below grow as well, their axis with the power's (DF-5).
+    const params = this._params;
+    const state = params?.card.detailState();
+    const extras =
+      params && state
+        ? extrasShown(planOf(params.node, state.config, hass, this._shown), false)
+        : [];
+    drawn.extras = drawn.extras?.map((e, i) => {
+      const entity = extras[i]?.entity;
+      if (!e || !entity) return e;
+      const data = grown(e.data, hass.states?.[entity], now);
+      const moved = { ...e, data, max: to };
+      this._drawSoc(i, moved.data, moved.min, moved.max);
+      return moved;
     });
   }
 

@@ -473,6 +473,7 @@
     "48h": "48 h",
     "mean": "Five-minute mean",
     "aggregation": "5-minute mean · band: lowest to highest reading",
+    "reading": "reading",
     "consumers": "Consumers",
     "log": "log",
     "all": "all",
