@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `single` style, the filled button now has the same blue edge as the
   buttons beside it, light and dark. Unfolded as a segment it looks as
   before.
+- **The detail window remembers its range:** in the power view it opens on
+  the range you picked last on this card (today, 24 h, 48 h or 7 days)
+  instead of always on 24 h, like the quick buttons and with
+  `view.remember: false` switched off.
 
 ## [1.4.0] - 2026-11-01
 

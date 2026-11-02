@@ -119,7 +119,8 @@ auf Netz oder Batterie öffnet dann ein Fenster mit beiden Richtungen in einem
 Diagramm: Bezug bzw. Entladen nach oben, Einspeisung bzw. Laden nach unten, bei
 der Batterie der Ladestand darunter. In der Leistungsansicht zeigt es wie der
 Verlauf von Home Assistant das 5-Minuten-Mittel und blass die Spanne vom
-kleinsten bis zum größten Wert, im Energie-Modus die kWh je Stunde oder Tag
+kleinsten bis zum größten Wert, über Heute, 24 h, 48 h oder 7 Tage (die Karte
+merkt sich deine letzte Wahl), im Energie-Modus die kWh je Stunde oder Tag
 (siehe link:energy.html#detail[Energie]). Auch der Energie-Modus kann nur mit
 einem Paar beide Richtungen zeigen. Mit einem vorzeichenbehafteten Sensor öffnet
 der Tipp dessen eigenen Verlauf aus Home Assistant.

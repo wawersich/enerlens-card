@@ -104,6 +104,8 @@ const SHOW_ALL_KEY = "show-all";
 /** The energy chip's choice, "kw" for the power view (REQ EM-2). */
 const ENERGY_KEY = "energy-period";
 const PV_SCALE_KEY = "pv-scale";
+/** The detail window's range in the power view (DF-4): one for all its windows. */
+const DETAIL_RANGE_KEY = "detail-range";
 /** A period is asked for again this often while it is shown (REQ EM-4). */
 const ENERGY_REFRESH_MS = 5 * 60_000;
 /** After a failed request, the next one comes this much sooner. */
@@ -536,6 +538,19 @@ class EnerLensCard extends LitElement {
       period: this._energyPending !== undefined ? this._energyPending : this._period,
       periods: this._energyOffer(this._config).filter((p): p is EnergyPeriod => p !== null),
     };
+  }
+
+  /** The range the detail window picked last on this card (DF-4), if remembered. */
+  detailRange(): string | null {
+    if (!this._config?.view.remember || isPreview(this)) return null;
+    return load(this._memKey(DETAIL_RANGE_KEY));
+  }
+
+  /** Remembers a range picked in the detail window (DF-4, like V-11). */
+  keepDetailRange(range: string): void {
+    if (this._config?.view.remember && !isPreview(this)) {
+      store(this._memKey(DETAIL_RANGE_KEY), range);
+    }
   }
 
   /**

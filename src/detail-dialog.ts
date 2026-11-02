@@ -105,6 +105,13 @@ function zoomOf(el: ChartElement): ZoomWindow | undefined {
   return chartOf(el)?.getOption()?.dataZoom?.[0];
 }
 
+/** A remembered range if it is one of DF-4's, else HA's 24 h. */
+function rememberedRange(stored: string | null): PowerRange {
+  return stored !== null && Object.prototype.hasOwnProperty.call(POWER_RANGES, stored)
+    ? (stored as PowerRange)
+    : "24h";
+}
+
 /** The state of charge: measured states, and hourly extremes before them (DF-5). */
 interface SocData {
   line: [number, number | null][];
@@ -122,6 +129,9 @@ export interface DetailCard extends HTMLElement {
     shown?: string[];
   } | null;
   detailEnergy(period: EnergyPeriod): Promise<EnergyView>;
+  /** The power range picked last, null when nothing is remembered (DF-4). */
+  detailRange(): string | null;
+  keepDetailRange(range: string): void;
 }
 
 /** What the card hands to the dialog manager (REQ DF-2). */
@@ -863,7 +873,7 @@ export class EnerLensDetail extends LitElement {
     const state = params.card.detailState();
     this._period = state?.period ?? null;
     this._power = this._period === null;
-    this._range = "24h";
+    this._range = rememberedRange(params.card.detailRange());
     void this._load();
     this._timer = setInterval(() => void this._load(), REFRESH_MS);
     await this.updateComplete;
@@ -1041,7 +1051,7 @@ export class EnerLensDetail extends LitElement {
           plan.layout === "single" &&
           !rows[plan.series[0]?.entity ?? ""]?.length
         ) {
-          this._giveWay();
+          if (!this._backTo24h()) this._giveWay();
           return;
         }
         drawn.power = { range, rows };
@@ -1071,6 +1081,10 @@ export class EnerLensDetail extends LitElement {
           }
         });
       }
+      // Kept once its figures are shown: a range that fails is never the next start (DF-4).
+      if (!energy && this._loaded && this._drawn?.range !== drawn.range) {
+        params.card.keepDetailRange(drawn.range);
+      }
       this._drawn = drawn;
       this._loaded = true;
       this._renew = false;
@@ -1078,7 +1092,9 @@ export class EnerLensDetail extends LitElement {
     } catch (error) {
       console.warn(error);
       // The first answer failed: nothing to show, more-info instead (DF-7).
-      if (current() && !this._loaded) this._giveWay();
+      if (current() && !this._loaded) {
+        if (!this._backTo24h()) this._giveWay();
+      }
       // A later one: the chips go back to what is still shown, so they never
       // name a period whose figures are not there (DF-3).
       else if (current() && this._drawn) {
@@ -1098,6 +1114,17 @@ export class EnerLensDetail extends LitElement {
     this._renew = true;
     this._renewed.clear();
     void this._load(true);
+  }
+
+  /**
+   * A remembered range that brings nothing on opening (today just after
+   * midnight, a failed answer): once more on 24 h before more-info (DF-4, DF-7).
+   */
+  private _backTo24h(): boolean {
+    if (!this._power || this._range === "24h") return false;
+    this._range = "24h";
+    void this._load();
+    return true;
   }
 
   private _pickRange(range: PowerRange): void {

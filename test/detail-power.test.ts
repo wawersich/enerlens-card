@@ -374,6 +374,111 @@ describe("the detail window in the power view (REQ DF-4)", () => {
     expect(text(el.shadowRoot?.querySelector(".energy-chip .mode-label.active"))).toBe("kW");
   });
 
+  it("starts on the range picked last on this card (DF-4, 02.11.2026)", async () => {
+    const el = await mount();
+    const d = await open(el, "grid");
+    chips(d)[2].click();
+    await settle(d);
+    expect(localStorage.getItem("enerlens-detail-range")).toBe("48h");
+    d.remove();
+    // One value for all the card's windows: the house opens on 48 h too.
+    const again = await open(el, "house");
+    expect(chips(again).map((c) => c.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "false",
+      "true",
+      "false",
+    ]);
+    expect(chart(again, "power")?.options.xAxis.min).toBe(NOW - 48 * H);
+  });
+
+  it("keeps the range per card with a memory_id", async () => {
+    const el = await mount({ ...CONFIG, memory_id: "abc12345" });
+    const d = await open(el, "grid");
+    chips(d)[0].click();
+    await settle(d);
+    expect(localStorage.getItem("enerlens-detail-range")).toBeNull();
+    const keys = Object.keys(localStorage).filter((k) => k.endsWith(":detail-range"));
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toContain("abc12345");
+    expect(localStorage.getItem(keys[0])).toBe("today");
+  });
+
+  it("starts on 24 h with view.remember: false and stores nothing", async () => {
+    localStorage.setItem("enerlens-detail-range", "7d");
+    const el = await mount({ ...CONFIG, view: { ...CONFIG.view, remember: false } });
+    const d = await open(el, "grid");
+    expect(chips(d)[1].getAttribute("aria-checked")).toBe("true");
+    chips(d)[2].click();
+    await settle(d);
+    expect(localStorage.getItem("enerlens-detail-range")).toBe("7d");
+  });
+
+  it("ignores a stored value it does not know", async () => {
+    localStorage.setItem("enerlens-detail-range", "3d");
+    const el = await mount();
+    const d = await open(el, "grid");
+    expect(chips(d)[1].getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("reads the range back from the card's own key with a memory_id", async () => {
+    const el = await mount({ ...CONFIG, memory_id: "abc12345" });
+    chips(await open(el, "grid"))[0].click();
+    await settle(el);
+    document.querySelector(DETAIL_NAME)?.remove();
+    const again = await open(el, "grid");
+    expect(chips(again)[0].getAttribute("aria-checked")).toBe("true");
+    // A card without the id keeps its own value.
+    const other = await mount();
+    expect(chips(await open(other, "grid"))[1].getAttribute("aria-checked")).toBe("true");
+  });
+
+  /** HA refuses five-minute figures reaching further back than 30 hours. */
+  function refuseLongRanges(el: Card) {
+    const hass = fakeHass();
+    const ask = hass.callWS;
+    el.hass = {
+      ...hass,
+      callWS: (async (msg: Record<string, unknown>) => {
+        if (msg.period === "5minute" && Date.parse(String(msg.start_time)) < NOW - 30 * H) {
+          throw new Error("timeout");
+        }
+        return ask(msg as never);
+      }) as HomeAssistant["callWS"],
+    };
+  }
+
+  it("keeps no range whose figures failed (DF-4, review)", async () => {
+    const el = await mount();
+    refuseLongRanges(el);
+    const d = await open(el, "grid");
+    chips(d)[2].click();
+    await settle(d);
+    // Back on what is shown, and not the next start.
+    expect(chips(d)[1].getAttribute("aria-checked")).toBe("true");
+    expect(localStorage.getItem("enerlens-detail-range")).toBeNull();
+    chips(d)[0].click();
+    await settle(d);
+    expect(localStorage.getItem("enerlens-detail-range")).toBe("today");
+  });
+
+  it("opens on 24 h when the remembered range brings nothing, not on more-info", async () => {
+    localStorage.setItem("enerlens-detail-range", "7d");
+    const el = await mount();
+    refuseLongRanges(el);
+    const d = await open(el, "grid");
+    expect(chips(d)[1].getAttribute("aria-checked")).toBe("true");
+    expect(chart(d, "power")?.options.xAxis.min).toBe(NOW - 24 * H);
+  });
+
+  it("leaves the energy mode as it was: the card's period, nothing stored", async () => {
+    localStorage.setItem("enerlens-detail-range", "48h");
+    const el = await mount({ ...CONFIG, view: { ...CONFIG.view, default_energy: "today" } });
+    const d = await open(el, "grid");
+    expect(chips(d).map((c) => text(c))).not.toContain("48 h");
+    expect(localStorage.getItem("enerlens-detail-range")).toBe("48h");
+  });
+
   it("names both sides as buttons that open their more-info (DF-9)", async () => {
     const el = await mount();
     const d = await open(el, "grid");

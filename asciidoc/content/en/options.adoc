@@ -33,7 +33,7 @@
 |`view.modes` |all three |Quick button smoothing: `current`, `avg_short`, `avg_long`; one = fixed
 |`view.avg_short_minutes` |`2` |Short averaging window
 |`view.avg_long_minutes` |`15` |Long averaging window
-|`view.remember` |`true` |Remember the last value of each quick button in this browser
+|`view.remember` |`true` |Remember the last value of each quick button and the range in the detail window in this browser
 |`memory_id` |set by the editor |What the card remembers is kept under this id, per view; any name will do. Without it, cards share it
 |`view.energy_periods` |`power`, `today`, `24h`, `week` if the statistics are there |Quick button power/energy: `power`, `today`, `24h`, `week`, `7d`, `month`, `30d`; one = fixed, `++[++power++]++` = no energy. Grid and battery show both directions with two sensors each, otherwise the grid its balance and the battery nothing
 |`view.pv_scales` |both, as far as possible |Quick button PV scale: `share` (100%, shares on the ring), `peak` (% kWp, needs `kwp` on every source); one = fixed
