@@ -369,15 +369,24 @@ const white = (rgb) => rgb.every((v) => 255 - v <= CLEAR_TOLERANCE);
  * picture must not be white. 1.5 px out the border's anti-aliasing is past,
  * so a gap narrower than that goes unseen. The page draws idle lines plainly;
  * a dimmed one (inactive_lines: dim) would read as white here.
+ *
+ * Each step looks at three pixels across the line, not one: rounded onto the
+ * picture, the probe can land on the faint anti-aliased edge of a thin idle
+ * line instead of its middle (03.11.2026, battery in `left` at 100 %: line at
+ * x 396-397, probe at 398 reading 238). A gap needs all three white.
  */
 function gaps(rims, png) {
   const k = png.width / rims.view;
   const found = [];
   for (const { key, x, y, outer, towards } of rims.nodes) {
+    const across = [-towards[1], towards[0]];
     for (let d = outer + 1.5; d <= outer + 3; d += 0.5) {
-      const px = Math.round((x + d * towards[0]) * k);
-      const py = Math.round((y + d * towards[1]) * k);
-      if (white(png.pixel(px, py))) {
+      const empty = [-1, 0, 1].every((s) => {
+        const px = Math.round((x + d * towards[0]) * k + s * across[0]);
+        const py = Math.round((y + d * towards[1]) * k + s * across[1]);
+        return white(png.pixel(px, py));
+      });
+      if (empty) {
         found.push(`Lücke vor ${key}`);
         break;
       }
