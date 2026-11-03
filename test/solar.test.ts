@@ -124,6 +124,28 @@ describe("PV-5: the ring's segments", () => {
     expect(segments[2].isRest).toBe(true);
   });
 
+  it("% kWp with no source carrying anything: no ring at all, not a grey one (PV-5)", () => {
+    // 4 W and 3 W lie under both thresholds of carries() - min_consumer_w and
+    // flow.min_w - so neither source gets a segment.
+    const config = normalizeConfig(raw([ROOF, BALCONY], { min_consumer_w: 10 }));
+    const dusk = buildModel(
+      hassOf({ ...STATES, "sensor.roof": "4", "sensor.balcony": "3" }),
+      config,
+    );
+    expect(solarSegments(dusk, config, "peak")).toEqual([]);
+    expect(solarSegments(dusk, config, "share")).toEqual([]);
+    const night = buildModel(
+      hassOf({ ...STATES, "sensor.roof": "0", "sensor.balcony": "0" }),
+      config,
+    );
+    expect(solarSegments(night, config, "peak")).toEqual([]);
+    const away = buildModel(
+      hassOf({ ...STATES, "sensor.roof": "unavailable", "sensor.balcony": "unavailable" }),
+      config,
+    );
+    expect(solarSegments(away, config, "peak")).toEqual([]);
+  });
+
   it("% kWp above the peak (bright haze) is squeezed onto the full ring", () => {
     const config = normalizeConfig(raw([ROOF, BALCONY]));
     const model = buildModel(
@@ -165,9 +187,8 @@ describe("PV-5: the ring's segments", () => {
       config,
     );
     expect(solarSegments(model, config, "share")).toEqual([]);
-    expect(solarSegments(model, config, "peak").map((s) => [s.key, s.share])).toEqual([
-      [FREE_KEY, 1],
-    ]);
+    // Not even the free grey part: no ring, as under "100 %" (PV-5, 03.11.2026).
+    expect(solarSegments(model, config, "peak")).toEqual([]);
   });
 
   it("follows a given order - the rows' order from the last tick (L-7)", () => {

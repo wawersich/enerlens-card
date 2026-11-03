@@ -147,6 +147,18 @@ describe("PV ring and scale on the card (PV-4 to PV-6)", () => {
     expect(segments(el)).toContain("__pv_free__");
   });
 
+  it("% kWp with nothing produced: no ring, the PV node keeps its border (PV-5)", async () => {
+    const el = await mount(
+      { view: { pv_scales: ["peak"] } },
+      { ...STATES, "sensor.roof": "0", "sensor.balcony": "0" },
+    );
+    const node = el.shadowRoot?.querySelector(".node.solar") as HTMLElement;
+    expect(node.querySelector("svg.ring")).toBeNull();
+    expect(node.classList.contains("has-ring")).toBe(false);
+    expect(node.style.borderColor).not.toBe("transparent");
+    expect(node.style.borderColor).not.toBe("");
+  });
+
   it("remembers the scale per card (V-12)", async () => {
     const first = await mount({ memory_id: "pv1" });
     (first.shadowRoot?.querySelector(".pv-scale-chip") as HTMLButtonElement).click();

@@ -60,7 +60,9 @@ export function refreshSolarRows(rows: ListEntry[], model: Model): ListEntry[] {
  * negative ones (an inverter drawing at night) carry nothing and are left out.
  * "% kWp": each such source a part as long as its power against the peak of
  * all sources together; a plant above its peak (bright haze) is squeezed onto
- * the full ring, below it the rest of the ring is a free grey part.
+ * the full ring, below it the rest of the ring is a free grey part - but only
+ * next to at least one source: with none, no ring at all, as under "100 %"
+ * (PV-5, 03.11.2026: a ring all grey made the PV look switched off).
  *
  * `order` keeps the segments in the rows' order from the last tick, so the
  * ring does not reshuffle between ticks (L-7); without it, by power.
@@ -97,7 +99,7 @@ export function solarSegments(
     entity: source.entity,
     isRest: false,
   }));
-  if (scale === "peak") {
+  if (scale === "peak" && segments.length > 0) {
     const used = segments.reduce((total, segment) => total + segment.share, 0);
     const free = 1 - used;
     if (free > 1e-9) {
