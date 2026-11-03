@@ -4,14 +4,12 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.5.1] - 2026-11-03
 
 ### Changed
-- **No grey PV ring when the PV produces next to nothing:** under *% kWp*,
-  with no source above the list threshold (dusk, night), the ring used to be
-  all grey, and the PV looked switched off while its power stood beside it.
-  It now shows its plain border, as under *100 %*; the ring comes back with
-  the first source.
+- **No grey PV ring at dusk and night:** under *% kWp*, with no source above
+  the list threshold, the PV node now keeps its border, as under *100 %*,
+  instead of an all-grey ring.
 
 ## [1.5.0] - 2026-11-03
 
