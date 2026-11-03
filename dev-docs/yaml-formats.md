@@ -446,7 +446,7 @@ and is ignored. Nested blocks are not checked for unknown keys.
 
 ---
 
-## Unreleased (next version) - fill in version, date, tag and commit on release
+## 1.5.0 - 2026-11-03 - tag `v1.5.0` (commit: `git rev-list -n1 v1.5.0`)
 
 - `flow.battery_task` (`zero_grid | supply_house`, default `zero_grid`):
   **ADDED + CHANGED-COMPATIBLE.** (REQ 4.5, P-14, issue #27.) YAML only, no
