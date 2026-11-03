@@ -143,6 +143,11 @@ export type ContentAlign = "left" | "center" | "right";
 
 /** How connections without flow are drawn (REQ P-9). */
 export type InactiveLines = "show" | "dim" | "hide";
+/**
+ * What the battery is for, deciding who trades with the grid when battery and
+ * grid work against each other (REQ 4.5, P-14).
+ */
+export type BatteryTask = "zero_grid" | "supply_house";
 /** How the ring changes when the list reorders or its values change (REQ R-4). */
 export type RingAnimation = "overtake" | "fade" | "jump";
 export type NodeKey = "solar" | "grid" | "house" | "battery";
@@ -373,6 +378,8 @@ export interface RawConfig extends LovelaceCardConfig {
     fast_s?: number;
     animation?: AnimationMode;
     inactive_lines?: InactiveLines;
+    /** What the battery is for (P-14); YAML only. */
+    battery_task?: BatteryTask;
     /** Id from flow-designs.json, or "none" for the plain dots (P-10). */
     design?: string;
     /** One colour for every dot on the card; unset each follows its line. */
@@ -628,6 +635,8 @@ export interface Config {
     fastS: number;
     animation: AnimationMode;
     inactiveLines: InactiveLines;
+    /** What the battery is for (P-14). */
+    batteryTask: BatteryTask;
     /** Curved or straight, by default after the arrangement (AN-2). */
     lines: LineForm;
     /**

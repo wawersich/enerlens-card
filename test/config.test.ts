@@ -557,6 +557,7 @@ describe("defaults (section 3)", () => {
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show",
+      batteryTask: "zero_grid",
       lines: "curved",
       design: "none",
       dotSize: 100,
@@ -705,6 +706,7 @@ describe("numeric ranges (schema rules)", () => {
       fastS: 1,
       animation: "off",
       inactiveLines: "show",
+      batteryTask: "zero_grid",
       lines: "curved",
       design: "none",
       dotSize: 100,
@@ -730,6 +732,19 @@ describe("numeric ranges (schema rules)", () => {
       () => normalizeConfig(cfg({ flow: { inactive_lines: "invisible" } })),
       "error.config.enum",
     );
+  });
+
+  it("reads flow.battery_task, zero_grid by default; a typo warns and keeps the default (P-14)", () => {
+    expect(normalizeConfig(cfg({})).flow.batteryTask).toBe("zero_grid");
+    for (const task of ["zero_grid", "supply_house"] as const) {
+      expect(normalizeConfig(cfg({ flow: { battery_task: task } })).flow.batteryTask).toBe(task);
+    }
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(
+      normalizeConfig(cfg({ flow: { battery_task: "house" } } as never)).flow.batteryTask,
+    ).toBe("zero_grid");
+    expect(warn.mock.calls.map((c) => String(c[0])).join()).toContain("flow.battery_task");
+    warn.mockRestore();
   });
 
   it("raises avg_long_minutes above a longer short window, with a warning (V-1, E-1)", () => {

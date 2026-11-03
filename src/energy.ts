@@ -7,7 +7,7 @@
  * tested on invented rows (EM-4, EM-8 - EM-12).
  */
 import { splitFlows } from "./flow";
-import type { EnergyPeriod, Flows } from "./types";
+import type { BatteryTask, EnergyPeriod, Flows } from "./types";
 
 export type { EnergyPeriod } from "./types";
 
@@ -52,6 +52,8 @@ export interface EnergyQuery {
    * sensor would - the card adds them to the house afterwards.
    */
   houseExcluded?: string[];
+  /** What the battery is for (P-14): the order after the proven exchange. */
+  batteryTask?: BatteryTask;
   /**
    * The detail window's bars (DF-3): the start of the bucket - hour or day -
    * a slot belongs to. Without it no bars are collected.
@@ -481,9 +483,21 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     }
 
     if (missing.length === 1 && !derived && complete) {
-      const balance = fromBalance(missing[0], values);
-      values[missing[0]] = Math.max(0, missing[0] === "house" ? balance - pastMeter : balance);
-      filled.add(missing[0]);
+      const role = missing[0];
+      if (role === "house") {
+        // As the sensor would read it: what the house can use, never below
+        // zero, without the PV past its meter - below zero where that PV
+        // outran the house, like a measured hour; either sign, no jump (PV-3).
+        values.house = Math.max(0, fromBalance(role, values)) - pastMeter;
+      } else {
+        // The balance takes the house as it really is, the PV past the
+        // sensor included, as the node and the flows do (PV-3, REQ 4.5).
+        values[role] = Math.max(
+          0,
+          fromBalance(role, { ...values, house: values.house + pastMeter }),
+        );
+      }
+      filled.add(role);
     } else {
       for (const role of missing) {
         values[role] = get(q.roles[role] as string).neighbour(slot, to);
@@ -514,13 +528,17 @@ export function integrateEnergy(q: EnergyQuery): EnergyResult {
     }
 
     if (complete) {
+      // The means of a block (REQ 4.5). The house takes the PV behind its
+      // meter, as the node shows it (PV-3); a derived house holds every
+      // source already.
       const split = splitFlows(
         values.solar,
         values.import,
         values.export,
         values.discharge,
         values.charge,
-        values.house,
+        derived === "house" ? values.house : values.house + pastMeter,
+        { block: true, task: q.batteryTask },
       );
       for (const [id, w] of Object.entries(split) as [keyof Flows, number][]) {
         flows[id] = (flows[id] ?? 0) + w * hours;

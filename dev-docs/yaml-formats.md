@@ -446,6 +446,27 @@ and is ignored. Nested blocks are not checked for unknown keys.
 
 ---
 
+## Unreleased (next version) - fill in version, date, tag and commit on release
+
+- `flow.battery_task` (`zero_grid | supply_house`, default `zero_grid`):
+  **ADDED + CHANGED-COMPATIBLE.** (REQ 4.5, P-14, issue #27.) YAML only, no
+  editor field; the editor keeps it as it is. Lenient: an unknown value warns
+  and falls back to `zero_grid`. It decides who trades with the grid when
+  battery and grid work against each other: with `zero_grid` the line runs
+  battery -> grid while the battery discharges into an export, and
+  grid -> battery while it charges from an import; `supply_house` draws PV ->
+  grid with battery -> house, and PV -> battery with grid -> house - the
+  picture up to 1.4.0. Old configurations without the key get the new
+  drawing in those two moments; `supply_house` restores the old one. Only the
+  lines change, never a node value.
+- No key, but **CHANGED-COMPATIBLE** in how existing YAML renders (REQ 4.5):
+  the flows are now always assigned in full where the readings allow it (in
+  the kWh views lines could be missing), and the kWh views take the house with
+  PV marked `house: excluded` included, as its node already did.
+- No new legacy spelling, so no new configuration under `test/legacy/`.
+
+---
+
 ## Summary table - legacy spellings
 
 | Legacy spelling | Current form | Since | Still read? | Reader (`src/config.ts`) | Test |

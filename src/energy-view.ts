@@ -20,6 +20,7 @@ import {
 import { splitFlows } from "./flow";
 import { localize } from "./localize";
 import type {
+  BatteryTask,
   Config,
   EnergyMark,
   EnergyMarks,
@@ -204,6 +205,9 @@ export function energyKey(config: Config): string {
     config.solarSources.map((s) => s.entity),
     config.consumers.map((c) => c.entity),
     config.flow.minW,
+    // Both change how a period's flows are split (REQ 4.5, P-14, PV-3).
+    config.flow.batteryTask,
+    config.solarSources.map((s) => s.excluded),
   ]);
 }
 
@@ -363,6 +367,7 @@ export async function fetchEnergy(
     hourly: splitSigned(rowsOf(hourly, ids, inverted), signed),
     fiveMin: splitSigned(fiveMinRows, signed),
     pvZeroBelowW: config.flow.minW,
+    batteryTask: config.flow.batteryTask,
     since: sinceOf(splitSigned(rowsOf(daily, ids, inverted), signed), from - DAY),
     solarSources:
       roles.solar === SOLAR_SUM ? config.solarSources.map((source) => source.entity) : undefined,
@@ -370,7 +375,18 @@ export async function fetchEnergy(
       .filter((source) => source.excluded)
       .map((source) => source.entity),
   });
-  const view = toView(result, period, roles, inverted, hass, now, periodKey(period, from), signed);
+  const view = toView(
+    result,
+    period,
+    roles,
+    inverted,
+    hass,
+    now,
+    periodKey(period, from),
+    signed,
+    config.solarSources.filter((source) => source.excluded).map((source) => source.entity),
+    config.flow.batteryTask,
+  );
   view.detail = {
     step,
     bars: result.bars ?? {},
@@ -406,6 +422,10 @@ export function toView(
   now: number,
   start = result.from,
   signed: Roles["signed"] = new Map(),
+  /** PV sources behind the house meter: part of the house, as the node shows it (PV-3). */
+  pastMeterSources: string[] = [],
+  /** What the battery is for (P-14). */
+  batteryTask: BatteryTask = "zero_grid",
 ): EnergyView {
   // Right after midnight a period is minutes long; a floor keeps the means sane.
   const hours = Math.max((result.to - result.from) / HOUR, 1 / 12);
@@ -496,6 +516,16 @@ export function toView(
     // split once, from its means.
     const mean = (role: EnergyRole) => Math.max(0, (result.main[role]?.wh ?? 0) / hours);
     const net = mean("import") - mean("export");
+    // PV behind the house meter is part of the house as the node shows it -
+    // added in sign, clamped once, as the model does (PV-3).
+    const pastMeterWh = pastMeterSources.reduce(
+      (sum, id) => sum + (result.sources?.[id]?.wh ?? 0),
+      0,
+    );
+    const house =
+      roles.house === undefined
+        ? mean("house")
+        : Math.max(0, ((result.main.house?.wh ?? 0) + pastMeterWh) / hours);
     Object.assign(
       flowsW,
       splitFlows(
@@ -504,7 +534,9 @@ export function toView(
         Math.max(-net, 0),
         quietBattery ? 0 : mean("discharge"),
         quietBattery ? 0 : mean("charge"),
-        mean("house"),
+        house,
+        // One block: the whole period (EM-8).
+        { block: true, task: batteryTask },
       ),
     );
   } else if (!roles.import?.endsWith(POSITIVE)) {

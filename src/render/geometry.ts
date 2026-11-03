@@ -35,22 +35,38 @@ const RIGHT = CX + SPREAD - NODE_R;
 /** Control point offset - larger values bow the curves further out. */
 const BOW = 54;
 
+const GRID_BATTERY = `M${LEFT},${CY} C${LEFT + BOW},${CY} ${CX},${BOTTOM - BOW} ${CX},${BOTTOM}`;
+
+/**
+ * The same single-segment path (M..L, M..Q or M..C) the other way round.
+ * Numbers may carry an exponent; a pair may be split by a comma or a space.
+ */
+export function reversePath(d: string): string {
+  const command = d.match(/[LQC]/i)?.[0].toUpperCase() ?? "L";
+  const numbers = d.match(/-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi) ?? [];
+  const points: string[] = [];
+  for (let i = 0; i + 1 < numbers.length; i += 2) points.push(`${numbers[i]},${numbers[i + 1]}`);
+  const [first, ...rest] = points.reverse();
+  return `M${first} ${command}${rest.join(" ")}`;
+}
+
 /**
  * Path per connection. Curves through the middle for the diagonals, straight
- * lines for grid-house and solar-battery. `battery_grid` shares the
- * grid-battery path; direction is carried by the dots, not the geometry.
+ * lines for grid-house and solar-battery. `battery_grid` is the grid-battery
+ * line the other way round: the dots run along a path from its start, so the
+ * direction has to be in the geometry (#27).
  */
 export const PATHS: Record<ConnectionId, string> = {
   solar_house: `M${CX},${TOP} C${CX},${TOP + BOW} ${RIGHT - BOW},${CY} ${RIGHT},${CY}`,
   solar_grid: `M${CX},${TOP} C${CX},${TOP + BOW} ${LEFT + BOW},${CY} ${LEFT},${CY}`,
   solar_battery: `M${CX},${TOP} L${CX},${BOTTOM}`,
   grid_house: `M${LEFT},${CY} L${RIGHT},${CY}`,
-  grid_battery: `M${LEFT},${CY} C${LEFT + BOW},${CY} ${CX},${BOTTOM - BOW} ${CX},${BOTTOM}`,
-  battery_grid: `M${LEFT},${CY} C${LEFT + BOW},${CY} ${CX},${BOTTOM - BOW} ${CX},${BOTTOM}`,
+  grid_battery: GRID_BATTERY,
+  battery_grid: reversePath(GRID_BATTERY),
   battery_house: `M${CX},${BOTTOM} C${CX},${BOTTOM - BOW} ${RIGHT - BOW},${CY} ${RIGHT},${CY}`,
 };
 
-/** Which connections exist as drawn lines - battery_grid shares a path. */
+/** Which connections exist as drawn lines - battery_grid runs on the grid-battery line. */
 export const DRAWN_CONNECTIONS: ConnectionId[] = [
   "solar_house",
   "solar_grid",
@@ -214,7 +230,7 @@ export function geometryFor(layout: Layout, lines: LineForm, withBattery: boolea
       solar_battery: triangle && !swap ? bow(nodePos, "battery") : line("solar", "battery"),
       grid_house: bows && swap ? outward(nodePos, "grid", "house", mid) : line("grid", "house"),
       grid_battery: gridBattery,
-      battery_grid: gridBattery,
+      battery_grid: reversePath(gridBattery),
       battery_house: line("battery", "house"),
     };
   }

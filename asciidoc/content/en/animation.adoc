@@ -46,6 +46,11 @@ first; with more power it gets faster, then more join, until top speed and the
 the plant* (default 6000 W); for more control the single thresholds are under
 *Fine-tune the motion*.
 
+*Which line runs.* Only the nodes are measured; the card derives how the power
+splits onto the lines. The default fits almost every installation; special
+cases are at the end of the page under
+<<battery-task,When battery and grid work against each other>>.
+
 What a dot looks like is its *design*: *Plain dots* (default) are a circle with
 nothing else, the others give it a bright core and, depending on the design, a
 glow. The design changes only the look, never speed or number.
@@ -82,3 +87,46 @@ flow:
   slow_s: 8                # seconds a run at the lower threshold
   fast_s: 3                # ... with a lot of power
 ----
+
+[#battery-task]
+== When battery and grid work against each other
+
+The default fits almost every installation; this chapter matters only if your
+battery has a different task. Which line runs is mostly clear. It is ambiguous
+only when battery and grid work against each other:
+
+* *A: battery discharges during export.*
+* *B: battery charges during import.*
+
+Which reading fits depends on the battery's task, set with
+`flow.battery_task`:
+
+* `zero_grid` (default): the battery is to keep the exchange with the grid at
+  zero - the usual self-consumption, and arbitrage with a dynamic tariff too.
+  PV supplies the house first; whatever the battery still trades with the grid
+  runs between battery and grid: in A the battery feeds the grid, in B it
+  charges from the grid.
+* `supply_house`: the battery supplies the house and stores PV, PV and grid do
+  the trading - useful with a high feed-in tariff, with "battery first", or for
+  the same picture as Home Assistant's energy dashboard. In A the PV goes to the
+  grid and the battery to the house, in B the PV charges the battery and the
+  house draws from the grid.
+
+This setting exists *in YAML only* - the editor has no field for it and leaves
+it as it is:
+
+[source,yaml]
+----
+flow:
+  battery_task: supply_house   # zero_grid (default) | supply_house
+----
+
+Try it: the values stand still, PV covers the house each time.
+
+++++
+<div class="card-demo" data-demo="batterytask" data-controls="case,task"></div>
+++++
+
+In the kWh views the card draws an exchange between battery and grid only as
+far as the values force it, because within one stretch of time discharging and
+exporting mostly happen one after the other.

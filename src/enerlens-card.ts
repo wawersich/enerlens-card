@@ -472,7 +472,7 @@ class EnerLensCard extends LitElement {
   /** Energy per connection over the period, or the live split (REQ EM-8). */
   private _flowsOf(model: Model): Flows {
     const period = this._period;
-    if (!period) return computeFlows(model);
+    if (!period) return computeFlows(model, this._config?.flow.batteryTask);
     return this._energyViews.get(period)?.flowsW ?? {};
   }
 
@@ -2043,6 +2043,13 @@ class EnerLensCard extends LitElement {
     const active = new Map(
       plans.map((p) => [p.connection, this._config?.colors[p.colorKey] ?? ""]),
     );
+    // Grid -> battery and battery -> grid share one line (#27): with both
+    // running it wears the colour of the larger flow.
+    const charging = plans.find((p) => p.connection === "grid_battery");
+    const exporting = plans.find((p) => p.connection === "battery_grid");
+    if (charging && exporting && exporting.w > charging.w) {
+      active.set("grid_battery", active.get("battery_grid") ?? "");
+    }
     this._lastEntries = new Map(
       breakdown.entries.map((e) => [e.key, { w: e.w, color: e.color, threshold: e.threshold }]),
     );

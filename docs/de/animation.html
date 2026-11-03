@@ -119,6 +119,12 @@ genauer will, findet die einzelnen Schwellen unter <strong>Feineinstellung der
 Bewegung</strong>.</p>
 </div>
 <div class="paragraph">
+<p><strong>Welche Linie läuft.</strong> Gemessen werden nur die Knoten; wie sich die Leistung auf
+die Linien verteilt, leitet die Karte ab. Für fast alle Anlagen passt der
+Standard; Sonderfälle stehen am Ende der Seite unter
+<a href="#battery-task">Wenn Akku und Netz gegeneinander arbeiten</a>.</p>
+</div>
+<div class="paragraph">
 <p>Wie ein Punkt aussieht, ist sein <strong>Design</strong>: <strong>Einfache Punkte</strong> (Standard) sind ein
 Kreis ohne alles, die übrigen geben ihm einen hellen Kern und je nach Design ein
 Glühen. Das Design ändert nur das Aussehen, nie Tempo oder Anzahl.</p>
@@ -162,10 +168,63 @@ flow:
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="battery-task"><a class="anchor" href="#battery-task"></a>Wenn Akku und Netz gegeneinander arbeiten</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Für fast alle Anlagen passt der Standard; dieses Kapitel braucht nur, wessen Akku
+eine andere Aufgabe hat. Welche Linie läuft, ist meist eindeutig. Mehrdeutig
+wird es nur, wenn Akku und Netz gegeneinander arbeiten:</p>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>A: Akku entlädt bei Einspeisung.</strong></li>
+<li><strong>B: Akku lädt bei Netzbezug.</strong></li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Welche Lesart passt, hängt von der Aufgabe des Akkus ab, einzustellen mit
+<code>flow.battery_task</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li><code>zero_grid</code> (Standard): Der Akku soll den Austausch mit dem Netz auf null
+halten – der übliche Eigenverbrauch, aber auch Arbitrage mit einem dynamischen
+Tarif. Die PV versorgt zuerst das Haus; was der Akku trotzdem mit dem Netz
+austauscht, läuft zwischen Akku und Netz: In A speist der Akku ins Netz ein,
+in B lädt er vom Netz.</li>
+<li><code>supply_house</code>: Der Akku versorgt das Haus und speichert PV, PV und Netz
+übernehmen den Handel – sinnvoll bei hoher Einspeisevergütung, bei
+Akku-Vorrang („Battery first“) oder für dasselbe Bild wie im
+Energie-Dashboard von Home Assistant. In A geht die PV ins Netz und der Akku ins Haus, in B lädt die PV
+den Akku, und das Haus bezieht aus dem Netz.</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Die Einstellung gibt es <strong>ausschließlich in YAML</strong> – der Editor hat dafür kein
+Feld und lässt sie unverändert:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">flow:
+  battery_task: supply_house   # zero_grid (Standard) | supply_house</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Zum Ausprobieren: Die Werte stehen still, PV deckt jeweils das Haus.</p>
+</div>
+<div class="card-demo" data-demo="batterytask" data-controls="case,task"></div>
+<div class="paragraph">
+<p>In den kWh-Ansichten zeichnet die Karte einen Austausch zwischen Akku und Netz
+nur so weit, wie die Werte ihn erzwingen, denn innerhalb eines Zeitabschnitts
+geschehen Entladen und Einspeisen meist nacheinander.</p>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT-Lizenz</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=ac72a2a4"></script>
+<script type="module" src="../assets/site.js?v=1a5b1e5a"></script>
 </body>
 </html>

@@ -709,11 +709,16 @@ export function renderCross(
   const withBattery = model.battery
     ? DRAWN_CONNECTIONS
     : DRAWN_CONNECTIONS.filter((id) => !BATTERY_LINKS.has(id));
+  // Battery -> grid runs on the grid-battery line (#27): either direction
+  // colours it, and it counts as carrying something.
+  const colourOf = (id: string) =>
+    activeConnections.get(id) ??
+    (id === "grid_battery" ? activeConnections.get("battery_grid") : undefined);
   // Connections without flow can be dropped entirely (REQ P-9). The nodes keep
   // their positions either way - the cross must not change shape with the data.
   const drawn =
     config.flow.inactiveLines === "hide"
-      ? withBattery.filter((id) => activeConnections.has(id))
+      ? withBattery.filter((id) => colourOf(id) !== undefined)
       : withBattery;
   /*
    * Lines that carry something are drawn last, so they lie on top.
@@ -726,7 +731,7 @@ export function renderCross(
    * that true.
    */
   const links = [...drawn].sort(
-    (a, b) => Number(activeConnections.has(a)) - Number(activeConnections.has(b)),
+    (a, b) => Number(colourOf(a) !== undefined) - Number(colourOf(b) !== undefined),
   );
 
   return html`
@@ -746,8 +751,8 @@ export function renderCross(
           ${links.map(
             (id) =>
               svg`<path
-                class="link ${activeConnections.has(id) ? "active" : `inactive-${config.flow.inactiveLines}`}"
-                style=${activeConnections.has(id) ? `stroke:${activeConnections.get(id)}` : ""}
+                class="link ${colourOf(id) !== undefined ? "active" : `inactive-${config.flow.inactiveLines}`}"
+                style=${colourOf(id) !== undefined ? `stroke:${colourOf(id)}` : ""}
                 d=${g.paths[id]}
               ></path>`,
           )}

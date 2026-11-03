@@ -490,6 +490,131 @@ describe("bars for the detail window (REQ DF-3)", () => {
     expect(r.main.house?.wh).toBe(3 * 1700);
   });
 
+  it("splits the flows with the house as the node shows it, PV past the meter included (PV-3, REQ 4.5)", () => {
+    const q = query({
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 2000, 2000, 2000]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 600, 600, 600]);
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(0), 1000, 1000, 1000]);
+    // The sensor sees 1000 of the 1600 the house uses: the balcony feeds the rest.
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), 1000, 1000, 1000]);
+    const r = integrateEnergy(q);
+    expect(r.flows.solar_house).toBeCloseTo(3 * 1600, 6);
+    expect(r.flows.solar_grid).toBeCloseTo(3 * 1000, 6);
+  });
+
+  it("draws grid -> battery in a block only where the means force it (REQ 4.5)", () => {
+    const q = query({
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    // Roof 400, balcony 600; house 1000 as used (sensor 400), charging 500,
+    // 500 from the grid - which an hour of means cannot place in time.
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 400, 400, 400]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 600, 600, 600]);
+    q.hourly.imp = hours(T0 - 24 * H, [...Array(24).fill(0), 500, 500, 500]);
+    q.hourly.chg = hours(T0 - 24 * H, [...Array(24).fill(0), 500, 500, 500]);
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), 400, 400, 400]);
+    const r = integrateEnergy(q);
+    expect(r.flows.grid_battery ?? 0).toBe(0);
+    expect(r.flows.solar_battery).toBeCloseTo(3 * 500, 6);
+    expect(r.flows.solar_house).toBeCloseTo(3 * 500, 6);
+    expect(r.flows.grid_house).toBeCloseTo(3 * 500, 6);
+  });
+
+  it("fills a missing export hour with the house as the node shows it (PV-3, EM-10)", () => {
+    const q = query({
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 2000, 2000, 2000]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 600, 600, 600]);
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    // The second export hour is missing; the sensor sees 1000 of 1600 W.
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(0), 1000, null, 1000]);
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), 1000, 1000, 1000]);
+    const r = integrateEnergy(q);
+    expect(r.main.export?.wh).toBeCloseTo(3 * 1000, 6);
+    expect(r.flows.solar_grid).toBeCloseTo(3 * 1000, 6);
+  });
+
+  it("never adds the balcony to a house derived from the balance - it holds it already", () => {
+    const q = query({
+      roles: { solar: "solar-sum", import: "imp", export: "exp", discharge: "dis", charge: "chg" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 2000, 2000, 2000]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 600, 600, 600]);
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(0), 1000, 1000, 1000]);
+    const r = integrateEnergy(q);
+    expect(r.flows.solar_house).toBeCloseTo(3 * 1600, 6);
+    expect(r.flows.solar_grid).toBeCloseTo(3 * 1000, 6);
+  });
+
+  it("fills a house hour below zero where the balcony outran the house, as the sensor would read it", () => {
+    const q = query({
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    // Roof 600, balcony 600, export 900: the house uses 300, its sensor reads -300.
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 600, 600, 600]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 600, 600, 600]);
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.exp = hours(T0 - 24 * H, [...Array(24).fill(0), 900, 900, 900]);
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), -300, null, -300]);
+    const r = integrateEnergy(q);
+    expect(r.main.house?.wh).toBeCloseTo(3 * -300, 6);
+    expect(r.flows.solar_house).toBeCloseTo(3 * 300, 6);
+    expect(r.flows.solar_grid).toBeCloseTo(3 * 900, 6);
+  });
+
+  it("fills a house hour without jumps: never below what the house can use, any balcony sign", () => {
+    const q = query({
+      roles: { ...query().roles, solar: "solar-sum" },
+      solarSources: ["roof", "balcony"],
+      houseExcluded: ["balcony"],
+    });
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.exp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 1000, 0, 1000]);
+    q.hourly.house = hours(T0 - 24 * H, [...Array(24).fill(500), 1000, null, 1000]);
+    // Inconsistent hour: charging 200 W with 1 W of balcony. The house uses
+    // nothing; its sensor would read -1 W, not -200.
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 100, 1, 100]);
+    q.hourly.chg = hours(T0 - 24 * H, [...Array(24).fill(0), 0, 200, 0]);
+    expect(integrateEnergy(q).main.house?.wh).toBeCloseTo(1000 - 1 + 1000, 6);
+    // Standby: the balcony draws 4 W. The house uses 496 W of the roof's 500;
+    // its sensor sees the balcony's draw too: 500.
+    q.hourly.roof = hours(T0 - 24 * H, [...Array(24).fill(0), 1000, 500, 1000]);
+    q.hourly.balcony = hours(T0 - 24 * H, [...Array(24).fill(0), 100, -4, 100]);
+    q.hourly.chg = hours(T0 - 24 * H, Array(27).fill(0));
+    expect(integrateEnergy(q).main.house?.wh).toBeCloseTo(1000 + 500 + 1000, 6);
+  });
+
+  it("hands the battery's task to the split - it decides where a remainder stays (P-14)", () => {
+    // PV 1000, house 1000, export 500: 500 W more go out than come in.
+    const q = query({ batteryTask: "supply_house" });
+    q.hourly.pv = hours(T0 - 24 * H, Array(27).fill(1000));
+    q.hourly.imp = hours(T0 - 24 * H, Array(27).fill(0));
+    q.hourly.exp = hours(T0 - 24 * H, Array(27).fill(500));
+    q.hourly.house = hours(T0 - 24 * H, Array(27).fill(1000));
+    const supply = integrateEnergy(q).flows;
+    expect(supply.solar_grid).toBeCloseTo(3 * 500, 6);
+    expect(supply.solar_house).toBeCloseTo(3 * 500, 6);
+    const zero = integrateEnergy({ ...q, batteryTask: "zero_grid" }).flows;
+    expect(zero.solar_house).toBeCloseTo(3 * 1000, 6);
+    expect(zero.solar_grid ?? 0).toBe(0);
+  });
+
   it("bars per consumer that add up to it, none before its own start (EM-12)", () => {
     const q = query({ bucketOf: twoHours, consumers: ["wallbox"] });
     // Statistics only from the second hour on.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { samplePath } from "../src/render/fan-path";
-import { NODE_R, PATHS, geometryFor } from "../src/render/geometry";
+import { NODE_R, PATHS, geometryFor, reversePath } from "../src/render/geometry";
 import type { NodeKey, RawConfig } from "../src/types";
 
 /*
@@ -119,6 +119,16 @@ describe("AN-1: where the nodes stand", () => {
   });
 });
 
+describe("reversePath (#27)", () => {
+  it("turns every kind of single segment round, exponents and spaces included", () => {
+    expect(reversePath("M1,2 L3,4")).toBe("M3,4 L1,2");
+    expect(reversePath("M1,2 Q3,4 5,6")).toBe("M5,6 Q3,4 1,2");
+    expect(reversePath("M-1.5,2 C3,-4 5,6 7.25,8")).toBe("M7.25,8 C5,6 3,-4 -1.5,2");
+    expect(reversePath("M1e-7,2 L3,4")).toBe("M3,4 L1e-7,2");
+    expect(reversePath("M10 10 L20 20")).toBe("M20,20 L10,10");
+  });
+});
+
 describe("AN-2: the lines", () => {
   for (const layout of [
     "cross",
@@ -135,7 +145,12 @@ describe("AN-2: the lines", () => {
           expect(near(start, g.nodePos[from])).toBeCloseTo(NODE_R, 0);
           expect(near(end, g.nodePos[to])).toBeCloseTo(NODE_R, 0);
         }
-        expect(g.paths.battery_grid).toBe(g.paths.grid_battery);
+        // Battery -> grid runs the same line the other way round (#27): its
+        // dots start at the battery.
+        const back = ends(g.paths.battery_grid);
+        expect(near(back.start, g.nodePos.battery)).toBeCloseTo(NODE_R, 0);
+        expect(near(back.end, g.nodePos.grid)).toBeCloseTo(NODE_R, 0);
+        expect(reversePath(g.paths.battery_grid)).toBe(g.paths.grid_battery);
       });
     }
   }

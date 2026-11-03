@@ -49,6 +49,7 @@
 |`flow.line_width` |`100` |Line width in percent, 30–150 - 100 is 3 px for the connections and 2 px for the lines to the list on a card with large nodes, thinner on smaller cards
 |`flow.lines` |`curved` for the cross, otherwise `straight` |Line form of the connections: `curved` or `straight`
 |`flow.inactive_lines` |`show` |`show`, `dim` or `hide`
+|`flow.battery_task` |`zero_grid` |The battery's task, YAML only: `zero_grid` (keep the exchange with the grid at zero) or `supply_house` (supply the house, store PV) - decides how the card draws the lines when battery and grid work against each other (link:animation.html[Animations])
 |`flow.animation` |`auto` |`auto`, `on` or `off`
 |`flow.min_w` |`10` |Below this no dots move. In the cross it also turns the line grey and drops the state word; for a consumer row the colour and the ring segment follow the list instead
 |`flow.peak_w` |`6000` |One knob for the motion: the power at which dots peak; the three thresholds below default to 1/12, 1/3 and 1/1 of it

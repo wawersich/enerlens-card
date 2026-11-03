@@ -49,6 +49,11 @@ ein einziger Wert, die *Höchstleistung der Anlage* (Standard 6000 W); wer es
 genauer will, findet die einzelnen Schwellen unter *Feineinstellung der
 Bewegung*.
 
+*Welche Linie läuft.* Gemessen werden nur die Knoten; wie sich die Leistung auf
+die Linien verteilt, leitet die Karte ab. Für fast alle Anlagen passt der
+Standard; Sonderfälle stehen am Ende der Seite unter
+<<battery-task,Wenn Akku und Netz gegeneinander arbeiten>>.
+
 Wie ein Punkt aussieht, ist sein *Design*: *Einfache Punkte* (Standard) sind ein
 Kreis ohne alles, die übrigen geben ihm einen hellen Kern und je nach Design ein
 Glühen. Das Design ändert nur das Aussehen, nie Tempo oder Anzahl.
@@ -86,3 +91,46 @@ flow:
   slow_s: 8                # Sekunden pro Runde an der unteren Schwelle
   fast_s: 3                # ... bei viel Leistung
 ----
+
+[#battery-task]
+== Wenn Akku und Netz gegeneinander arbeiten
+
+Für fast alle Anlagen passt der Standard; dieses Kapitel braucht nur, wessen Akku
+eine andere Aufgabe hat. Welche Linie läuft, ist meist eindeutig. Mehrdeutig
+wird es nur, wenn Akku und Netz gegeneinander arbeiten:
+
+* *A: Akku entlädt bei Einspeisung.*
+* *B: Akku lädt bei Netzbezug.*
+
+Welche Lesart passt, hängt von der Aufgabe des Akkus ab, einzustellen mit
+`flow.battery_task`:
+
+* `zero_grid` (Standard): Der Akku soll den Austausch mit dem Netz auf null
+  halten – der übliche Eigenverbrauch, aber auch Arbitrage mit einem dynamischen
+  Tarif. Die PV versorgt zuerst das Haus; was der Akku trotzdem mit dem Netz
+  austauscht, läuft zwischen Akku und Netz: In A speist der Akku ins Netz ein,
+  in B lädt er vom Netz.
+* `supply_house`: Der Akku versorgt das Haus und speichert PV, PV und Netz
+  übernehmen den Handel – sinnvoll bei hoher Einspeisevergütung, bei
+  Akku-Vorrang („Battery first“) oder für dasselbe Bild wie im
+  Energie-Dashboard von Home Assistant. In A geht die PV ins Netz und der Akku ins Haus, in B lädt die PV
+  den Akku, und das Haus bezieht aus dem Netz.
+
+Die Einstellung gibt es *ausschließlich in YAML* – der Editor hat dafür kein
+Feld und lässt sie unverändert:
+
+[source,yaml]
+----
+flow:
+  battery_task: supply_house   # zero_grid (Standard) | supply_house
+----
+
+Zum Ausprobieren: Die Werte stehen still, PV deckt jeweils das Haus.
+
+++++
+<div class="card-demo" data-demo="batterytask" data-controls="case,task"></div>
+++++
+
+In den kWh-Ansichten zeichnet die Karte einen Austausch zwischen Akku und Netz
+nur so weit, wie die Werte ihn erzwingen, denn innerhalb eines Zeitabschnitts
+geschehen Entladen und Einspeisen meist nacheinander.

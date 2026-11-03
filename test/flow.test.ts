@@ -88,6 +88,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      batteryTask: "zero_grid" as const,
       lines: "curved",
       design: "none",
       dotSize: 100,
@@ -148,21 +149,21 @@ describe("computeFlows (REQ 4.5)", () => {
     expect(flows).toEqual({ solar_house: 500, battery_house: 1000, grid_house: 500 });
   });
 
-  it("charges the battery from the grid when PV is exhausted (step 4)", () => {
+  it("charges the battery from the grid when PV is exhausted", () => {
     const flows = computeFlows(
       model({ solar: reading(0), house: reading(200), battery: signed(-800), grid: signed(1000) }),
     );
     expect(flows).toEqual({ grid_battery: 800, grid_house: 200 });
   });
 
-  it("exports from the battery when PV cannot fill the export (step 3)", () => {
+  it("exports from the battery when PV cannot fill the export", () => {
     const flows = computeFlows(
       model({ solar: reading(0), house: reading(0), battery: signed(700), grid: signed(-700) }),
     );
     expect(flows).toEqual({ battery_grid: 700 });
   });
 
-  it("prefers PV over the battery for export (step 2 before step 3)", () => {
+  it("prefers PV over the battery for export", () => {
     const flows = computeFlows(
       model({ solar: reading(400), house: reading(0), battery: signed(600), grid: signed(-1000) }),
     );

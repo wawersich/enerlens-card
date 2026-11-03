@@ -96,6 +96,7 @@ function config(
       fastS: 1.8,
       animation: "auto",
       inactiveLines: "show" as const,
+      batteryTask: "zero_grid" as const,
       lines: "curved",
       design: "none",
       dotSize: 100,

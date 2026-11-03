@@ -6,7 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`flow.battery_task`** (YAML only): what the battery is for decides who
+  trades with the grid when battery and grid work against each other -
+  `zero_grid` (default: the battery keeps the exchange with the grid at
+  zero) or `supply_house` (the battery supplies the house and stores PV, as
+  in Home Assistant's energy dashboard). With a live example in the docs.
+
 ### Changed
+- **Battery and grid working against each other are drawn as such (#27):**
+  when the battery discharges while power goes to the grid - typically for a
+  few seconds after a load switches off, or on purpose - the line now runs
+  battery -> grid; when it charges while power comes from the grid, grid ->
+  battery. PV supplies the house as far as it reaches. Before, the card drew
+  PV -> grid with battery -> house, and PV -> battery with grid -> house;
+  `flow.battery_task: supply_house` keeps that picture.
+- **No missing lines in the kWh views:** in hours with both import and export
+  part of the energy stayed unassigned, and a line could be missing entirely.
+  Now everything the values allow is assigned. Discharging and exporting
+  within one stretch of time are drawn as battery -> grid only as far as the
+  values force it, since they mostly happen one after the other.
 - **The orange energy button keeps its blue frame:** folded, or in the
   `single` style, the filled button now has the same blue edge as the
   buttons beside it, light and dark. Unfolded as a segment it looks as
@@ -24,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   holds until the next one, so the line now repeats it every five minutes and
   the tooltip finds the value at the time pointed at, not the next change
   hours away. The same holds for an EV's charge and other extra values.
+
+### Fixed
+- **Battery -> grid ran the wrong way:** its dots moved from the grid into
+  the battery and its line stayed grey (or vanished with idle lines hidden).
+  They now run from the battery to the grid on a line in the export colour.
+- **The kWh views left a balcony plant's power unassigned:** the flows took
+  the house sensor without the plant behind its meter, while the house node
+  includes it. The flows now take the house as the node shows it.
 
 ## [1.4.0] - 2026-11-01
 

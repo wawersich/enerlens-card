@@ -1,0 +1,2852 @@
+[
+  {
+    "id": "pwr-01",
+    "category": "power",
+    "mode": "power",
+    "description": "Night, PV off, battery covers the whole house, grid at 0",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 420,
+      "chg": 0,
+      "house": 420
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 420,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-02",
+    "category": "power",
+    "mode": "power",
+    "description": "Night, cooking; battery at its discharge limit (2.5 kW), grid imports the rest",
+    "input": {
+      "pv": 0,
+      "imp": 1300,
+      "exp": 0,
+      "dis": 2500,
+      "chg": 0,
+      "house": 3800
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 1300,
+      "grid_battery": 0,
+      "battery_house": 2500,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-03",
+    "category": "power",
+    "mode": "power",
+    "description": "Night, battery empty (minimum state of charge), grid supplies the house",
+    "input": {
+      "pv": 0,
+      "imp": 600,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 600
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 600,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-04",
+    "category": "power",
+    "mode": "power",
+    "description": "Night standby load, battery covers 85 W",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 85,
+      "chg": 0,
+      "house": 85
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 85,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-05",
+    "category": "power",
+    "mode": "power",
+    "description": "Morning, PV low (300 W) below house, battery covers the deficit, grid at 0",
+    "input": {
+      "pv": 300,
+      "imp": 0,
+      "exp": 0,
+      "dis": 600,
+      "chg": 0,
+      "house": 900
+    },
+    "expected": {
+      "solar_house": 300,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 600,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-06",
+    "category": "power",
+    "mode": "power",
+    "description": "PV low, heat pump and cooking; battery at discharge limit (3 kW), grid imports",
+    "input": {
+      "pv": 800,
+      "imp": 700,
+      "exp": 0,
+      "dis": 3000,
+      "chg": 0,
+      "house": 4500
+    },
+    "expected": {
+      "solar_house": 800,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 700,
+      "grid_battery": 0,
+      "battery_house": 3000,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-07",
+    "category": "power",
+    "mode": "power",
+    "description": "PV low, battery empty, grid imports the deficit",
+    "input": {
+      "pv": 400,
+      "imp": 600,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 400,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 600,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-08",
+    "category": "power",
+    "mode": "power",
+    "description": "Dusk: PV inverter still reports 12 W, battery covers the rest of the house",
+    "input": {
+      "pv": 12,
+      "imp": 0,
+      "exp": 0,
+      "dis": 388,
+      "chg": 0,
+      "house": 400
+    },
+    "expected": {
+      "solar_house": 12,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 388,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-09",
+    "category": "power",
+    "mode": "power",
+    "description": "PV equals the house load, battery idle, grid at 0",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 1500,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-10",
+    "category": "power",
+    "mode": "power",
+    "description": "Heat pump starts at midday: PV high but below the house, battery covers the deficit",
+    "input": {
+      "pv": 3500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 1500,
+      "chg": 0,
+      "house": 5000
+    },
+    "expected": {
+      "solar_house": 3500,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 1500,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-11",
+    "category": "power",
+    "mode": "power",
+    "description": "PV high, battery charging absorbs the whole surplus, grid at 0",
+    "input": {
+      "pv": 4000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 3100,
+      "house": 900
+    },
+    "expected": {
+      "solar_house": 900,
+      "solar_grid": 0,
+      "solar_battery": 3100,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-12",
+    "category": "power",
+    "mode": "power",
+    "description": "PV high, battery at its charge limit (3.3 kW), surplus exported",
+    "input": {
+      "pv": 7500,
+      "imp": 0,
+      "exp": 3100,
+      "dis": 0,
+      "chg": 3300,
+      "house": 1100
+    },
+    "expected": {
+      "solar_house": 1100,
+      "solar_grid": 3100,
+      "solar_battery": 3300,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-13",
+    "category": "power",
+    "mode": "power",
+    "description": "PV high, battery full, everything beyond the house is exported",
+    "input": {
+      "pv": 5200,
+      "imp": 0,
+      "exp": 4500,
+      "dis": 0,
+      "chg": 0,
+      "house": 700
+    },
+    "expected": {
+      "solar_house": 700,
+      "solar_grid": 4500,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-14",
+    "category": "power",
+    "mode": "power",
+    "description": "PV high, battery nearly full and tapering (CV phase, 400 W), rest exported",
+    "input": {
+      "pv": 4800,
+      "imp": 0,
+      "exp": 3600,
+      "dis": 0,
+      "chg": 400,
+      "house": 800
+    },
+    "expected": {
+      "solar_house": 800,
+      "solar_grid": 3600,
+      "solar_battery": 400,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-15",
+    "category": "power",
+    "mode": "power",
+    "description": "Export limit active (4.8 kW), PV curtailed, battery charging at its limit",
+    "input": {
+      "pv": 7900,
+      "imp": 0,
+      "exp": 4800,
+      "dis": 0,
+      "chg": 2500,
+      "house": 600
+    },
+    "expected": {
+      "solar_house": 600,
+      "solar_grid": 4800,
+      "solar_battery": 2500,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-16",
+    "category": "power",
+    "mode": "power",
+    "description": "Zero-export rule, battery full: PV curtailed down to the house load",
+    "input": {
+      "pv": 650,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 650
+    },
+    "expected": {
+      "solar_house": 650,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-17",
+    "category": "power",
+    "mode": "power",
+    "description": "PV high, house almost idle (150 W), battery takes the rest",
+    "input": {
+      "pv": 2500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2350,
+      "house": 150
+    },
+    "expected": {
+      "solar_house": 150,
+      "solar_grid": 0,
+      "solar_battery": 2350,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-18",
+    "category": "power",
+    "mode": "power",
+    "description": "PV exactly covers house plus battery charge (boundary of export)",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2000,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 2000,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-19",
+    "category": "power",
+    "mode": "power",
+    "description": "EV charging at 11 kW, battery locked for the EV (no discharge), grid imports",
+    "input": {
+      "pv": 3000,
+      "imp": 9000,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 12000
+    },
+    "expected": {
+      "solar_house": 3000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 9000,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-20",
+    "category": "power",
+    "mode": "power",
+    "description": "EV charging, battery helps at its limit (5 kW), grid imports the rest",
+    "input": {
+      "pv": 3000,
+      "imp": 4000,
+      "exp": 0,
+      "dis": 5000,
+      "chg": 0,
+      "house": 12000
+    },
+    "expected": {
+      "solar_house": 3000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 4000,
+      "grid_battery": 0,
+      "battery_house": 5000,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-21a",
+    "category": "power",
+    "mode": "power",
+    "description": "Continuity pair 1/2: PV slightly above the house, battery charges 5 W",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 5,
+      "house": 1495
+    },
+    "expected": {
+      "solar_house": 1495,
+      "solar_grid": 0,
+      "solar_battery": 5,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-21b",
+    "category": "power",
+    "mode": "power",
+    "description": "Continuity pair 2/2: PV slightly below the house, battery discharges 5 W",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 5,
+      "chg": 0,
+      "house": 1505
+    },
+    "expected": {
+      "solar_house": 1500,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 5,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-22a",
+    "category": "power",
+    "mode": "power",
+    "description": "Continuity pair 1/2: battery at charge limit, export 4 W",
+    "input": {
+      "pv": 3304,
+      "imp": 0,
+      "exp": 4,
+      "dis": 0,
+      "chg": 2300,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 4,
+      "solar_battery": 2300,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "pwr-22b",
+    "category": "power",
+    "mode": "power",
+    "description": "Continuity pair 2/2: same, PV 8 W lower, import 4 W (a tiny pattern B)",
+    "input": {
+      "pv": 3296,
+      "imp": 4,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2300,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 996,
+      "solar_grid": 0,
+      "solar_battery": 2300,
+      "grid_house": 4,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [996, 1000],
+      "solar_grid": [0, 0],
+      "solar_battery": [2296, 2300],
+      "grid_house": [0, 4],
+      "grid_battery": [0, 4],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-01",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Issue #27: load step down 3.5 -> 3.0 kW, battery still discharges 500 W, 500 W exported",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 500,
+      "dis": 500,
+      "chg": 0,
+      "house": 3000
+    },
+    "expected": {
+      "solar_house": 3000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 500
+    }
+  },
+  {
+    "id": "dev-02",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Load step down below PV (3.5 -> 2.0 kW), battery still discharges 500 W",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 1500,
+      "dis": 500,
+      "chg": 0,
+      "house": 2000
+    },
+    "expected": {
+      "solar_house": 2000,
+      "solar_grid": 1000,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 500
+    }
+  },
+  {
+    "id": "dev-03",
+    "category": "deviation",
+    "mode": "power",
+    "description": "PV step up (cloud passes, 2.6 -> 3.2 kW), battery still discharges its old 400 W",
+    "input": {
+      "pv": 3200,
+      "imp": 0,
+      "exp": 600,
+      "dis": 400,
+      "chg": 0,
+      "house": 3000
+    },
+    "expected": {
+      "solar_house": 3000,
+      "solar_grid": 200,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 400
+    },
+    "acceptable": {
+      "solar_house": [2600, 3000],
+      "solar_grid": [200, 600],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 400],
+      "battery_grid": [0, 400]
+    }
+  },
+  {
+    "id": "dev-04",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Load step up 0.5 -> 1.0 kW while charging from surplus; battery still charges 500 W (lag)",
+    "input": {
+      "pv": 1000,
+      "imp": 500,
+      "exp": 0,
+      "dis": 0,
+      "chg": 500,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 500,
+      "solar_grid": 0,
+      "solar_battery": 500,
+      "grid_house": 500,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [500, 1000],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 500],
+      "grid_house": [0, 500],
+      "grid_battery": [0, 500],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-05",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Cloud: PV drops 3.5 -> 1.0 kW, battery still charges 2.5 kW (lag), grid imports 2.5 kW",
+    "input": {
+      "pv": 1000,
+      "imp": 2500,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2500,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 1000,
+      "grid_house": 1000,
+      "grid_battery": 1500,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [0, 1000],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 1000],
+      "grid_house": [0, 1000],
+      "grid_battery": [1500, 2500],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-06",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Load step up at night 1.2 -> 3.2 kW, battery ramps (1.5 kW so far), grid imports the rest",
+    "input": {
+      "pv": 0,
+      "imp": 1700,
+      "exp": 0,
+      "dis": 1500,
+      "chg": 0,
+      "house": 3200
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 1700,
+      "grid_battery": 0,
+      "battery_house": 1500,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-07",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Load step down 2.0 -> 0.5 kW while charging; battery has not raised its charge yet, surplus exported",
+    "input": {
+      "pv": 4000,
+      "imp": 0,
+      "exp": 1500,
+      "dis": 0,
+      "chg": 2000,
+      "house": 500
+    },
+    "expected": {
+      "solar_house": 500,
+      "solar_grid": 1500,
+      "solar_battery": 2000,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-08",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Forced time-of-use grid charging at night (3 kW)",
+    "input": {
+      "pv": 0,
+      "imp": 3450,
+      "exp": 0,
+      "dis": 0,
+      "chg": 3000,
+      "house": 450
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 450,
+      "grid_battery": 3000,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-09",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Forced grid charging (2.5 kW) at noon with weak PV below the house load",
+    "input": {
+      "pv": 600,
+      "imp": 2800,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2500,
+      "house": 900
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 600,
+      "grid_house": 900,
+      "grid_battery": 1900,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [0, 600],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 600],
+      "grid_house": [300, 900],
+      "grid_battery": [1900, 2500],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-10",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Forced grid charging (5 kW) at a negative price, PV 2 kW above the 0.7 kW house",
+    "input": {
+      "pv": 2000,
+      "imp": 3700,
+      "exp": 0,
+      "dis": 0,
+      "chg": 5000,
+      "house": 700
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 2000,
+      "grid_house": 700,
+      "grid_battery": 3000,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [0, 700],
+      "solar_grid": [0, 0],
+      "solar_battery": [1300, 2000],
+      "grid_house": [0, 700],
+      "grid_battery": [3000, 3700],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-11",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Forced discharge to the grid at night (time-of-use sell / VPP), 4 kW",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 3500,
+      "dis": 4000,
+      "chg": 0,
+      "house": 500
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 500,
+      "battery_grid": 3500
+    }
+  },
+  {
+    "id": "dev-12",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Forced discharge (3 kW) at the evening peak, weak PV below the house",
+    "input": {
+      "pv": 800,
+      "imp": 0,
+      "exp": 2500,
+      "dis": 3000,
+      "chg": 0,
+      "house": 1300
+    },
+    "expected": {
+      "solar_house": 800,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 500,
+      "battery_grid": 2500
+    }
+  },
+  {
+    "id": "dev-13",
+    "category": "deviation",
+    "mode": "power",
+    "description": "VPP dispatch at midday: battery discharges 2 kW while PV (3 kW) exceeds the house (1 kW)",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 4000,
+      "dis": 2000,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 2000,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 2000
+    }
+  },
+  {
+    "id": "dev-14",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Controller targets -35 W at the meter (slight export bias) while discharging",
+    "input": {
+      "pv": 500,
+      "imp": 0,
+      "exp": 35,
+      "dis": 1035,
+      "chg": 0,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 500,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 1000,
+      "battery_grid": 35
+    }
+  },
+  {
+    "id": "dev-15",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Controller targets +30 W at the meter (slight import bias, zero-export rule) while charging",
+    "input": {
+      "pv": 3000,
+      "imp": 30,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2030,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 970,
+      "solar_grid": 0,
+      "solar_battery": 2030,
+      "grid_house": 30,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [970, 1000],
+      "solar_grid": [0, 0],
+      "solar_battery": [2000, 2030],
+      "grid_house": [0, 30],
+      "grid_battery": [0, 30],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-16",
+    "category": "deviation",
+    "mode": "power",
+    "description": "\"Battery first\" priority mode of a hybrid inverter: PV charges, house runs on grid",
+    "input": {
+      "pv": 1500,
+      "imp": 1000,
+      "exp": 0,
+      "dis": 0,
+      "chg": 1500,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 1500,
+      "grid_house": 1000,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-17a",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Controller hunting while charging, half-cycle 1/2: import 150 W",
+    "input": {
+      "pv": 2500,
+      "imp": 150,
+      "exp": 0,
+      "dis": 0,
+      "chg": 1450,
+      "house": 1200
+    },
+    "expected": {
+      "solar_house": 1050,
+      "solar_grid": 0,
+      "solar_battery": 1450,
+      "grid_house": 150,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1050, 1200],
+      "solar_grid": [0, 0],
+      "solar_battery": [1300, 1450],
+      "grid_house": [0, 150],
+      "grid_battery": [0, 150],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "dev-17b",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Controller hunting while charging, half-cycle 2/2: export 150 W",
+    "input": {
+      "pv": 2500,
+      "imp": 0,
+      "exp": 150,
+      "dis": 0,
+      "chg": 1150,
+      "house": 1200
+    },
+    "expected": {
+      "solar_house": 1200,
+      "solar_grid": 150,
+      "solar_battery": 1150,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-18a",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Controller hunting while discharging, half-cycle 1/2: export 150 W",
+    "input": {
+      "pv": 800,
+      "imp": 0,
+      "exp": 150,
+      "dis": 1350,
+      "chg": 0,
+      "house": 2000
+    },
+    "expected": {
+      "solar_house": 800,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 1200,
+      "battery_grid": 150
+    }
+  },
+  {
+    "id": "dev-18b",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Controller hunting while discharging, half-cycle 2/2: import 150 W",
+    "input": {
+      "pv": 800,
+      "imp": 150,
+      "exp": 0,
+      "dis": 1050,
+      "chg": 0,
+      "house": 2000
+    },
+    "expected": {
+      "solar_house": 800,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 150,
+      "grid_battery": 0,
+      "battery_house": 1050,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-19",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Battery standby draw at night (BMS and heating pads, 30 W from the grid)",
+    "input": {
+      "pv": 0,
+      "imp": 430,
+      "exp": 0,
+      "dis": 0,
+      "chg": 30,
+      "house": 400
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 400,
+      "grid_battery": 30,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "dev-20",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Load step down at night (1.1 -> 0.6 kW), battery overshoots 500 W into the grid",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 500,
+      "dis": 1100,
+      "chg": 0,
+      "house": 600
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 600,
+      "battery_grid": 500
+    }
+  },
+  {
+    "id": "dev-21",
+    "category": "deviation",
+    "mode": "power",
+    "description": "Cloud while discharging: PV drops 2.5 -> 1.0 kW, battery has not raised its discharge yet",
+    "input": {
+      "pv": 1000,
+      "imp": 500,
+      "exp": 0,
+      "dis": 1500,
+      "chg": 0,
+      "house": 3000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 500,
+      "grid_battery": 0,
+      "battery_house": 1500,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "nrg-01",
+    "category": "energy",
+    "mode": "energy",
+    "description": "5 min: kettle (3 kW, 1 min) while the battery charges from surplus - charge and discharge in one block",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 100,
+      "chg": 2000,
+      "house": 1100
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 2000,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 100,
+      "battery_grid": 0
+    },
+    "seconds": 300
+  },
+  {
+    "id": "nrg-02",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour, cloudy, no battery: 30 min export, 30 min import",
+    "input": {
+      "pv": 1750,
+      "imp": 250,
+      "exp": 1000,
+      "dis": 0,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 750,
+      "solar_grid": 1000,
+      "solar_battery": 0,
+      "grid_house": 250,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-03",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: 30 min sunny with full battery (export), then 30 min evening, battery covers the house",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 1000,
+      "dis": 750,
+      "chg": 0,
+      "house": 1250
+    },
+    "expected": {
+      "solar_house": 500,
+      "solar_grid": 1000,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 750,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [500, 1250],
+      "solar_grid": [250, 1000],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 750],
+      "battery_grid": [0, 750]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-04",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: forced discharge (750 W) for the whole hour while PV 1.5 kW runs - genuine pattern A",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 1000,
+      "dis": 750,
+      "chg": 0,
+      "house": 1250
+    },
+    "expected": {
+      "solar_house": 1250,
+      "solar_grid": 250,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 750
+    },
+    "acceptable": {
+      "solar_house": [500, 1250],
+      "solar_grid": [250, 1000],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 750],
+      "battery_grid": [0, 750]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-05",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: 30 min morning import with empty battery, then 30 min PV surplus charging",
+    "input": {
+      "pv": 1650,
+      "imp": 500,
+      "exp": 0,
+      "dis": 0,
+      "chg": 1000,
+      "house": 1150
+    },
+    "expected": {
+      "solar_house": 650,
+      "solar_grid": 0,
+      "solar_battery": 1000,
+      "grid_house": 500,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [650, 1150],
+      "solar_grid": [0, 0],
+      "solar_battery": [500, 1000],
+      "grid_house": [0, 500],
+      "grid_battery": [0, 500],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-06",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: forced grid charging (1 kW) for the whole hour while PV 1.65 kW runs - genuine pattern B",
+    "input": {
+      "pv": 1650,
+      "imp": 500,
+      "exp": 0,
+      "dis": 0,
+      "chg": 1000,
+      "house": 1150
+    },
+    "expected": {
+      "solar_house": 650,
+      "solar_grid": 0,
+      "solar_battery": 1000,
+      "grid_house": 500,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [650, 1150],
+      "solar_grid": [0, 0],
+      "solar_battery": [500, 1000],
+      "grid_house": [0, 500],
+      "grid_battery": [0, 500],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-07",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: 20 min time-of-use grid charging at night end, then 40 min sunrise with full battery exporting",
+    "input": {
+      "pv": 1066.67,
+      "imp": 1133.33,
+      "exp": 733.33,
+      "dis": 0,
+      "chg": 1000,
+      "house": 466.67
+    },
+    "expected": {
+      "solar_house": 333.33,
+      "solar_grid": 733.33,
+      "solar_battery": 0,
+      "grid_house": 133.33,
+      "grid_battery": 1000,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [0, 333.33],
+      "solar_grid": [733.33, 733.33],
+      "solar_battery": [0, 333.33],
+      "grid_house": [133.33, 466.67],
+      "grid_battery": [666.67, 1000],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-08",
+    "category": "energy",
+    "mode": "energy",
+    "description": "The reported gap vector: pv 1000, imp 1500, house 500, exp 1000, chg 1000 (hourly means)",
+    "input": {
+      "pv": 1000,
+      "imp": 1500,
+      "exp": 1000,
+      "dis": 0,
+      "chg": 1000,
+      "house": 500
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 1000,
+      "solar_battery": 0,
+      "grid_house": 500,
+      "grid_battery": 1000,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-09",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Sunset hour: charge -> idle -> discharge -> discharge at limit with import (4 x 15 min)",
+    "input": {
+      "pv": 1037.5,
+      "imp": 137.5,
+      "exp": 200,
+      "dis": 675,
+      "chg": 325,
+      "house": 1325
+    },
+    "expected": {
+      "solar_house": 512.5,
+      "solar_grid": 200,
+      "solar_battery": 325,
+      "grid_house": 137.5,
+      "grid_battery": 0,
+      "battery_house": 675,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-10",
+    "category": "energy",
+    "mode": "energy",
+    "description": "5 min cloud edge: export, 30 s lag (battery keeps charging 2.5 kW, grid imports), then settled",
+    "input": {
+      "pv": 3120,
+      "imp": 220,
+      "exp": 1040,
+      "dis": 0,
+      "chg": 1400,
+      "house": 900
+    },
+    "expected": {
+      "solar_house": 810,
+      "solar_grid": 1040,
+      "solar_battery": 1270,
+      "grid_house": 90,
+      "grid_battery": 130,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [810, 900],
+      "solar_grid": [1040, 1040],
+      "solar_battery": [1180, 1270],
+      "grid_house": [0, 90],
+      "grid_battery": [130, 220],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    },
+    "seconds": 300
+  },
+  {
+    "id": "nrg-11",
+    "category": "energy",
+    "mode": "energy",
+    "description": "5 min with a 20 s battery overshoot after a load drop (dev-01 inside a block)",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 33.33,
+      "dis": 33.33,
+      "chg": 0,
+      "house": 3000
+    },
+    "expected": {
+      "solar_house": 3000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 33.33
+    },
+    "acceptable": {
+      "solar_house": [2966.67, 3000],
+      "solar_grid": [0, 33.33],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 33.33],
+      "battery_grid": [0, 33.33]
+    },
+    "seconds": 300
+  },
+  {
+    "id": "nrg-11b",
+    "category": "energy",
+    "mode": "energy",
+    "description": "5 min, battery full: 20 s export after a load drop, 20 s discharge after a load rise - same means as nrg-11",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 33.33,
+      "dis": 33.33,
+      "chg": 0,
+      "house": 3000
+    },
+    "expected": {
+      "solar_house": 2966.67,
+      "solar_grid": 33.33,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 33.33,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [2966.67, 3000],
+      "solar_grid": [0, 33.33],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 33.33],
+      "battery_grid": [0, 33.33]
+    },
+    "seconds": 300
+  },
+  {
+    "id": "nrg-12",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Winter hour: PV weak, battery discharges for 40 min, then empty, grid imports",
+    "input": {
+      "pv": 183.33,
+      "imp": 316.67,
+      "exp": 0,
+      "dis": 466.67,
+      "chg": 0,
+      "house": 966.67
+    },
+    "expected": {
+      "solar_house": 183.33,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 316.67,
+      "grid_battery": 0,
+      "battery_house": 466.67,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-13",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Midday hour, battery full and exporting; for 20 min an EV (11 kW) charges and the battery assists",
+    "input": {
+      "pv": 6000,
+      "imp": 933.33,
+      "exp": 3466.67,
+      "dis": 1000,
+      "chg": 0,
+      "house": 4466.67
+    },
+    "expected": {
+      "solar_house": 2533.33,
+      "solar_grid": 3466.67,
+      "solar_battery": 0,
+      "grid_house": 933.33,
+      "grid_battery": 0,
+      "battery_house": 1000,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-14",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour of cloud passages: charge at limit with export, idle, discharge at limit with import, charge with export",
+    "input": {
+      "pv": 2075,
+      "imp": 100,
+      "exp": 300,
+      "dis": 650,
+      "chg": 1250,
+      "house": 1275
+    },
+    "expected": {
+      "solar_house": 525,
+      "solar_grid": 300,
+      "solar_battery": 1250,
+      "grid_house": 100,
+      "grid_battery": 0,
+      "battery_house": 650,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-15",
+    "category": "energy",
+    "mode": "energy",
+    "description": "5 min of controller hunting: +-150 W at the meter, alternating every 150 s (dev-17a/b)",
+    "input": {
+      "pv": 2500,
+      "imp": 75,
+      "exp": 75,
+      "dis": 0,
+      "chg": 1300,
+      "house": 1200
+    },
+    "expected": {
+      "solar_house": 1125,
+      "solar_grid": 75,
+      "solar_battery": 1300,
+      "grid_house": 75,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1125, 1200],
+      "solar_grid": [75, 75],
+      "solar_battery": [1225, 1300],
+      "grid_house": [0, 75],
+      "grid_battery": [0, 75],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    },
+    "seconds": 300
+  },
+  {
+    "id": "nrg-16",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Cloudy hour, 12 five-minute states, normal controller with 3 kW battery limit",
+    "input": {
+      "pv": 3600,
+      "imp": 91.67,
+      "exp": 945.83,
+      "dis": 625,
+      "chg": 1875,
+      "house": 1495.83
+    },
+    "expected": {
+      "solar_house": 779.17,
+      "solar_grid": 945.83,
+      "solar_battery": 1875,
+      "grid_house": 91.67,
+      "grid_battery": 0,
+      "battery_house": 625,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-17",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Five 1-minute states from the transition of nrg-16 (one 5-minute block)",
+    "input": {
+      "pv": 3080,
+      "imp": 180,
+      "exp": 600,
+      "dis": 840,
+      "chg": 1570,
+      "house": 1930
+    },
+    "expected": {
+      "solar_house": 910,
+      "solar_grid": 600,
+      "solar_battery": 1570,
+      "grid_house": 180,
+      "grid_battery": 0,
+      "battery_house": 840,
+      "battery_grid": 0
+    },
+    "seconds": 300
+  },
+  {
+    "id": "nrg-18",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: 30 min forced grid charging (3 kW) under weak sun, then 30 min export with full battery",
+    "input": {
+      "pv": 1350,
+      "imp": 1150,
+      "exp": 500,
+      "dis": 0,
+      "chg": 1500,
+      "house": 500
+    },
+    "expected": {
+      "solar_house": 250,
+      "solar_grid": 500,
+      "solar_battery": 600,
+      "grid_house": 250,
+      "grid_battery": 900,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [250, 500],
+      "solar_grid": [500, 500],
+      "solar_battery": [350, 600],
+      "grid_house": [0, 250],
+      "grid_battery": [900, 1150],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "nrg-19",
+    "category": "energy",
+    "mode": "energy",
+    "description": "Hour: 15 min forced discharge at the evening peak (dev-12), then 45 min normal discharge",
+    "input": {
+      "pv": 650,
+      "imp": 0,
+      "exp": 625,
+      "dis": 1200,
+      "chg": 0,
+      "house": 1225
+    },
+    "expected": {
+      "solar_house": 650,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 575,
+      "battery_grid": 625
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "imb-01",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "PV measured on the DC side (2 % inverter loss), house plus export",
+    "input": {
+      "pv": 5000,
+      "imp": 0,
+      "exp": 3700,
+      "dis": 0,
+      "chg": 0,
+      "house": 1200
+    },
+    "expected": {
+      "solar_house": 1200,
+      "solar_grid": 3700,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-02",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "PV measured on the DC side at low power (6 % loss), grid imports the rest",
+    "input": {
+      "pv": 400,
+      "imp": 524,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 900
+    },
+    "expected": {
+      "solar_house": 376,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 524,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [376, 400],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 0],
+      "grid_house": [500, 524],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-03",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Hybrid inverter: PV and battery measured on the DC side, 3 % loss on the AC conversion",
+    "input": {
+      "pv": 6000,
+      "imp": 0,
+      "exp": 2395,
+      "dis": 0,
+      "chg": 2500,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 2395,
+      "solar_battery": 2500,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-04",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Battery discharge measured on the DC side (5 % loss), battery covers the house",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 1000,
+      "chg": 0,
+      "house": 950
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 950,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-05",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "AC-coupled battery measured on the DC side while charging (draws 1000 W AC, stores 950 W)",
+    "input": {
+      "pv": 2000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 950,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 950,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-06",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Hybrid: PV and battery discharge both DC-measured, shared inverter loses 5 %",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 1000,
+      "chg": 0,
+      "house": 3800
+    },
+    "expected": {
+      "solar_house": 2850,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 950,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [2800, 3000],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [800, 1000],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-07",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Timing skew after a load step up: house already 2.5 kW, grid still shows the old 500 W export",
+    "input": {
+      "pv": 2000,
+      "imp": 0,
+      "exp": 500,
+      "dis": 0,
+      "chg": 0,
+      "house": 2500
+    },
+    "expected": {
+      "solar_house": 2000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1500, 2000],
+      "solar_grid": [0, 500],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-08",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Timing skew after a load step up: grid already imports 500 W, house still shows the old 1.5 kW",
+    "input": {
+      "pv": 2000,
+      "imp": 500,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 1500,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1000, 1500],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 500],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-09",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Battery sensor stale after a load step down at night (still shows 2 kW, house 800 W)",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 2000,
+      "chg": 0,
+      "house": 800
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 800,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-10",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Battery sensor stale: still shows 500 W discharge, PV already covers the house exactly",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 500,
+      "chg": 0,
+      "house": 3000
+    },
+    "expected": {
+      "solar_house": 3000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [2500, 3000],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 500],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-11",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "PV sensor stale high after a cloud (shows 3 kW, delivers 1 kW), battery full, meter 0",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-12",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "PV sensor stale low as the sun returns (shows 1 kW, delivers 3 kW): house 1 kW, export 2 kW",
+    "input": {
+      "pv": 1000,
+      "imp": 0,
+      "exp": 2000,
+      "dis": 0,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": null,
+    "acceptable": {
+      "solar_house": [0, 1000],
+      "solar_grid": [0, 1000],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-13",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Unmetered load: heat pump on its own circuit, missing from the house sensor",
+    "input": {
+      "pv": 0,
+      "imp": 3000,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 1000,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-14",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Unconfigured balcony plant: house clamp measures total use, the plant is not a configured PV source",
+    "input": {
+      "pv": 2000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 2600
+    },
+    "expected": {
+      "solar_house": 2000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-15",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Meter noise: +7 W import while the battery holds the meter at 0",
+    "input": {
+      "pv": 2000,
+      "imp": 7,
+      "exp": 0,
+      "dis": 0,
+      "chg": 500,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 1500,
+      "solar_grid": 0,
+      "solar_battery": 500,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1493, 1500],
+      "solar_grid": [0, 0],
+      "solar_battery": [493, 500],
+      "grid_house": [0, 7],
+      "grid_battery": [0, 7],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-16",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Battery idle but reports a 12 W discharge offset; PV covers the house",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 12,
+      "chg": 0,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 1500,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1488, 1500],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 12],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-17",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Night: PV inverter reports 3 W of standby offset, battery covers the house",
+    "input": {
+      "pv": 3,
+      "imp": 0,
+      "exp": 0,
+      "dis": 400,
+      "chg": 0,
+      "house": 400
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 400,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [0, 3],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [397, 400],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-18",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Separate import and export sensors both show a few watts (noise) while charging",
+    "input": {
+      "pv": 2500,
+      "imp": 4,
+      "exp": 6,
+      "dis": 0,
+      "chg": 1298,
+      "house": 1200
+    },
+    "expected": {
+      "solar_house": 1196,
+      "solar_grid": 6,
+      "solar_battery": 1298,
+      "grid_house": 4,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1196, 1200],
+      "solar_grid": [6, 6],
+      "solar_battery": [1294, 1298],
+      "grid_house": [0, 4],
+      "grid_battery": [0, 4],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-19",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "PV sensor stale low while charging: shows 1.5 kW, battery 2 kW, house 0.5 kW, meter 0",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 2000,
+      "house": 500
+    },
+    "expected": null,
+    "acceptable": {
+      "solar_house": [0, 500],
+      "solar_grid": [0, 0],
+      "solar_battery": [1000, 1500],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "imb-20",
+    "category": "imbalance",
+    "mode": "energy",
+    "description": "Hour, hybrid with DC-measured PV: 30 min charging with export (2 % loss), 30 min battery full (4 % loss)",
+    "input": {
+      "pv": 4000,
+      "imp": 0,
+      "exp": 1790,
+      "dis": 0,
+      "chg": 1250,
+      "house": 850
+    },
+    "expected": {
+      "solar_house": 850,
+      "solar_grid": 1790,
+      "solar_battery": 1250,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "imb-21",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "House sensor with a +30 W offset at night, battery covers the house",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 400,
+      "chg": 0,
+      "house": 430
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 400,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "imb-22",
+    "category": "imbalance",
+    "mode": "power",
+    "description": "Battery sensor stale after a load step up: still shows 500 W charging, meter already 0, PV = house",
+    "input": {
+      "pv": 1000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 500,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [500, 1000],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 500],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  },
+  {
+    "id": "cfg-01",
+    "category": "config",
+    "mode": "power",
+    "description": "No battery, PV below the house: grid imports the rest",
+    "input": {
+      "pv": 800,
+      "imp": 600,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1400
+    },
+    "expected": {
+      "solar_house": 800,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 600,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-02",
+    "category": "config",
+    "mode": "power",
+    "description": "No battery, PV above the house: surplus exported",
+    "input": {
+      "pv": 4000,
+      "imp": 0,
+      "exp": 3300,
+      "dis": 0,
+      "chg": 0,
+      "house": 700
+    },
+    "expected": {
+      "solar_house": 700,
+      "solar_grid": 3300,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-03",
+    "category": "config",
+    "mode": "energy",
+    "description": "No battery, separate import/export sensors, 5 min with both directions",
+    "input": {
+      "pv": 1450,
+      "imp": 1100,
+      "exp": 950,
+      "dis": 0,
+      "chg": 0,
+      "house": 1600
+    },
+    "expected": {
+      "solar_house": 500,
+      "solar_grid": 950,
+      "solar_battery": 0,
+      "grid_house": 1100,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "seconds": 300
+  },
+  {
+    "id": "cfg-04",
+    "category": "config",
+    "mode": "power",
+    "description": "Signed grid and signed battery sensors, charging with export",
+    "input": {
+      "pv": 3600,
+      "imp": 0,
+      "exp": 400,
+      "dis": 0,
+      "chg": 2200,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 400,
+      "solar_battery": 2200,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-05",
+    "category": "config",
+    "mode": "power",
+    "description": "Signed sensors do not remove pattern A: battery discharges 900 W while 1.3 kW are exported",
+    "input": {
+      "pv": 2000,
+      "imp": 0,
+      "exp": 1300,
+      "dis": 900,
+      "chg": 0,
+      "house": 1600
+    },
+    "expected": {
+      "solar_house": 1600,
+      "solar_grid": 400,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 900
+    }
+  },
+  {
+    "id": "cfg-06",
+    "category": "config",
+    "mode": "energy",
+    "description": "Signed grid sensor, hour with 30 min export and 30 min import - the block mean is net",
+    "input": {
+      "pv": 1750,
+      "imp": 0,
+      "exp": 750,
+      "dis": 0,
+      "chg": 0,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 750,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "cfg-07",
+    "category": "config",
+    "mode": "energy",
+    "description": "Signed battery sensor, hour with 30 min charging (2 kW) and 30 min discharging (1 kW)",
+    "input": {
+      "pv": 1500,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 500,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 500,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "cfg-08",
+    "category": "config",
+    "mode": "energy",
+    "description": "Both signed, hour with charge+export, discharge, discharge at limit+import (3 x 20 min)",
+    "input": {
+      "pv": 1433.33,
+      "imp": 0,
+      "exp": 33.33,
+      "dis": 233.33,
+      "chg": 0,
+      "house": 1633.33
+    },
+    "expected": {
+      "solar_house": 1400,
+      "solar_grid": 33.33,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 233.33,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [1400, 1433.33],
+      "solar_grid": [0, 33.33],
+      "solar_battery": [0, 0],
+      "grid_house": [0, 0],
+      "grid_battery": [0, 0],
+      "battery_house": [200, 233.33],
+      "battery_grid": [0, 33.33]
+    },
+    "seconds": 3600
+  },
+  {
+    "id": "cfg-09",
+    "category": "config",
+    "mode": "power",
+    "description": "Derived house (balance) absorbs a DC-measured PV loss: house reads 1300 instead of 1200",
+    "input": {
+      "pv": 5000,
+      "imp": 0,
+      "exp": 3700,
+      "dis": 0,
+      "chg": 0,
+      "house": 1300
+    },
+    "expected": {
+      "solar_house": 1300,
+      "solar_grid": 3700,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-10",
+    "category": "config",
+    "mode": "power",
+    "description": "Derived house would be negative (stale PV 0 while exporting 300 W) and is clamped to 0",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 300,
+      "dis": 0,
+      "chg": 0,
+      "house": 0
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-11",
+    "category": "config",
+    "mode": "power",
+    "description": "Derived grid: PV, battery and house measured; grid follows from the balance",
+    "input": {
+      "pv": 600,
+      "imp": 300,
+      "exp": 0,
+      "dis": 500,
+      "chg": 0,
+      "house": 1400
+    },
+    "expected": {
+      "solar_house": 600,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 300,
+      "grid_battery": 0,
+      "battery_house": 500,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-12",
+    "category": "config",
+    "mode": "power",
+    "description": "Derived battery: PV, grid and house measured; battery follows (charging 1.3 kW)",
+    "input": {
+      "pv": 3000,
+      "imp": 0,
+      "exp": 500,
+      "dis": 0,
+      "chg": 1300,
+      "house": 1200
+    },
+    "expected": {
+      "solar_house": 1200,
+      "solar_grid": 500,
+      "solar_battery": 1300,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-13",
+    "category": "config",
+    "mode": "power",
+    "description": "Derived PV: house, grid and battery measured; PV follows (2.9 kW)",
+    "input": {
+      "pv": 2900,
+      "imp": 0,
+      "exp": 1200,
+      "dis": 0,
+      "chg": 800,
+      "house": 900
+    },
+    "expected": {
+      "solar_house": 900,
+      "solar_grid": 1200,
+      "solar_battery": 800,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-14",
+    "category": "config",
+    "mode": "power",
+    "description": "Derived PV clamped at night (offsets make it -30 W): battery DC reading 430, house 400",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 430,
+      "chg": 0,
+      "house": 400
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 400,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-15",
+    "category": "config",
+    "mode": "power",
+    "description": "Main PV 3 kW plus balcony plant 600 W behind the meter (house: excluded, its power added to the house)",
+    "input": {
+      "pv": 3600,
+      "imp": 0,
+      "exp": 600,
+      "dis": 0,
+      "chg": 1000,
+      "house": 2000
+    },
+    "expected": {
+      "solar_house": 2000,
+      "solar_grid": 600,
+      "solar_battery": 1000,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-16",
+    "category": "config",
+    "mode": "power",
+    "description": "Balcony plant 600 W only (main array snow-covered), main battery discharges 800 W",
+    "input": {
+      "pv": 600,
+      "imp": 0,
+      "exp": 0,
+      "dis": 800,
+      "chg": 0,
+      "house": 1400
+    },
+    "expected": {
+      "solar_house": 600,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 800,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-17",
+    "category": "config",
+    "mode": "power",
+    "description": "Balcony surplus charges the main battery through its AC side (300 W)",
+    "input": {
+      "pv": 600,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 300,
+      "house": 300
+    },
+    "expected": {
+      "solar_house": 300,
+      "solar_grid": 0,
+      "solar_battery": 300,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-18",
+    "category": "config",
+    "mode": "power",
+    "description": "Everything zero (night, all idle)",
+    "input": {
+      "pv": 0,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 0
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-19",
+    "category": "config",
+    "mode": "power",
+    "description": "Only PV available: house, grid and battery unavailable (count as 0)",
+    "input": {
+      "pv": 1200,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 0
+    },
+    "expected": {
+      "solar_house": 0,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-20",
+    "category": "config",
+    "mode": "power",
+    "description": "Grid sensor unavailable (counts as 0) while the house actually imports 500 W",
+    "input": {
+      "pv": 1000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 0,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 0,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-21",
+    "category": "config",
+    "mode": "power",
+    "description": "Two PV arrays summed (2.5 + 1.5 kW), battery charging 3 kW",
+    "input": {
+      "pv": 4000,
+      "imp": 0,
+      "exp": 0,
+      "dis": 0,
+      "chg": 3000,
+      "house": 1000
+    },
+    "expected": {
+      "solar_house": 1000,
+      "solar_grid": 0,
+      "solar_battery": 3000,
+      "grid_house": 0,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    }
+  },
+  {
+    "id": "cfg-22",
+    "category": "config",
+    "mode": "power",
+    "description": "Signed sensors do not remove pattern B: battery charges 800 W while 1.1 kW are imported",
+    "input": {
+      "pv": 1200,
+      "imp": 1100,
+      "exp": 0,
+      "dis": 0,
+      "chg": 800,
+      "house": 1500
+    },
+    "expected": {
+      "solar_house": 400,
+      "solar_grid": 0,
+      "solar_battery": 800,
+      "grid_house": 1100,
+      "grid_battery": 0,
+      "battery_house": 0,
+      "battery_grid": 0
+    },
+    "acceptable": {
+      "solar_house": [400, 1200],
+      "solar_grid": [0, 0],
+      "solar_battery": [0, 800],
+      "grid_house": [300, 1100],
+      "grid_battery": [0, 800],
+      "battery_house": [0, 0],
+      "battery_grid": [0, 0]
+    }
+  }
+]

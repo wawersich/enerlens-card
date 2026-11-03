@@ -116,6 +116,12 @@ the plant</strong> (default 6000 W); for more control the single thresholds are 
 <strong>Fine-tune the motion</strong>.</p>
 </div>
 <div class="paragraph">
+<p><strong>Which line runs.</strong> Only the nodes are measured; the card derives how the power
+splits onto the lines. The default fits almost every installation; special
+cases are at the end of the page under
+<a href="#battery-task">When battery and grid work against each other</a>.</p>
+</div>
+<div class="paragraph">
 <p>What a dot looks like is its <strong>design</strong>: <strong>Plain dots</strong> (default) are a circle with
 nothing else, the others give it a bright core and, depending on the design, a
 glow. The design changes only the look, never speed or number.</p>
@@ -158,10 +164,63 @@ flow:
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="battery-task"><a class="anchor" href="#battery-task"></a>When battery and grid work against each other</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The default fits almost every installation; this chapter matters only if your
+battery has a different task. Which line runs is mostly clear. It is ambiguous
+only when battery and grid work against each other:</p>
+</div>
+<div class="ulist">
+<ul>
+<li><strong>A: battery discharges during export.</strong></li>
+<li><strong>B: battery charges during import.</strong></li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Which reading fits depends on the battery&#8217;s task, set with
+<code>flow.battery_task</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li><code>zero_grid</code> (default): the battery is to keep the exchange with the grid at
+zero - the usual self-consumption, and arbitrage with a dynamic tariff too.
+PV supplies the house first; whatever the battery still trades with the grid
+runs between battery and grid: in A the battery feeds the grid, in B it
+charges from the grid.</li>
+<li><code>supply_house</code>: the battery supplies the house and stores PV, PV and grid do
+the trading - useful with a high feed-in tariff, with "battery first", or for
+the same picture as Home Assistant&#8217;s energy dashboard. In A the PV goes to the
+grid and the battery to the house, in B the PV charges the battery and the
+house draws from the grid.</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>This setting exists <strong>in YAML only</strong> - the editor has no field for it and leaves
+it as it is:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-yaml" data-lang="yaml">flow:
+  battery_task: supply_house   # zero_grid (default) | supply_house</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Try it: the values stand still, PV covers the house each time.</p>
+</div>
+<div class="card-demo" data-demo="batterytask" data-controls="case,task"></div>
+<div class="paragraph">
+<p>In the kWh views the card draws an exchange between battery and grid only as
+far as the values force it, because within one stretch of time discharging and
+exporting mostly happen one after the other.</p>
+</div>
+</div>
+</div>
   </main>
 </div>
 <footer class="foot">EnerLens Card · <a href="https://github.com/wawersich/enerlens-card">GitHub</a> · MIT licence</footer>
 <script src="../pagefind/pagefind-ui.js"></script>
-<script type="module" src="../assets/site.js?v=ac72a2a4"></script>
+<script type="module" src="../assets/site.js?v=1a5b1e5a"></script>
 </body>
 </html>

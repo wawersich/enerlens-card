@@ -9,6 +9,7 @@ import {
   type AnimationMode,
   type Appearance,
   type ArrowColors,
+  type BatteryTask,
   type ChargeShow,
   type ColorKey,
   type Config,
@@ -81,6 +82,7 @@ const LIST_SCOPES: readonly ListScope[] = ["filtered", "full"];
 const PV_SCALES: readonly PvScale[] = ["share", "peak"];
 const ANIMATION_MODES: readonly AnimationMode[] = ["auto", "on", "off"];
 const INACTIVE_LINES: readonly InactiveLines[] = ["show", "dim", "hide"];
+const BATTERY_TASKS: readonly BatteryTask[] = ["zero_grid", "supply_house"];
 const RING_ANIMATIONS: readonly RingAnimation[] = ["overtake", "fade", "jump"];
 const APPEARANCES: readonly Appearance[] = ["auto", "light", "dark"];
 
@@ -1419,6 +1421,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "fast_s",
     "animation",
     "inactive_lines",
+    "battery_task",
     "design",
     "dot_color",
     "dot_size",
@@ -1735,6 +1738,13 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
         INACTIVE_LINES,
         "flow.inactive_lines",
         "show",
+        hass,
+      ),
+      batteryTask: readLenient(
+        rawFlow.battery_task,
+        BATTERY_TASKS,
+        "flow.battery_task",
+        "zero_grid",
         hass,
       ),
     },

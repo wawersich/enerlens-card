@@ -72,7 +72,15 @@ const RICH: RawConfig = {
     pv_scales: ["share", "peak"],
     default_pv_scale: "peak",
   },
-  flow: { lines: "curved", inactive_lines: "dim", animation: "auto", min_w: 10, dot_size: 120 },
+  flow: {
+    lines: "curved",
+    inactive_lines: "dim",
+    animation: "auto",
+    min_w: 10,
+    dot_size: 120,
+    // YAML only (P-14): no form may drop it.
+    battery_task: "supply_house",
+  },
   colors: { solar: "#f90", rest: "#777", grid_label: "#123456", solar_inside: "#654321" },
   icons: { house: "mdi:home" },
   nodes: {

@@ -49,6 +49,7 @@
 |`flow.line_width` |`100` |Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner
 |`flow.lines` |`curved` beim Kreuz, sonst `straight` |Linienform der Verbindungen: `curved` (geschwungen) oder `straight` (gerade)
 |`flow.inactive_lines` |`show` |`show`, `dim` oder `hide`
+|`flow.battery_task` |`zero_grid` |Aufgabe des Akkus, nur YAML: `zero_grid` (Austausch mit dem Netz auf null halten) oder `supply_house` (Haus versorgen, PV speichern) – entscheidet, wie die Karte die Linien zeichnet, wenn Akku und Netz gegeneinander arbeiten (link:animation.html[Animationen])
 |`flow.animation` |`auto` |`auto`, `on` oder `off`
 |`flow.min_w` |`10` |Darunter laufen keine Punkte. Im Kreuz wird die Linie zusätzlich grau und das Zustandswort entfällt; bei einer Verbraucherzeile richten sich Farbe und Ring-Segment stattdessen nach der Liste
 |`flow.peak_w` |`6000` |Ein Regler für die Bewegung: Leistung, bei der die Punkte ihr Maximum erreichen; die drei Schwellen darunter sind standardmäßig 1/12, 1/3 und 1/1 davon

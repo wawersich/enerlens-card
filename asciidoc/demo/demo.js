@@ -115,7 +115,27 @@ const RING_ORDERS = [
   [0, 2, 1, 3],
 ];
 
+/**
+ * The two moments in which battery and grid work against each other (REQ 4.5,
+ * P-14), held still: A - the battery discharges while power is exported;
+ * B - it charges while power is drawn from the grid. PV covers the house both
+ * times. Signed like the sensors: grid + = import, battery + = discharge.
+ */
+const TASK_CASES = {
+  taskA: { pv: 3000, house: 3000, battery: 500, grid: -500 },
+  taskB: { pv: 2000, house: 2000, battery: -1000, grid: 1000 },
+};
+
 function powers(t, scene, shift = SHIFT) {
+  const fixed = TASK_CASES[scene];
+  if (fixed) {
+    const { pv, house, battery, grid } = fixed;
+    return {
+      "sensor.s": pv, "sensor.g": grid, "sensor.h": house, "sensor.b": battery,
+      "sensor.gi": Math.max(grid, 0), "sensor.ge": Math.max(-grid, 0),
+      "sensor.bd": Math.max(battery, 0), "sensor.bc": Math.max(-battery, 0),
+    };
+  }
   const d = new Date(t + shift);
   // The dots scene stands still at half past twelve: only the dots move.
   const still = scene === "dots";
@@ -539,6 +559,17 @@ function config(scene, t, data = {}) {
       // Driven by the switches above the card (data-controls): the same extra
       // values at every node, placed and styled as switched.
       return { ...base, nodes: extraNodes(t, data) };
+    case "batterytask":
+      // Fixed values (TASK_CASES), no list: only the lines between the four
+      // nodes matter, as the battery's task (switched above) has them.
+      return {
+        ...base,
+        consumers: [],
+        list: { enabled: false },
+        ring: { enabled: false },
+        view: { ...base.view, modes: ["current"], energy_periods: ["power"] },
+        flow: { ...base.flow, battery_task: data.task ?? "zero_grid" },
+      };
     case "fade":
       return { ...base, ring: { animation: "fade" }, update_interval_s: 2 };
     case "below":
@@ -623,8 +654,12 @@ function start(host, { dark, lang }) {
   }
   const ws = callWS(scene, clock);
   // The outage page's switch picks the values of a day with or without grid.
-  const now = () =>
-    scene === "outagetoggle" ? (host.dataset.outage === "on" ? "outage" : "live") : scene;
+  const now = () => {
+    if (scene === "outagetoggle") return host.dataset.outage === "on" ? "outage" : "live";
+    // The battery-task page's switch picks moment A or B.
+    if (scene === "batterytask") return host.dataset.case === "B" ? "taskB" : "taskA";
+    return scene;
+  };
   const feed = () => {
     card.hass = {
       states: statesAt(Date.now(), now(), clock.shift),
@@ -690,6 +725,8 @@ const WORDS = {
     d_leuchtpunkte: "Leuchtpunkte", d_electron: "Electron", d_proton: "Proton", d_neutrino: "Neutrino",
     dots: "Höchstzahl Punkte", speed: "Tempo", run: "s pro Runde", dotsize: "Punktgröße",
     outage: "Netzausfall",
+    case: "Moment", c_A: "A · Akku entlädt bei Einspeisung", c_B: "B · Akku lädt bei Netzbezug",
+    task: "Aufgabe des Akkus", t_zero_grid: "zero_grid (Standard)", t_supply_house: "supply_house",
   },
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
@@ -706,6 +743,8 @@ const WORDS = {
     d_leuchtpunkte: "Glowing Dots", d_electron: "Electron", d_proton: "Proton", d_neutrino: "Neutrino",
     dots: "Maximum dots", speed: "Speed", run: "s a run", dotsize: "Dot size",
     outage: "Grid outage",
+    case: "Moment", c_A: "A · battery discharges during export", c_B: "B · battery charges during import",
+    task: "Battery task", t_zero_grid: "zero_grid (default)", t_supply_house: "supply_house",
   },
 };
 
@@ -715,6 +754,7 @@ function controls(host, card, lang, { set, feed, clock }) {
     layout: "cross", lines: undefined, pvRows: true, list: true, expanded: host.dataset.expanded,
     inside: "above", label: "prefix", weight: "normal", size: "100", name: "on", word: "on",
     ring: "overtake", design: "electron", dots: 5, speed: SPEED_DEFAULT, dotsize: 100,
+    task: "zero_grid",
   };
   // The extra-value switches: name, values, the state key they set.
   const EXTRAS = [
@@ -723,6 +763,7 @@ function controls(host, card, lang, { set, feed, clock }) {
     ["name", ["on", "off"]], ["word", ["on", "off"]],
     ["ring", ["overtake", "fade", "jump"]],
     ["design", ["none", "kugeln", "partylicht", "leuchtpunkte", "electron", "proton", "neutrino"], "d_"],
+    ["task", ["zero_grid", "supply_house"], "t_"],
   ];
   // Sliders: range, and what the label says of a value.
   const decimal = (x) => x.toLocaleString(lang, { maximumFractionDigits: 1 });
@@ -840,6 +881,18 @@ function controls(host, card, lang, { set, feed, clock }) {
             feed();
             apply();
           }),
+        want.includes("case") &&
+          choice(
+            w.case,
+            ["A", "B"],
+            host.dataset.case ?? "A",
+            (v) => {
+              host.dataset.case = v;
+              feed();
+              apply();
+            },
+            "c_",
+          ),
         ...EXTRAS.filter(([key]) => want.includes(key)).map(([key, values, prefix]) =>
           choice(
             w[key],
@@ -863,6 +916,7 @@ function controls(host, card, lang, { set, feed, clock }) {
     const out = [];
     if (shown.nodes) out.push(...nodesYaml(shown.nodes));
     if (want.includes("ring") && state.ring !== "overtake") out.push("ring:", `  animation: ${state.ring}`);
+    if (want.includes("task") && state.task !== "zero_grid") out.push("flow:", `  battery_task: ${state.task}`);
     if (want.includes("design")) {
       // Only what differs from the card's own defaults (design none, 5 dots,
       // 5 s and 1.8 s a run).
