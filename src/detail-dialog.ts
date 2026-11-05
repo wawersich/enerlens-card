@@ -1279,6 +1279,9 @@ export class EnerLensDetail extends LitElement {
       }
       this._drawn = drawn;
       this._loaded = true;
+      // The next growth ten seconds after these figures, not at once in
+      // their first sweep - also on reopening and after the reload (DF-22).
+      this._grownAt = Date.now();
       this._renew = false;
       this._renewed.clear();
     } catch (error) {
@@ -1397,9 +1400,14 @@ export class EnerLensDetail extends LitElement {
       const low = (r: StatRow5) =>
         r.min === null || r.max === null ? null : side.sign > 0 ? r.min : signed(r.max);
       const band = { stack: `band-${side.role}`, stackStrategy: "all", showSymbol: false };
+      // Every series with an id, as the line: HA's chart keeps a series across
+      // new figures only by its id; one without is made anew and sweeps in
+      // again from the left at every growth (DF-22, Markus 05.11.2026).
       return [
         {
           ...band,
+          // With the role: a pair of one sensor stays two bands (review).
+          id: `${side.entity}|${side.role}|low`,
           name: `${side.role}-low`,
           type: "line",
           lineStyle: { opacity: 0 },
@@ -1407,6 +1415,7 @@ export class EnerLensDetail extends LitElement {
         },
         {
           ...band,
+          id: `${side.entity}|${side.role}|span`,
           name: `${side.role}-span`,
           type: "line",
           lineStyle: { opacity: 0 },
@@ -1893,9 +1902,15 @@ export class EnerLensDetail extends LitElement {
     if (data.band.length > 0) {
       // Lower edge, then the span above it, stacked: the area between is the
       // hour's range - measured extremes, never a mean (ENT-13).
+      // Ids as in the power chart (DF-22): kept at every growth, not swept in
+      // anew. Tied to the entity: another value in this place is new.
       series.push(
         {
+          id: `${extra.entity}|min`,
           name: "min",
+          // Under the line even when the band comes on a later load: a kept
+          // series keeps its place, a new one goes on top (review).
+          z: 1,
           type: "line",
           stack: "band",
           step: "end",
@@ -1904,7 +1919,9 @@ export class EnerLensDetail extends LitElement {
           data: data.band.map((b) => [b.start, b.min]),
         },
         {
+          id: `${extra.entity}|max`,
           name: "max",
+          z: 1,
           type: "line",
           stack: "band",
           step: "end",
@@ -1916,6 +1933,7 @@ export class EnerLensDetail extends LitElement {
       );
     }
     series.push({
+      id: extra.entity,
       name,
       type: "line",
       step: "end",
@@ -1951,13 +1969,15 @@ export class EnerLensDetail extends LitElement {
         // The band reads as its range, not as the stacked span (DF-5).
         formatter: (raw: unknown) => {
           const points = (Array.isArray(raw) ? raw : [raw]) as {
-            seriesName: string;
+            seriesId?: string;
             value: [number, number | null];
             axisValueLabel?: string;
           }[];
-          const low = points.find((p) => p.seriesName === "min")?.value[1];
-          const span = points.find((p) => p.seriesName === "max")?.value[1];
-          const own = points.find((p) => p.seriesName === name)?.value[1];
+          // By id, not by name: a value labelled "min" or "max" is its own.
+          const at = (id: string) => points.find((p) => p.seriesId === id)?.value[1];
+          const low = at(`${extra.entity}|min`);
+          const span = at(`${extra.entity}|max`);
+          const own = at(extra.entity);
           const value =
             own !== undefined && own !== null
               ? percent(own)

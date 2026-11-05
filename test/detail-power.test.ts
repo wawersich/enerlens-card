@@ -1516,6 +1516,172 @@ describe("the live end: readings after HA's last five minutes (REQ DF-22)", () =
     }
   });
 
+  it("grows without drawing any curve anew: every series keeps its id (DF-22)", async () => {
+    // HA's chart hands new series to ECharts with replaceMerge, which keeps a
+    // series only by its id; one without is made anew and sweeps in again
+    // from the left (Markus 05.11.2026: "eine zweite Animation beim Akku").
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: { discharge: "sensor.bout", charge: "sensor.bin" } },
+    });
+    const d = (await open(el, "battery")) as Dialog & { hass?: HomeAssistant };
+    const ids = () =>
+      ["power", "soc"].map((kind) =>
+        (chart(d, kind)?.data ?? []).map((s) => (s as { id?: unknown }).id),
+      );
+    try {
+      const before = ids();
+      expect(before[1].length).toBeGreaterThan(0);
+      for (const list of before) {
+        for (const id of list) expect(typeof id === "string" && id !== "").toBe(true);
+        expect(new Set(list).size).toBe(list.length);
+      }
+      vi.setSystemTime(NOW + 6 * MIN);
+      d.hass = fakeHass();
+      await settle(d);
+      expect(chart(d, "soc")?.options.xAxis.max).toBe(NOW + 6 * MIN);
+      expect(ids()).toEqual(before);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("names every series by an id of its own, in every kind of window (DF-22)", async () => {
+    const BATTERY = {
+      ...CONFIG.entities,
+      battery: { discharge: "sensor.bout", charge: "sensor.bin" },
+    };
+    const PV = [
+      { entity: "sensor.roof", name: "Dach" },
+      { entity: "sensor.balcony", name: "Balkon" },
+    ];
+    const windows: [Record<string, unknown>, string][] = [
+      [{ ...CONFIG, entities: BATTERY }, "battery"],
+      [CONFIG, "grid"],
+      [CONFIG, "house"],
+      [{ ...CONFIG, entities: { ...CONFIG.entities, solar: PV } }, "solar"],
+    ];
+    for (const [config, node] of windows) {
+      document.body.innerHTML = "";
+      const d = await open(await mount(config), node);
+      const charts = [...(d.shadowRoot?.querySelectorAll<Chart>(".chart") ?? [])];
+      expect(charts.length, node).toBeGreaterThan(0);
+      for (const c of charts) {
+        const ids = (c.data ?? []).map((x) => (x as { id?: unknown }).id);
+        for (const id of ids)
+          expect(typeof id === "string" && id !== "", `${node}: ${id}`).toBe(true);
+        expect(new Set(ids).size, node).toBe(ids.length);
+      }
+    }
+  });
+
+  it("grows into the same chart elements; another range gets new ones (DF-22, DF-10)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: { discharge: "sensor.bout", charge: "sensor.bin" } },
+    });
+    const d = (await open(el, "battery")) as Dialog & { hass?: HomeAssistant };
+    const power = chart(d, "power");
+    const soc = chart(d, "soc");
+    try {
+      vi.setSystemTime(NOW + 6 * MIN);
+      d.hass = fakeHass();
+      await settle(d);
+      expect(chart(d, "power")?.options.xAxis.max).toBe(NOW + 6 * MIN);
+      expect(chart(d, "power")).toBe(power);
+      expect(chart(d, "soc")).toBe(soc);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+    const other = chips(d).find((c) => c.getAttribute("aria-checked") !== "true");
+    other?.click();
+    await settle(d);
+    expect(chart(d, "power")).not.toBe(power);
+  });
+
+  it("grows first ten seconds after the figures, not in their first sweep (DF-22)", async () => {
+    const el = await mount(PUMP);
+    const d = (await openRow(el, "sensor.pump")) as Dialog & { hass?: HomeAssistant };
+    const max = () => chart(d, "power")?.options.xAxis.max;
+    const before = max();
+    try {
+      vi.setSystemTime(NOW + 2_000);
+      d.hass = fakeHass();
+      await settle(d);
+      expect(max()).toBe(before);
+      vi.setSystemTime(NOW + 10_000);
+      d.hass = fakeHass();
+      await settle(d);
+      expect(max()).toBe(NOW + 10_000);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
+  });
+
+  it("keeps elements and ids when the theme changes (DF-6, DF-22)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, battery: { discharge: "sensor.bout", charge: "sensor.bin" } },
+    });
+    const d = (await open(el, "battery")) as Dialog & { hass?: HomeAssistant };
+    const ids = () =>
+      ["power", "soc"].map((kind) =>
+        (chart(d, kind)?.data ?? []).map((x) => (x as { id?: unknown }).id),
+      );
+    const themed = (darkMode: boolean) =>
+      ({ ...fakeHass(), themes: { darkMode } }) as HomeAssistant;
+    d.hass = themed(false);
+    await settle(d);
+    const power = chart(d, "power");
+    const before = ids();
+    d.hass = themed(true);
+    await settle(d);
+    expect(chart(d, "power")).toBe(power);
+    expect(ids()).toEqual(before);
+  });
+
+  it("reads a value's tooltip by id: one labelled max is its own (DF-5, L-20)", async () => {
+    const el = await mount({
+      ...CONFIG,
+      consumers: [
+        {
+          entity: "sensor.pump",
+          name: "Pumpe",
+          indicators: { bar_top: { entity: "sensor.soc", label: "max" } },
+        },
+      ],
+    });
+    const d = await openRow(el, "sensor.pump");
+    const c = chart(d, "soc");
+    const tip = (c?.options as unknown as { tooltip: { formatter: (p: unknown) => unknown } })
+      .tooltip.formatter;
+    const line = (c?.data ?? []).find((x) => (x as { id?: unknown }).id === "sensor.soc") as Series;
+    expect(line?.name).toBe("max");
+    // As ECharts hands them: the band first, under the names "min" and "max",
+    // then the value itself - here also named "max".
+    const show = (own: number | null) => {
+      const box = document.createElement("div");
+      const point = (id: string, name: string, v: number | null) => ({
+        seriesId: id,
+        seriesName: name,
+        value: [NOW, v],
+        axisValueLabel: "T",
+      });
+      render(
+        tip([
+          point("sensor.soc|min", "min", 60),
+          point("sensor.soc|max", "max", 15),
+          point("sensor.soc", "max", own),
+        ]) as never,
+        box,
+      );
+      return text(box);
+    };
+    // The value where it was read; the band's range where it was not.
+    expect(show(70)).toMatch(/max: 70 %$/);
+    expect(show(null)).toMatch(/max: 60 % – 75 %$/);
+  });
+
   it("grows the state of charge below with the power, a new reading in its place", async () => {
     const el = await mount({
       ...CONFIG,
