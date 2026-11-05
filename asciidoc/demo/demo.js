@@ -713,7 +713,7 @@ const WORDS = {
   de: {
     layout: "Anordnung", cross: "Kreuz", square_right: "Quadrat · PV rechts", square_left: "Quadrat · PV links",
     triangle: "Dreieck · Haus Mitte", triangle_battery: "Dreieck · Batterie Mitte", lines: "Linienform", curved: "Geschwungen", straight: "Gerade",
-    pvrows: "PV-Zeilen in der Liste", list: "Verbraucher-Liste", on: "An", off: "Aus", time: "Tageszeit (erfundener Tag)",
+    pvrows: "PV-Liste", list: "Verbraucherliste", on: "An", off: "Aus", time: "Tageszeit (erfundener Tag)",
     yaml: "So sieht das in YAML aus:", none: "# alles Standard - nichts einzutragen",
     inside: "Zusatzwert im Kreis", above: "über dem Icon", below: "unter dem Wert",
     label: "Zusatzwert beim Text", plain: "ohne Vorsatz", prefix: "mit Vorsatz",
@@ -731,7 +731,7 @@ const WORDS = {
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
     triangle: "Triangle · house centre", triangle_battery: "Triangle · battery centre", lines: "Line form", curved: "Curved", straight: "Straight",
-    pvrows: "PV rows in the list", list: "Consumer list", on: "On", off: "Off", time: "Time of day (invented day)",
+    pvrows: "PV list", list: "Consumer list", on: "On", off: "Off", time: "Time of day (invented day)",
     yaml: "This is the YAML:", none: "# all defaults - nothing to set",
     inside: "Extra value in the circle", above: "above the icon", below: "below the value",
     label: "Extra value with the label", plain: "without prefix", prefix: "with prefix",

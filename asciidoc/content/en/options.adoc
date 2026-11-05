@@ -20,11 +20,11 @@
 |`power.unit` |`kW` |`kW`, `W` or `auto`. `auto` picks the unit per value: whole watts below 1000 W, kilowatts above
 |`power.decimals` |`2` |Decimals for a fixed `kW`: 1, 2 or 3. Watts are always whole
 |`power.digits` |`3` |Significant digits for `auto`: 2, 3 or 4 - `1.23 kW`, `12.3 kW`, `123 kW`. A decimal place says something different at every size; this keeps what the figure tells constant
-|`list.enabled` |on with consumers |Show the list
+|`list.enabled` |on with consumers |Show the consumer list
 |`list.rest_label` |localised |Name of the remainder - older spelling, see _The rest row_ (`type: rest`) under _Extra values at the consumers_
 |`list.title` |— |Heading above the list
-|`list.solar` |`false` |PV rows above the consumers, one per source (with several sources)
-|`list.always_below` |`false` |Keep the list under the drawing even when there is room beside it
+|`list.solar` |`false` |Show the PV list: one row per source above the consumers, with `square_left` on the left (with several sources)
+|`list.always_below` |`false` |Keep the lists under the drawing even when there is room beside them
 |`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
 |`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house

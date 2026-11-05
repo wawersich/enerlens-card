@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Editor: clearer list switches.** *Show consumer list* and *Show PV list*
+  name what they show, like the two ring switches; *Lists always below* is
+  plural once both lists are shown.
+
 ### Fixed
 - **Detail window: no second build-up while open.** The state of charge (and
   the min/max band behind a power line) no longer sweeps in again from the

@@ -86,7 +86,7 @@ Einzel-Buttons, aufgeklappt:
 <div class="card-demo header-only" data-demo="quick" data-style="single" data-expanded="modes,energy_periods,pv_scales,scope"></div>
 ++++
 
-*Die Verbraucher-Liste sortiert sich und gleitet.* Zeilen ordnen sich im
+*Die Verbraucherliste sortiert sich und gleitet.* Zeilen ordnen sich im
 festen Takt nach Leistung und gleiten auf ihre neue Position. Ein kleiner
 Filter-Knopf oben zeigt auf Wunsch *alle* Verbraucher unabhängig von ihrer
 Leistung — um den Verlauf eines Geräts anzutippen, das gerade still geworden
@@ -118,7 +118,7 @@ eines Knotens lassen sich ausblenden. Siehe _Zusatzwerte an den Knoten_.
 <div class="card-demo" data-demo="extras"></div>
 ++++
 
-*Zusatzwerte an den Verbrauchern.* Auch eine Zeile der Verbraucher-Liste kann
+*Zusatzwerte an den Verbrauchern.* Auch eine Zeile der Verbraucherliste kann
 mehr zeigen als die Leistung, ohne zusätzlichen Platz zu brauchen: einen Ring um
 das Icon, einen dünnen Balken oben oder unten, ein Icon, das sich füllt. In der
 Karte ganz oben trägt die Wärmepumpe einen Ring mit der Warmwasser-Temperatur,
@@ -134,7 +134,7 @@ Ein *Netzausfall* wird angezeigt, sofern die Anlage den Netzstatus erfasst.
 ++++
 
 *Schmale Spalten.* Ist neben dem Kreuz kein Platz — auf dem Handy oder in
-einer schmalen Dashboard-Spalte —, rückt die Verbraucher-Liste darunter. Mit
+einer schmalen Dashboard-Spalte —, rückt die Verbraucherliste darunter. Mit
 `list.always_below` bleibt sie auch auf breiten Flächen dort.
 
 ++++

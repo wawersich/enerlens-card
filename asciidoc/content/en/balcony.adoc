@@ -42,14 +42,15 @@ sees the balcony plant's feed-in anyway.
 == Ring and rows
 
 Under *Display* there are two switches for the sources: *Show PV ring*
-(default: on) and *PV rows in the list* (default: off). The PV rows stand above
-the consumers, sort like them and have their own fan to the PV node.
+(default: on) and *Show PV list* (default: off). The PV rows sort like
+the consumers and have their own fan to the PV node. They stand above the
+consumers, with “Square · solar left” left of the drawing.
 
 [.only-light]
-image::editor-pv-display-en-light.png["The switches for list, PV rows and rings",490]
+image::editor-pv-display-en-light.png["The switches for consumer list, PV list and rings",490]
 
 [.only-dark]
-image::editor-pv-display-en-dark.png["The switches for list, PV rows and rings",490]
+image::editor-pv-display-en-dark.png["The switches for consumer list, PV list and rings",490]
 
 With the peak power entered for every source, the card offers one more
 button: *100%* shows the shares on the ring, *% kWp* the power relative to the

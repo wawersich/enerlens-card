@@ -45,15 +45,16 @@ die Einspeisung des Balkonkraftwerks ohnehin.
 == Ring und Zeilen
 
 Unter *Darstellung* stehen zwei Schalter für die Quellen: *PV-Ring anzeigen*
-(Standard: an) und *PV-Zeilen in der Liste* (Standard: aus). Die PV-Zeilen
-stehen über den Verbrauchern, sortieren sich wie diese und haben ihren eigenen
-Fächer zum PV-Knoten.
+(Standard: an) und *PV-Liste anzeigen* (Standard: aus). Die PV-Zeilen
+sortieren sich wie die Verbraucher und haben ihren eigenen Fächer zum
+PV-Knoten. Sie stehen über den Verbrauchern, bei „Quadrat · PV links“ links der
+Zeichnung.
 
 [.only-light]
-image::editor-pv-display-de-light.png["Die Schalter für Liste, PV-Zeilen und Ringe",490]
+image::editor-pv-display-de-light.png["Die Schalter für Verbraucherliste, PV-Liste und Ringe",490]
 
 [.only-dark]
-image::editor-pv-display-de-dark.png["Die Schalter für Liste, PV-Zeilen und Ringe",490]
+image::editor-pv-display-de-dark.png["Die Schalter für Verbraucherliste, PV-Liste und Ringe",490]
 
 Ist bei jeder Quelle die Spitzenleistung eingetragen, bietet die Karte einen
 weiteren Knopf: *100 %* zeigt die Anteile am Ring, *% kWp* die Leistung im

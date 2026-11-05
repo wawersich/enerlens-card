@@ -20,11 +20,11 @@
 |`power.unit` |`kW` |`kW`, `W` oder `auto`. `auto` wählt die Einheit je Wert: unter 1000 W ganze Watt, darüber kW
 |`power.decimals` |`2` |Nachkommastellen bei festem `kW`: 1, 2 oder 3. Watt sind immer ganz
 |`power.digits` |`3` |Relevante Stellen bei `auto`: 2, 3 oder 4 — `1,23 kW`, `12,3 kW`, `123 kW`. Eine Nachkommastelle bedeutet bei jeder Größe etwas anderes; so bleibt gleich, wie viel die Zahl aussagt
-|`list.enabled` |an mit Verbrauchern |Liste anzeigen
+|`list.enabled` |an mit Verbrauchern |Verbraucherliste anzeigen
 |`list.rest_label` |lokalisiert |Bezeichnung des Rests – ältere Schreibweise, siehe _Die Rest-Zeile_ (`type: rest`) unter _Zusatzwerte an den Verbrauchern_
 |`list.title` |— |Überschrift über der Liste
-|`list.solar` |`false` |PV-Zeilen über den Verbrauchern, je Quelle eine (bei mehreren Quellen)
-|`list.always_below` |`false` |Liste auch dann unter der Zeichnung halten, wenn daneben Platz wäre
+|`list.solar` |`false` |PV-Liste anzeigen: je Quelle eine Zeile über den Verbrauchern, bei `square_left` links (bei mehreren Quellen)
+|`list.always_below` |`false` |Listen auch dann unter der Zeichnung halten, wenn daneben Platz wäre
 |`content.max_width` |— |Größte Breite des Inhalts in Pixeln (400–2000): Titel, Quick-Buttons, Zeichnung und Liste bleiben auf breiten Dashboards als ein Block zusammen, der Kartenhintergrund bleibt voll breit. Ohne Wert reicht die Liste bis an den rechten Rand
 |`content.align` |`center` |Wo der begrenzte Inhalt steht: `left`, `center` oder `right`. Nur mit `content.max_width`
 |`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen

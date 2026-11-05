@@ -2488,8 +2488,25 @@ class EnerLensCardEditor extends LitElement {
     if (name.endsWith("_invert")) return localize("editor.invert", this.hass);
     if (name.startsWith("icon_")) return localize(`editor.${name.slice(5)}`, this.hass);
     if (QUANTITIES.includes(name as Quantity)) return localize("editor.entity", this.hass);
+    if (name === "list_always_below" && this._bothLists())
+      return localize("editor.list_always_below_both", this.hass);
     return localize(`editor.${name}`, this.hass);
   };
+
+  /** Consumer list and PV list both shown: "always below" moves both (L-14). */
+  private _bothLists(): boolean {
+    const shown = this._shownFlat() as FlatRecord;
+    // PV rows only from two sources on, as the card draws them (solar.ts).
+    const rows = (Array.isArray(shown.solar_sources) ? shown.solar_sources : []).filter(
+      (row) => isRecord(row) && nonEmpty(row.entity),
+    );
+    return (
+      shown.solar_source === "sources" &&
+      rows.length > 1 &&
+      shown.list_solar === true &&
+      shown.list_enabled === true
+    );
+  }
 
   /** Helper text under a field. Empty for the self-explanatory ones - localize
    *  returns the key itself when there is no entry. */
@@ -2503,6 +2520,8 @@ class EnerLensCardEditor extends LitElement {
     }
     let key = `editor_help.${item.name.replace(/^node_(?:solar|grid|house|battery)_/, "node_")}`;
     if (item.name.startsWith("color_")) key = "editor_help.color";
+    if (item.name === "list_always_below" && this._bothLists())
+      key = "editor_help.list_always_below_both";
     if (item.name.endsWith("_source")) {
       const flat = (this._flat ?? {}) as FlatRecord;
       if (flat[item.name] !== "derived") return "";
