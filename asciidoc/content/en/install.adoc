@@ -2,27 +2,34 @@
 :page-key: install
 :nav-order: 2
 
-== HACS
+== Marketplace (HACS)
+
+Since Home Assistant 2026.11, HACS is called _Marketplace_ and is built in:
+_Settings → Marketplace_ (administrators only). On older versions the same
+steps apply in HACS.
 
 [arabic]
-. In HACS, search for _EnerLens_, install, reload the browser
-. HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
-you; if the card does not appear, check _Settings → Dashboards → Resources_
+. In the Marketplace, search for _EnerLens_, install, reload the browser
+. The Marketplace registers the resource
+`/local/community/enerlens-card/enerlens-card.js` for you (HACS before 2026.11:
+`/hacsfiles/enerlens-card/enerlens-card.js`, which keeps working); if the card
+does not appear, check _Settings → Dashboards → Resources_
 
 == Update
 
-HACS only checks for new releases now and then. To get one at once:
+The Marketplace only checks for new releases now and then. To get one at once:
 
 [arabic]
-. Open HACS, on _EnerLens_ choose ⋮ → _Update information_
-. The update appears under _Settings → Updates_ (or in HACS at the card) →
-install it
+. Open the Marketplace, tab _Installed_, on _EnerLens_ choose ⋮ →
+_Update information_
+. The update appears under _Settings → Updates_ (or in the Marketplace at the
+card) → install it
 . After installing, be sure to reload the browser. A card runs in the browser,
 not in Home Assistant itself; without a reload the browser keeps showing the
 old version from its cache. In the Home Assistant app, pull the page down until
 it reloads, or restart the app
 
-== Without HACS
+== Without the Marketplace
 
 [arabic]
 . Download `enerlens-card.js` from the latest release

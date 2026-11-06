@@ -54,14 +54,20 @@
   <main data-pagefind-body>
     <h1>Installation</h1>
 <div class="sect1">
-<h2 id="hacs"><a class="anchor" href="#hacs"></a>HACS</h2>
+<h2 id="marketplace-hacs"><a class="anchor" href="#marketplace-hacs"></a>Marketplace (HACS)</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>Seit Home Assistant 2026.11 heißt HACS <em>Marketplace</em> und ist fest eingebaut:
+<em>Einstellungen → Marketplace</em> (nur für Administratoren). In älteren Versionen
+gelten dieselben Schritte in HACS.</p>
+</div>
 <div class="olist arabic">
 <ol class="arabic">
-<li>In HACS nach <em>EnerLens</em> suchen, installieren, Browser neu laden</li>
-<li>HACS trägt die Ressource <code>/hacsfiles/enerlens-card/enerlens-card.js</code> selbst
-ein; erscheint die Karte nicht, unter <em>Einstellungen → Dashboards →
-Ressourcen</em> nachsehen</li>
+<li>Im Marketplace nach <em>EnerLens</em> suchen, installieren, Browser neu laden</li>
+<li>Der Marketplace trägt die Ressource
+<code>/local/community/enerlens-card/enerlens-card.js</code> selbst ein (HACS vor 2026.11:
+<code>/hacsfiles/enerlens-card/enerlens-card.js</code>, funktioniert weiter); erscheint
+die Karte nicht, unter <em>Einstellungen → Dashboards → Ressourcen</em> nachsehen</li>
 </ol>
 </div>
 </div>
@@ -70,14 +76,15 @@ Ressourcen</em> nachsehen</li>
 <h2 id="update"><a class="anchor" href="#update"></a>Update</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>HACS sieht nur in Abständen nach, ob es ein neues Release gibt. Sofort geht es
-so:</p>
+<p>Der Marketplace sieht nur in Abständen nach, ob es ein neues Release gibt.
+Sofort geht es so:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
-<li>HACS öffnen, bei <em>EnerLens</em> auf ⋮ → <em>Informationen aktualisieren</em></li>
-<li>Das Update erscheint unter <em>Einstellungen → Updates</em> (oder in HACS bei der
-Karte) → installieren</li>
+<li>Marketplace öffnen, Reiter <em>Installiert</em>, bei <em>EnerLens</em> auf ⋮ →
+<em>Informationen aktualisieren</em></li>
+<li>Das Update erscheint unter <em>Einstellungen → Updates</em> (oder im Marketplace bei
+der Karte) → installieren</li>
 <li>Nach der Installation unbedingt den Browser neu laden. Eine Karte läuft im
 Browser, nicht in Home Assistant selbst; ohne Neuladen zeigt er weiter die
 alte Version aus seinem Zwischenspeicher. In der App von Home Assistant die
@@ -87,7 +94,7 @@ Seite nach unten ziehen, bis sie neu lädt, oder die App neu starten</li>
 </div>
 </div>
 <div class="sect1">
-<h2 id="ohne-hacs"><a class="anchor" href="#ohne-hacs"></a>Ohne HACS</h2>
+<h2 id="ohne-marketplace"><a class="anchor" href="#ohne-marketplace"></a>Ohne Marketplace</h2>
 <div class="sectionbody">
 <div class="olist arabic">
 <ol class="arabic">

@@ -49,11 +49,16 @@ there are not pictures but the real card with invented values.
 
 ## Installation
 
-### HACS
+### Marketplace (HACS)
 
-1. In HACS, search for *EnerLens*, install, reload the browser
-2. HACS registers the resource `/hacsfiles/enerlens-card/enerlens-card.js` for
-   you; if the card does not appear, check *Settings → Dashboards → Resources*
+Since Home Assistant 2026.11, HACS is called *Marketplace* (*Settings →
+Marketplace*); on older versions the same steps apply in HACS.
+
+1. In the Marketplace, search for *EnerLens*, install, reload the browser
+2. The Marketplace registers the resource
+   `/local/community/enerlens-card/enerlens-card.js` for you (HACS before
+   2026.11: `/hacsfiles/enerlens-card/enerlens-card.js`); if the card does not
+   appear, check *Settings → Dashboards → Resources*
 
 ### Manually
 

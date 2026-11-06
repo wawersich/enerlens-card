@@ -54,13 +54,20 @@
   <main data-pagefind-body>
     <h1>Installation</h1>
 <div class="sect1">
-<h2 id="hacs"><a class="anchor" href="#hacs"></a>HACS</h2>
+<h2 id="marketplace-hacs"><a class="anchor" href="#marketplace-hacs"></a>Marketplace (HACS)</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>Since Home Assistant 2026.11, HACS is called <em>Marketplace</em> and is built in:
+<em>Settings → Marketplace</em> (administrators only). On older versions the same
+steps apply in HACS.</p>
+</div>
 <div class="olist arabic">
 <ol class="arabic">
-<li>In HACS, search for <em>EnerLens</em>, install, reload the browser</li>
-<li>HACS registers the resource <code>/hacsfiles/enerlens-card/enerlens-card.js</code> for
-you; if the card does not appear, check <em>Settings → Dashboards → Resources</em></li>
+<li>In the Marketplace, search for <em>EnerLens</em>, install, reload the browser</li>
+<li>The Marketplace registers the resource
+<code>/local/community/enerlens-card/enerlens-card.js</code> for you (HACS before 2026.11:
+<code>/hacsfiles/enerlens-card/enerlens-card.js</code>, which keeps working); if the card
+does not appear, check <em>Settings → Dashboards → Resources</em></li>
 </ol>
 </div>
 </div>
@@ -69,13 +76,14 @@ you; if the card does not appear, check <em>Settings → Dashboards → Resource
 <h2 id="update"><a class="anchor" href="#update"></a>Update</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>HACS only checks for new releases now and then. To get one at once:</p>
+<p>The Marketplace only checks for new releases now and then. To get one at once:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
-<li>Open HACS, on <em>EnerLens</em> choose ⋮ → <em>Update information</em></li>
-<li>The update appears under <em>Settings → Updates</em> (or in HACS at the card) →
-install it</li>
+<li>Open the Marketplace, tab <em>Installed</em>, on <em>EnerLens</em> choose ⋮ →
+<em>Update information</em></li>
+<li>The update appears under <em>Settings → Updates</em> (or in the Marketplace at the
+card) → install it</li>
 <li>After installing, be sure to reload the browser. A card runs in the browser,
 not in Home Assistant itself; without a reload the browser keeps showing the
 old version from its cache. In the Home Assistant app, pull the page down until
@@ -85,7 +93,7 @@ it reloads, or restart the app</li>
 </div>
 </div>
 <div class="sect1">
-<h2 id="without-hacs"><a class="anchor" href="#without-hacs"></a>Without HACS</h2>
+<h2 id="without-the-marketplace"><a class="anchor" href="#without-the-marketplace"></a>Without the Marketplace</h2>
 <div class="sectionbody">
 <div class="olist arabic">
 <ol class="arabic">
