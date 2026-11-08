@@ -174,6 +174,7 @@ export function consumerView(entry: Record<string, unknown>): Record<string, unk
       ...rest,
       ring: prune({ entity: soc, label: nonEmpty(label) ? label : undefined }),
       idle_value: "ring",
+      // Written on: back on an older version the ring stays as it was (LZ-10).
       in_energy: true,
     };
   }
@@ -238,11 +239,35 @@ function cleanRest(entry: Record<string, unknown>): Record<string, unknown> {
  * highlight as ticks - { bold, band } -> ["bold", "band"] (L-19).
  */
 function formView(row: Record<string, unknown>): Record<string, unknown> {
-  const view = consumerView(row);
+  const view = energyView(consumerView(row));
   const ticks = view.highlight;
   return isRecord(ticks)
     ? { ...view, highlight: HIGHLIGHTS.filter((k) => ticks[k] === true) }
     : view;
+}
+
+/**
+ * Marks the energy switch of a form that the YAML did not hold on (LZ-10):
+ * shown on as the default, so an on from that form is the default again and
+ * not written. A row that never passed through a form has no mark and keeps
+ * what it says. The key never reaches the YAML.
+ */
+const ENERGY_SHOWN_DEFAULT = "__in_energy_default";
+
+/**
+ * The energy switch as the form shows it: on unless the YAML says false
+ * (LZ-5). Only an off is written; an on the YAML already held stays.
+ */
+function energyView(view: Record<string, unknown>): Record<string, unknown> {
+  const extras = isRecord(view.indicators) ? view.indicators : {};
+  return {
+    ...view,
+    indicators: {
+      ...extras,
+      in_energy: extras.in_energy !== false,
+      ...(extras.in_energy !== true ? { [ENERGY_SHOWN_DEFAULT]: true } : {}),
+    },
+  };
 }
 
 /**
@@ -451,7 +476,7 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>, res
 function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
   if (!isRecord(value)) return undefined;
   const out: Record<string, unknown> = {
-    ...unknownKeys(value, [...INDICATOR_SLOTS, "idle_value", "in_energy"]),
+    ...unknownKeys(value, [...INDICATOR_SLOTS, "idle_value", "in_energy", ENERGY_SHOWN_DEFAULT]),
   };
   for (const slot of INDICATOR_SLOTS) {
     const one = value[slot];
@@ -469,7 +494,9 @@ function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
   const idle = value.idle_value;
   if (typeof idle === "string" && idle !== "power" && out[idle] !== undefined)
     out.idle_value = idle;
-  if (value.in_energy === true) out.in_energy = true;
+  // On is the default (LZ-5): only an off is written, and an on the YAML held.
+  if (value.in_energy === false) out.in_energy = false;
+  else if (value.in_energy === true && value[ENERGY_SHOWN_DEFAULT] !== true) out.in_energy = true;
   const hasSlot = INDICATOR_SLOTS.some((slot) => out[slot] !== undefined);
   return hasSlot ? prune(out) : undefined;
 }
@@ -735,6 +762,16 @@ type Place = (typeof PLACES)[number];
 const hasPlace = (quantity: Quantity, place: Place): boolean =>
   place === "label" || quantity !== "battery";
 
+/** Whether a node has an extra field the energy switch acts on (LZ-11). */
+function nodeHasField(flat: FlatRecord, quantity: Quantity): boolean {
+  return PLACES.some(
+    (place) =>
+      hasPlace(quantity, place) &&
+      !(quantity === "grid" && place === "inside") &&
+      nonEmpty(flat[`node_${quantity}_${place}_entity`]),
+  );
+}
+
 /** Only grid and battery have a state word to switch off (REQ Z-4). */
 const hasStateWord = (quantity: Quantity): boolean => quantity === "grid" || quantity === "battery";
 
@@ -750,6 +787,7 @@ function flattenNodes(config: RawConfig, out: FlatRecord): void {
     const p = `node_${quantity}_`;
     out[`${p}show_name`] = node.show_name !== false;
     if (hasStateWord(quantity)) out[`${p}show_state`] = node.show_state !== false;
+    out[`${p}in_energy`] = node.in_energy !== false;
     for (const place of PLACES) {
       if (!hasPlace(quantity, place)) continue;
       const field = (isRecord(node[place]) ? node[place] : {}) as Record<string, unknown>;
@@ -784,7 +822,7 @@ const FIELD_KEYS: Record<Place, readonly string[]> = {
   inside: ["entity", "position", "decimals", "size", "weight"],
   label: ["entity", "prefix", "decimals", "size", "weight"],
 };
-const NODE_KEYS = ["show_name", "show_state", "inside", "label"];
+const NODE_KEYS = ["show_name", "show_state", "inside", "label", "in_energy"];
 
 /** One extra field for the YAML; nothing at all without its entity (REQ E-1, Z-10). */
 function buildField(
@@ -830,6 +868,15 @@ function buildNodes(f: FlatRecord, withBattery: boolean, previous: unknown): Raw
       ...unknownKeys(old, NODE_KEYS),
       show_name: f[`${p}show_name`] === false ? false : undefined,
       show_state: hasStateWord(quantity) && f[`${p}show_state`] === false ? false : undefined,
+      // On is the default (LZ-11): only an off is written, and an on the YAML
+      // held - and only with a field it acts on, else nothing is left over.
+      in_energy: !nodeHasField(f, quantity)
+        ? undefined
+        : f[`${p}in_energy`] === false
+          ? false
+          : old.in_energy === true
+            ? true
+            : undefined,
       inside: hasPlace(quantity, "inside")
         ? buildField(f, quantity, "inside", old.inside)
         : undefined,
@@ -1635,6 +1682,10 @@ function nodeSchema(
       { name: `${f}weight`, selector: weightSelector(t) },
     );
   }
+  // Only with a field it acts on (LZ-11); inside the grid circle the period's
+  // figures take the place, so there only the label field counts.
+  if (nodeHasField(flat, quantity))
+    fields.push({ name: `${p}in_energy`, selector: { boolean: {} } });
   return {
     name: `node_${quantity}`,
     type: "expandable",

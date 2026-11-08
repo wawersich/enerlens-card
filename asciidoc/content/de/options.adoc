@@ -69,6 +69,7 @@
 |`nodes.++<++knoten++>++.show_state` |`true` |Zustandswort zeigen – nur `grid` und `battery`
 |`nodes.++<++knoten++>++.inside` |— |Zusatzwert im Kreis: `++{++entity, position, decimals, size, weight}`, Standard `above`, `ha`, `100`, `normal` – nicht bei `battery`. Siehe _Zusatzwerte an den Knoten_
 |`nodes.++<++knoten++>++.label` |— |Zusatzwert direkt am Kreis: `++{++entity, prefix, decimals, size, weight}`, Standard ohne Vorsatz, `ha`, `100`, `normal`
+|`nodes.++<++knoten++>++.in_energy` |`true` |Zusatzwerte auch im Energie-Modus zeigen, mit dem Wert von jetzt; im Kreis am Netz nie
 |`colors.++<++knoten++>_++inside`, `colors.++<++knoten++>_++label` |grau |Farbe eines Zusatzwerts
 |===
 

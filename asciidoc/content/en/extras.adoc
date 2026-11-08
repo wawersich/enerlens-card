@@ -49,7 +49,9 @@ _Colours_ (`colors.solar_inside`, `colors.house_label`, … - grey by default).
 * *`show_name`* and *`show_state`* hide the name ("PV", "Grid", …) and the
 state word ("export", "charging") - with or without extra values. Without
 the state word only the colour tells the direction.
-* Extra values always show the current state, also in the average views.
+* Extra values always show the current state, also in the average views and
+in the energy mode (there with "· now" in the tooltip; off per node with
+`in_energy: false`, see link:energy.html[Energy mode]).
 Tapping a value next to the circle or above the icon opens its own history;
 one under the value belongs to the node and opens the node's entity.
 * `decimals` does nothing for text, money, durations and points in time -

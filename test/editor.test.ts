@@ -1400,6 +1400,84 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     expect(titles(el)).toEqual(["Wallbox", "Pump"]);
   });
 
+  it("shows the energy switch on and writes only an off (LZ-5, LZ-10)", async () => {
+    const ring = { ring: { entity: "sensor.car" } };
+    const el = await mountList({
+      ...BASE,
+      consumers: [{ entity: "sensor.wallbox", indicators: ring }],
+    });
+    const shown = consumerForm(el, 0).data as { indicators: Record<string, unknown> };
+    expect(shown.indicators.in_energy).toBe(true);
+    const off = await setRow(el, 0, {
+      ...consumerForm(el, 0).data,
+      indicators: { ...shown.indicators, in_energy: false },
+    });
+    expect(off.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      indicators: { ...ring, in_energy: false },
+    });
+    const view = consumerForm(el, 0).data as { indicators: Record<string, unknown> };
+    const on = await setRow(el, 0, {
+      ...consumerForm(el, 0).data,
+      indicators: { ...view.indicators, in_energy: true },
+    });
+    // On is the default: nothing written.
+    expect(on.consumers?.[0]).toEqual({ entity: "sensor.wallbox", indicators: ring });
+  });
+
+  it("keeps another consumer's in_energy: true when one is changed (LZ-10)", async () => {
+    const held = { ring: { entity: "sensor.car" }, idle_value: "ring" as const, in_energy: true };
+    const el = await mountList({
+      ...BASE,
+      consumers: [
+        { entity: "sensor.wallbox", indicators: held },
+        { entity: "sensor.pump", name: "Pump" },
+      ],
+    });
+    const saved = await setRow(el, 1, { ...consumerForm(el, 1).data, name: "Heat pump" });
+    expect(saved.consumers?.[0]).toEqual({ entity: "sensor.wallbox", indicators: held });
+  });
+
+  it("writes no in_energy after two edits of a consumer without it (LZ-10, GT-4)", async () => {
+    const ring = { ring: { entity: "sensor.car" } };
+    const el = await mountList({
+      ...BASE,
+      consumers: [{ entity: "sensor.wallbox", indicators: ring }],
+    });
+    await setRow(el, 0, { ...consumerForm(el, 0).data, name: "A" });
+    const saved = await setRow(el, 0, { ...consumerForm(el, 0).data, name: "Ab" });
+    expect(saved.consumers?.[0]).toEqual({
+      entity: "sensor.wallbox",
+      name: "Ab",
+      indicators: ring,
+    });
+  });
+
+  it("writes no in_energy after off and on again (LZ-10)", async () => {
+    const ring = { ring: { entity: "sensor.car" } };
+    const el = await mountList({
+      ...BASE,
+      consumers: [{ entity: "sensor.wallbox", indicators: { ...ring, in_energy: false } }],
+    });
+    const data = consumerForm(el, 0).data as { indicators: Record<string, unknown> };
+    expect(data.indicators.in_energy).toBe(false);
+    const saved = await setRow(el, 0, {
+      ...data,
+      indicators: { ...data.indicators, in_energy: true },
+    });
+    expect(saved.consumers?.[0]).toEqual({ entity: "sensor.wallbox", indicators: ring });
+  });
+
+  it("keeps an in_energy: true the YAML holds (LZ-10)", async () => {
+    const indicators = { ring: { entity: "sensor.car" }, in_energy: true };
+    const el = await mountList({
+      ...BASE,
+      consumers: [{ entity: "sensor.wallbox", indicators }],
+    });
+    const saved = await setRow(el, 0, { ...consumerForm(el, 0).data, name: "Box" });
+    expect(saved.consumers?.[0]).toEqual({ entity: "sensor.wallbox", name: "Box", indicators });
+  });
+
   it("keeps a new entry in the form until it has an entity (E-1)", async () => {
     const el = await mountList(BASE);
     const add = el.shadowRoot?.querySelector(".add-consumer") as HTMLButtonElement;

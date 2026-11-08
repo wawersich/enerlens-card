@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **Energy mode: extra values stay.** The indicators of a consumer and of the
+  rest row (icon ring, bars, icon fill) and the extra values at the nodes now
+  stay in the energy
+  mode and show the value of now, marked "· now" in their tooltip - before,
+  they were hidden unless asked for. *Show in the energy mode too* switches
+  them off: per consumer as before (`indicators.in_energy: false`), and new
+  per node (`nodes.<node>.in_energy: false`). Inside the grid circle import
+  and export keep their place. Going back to 1.5.2 or older, its editor drops
+  an `in_energy: false` the next time the consumer is edited.
+- **Editor:** *Ring* and *Fill* of the indicators are now called *Icon ring*
+  and *Icon fill*.
+
 ## [1.5.2] - 2026-11-06
 
 ### Changed

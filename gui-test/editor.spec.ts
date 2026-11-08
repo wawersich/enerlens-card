@@ -188,9 +188,9 @@ test("GT-4: each field operated, saved, opened again - the value is still there"
       continue;
     }
     // Unset reads back as unset: the option "" of a select (standard), and
-    // in_energy off - only `true` is written (L-20).
+    // in_energy on - only `false` is written (LZ-10).
     const same = (a: unknown) =>
-      (field.kind === "select" && a === "") || (field.name === "in_energy" && a === false)
+      (field.kind === "select" && a === "") || (field.name === "in_energy" && a === true)
         ? undefined
         : a;
     if (JSON.stringify(same(again.value)) !== JSON.stringify(same(value))) {

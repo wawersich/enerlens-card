@@ -83,8 +83,12 @@ given in W count as W × 1 hour: `min_consumer_w: 10` hides consumers below
 * *The dots* run on the mean power over the period - its energy divided by
 the time it took - with the usual thresholds, so a month moves like its
 average day, not at top speed.
-* Extra values and the state words ("import", "charging") are hidden; their
-room stays, so nothing moves when you switch.
+* The state words ("import", "charging") are hidden; their room stays, so
+nothing moves when you switch.
+* Extra values at the nodes stay and show the value of now; their tooltip says
+"· now". Inside the grid circle import and export take the place, so a value
+there goes. Per node, *Show in the energy mode too* (`nodes.<node>.in_energy:
+false`) hides them; their room stays.
 * Tapping a node still opens its history.
 
 [[detail]]

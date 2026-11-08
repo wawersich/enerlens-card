@@ -971,7 +971,9 @@ function readIndicators(
   return {
     slots,
     idleValue,
-    inEnergy: readBoolean(raw.in_energy, `${field}.in_energy`, false, hass),
+    // On unless switched off (LZ-5, Markus 08.11.2026): else the values go, the
+    // list changes its height and the rows jump when the mode changes.
+    inEnergy: readBoolean(raw.in_energy, `${field}.in_energy`, true, hass),
   };
 }
 const POSITIONS: readonly ConsumerPosition[] = ["top", "bottom"];
@@ -1060,6 +1062,7 @@ const NODE_OPTION_KEYS: ReadonlySet<string> = new Set([
   "show_state",
   "inside",
   "label",
+  "in_energy",
 ]);
 const FIELD_KEYS: Record<"inside" | "label", ReadonlySet<string>> = {
   inside: new Set(["entity", "position", "decimals", "size", "weight"]),
@@ -1133,7 +1136,7 @@ function readExtraField(
 /** Names and state words on, no extra fields - the card as it always was. */
 export function defaultNodes(): Record<NodeKey, NodeOptions> {
   return Object.fromEntries(
-    NODE_KEYS.map((key) => [key, { showName: true, showState: true }]),
+    NODE_KEYS.map((key) => [key, { showName: true, showState: true, inEnergy: true }]),
   ) as Record<NodeKey, NodeOptions>;
 }
 
@@ -1154,6 +1157,7 @@ function readNodes(value: unknown, hass?: HomeAssistant): Record<NodeKey, NodeOp
     warnUnknownIn(entry, NODE_OPTION_KEYS, field, hass);
     const options = nodes[key];
     options.showName = readBoolean(entry.show_name, `${field}.show_name`, true, hass);
+    options.inEnergy = readBoolean(entry.in_energy, `${field}.in_energy`, true, hass);
     const showState = readBoolean(entry.show_state, `${field}.show_state`, true, hass);
     if (key === "grid" || key === "battery") options.showState = showState;
     else if (!isUnset(entry.show_state)) {

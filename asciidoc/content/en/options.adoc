@@ -69,6 +69,7 @@
 |`nodes.++<++node++>++.show_state` |`true` |Show the state word - `grid` and `battery` only
 |`nodes.++<++node++>++.inside` |— |Extra value in the circle: `++{++entity, position, decimals, size, weight}`, defaults `above`, `ha`, `100`, `normal` - not for `battery`. See _Extra values at the nodes_
 |`nodes.++<++node++>++.label` |— |Extra value next to the circle: `++{++entity, prefix, decimals, size, weight}`, defaults no prefix, `ha`, `100`, `normal`
+|`nodes.++<++node++>++.in_energy` |`true` |Show the extra values in the energy mode too, with the value of now; never inside the grid circle
 |`colors.++<++node++>_++inside`, `colors.++<++node++>_++label` |grey |Colour of an extra value
 |===
 

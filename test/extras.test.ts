@@ -863,3 +863,33 @@ describe("room and tap targets for extra values", () => {
     el.remove();
   });
 });
+
+describe("extra fields in the energy mode (REQ LZ-11)", () => {
+  const base = {
+    type: "custom:enerlens-card",
+    entities: { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" },
+  };
+
+  it("keeps them by default and reads an off", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const on = normalizeConfig({ ...base, nodes: { house: { label: { entity: "sensor.x" } } } });
+    expect(on.nodes.house.inEnergy).toBe(true);
+    expect(on.nodes.grid.inEnergy).toBe(true);
+    const off = normalizeConfig({
+      ...base,
+      nodes: { house: { label: { entity: "sensor.x" }, in_energy: false } },
+    });
+    expect(off.nodes.house.inEnergy).toBe(false);
+    // A key the card knows: no word in the console.
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("keeps a consumer's indicators by default (LZ-5)", () => {
+    const config = normalizeConfig({
+      ...base,
+      consumers: [{ entity: "sensor.c", indicators: { ring: { entity: "sensor.soc" } } }],
+    });
+    expect(config.consumers[0].indicators?.inEnergy).toBe(true);
+  });
+});

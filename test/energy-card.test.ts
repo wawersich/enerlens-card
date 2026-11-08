@@ -319,13 +319,82 @@ describe("energy mode on the card (REQ 2.15)", () => {
     expect(own[1]).toContain("--energy-grid-return-color");
   });
 
-  it("drops state words and keeps the extra field's room unseen (EM-6)", async () => {
+  it("drops state words and keeps the extra field, marked as now, by default (LZ-11)", async () => {
     const { el } = await mount();
     await tap(el);
     expect(text(node(el, "battery")?.querySelector(".label"))).toBe("Batterie");
     const extra = node(el, "house")?.querySelector<HTMLElement>(".extra-label");
+    expect(extra?.style.visibility).toBe("");
+    expect(extra?.getAttribute("tabindex")).toBe("0");
+    expect(extra?.getAttribute("title")).toBe("80 % · jetzt");
+    expect(extra?.getAttribute("aria-label")).toBe("80 % · jetzt");
+  });
+
+  it("keeps the extra field's room unseen where switched off (EM-6, LZ-11)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      nodes: { house: { label: { entity: "sensor.share" }, in_energy: false } },
+    });
+    await tap(el);
+    const extra = node(el, "house")?.querySelector<HTMLElement>(".extra-label");
     expect(extra?.style.visibility).toBe("hidden");
     expect(extra?.getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("shows an inside field in a period with 'now', but never inside the grid (LZ-11)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      nodes: {
+        house: { inside: { entity: "sensor.share" } },
+        grid: { inside: { entity: "sensor.share" } },
+      },
+    });
+    await tap(el);
+    const house = node(el, "house");
+    expect(house?.classList.contains("extras-hidden")).toBe(false);
+    expect(house?.querySelector(".extra-inside")?.getAttribute("title")).toBe("80 % · jetzt");
+    expect(house?.querySelector(".hit.upper")?.getAttribute("aria-label")).toContain(
+      "80 % · jetzt",
+    );
+    // Import and export take the grid circle in a period.
+    expect(node(el, "grid")?.querySelector(".extra-inside")).toBeNull();
+  });
+
+  it("gives a single-sensor grid no hidden target for its inside field in a period (LZ-11)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      entities: { ...CONFIG.entities, grid: "sensor.gridnet" },
+      nodes: { grid: { inside: { entity: "sensor.share" } } },
+    });
+    await tap(el);
+    expect(node(el, "grid")?.querySelector(".hit.upper")).toBeNull();
+    expect(node(el, "grid")?.querySelector(".extra-inside")).toBeNull();
+  });
+
+  it("puts 'now' on the target covering an inside field, where the mouse finds it (LZ-11)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      nodes: {
+        house: { inside: { entity: "sensor.share" } },
+        solar: { inside: { entity: "sensor.share", position: "below" } },
+      },
+    });
+    await tap(el);
+    expect(node(el, "house")?.querySelector(".hit.upper")?.getAttribute("title")).toBe(
+      "80 % · jetzt",
+    );
+    expect(node(el, "solar")?.querySelector(".hit")?.getAttribute("title")).toBe("80 % · jetzt");
+  });
+
+  it("hides an inside field in a period where switched off (EM-6, LZ-11)", async () => {
+    const { el } = await mount({
+      ...CONFIG,
+      nodes: { house: { inside: { entity: "sensor.share" }, in_energy: false } },
+    });
+    await tap(el);
+    const house = node(el, "house");
+    expect(house?.classList.contains("extras-hidden")).toBe(true);
+    expect(house?.querySelector(".hit.upper")).toBeNull();
   });
 
   it("asks nothing in the editor preview until the chip is tapped there (EM-14)", async () => {

@@ -467,6 +467,25 @@ and is ignored. Nested blocks are not checked for unknown keys.
 
 ---
 
+## Unreleased (dev)
+
+- `consumers[].indicators.in_energy` (also at the `type: rest` entry): default
+  `false` -> `true`. **CHANGED-COMPATIBLE.** (REQ LZ-5, Markus 08.11.2026.)
+  Indicators written without the key now show in the energy mode too;
+  `in_energy: false` restores the old picture. The editor writes only
+  `false`, keeps an `in_energy: true` the YAML holds, and still writes `true`
+  when it turns an old `charge` into the new form. The 1.5.2 editor drops an
+  `in_energy: false` the next time the consumer is edited (it wrote only
+  `true`); accepted (Markus 08.11.2026), the CHANGELOG says so.
+- `nodes.<node>.in_energy` (`true | false`, default `true`): **ADDED +
+  CHANGED-COMPATIBLE.** (REQ LZ-11.) Extra fields at the nodes now show in the
+  energy mode with the value of now (before: always hidden); `false` restores
+  the old picture. Never inside the grid circle, where the period's import and
+  export stand. 1.5.2 warns about the key as unknown, no error card.
+- No new legacy spelling, so no new configuration under `test/legacy/`.
+
+---
+
 ## Summary table - legacy spellings
 
 | Legacy spelling | Current form | Since | Still read? | Reader (`src/config.ts`) | Test |
@@ -504,6 +523,7 @@ with one key, so they are classed CHANGED-COMPATIBLE, not incompatible:
 - 0.3.0 `view.avg_short_minutes` 5 -> 2
 - 0.11.0 energy mode offered by default (`energy_periods: [power]`)
 - 1.2.0 red and green arrows (`colors.arrows: direction`)
+- dev extras in the energy mode (`indicators.in_energy`, `nodes.<node>.in_energy`)
 - 0.9.0 dot and line scaling (no key restores it exactly; `flow.dot_size` /
   `line_width` come close)
 

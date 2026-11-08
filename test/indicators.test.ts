@@ -278,17 +278,18 @@ describe("drawing and tooltips (REQ L-20)", () => {
     expect(ring.getAttribute("style")).toContain("color:");
   });
 
-  it("leaves the indicators out in a period, unless in_energy; then 'now' in the tooltip", () => {
+  it("keeps the indicators in a period by default, 'now' in the tooltip; off leaves them out (LZ-5)", () => {
     const energy = { roles: {}, consumers: {}, rest: { tier: 0 as const, note: "" } };
     const off = { ...all, energy };
     const { breakdown, hass } = rows(all, [at]);
-    const entry = breakdown.entries.find((e) => e.key === "sensor.pump") as ListEntry;
-    const hidden = draw(entry, off, hass);
-    expect(hidden.querySelector(".charge-ring, .bar, .swatch.filled")).toBeNull();
-    const on = {
-      ...entry,
-      indicators: { ...(entry.indicators as NonNullable<ListEntry["indicators"]>), inEnergy: true },
+    const on = breakdown.entries.find((e) => e.key === "sensor.pump") as ListEntry;
+    expect(on.indicators?.inEnergy).toBe(true);
+    const switchedOff = {
+      ...on,
+      indicators: { ...(on.indicators as NonNullable<ListEntry["indicators"]>), inEnergy: false },
     };
+    const hidden = draw(switchedOff, off, hass);
+    expect(hidden.querySelector(".charge-ring, .bar, .swatch.filled")).toBeNull();
     const shown = draw(on, off, hass);
     expect(shown.querySelector(".bar.top")?.getAttribute("title")).toBe("Warmwasser 52 °C · jetzt");
     // The value column keeps the period's figure (EM-5).

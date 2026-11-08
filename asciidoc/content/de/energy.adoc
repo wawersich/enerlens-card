@@ -87,8 +87,12 @@ gelten als W × 1 Stunde: `min_consumer_w: 10` blendet Verbraucher unter
 * *Die Punkte* laufen nach der mittleren Leistung im Zeitraum - Energie
 geteilt durch die Zeit - mit den üblichen Schwellen; ein Monat bewegt sich
 wie sein Durchschnittstag, nicht mit Höchstgeschwindigkeit.
-* Zusatzwerte und Zustandswörter („Bezug", „lädt") sind ausgeblendet; ihr Platz
-bleibt, beim Umschalten verschiebt sich nichts.
+* Die Zustandswörter („Bezug", „lädt") sind ausgeblendet; ihr Platz bleibt,
+beim Umschalten verschiebt sich nichts.
+* Zusatzwerte an den Knoten bleiben stehen und zeigen den Wert von jetzt; ihr
+Tooltip sagt „· jetzt“. Im Kreis am Netz stehen dort Bezug und Einspeisung,
+ein Wert dort entfällt. Je Knoten blendet _Auch im Energie-Modus zeigen_
+(`nodes.<knoten>.in_energy: false`) sie aus; ihr Platz bleibt.
 * Antippen eines Knotens öffnet weiterhin seinen Verlauf.
 
 [[detail]]

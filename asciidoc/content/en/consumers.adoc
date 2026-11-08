@@ -80,9 +80,9 @@ together, with no extra room in the row:
 [cols=",",options="header",]
 |===
 |Place |Look
-|`ring` |ring around the icon or colour dot
+|`ring` |ring around the icon or colour dot (in the editor _Icon ring_)
 |`bar_top`, `bar_bottom` |thin bar at the top or bottom of the row, from the name to the value
-|`fill` |the colour dot fills from below; with an icon, a field behind it does
+|`fill` |the colour dot fills from below; with an icon, a field behind it does (in the editor _Icon fill_)
 |===
 
 Each place has an `entity`, a range `min` to `max` (0 to 100 by default) and
@@ -115,9 +115,9 @@ not with every reading.
 on the row opens the window with the power and below it every value in a chart
 of its own.
 
-*Energy mode:* the indicators are left out there, like the extra values at the
-nodes. With `in_energy: true` they stay and show the value of now; the tooltip
-then says "· now", the value column keeps showing kWh.
+*Energy mode:* the indicators stay there and show the value of now; the tooltip
+says "· now", the value column keeps showing kWh. With `in_energy: false` (in
+the editor _Show in the energy mode too_) they are left out; their room stays.
 
 *Older spellings:* `charge` (with `soc` and `label`) means a ring from 0 to
 100 % with `idle_value: ring` and `in_energy: true`; `charge.show` with

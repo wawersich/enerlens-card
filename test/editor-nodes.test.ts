@@ -170,6 +170,7 @@ describe("editor - nodes (REQ Z-10)", () => {
       "node_house_label_decimals",
       "node_house_label_size",
       "node_house_label_weight",
+      "node_house_in_energy",
     ]);
   });
 
@@ -187,6 +188,37 @@ describe("editor - nodes (REQ Z-10)", () => {
     expect(data2.node_solar_inside_position).toBe("above");
     expect(data2.node_solar_inside_decimals).toBe("ha");
     expect(data2.node_solar_inside_weight).toBe("normal");
+  });
+
+  it("shows the energy switch on and writes only an off (LZ-11)", async () => {
+    const el = await mount({ ...BASE, nodes: { grid: { label: { entity: "sensor.today" } } } });
+    expect(forms(el)[0].data.node_grid_in_energy).toBe(true);
+    const off = await change(el, { node_grid_in_energy: false });
+    expect(off.nodes).toEqual({ grid: { label: { entity: "sensor.today" }, in_energy: false } });
+    const on = await change(el, { node_grid_in_energy: true });
+    expect(on.nodes).toEqual({ grid: { label: { entity: "sensor.today" } } });
+  });
+
+  it("offers the energy switch at the grid only with a label field, and drops it with the field (LZ-11)", async () => {
+    const el = await mount({ ...BASE, nodes: { grid: { inside: { entity: "sensor.x" } } } });
+    expect(names(sub(el, "grid")?.schema)).not.toContain("node_grid_in_energy");
+    const withLabel = await mount({
+      ...BASE,
+      nodes: { house: { label: { entity: "sensor.x" }, in_energy: false } },
+    });
+    const saved = await change(withLabel, { node_house_label_entity: "" });
+    expect(saved.nodes).toBeUndefined();
+  });
+
+  it("keeps an in_energy: true the YAML holds (LZ-11)", async () => {
+    const el = await mount({
+      ...BASE,
+      nodes: { grid: { label: { entity: "sensor.today" }, in_energy: true } },
+    });
+    const saved = await change(el, { node_grid_label_prefix: "Bezug" });
+    expect(saved.nodes).toEqual({
+      grid: { label: { entity: "sensor.today", prefix: "Bezug" }, in_energy: true },
+    });
   });
 
   it("writes switches off, prefix, decimals as a number and the rest as chosen", async () => {

@@ -462,7 +462,7 @@ function extrasOf(indicators: NormalizedIndicators | undefined, hass?: HomeAssis
     percent:
       ind.percent === true ||
       (ind.min === 0 && ind.max === 100 && unitOf(hass, ind.entity) === "%"),
-    inEnergy: indicators?.inEnergy ?? false,
+    inEnergy: indicators?.inEnergy ?? true,
   }));
 }
 

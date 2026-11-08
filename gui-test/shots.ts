@@ -135,10 +135,10 @@ interface Shot {
 
 /** The indicator places' headings, to keep the unused ones closed. */
 const PLACE = {
-  ring: { de: "Ring", en: "Ring" },
+  ring: { de: "Icon-Ring", en: "Icon ring" },
   bar_top: { de: "Balken oben", en: "Bar at the top" },
   bar_bottom: { de: "Balken unten", en: "Bar at the bottom" },
-  fill: { de: "Füllung", en: "Fill" },
+  fill: { de: "Icon-Füllung", en: "Icon fill" },
 } as const;
 const folded = (...places: (keyof typeof PLACE)[]): Record<Lang, string[]> => ({
   de: places.map((p) => PLACE[p].de),

@@ -185,18 +185,40 @@ function extraStyle(field: ExtraField, color: string, base: string): string {
   return `color:${color};font-size:calc(var(${base}) * ${field.size / 100});font-weight:${WEIGHTS[field.weight]}`;
 }
 
+/**
+ * Whether a node's extra fields are hidden: only in a period, and only where
+ * the node is switched off for it (LZ-11). Their room stays (EM-6).
+ */
+function extrasHidden(v: NodeView, config: Config): boolean {
+  return config.energy !== undefined && !config.nodes[v.key].inEnergy;
+}
+
+/** A live value in a period says so - in its tooltip and to the screen reader (LZ-11). */
+function nowText(text: string, config: Config, hass: HomeAssistant): string {
+  return config.energy ? localize("list.indicator_now", hass, { text }) : text;
+}
+
+/**
+ * Whether the inside field is drawn: not in a period where switched off, and
+ * never where the period's figures take the circle - the grid (LZ-11).
+ */
+function insideShown(v: NodeView, config: Config): boolean {
+  return config.nodes[v.key].inside !== undefined && !v.figures && !extrasHidden(v, config);
+}
+
 /** An extra value inside the circle: number and unit, nothing else (REQ Z-2). */
 function insideField(v: NodeView, config: Config, hass: HomeAssistant): TemplateResult {
   const field = config.nodes[v.key].inside;
   if (!field) return html``;
   const color = config.extraColors[`${v.key}_inside` as ExtraColorKey];
+  const text = formatExtra(hass.states[field.entity], hass, field.decimals);
   // Its own class, never "value": the outage colours the node value red, and the
   // measuring tools read .value as the node figure.
-  return html`<div class="extra-inside extra" style=${extraStyle(field, color, "--el-value-size")}>${formatExtra(
-    hass.states[field.entity],
-    hass,
-    field.decimals,
-  )}</div>`;
+  return html`<div
+    class="extra-inside extra"
+    style=${extraStyle(field, color, "--el-value-size")}
+    title=${config.energy ? nowText(text, config, hass) : ""}
+  >${text}</div>`;
 }
 
 /** One line of label text: 12 px at line height 1.25 (REQ K-12). */
@@ -282,8 +304,9 @@ function renderHits(
   const near = options.label ? "-2px" : "-22px";
   const top = labelAbove ? near : "-22px";
   const bottom = labelAbove ? "-22px" : near;
-  // In a period the extra fields are hidden, and with them their targets (EM-6).
-  const above = options.inside?.position === "above" && !config.energy ? options.inside : undefined;
+  // Hidden extra fields take their targets with them (EM-6, LZ-11).
+  const above =
+    options.inside?.position === "above" && insideShown(v, config) ? options.inside : undefined;
   const upper = v.figures?.upper?.entity
     ? { entity: v.figures.upper.entity, text: v.figures.upper.text }
     : // The charge its own half again: with the window it opens that with the
@@ -297,7 +320,11 @@ function renderHits(
       : above
         ? {
             entity: above.entity,
-            text: formatExtra(hass.states[above.entity], hass, above.decimals),
+            text: nowText(
+              formatExtra(hass.states[above.entity], hass, above.decimals),
+              config,
+              hass,
+            ),
           }
         : undefined;
   if (upper) {
@@ -313,6 +340,7 @@ function renderHits(
           above && options.label ? `top:${top};bottom:auto;${half};z-index:3` : `top:${top}`
         }
         aria-label=${`${v.label} ${upper.text}`}
+        title=${above && config.energy ? upper.text : ""}
         @click=${
           // A period's upper figure is one of the pair: the window too (DF-1, EM-13).
           "focus" in upper && upper.focus
@@ -333,10 +361,16 @@ function renderHits(
   if (!v.entity && !v.detail) return "";
   // One target for the whole battery names its charge as well (I-2, I-5).
   const charge = v.socValue ? `, ${v.socValue}` : "";
+  // A live field below the value in a period: the node's label names it (LZ-11).
+  const below =
+    config.energy && options.inside?.position === "below" && insideShown(v, config)
+      ? `, ${nowText(formatExtra(hass.states[options.inside.entity], hass, options.inside.decimals), config, hass)}`
+      : "";
   return html`<button
     class="hit"
     style="top:${top};bottom:${bottom}"
-    aria-label=${v.value ? `${v.label} ${v.value}${charge}` : `${v.label}${charge}`}
+    aria-label=${v.value ? `${v.label} ${v.value}${charge}${below}` : `${v.label}${charge}${below}`}
+    title=${below ? below.slice(2) : ""}
     @click=${tap(v.entity, v.detail)}
   ></button>`;
 }
@@ -365,15 +399,15 @@ function renderLabel(
     ? localize(showName ? "node.derived_suffix" : "node.derived_alone", hass)
     : "";
   const field = options.label;
-  // A live value next to a period's energy would mislead. The field keeps its
+  // Hidden in a period only where switched off (LZ-11); then the field keeps its
   // room, so switching never moves a node or a label (EM-6).
-  const hidden = config.energy !== undefined;
+  const hidden = extrasHidden(v, config);
   let extra: TemplateResult | string = "";
   if (field) {
     const prefix = field.prefix ?? "";
     const text = formatExtra(hass.states[field.entity], hass, field.decimals);
     const color = config.extraColors[`${v.key}_label` as ExtraColorKey];
-    const full = prefix ? `${prefix} ${text}` : text;
+    const full = nowText(prefix ? `${prefix} ${text}` : text, config, hass);
     // A target of its own: the field shows another entity than the node (REQ Z-7).
     extra = html`<button
       class="extra-label extra"
@@ -775,7 +809,9 @@ export function renderCross(
             class="node ${v.key} ${ringShown ? "has-ring" : ""} ${above ? "label-above" : ""} ${
               // Triangle: the middle node's label sits on the lines below it (AN-5).
               g.ground === v.key ? "label-ground" : ""
-            } ${v.outage ? "outage" : ""} ${config.energy ? "in-period" : ""}"
+            } ${v.outage ? "outage" : ""} ${config.energy ? "in-period" : ""} ${
+              extrasHidden(v, config) ? "extras-hidden" : ""
+            }"
             style="left:${pos.left};top:${pos.top};border-color:${
               // With segments to show, the ring is the contour (REQ K-14).
               ringShown ? "transparent" : v.color

@@ -489,7 +489,7 @@ export const styles = css`
 
   /* Energy mode (REQ EM-5, EM-6, EM-11). An inside field keeps its room
      unseen, so switching to a period never moves anything. */
-  .node.in-period .extra-inside {
+  .node.extras-hidden .extra-inside {
     visibility: hidden;
   }
 

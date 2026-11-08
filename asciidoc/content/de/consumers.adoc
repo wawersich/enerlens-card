@@ -82,9 +82,9 @@ einzeln oder zusammen und ohne zusätzlichen Platz in der Zeile:
 [cols=",",options="header",]
 |===
 |Platz |Aussehen
-|`ring` |Ring um Icon bzw. Farbpunkt
+|`ring` |Ring um Icon bzw. Farbpunkt (im Editor _Icon-Ring_)
 |`bar_top`, `bar_bottom` |dünner Balken oben bzw. unten in der Zeile, vom Namen bis zum Wert
-|`fill` |Farbpunkt füllt sich von unten; bei einem Icon füllt sich ein Feld dahinter
+|`fill` |Farbpunkt füllt sich von unten; bei einem Icon füllt sich ein Feld dahinter (im Editor _Icon-Füllung_)
 |===
 
 Jeder Platz hat eine `entity`, einen Bereich `min` bis `max` (Standard 0 bis
@@ -117,9 +117,10 @@ im Takt der Liste, nicht bei jedem Messwert.
 seiner Bezeichnung; ein Tipp auf die Zeile öffnet das Fenster mit der Leistung
 und darunter jedem Zusatzwert in einem eigenen Diagramm.
 
-*Energie-Modus:* Dort entfallen die Zusatzanzeigen, wie die Zusatzwerte an den
-Knoten. Mit `in_energy: true` bleiben sie und zeigen den Wert von jetzt; der
-Tooltip sagt dann „· jetzt“, die Wertspalte zeigt weiter kWh.
+*Energie-Modus:* Dort bleiben die Zusatzanzeigen stehen und zeigen den Wert von
+jetzt; der Tooltip sagt „· jetzt“, die Wertspalte zeigt weiter kWh. Mit
+`in_energy: false` (im Editor _Auch im Energie-Modus zeigen_) entfallen sie,
+ihr Platz bleibt.
 
 *Ältere Schreibweisen:* `charge` (mit `soc` und `label`) bedeutet einen Ring
 von 0 bis 100 % mit `idle_value: ring` und `in_energy: true`; `charge.show` mit

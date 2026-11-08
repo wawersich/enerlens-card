@@ -415,6 +415,8 @@ export interface RawNodeOptions {
   show_state?: boolean;
   inside?: RawExtraField;
   label?: RawExtraField;
+  /** The extra fields stay in the energy mode, with the value of now (LZ-11). */
+  in_energy?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +749,8 @@ export interface NodeOptions {
   /** Never on the battery, which already shows two values (REQ Z-2). */
   inside?: InsideField;
   label?: LabelField;
+  /** The extra fields stay in the energy mode, with the value of now (LZ-11). */
+  inEnergy: boolean;
 }
 
 /** Colour keys of the extra fields; the battery has no inside field. */

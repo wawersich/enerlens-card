@@ -50,7 +50,9 @@ _Farben_ (`colors.solar_inside`, `colors.house_label`, … – standardmäßig g
 * *`show_name`* und *`show_state`* blenden den Namen („PV", „Netz", …) und
 das Zustandswort („Einspeisung", „lädt") aus – mit oder ohne Zusatzwerte.
 Ohne Zustandswort zeigt nur noch die Farbe die Richtung.
-* Zusatzwerte zeigen immer den aktuellen Zustand, auch in den Ø-Ansichten.
+* Zusatzwerte zeigen immer den aktuellen Zustand, auch in den Ø-Ansichten und
+im Energie-Modus (dort mit „· jetzt“ im Tooltip; abschaltbar je Knoten mit
+`in_energy: false`, siehe link:energy.html[Energie-Modus]).
 Antippen eines Werts am Kreis oder über dem Icon öffnet seine eigene
 Historie; ein Wert unter dem Knotenwert gehört zum Knoten und öffnet dessen
 Entität.
