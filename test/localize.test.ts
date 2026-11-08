@@ -85,3 +85,27 @@ describe("localize (REQ N-7, E-1)", () => {
     expect(enKeys.length).toBeGreaterThan(0);
   });
 });
+
+// Rule of 08.11.2026 (Markus): what the card itself shows addresses nobody -
+// no "du", no "Sie", no imperative; written neutrally instead.
+const ADDRESS = /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i;
+const IMPERATIVE =
+  /(^|[.:!?–—] )(Trage|Hake|Wähle|Gib|Setze|Lege|Stelle|Öffne|Tippe|Klicke|Nimm|Schalte|Füge|Ziehe|Prüfe|Nutze|Verwende|Ergänze|Entferne|Richte)\b/;
+
+function texts(tree: Tree, prefix = ""): [string, string][] {
+  return Object.entries(tree).flatMap(([key, value]) =>
+    typeof value === "string"
+      ? [[`${prefix}${key}`, value] as [string, string]]
+      : texts(value as Tree, `${prefix}${key}.`),
+  );
+}
+
+describe("German texts address nobody (rule of 08.11.2026)", () => {
+  it("has no du-forms", () => {
+    expect(texts(de as Tree).filter(([, text]) => ADDRESS.test(text))).toEqual([]);
+  });
+
+  it("has no imperative opening a sentence", () => {
+    expect(texts(de as Tree).filter(([, text]) => IMPERATIVE.test(text))).toEqual([]);
+  });
+});

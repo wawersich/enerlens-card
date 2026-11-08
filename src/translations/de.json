@@ -264,7 +264,7 @@
     "colors_extras": "Zusatzwerte",
     "color_extra_inside": "{node} · im Kreis",
     "color_extra_label": "{node} · beim Text",
-    "colors_hint": "Die Farben stellst du weiter unten in der Gruppe „Farben“ ein.",
+    "colors_hint": "Die Farben stehen weiter unten in der Gruppe „Farben“.",
     "group_smoothing": "Glättung",
     "group_energy": "Leistung/Energie",
     "group_scope": "Listenumfang",
@@ -390,8 +390,8 @@
     "full_speed_w": "Ab hier läuft der Punkt so schnell wie möglich. Dazwischen: ein Punkt, der schneller wird. Standard: wie „Mehr Punkte ab“.",
     "power_unit": "Kilowatt, Watt oder automatisch. „Automatisch“ wählt je Wert: unter 1000 W ganze Watt, darüber Kilowatt — sonst steht ein Verbraucher mit 30 W als „0,0 kW“ da. Standard: Kilowatt.",
     "power_decimals": "Nur bei Kilowatt; Watt werden immer als ganze Zahl gezeigt. Standard 2.",
-    "grid_status": "Nur wenn deine Anlage einen Netzausfall meldet — viele tun es nicht. Ohne diese Angabe zeigt die Karte keinen Ausfall an; alles andere funktioniert.",
-    "grid_status_outage": "Pflichtangabe. Jede Integration benennt ihre Zustände anders, hier wird nichts geraten. Trage den Rohwert ein, nicht die Anzeige von Home Assistant: Ein Aufzählungssensor zeigt einen übersetzten Namen, aus „Nicht erkannt“ wird also `not_detected`. Wer aus der Liste auswählt, umgeht die Frage.",
+    "grid_status": "Nur wenn die Anlage einen Netzausfall meldet — viele tun es nicht. Ohne diese Angabe zeigt die Karte keinen Ausfall an; alles andere funktioniert.",
+    "grid_status_outage": "Pflichtangabe. Jede Integration benennt ihre Zustände anders, hier wird nichts geraten. Einzutragen ist der Rohwert, nicht die Anzeige von Home Assistant: Ein Aufzählungssensor zeigt einen übersetzten Namen, aus „Nicht erkannt“ wird also `not_detected`. Wer aus der Liste auswählt, umgeht die Frage.",
     "grid_status_ok": "Optional. Leer gelassen gelten die eigenen Optionen der Entität ohne die Ausfall-Zustände als „Netz liegt an“; alles andere, auch unavailable, lässt den letzten Zustand stehen.",
     "layout": "Wo die vier Knoten stehen. Beim Quadrat · PV links stehen die PV-Zeilen links der Zeichnung, die Verbraucher rechts; ist die Karte dafür zu schmal, stehen beide Listen darunter. Standard: Kreuz.",
     "flow_lines": "Wie die Verbindungen zwischen den Knoten laufen. Standard: geschwungen beim Kreuz, gerade bei den anderen Anordnungen.",
@@ -412,7 +412,7 @@
     "node_label_size": "In Prozent der Beschriftung (12 px).",
     "node_inside_position": "Über dem Icon steht der Wert dort, wo die Batterie ihren Ladezustand zeigt, und Antippen öffnet seine eigene Historie. Unter dem Wert öffnet Antippen die Entität des Knotens.",
     "modes": "Was der Quick-Button anbietet: Jetzt, kurzer und langer Mittelwert. Mehrere angehakt: Jeder Tipp schaltet weiter. Einer angehakt: fest, ohne Knopf. Standard: alle drei.",
-    "modes_locked": "Mittelwerte gibt es nur für die Leistung. Hake unter „Quick-Button Leistung/Energie“ „Leistung“ an, dann lässt sich die Glättung einstellen. Bis dahin zeigt die Karte immer den Augenblickswert.",
+    "modes_locked": "Mittelwerte gibt es nur für die Leistung. Ist unter „Quick-Button Leistung/Energie“ „Leistung“ angehakt, lässt sich die Glättung einstellen. Bis dahin zeigt die Karte immer den Augenblickswert.",
     "scope": "Was der Quick-Button anbietet: die gefilterte Verbraucherliste oder alle Verbraucher. Mehrere angehakt: Jeder Tipp schaltet um. Einer angehakt: fest, ohne Knopf. Standard: beide.",
     "list_enabled": "Jeder Verbraucher als Zeile neben oder unter der Zeichnung. Standard: an, wenn Verbraucher eingetragen sind.",
     "ring_enabled": "Ring der Verbraucher am Haus. Standard: an, wenn Verbraucher eingetragen sind.",
@@ -427,7 +427,7 @@
     "list_solar": "Jede PV-Quelle als Zeile mit eigenem Fächer, über den Verbrauchern oder bei „Quadrat · PV links“ auf der linken Seite. Standard: aus.",
     "ring_solar": "Ring der Quellen am PV-Knoten. Standard: an.",
     "pv_scales": "Was der Quick-Button anbietet: „100 %“ – der Ring zeigt den Anteil jeder Quelle und ist immer voll; „% kWp“ – die Leistung im Verhältnis zur Spitzenleistung. Mehrere angehakt: Jeder Tipp schaltet um. Einer angehakt: fest, ohne Knopf. Standard: beide, soweit möglich.",
-    "pv_scale_peak_locked": "„% kWp“ braucht die Spitzenleistung (kWp) an jeder Quelle. Trage sie unter „PV-Quellen“ ein, dann lässt sich die Skala wählen.",
+    "pv_scale_peak_locked": "„% kWp“ braucht die Spitzenleistung (kWp) an jeder Quelle. Ist sie unter „PV-Quellen“ eingetragen, lässt sich die Skala wählen.",
     "pv_scale_share_locked": "„100 %“ braucht mindestens zwei Quellen – mit einer wäre der Ring immer voll.",
     "quick_style": "Wie die Quick-Buttons aussehen. „Segment-Buttons kompakt“ macht auch die Buttons zum Durchschalten flacher; „Einzel-Buttons“ wirkt bei aufgeklappten Quick-Buttons. Standard: Segment-Buttons.",
     "expanded_modes": "Alle Werte als eigene Buttons nebeneinander statt eines Buttons zum Durchschalten. Standard: aus.",
@@ -454,7 +454,7 @@
     "label": "Netzstatus"
   },
   "example": {
-    "banner": "Beispielwerte — wähle deine Sensoren im Editor"
+    "banner": "Beispielwerte — Sensoren im Editor auswählen"
   },
   "pv_scale": {
     "share": "100 %",
