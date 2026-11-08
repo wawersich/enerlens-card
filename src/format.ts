@@ -199,6 +199,16 @@ function blankBeforeUnit(unit: string, hass: HomeAssistant): string {
 }
 
 /**
+ * Whether a value is a number the way Home Assistant decides it - by its
+ * attributes, not by the state now, so an unavailable one keeps its chart
+ * (LZ-6, LZ-7).
+ */
+export function numericEntity(hass: HomeAssistant | undefined, entity: string): boolean {
+  const attributes = hass?.states?.[entity]?.attributes ?? {};
+  return Boolean(attributes.unit_of_measurement) || Boolean(attributes.state_class);
+}
+
+/**
  * The state of any entity for an extra field (REQ Z-5): as Home Assistant
  * shows it, or with a chosen number of decimals or significant digits. The
  * unit stays the entity's own - nothing is converted, nothing computed (Z-1).

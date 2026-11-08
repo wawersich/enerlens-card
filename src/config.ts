@@ -22,6 +22,7 @@ import {
   type ExtraDecimals,
   type ExtraField,
   type ExtraPosition,
+  type ExtraValue,
   type ExtraWeight,
   type GridStatusSpec,
   type Highlight,
@@ -949,6 +950,40 @@ function readIndicator(
   };
 }
 
+/**
+ * The text values of a row (LZ-1): entity, prefix, decimals. Nothing here may
+ * fail on what the editor produces on the way (E-1): a value without entity,
+ * or values that are no list, are skipped with a word in the console.
+ */
+function readExtraValues(value: unknown, field: string, hass?: HomeAssistant): ExtraValue[] {
+  if (isUnset(value)) return [];
+  if (!Array.isArray(value)) {
+    console.warn(localize("error.config.values_not_list", hass, { field }));
+    return [];
+  }
+  const out: ExtraValue[] = [];
+  value.forEach((entry, i) => {
+    const at = `${field}[${i}]`;
+    const raw = isRecord(entry) ? entry : {};
+    const entity = typeof raw.entity === "string" ? raw.entity.trim() : "";
+    if (!entity) {
+      console.warn(localize("error.config.extra_no_entity", hass, { field: at }));
+      return;
+    }
+    warnUnknownIn(raw, VALUE_KEYS, at, hass);
+    // Free text: a stray space from the editor must not refuse the card.
+    const prefix = typeof raw.prefix === "string" ? raw.prefix.trim() : "";
+    out.push({
+      entity,
+      prefix: prefix || undefined,
+      decimals: readDecimals(raw.decimals, `${at}.decimals`, hass),
+    });
+  });
+  return out;
+}
+
+const VALUE_KEYS: ReadonlySet<string> = new Set(["entity", "prefix", "decimals"]);
+
 /** The extra values of a consumer (REQ L-20); none configured is none at all. */
 function readIndicators(
   value: unknown,
@@ -967,9 +1002,11 @@ function readIndicators(
     console.warn(localize("error.config.idle_value_missing", hass, { field, slot: idleValue }));
     idleValue = "power";
   }
-  if (Object.keys(slots).length === 0) return undefined;
+  const values = readExtraValues(raw.values, `${field}.values`, hass);
+  if (Object.keys(slots).length === 0 && values.length === 0) return undefined;
   return {
     slots,
+    ...(values.length > 0 ? { values } : {}),
     idleValue,
     // On unless switched off (LZ-5, Markus 08.11.2026): else the values go, the
     // list changes its height and the rows jump when the mode changes.
@@ -1186,6 +1223,10 @@ export function collectExtraIds(config: Config): string[] {
     const { inside, label } = config.nodes[key];
     for (const id of [inside?.entity, label?.entity]) if (id && !ids.includes(id)) ids.push(id);
   }
+  // The text values of the rows, read the same way (LZ-6).
+  const rows = [...config.consumers.map((c) => c.indicators), config.rest?.indicators];
+  for (const extras of rows)
+    for (const { entity } of extras?.values ?? []) if (!ids.includes(entity)) ids.push(entity);
   return ids;
 }
 
@@ -1218,12 +1259,37 @@ function readPlace(
     console.warn(localize("error.config.show_twice", hass, { field }));
   }
   // indicators win over the old charge (REQ L-20), as show wins over charge.show.
-  const indicators = readIndicators(entry.indicators, `${field}.indicators`, hass);
-  if (!isUnset(entry.indicators) && charge) {
+  // Values alone do not count: they join the old ring (LZ-1, N-12).
+  // Decided on the block as written: no place in it at all (an empty or
+  // broken value list included), so the ring of the old charge stays.
+  const rawExtras = isRecord(entry.indicators) ? entry.indicators : {};
+  const valuesOnly =
+    charge !== undefined &&
+    isRecord(entry.indicators) &&
+    INDICATOR_SLOTS.every((slot) => isUnset(rawExtras[slot]));
+  // Its idle_value names the old ring, which this block alone does not know.
+  const { idle_value: rawIdle, ...withoutIdle } = rawExtras;
+  const indicators = readIndicators(
+    valuesOnly ? withoutIdle : entry.indicators,
+    `${field}.indicators`,
+    hass,
+  );
+  if (!isUnset(entry.indicators) && charge && !valuesOnly) {
     console.warn(localize("error.config.indicators_twice", hass, { field }));
   }
   return {
-    indicators: isUnset(entry.indicators) ? charge : indicators,
+    indicators: valuesOnly
+      ? {
+          ...charge,
+          ...(indicators?.values ? { values: indicators.values } : {}),
+          idleValue: rawIdle === "power" || rawIdle === "ring" ? rawIdle : charge.idleValue,
+          inEnergy: isUnset(rawExtras.in_energy)
+            ? charge.inEnergy
+            : readBoolean(rawExtras.in_energy, `${field}.indicators.in_energy`, true, hass),
+        }
+      : isUnset(entry.indicators)
+        ? charge
+        : indicators,
     highlight: readHighlight(entry.highlight, `${field}.highlight`, hass),
     hold: isUnset(entry.show) ? oldHold : hold,
     position: isUnset(entry.position)

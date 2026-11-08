@@ -1284,6 +1284,132 @@ export const styles = css`
     color: var(--primary-text-color);
   }
 
+  /* Extra values as text (LZ-2): a row with values becomes a grid - mark,
+     name, value - and gets one line per two values below name and value.
+     The first line keeps the pitch of L-9; mark and fan line sit in the
+     middle of the whole row. Rows without values keep the flex row above. */
+  .row.with-values {
+    display: grid;
+    grid-template-columns: var(--el-swatch) minmax(0, 1fr) max-content;
+    grid-template-rows: 15px;
+    grid-auto-rows: auto;
+    column-gap: 6px;
+    /* The rows of the block sit tight; the padding gives the row its room,
+       not a minimum height on top of it (review 08.11.2026). */
+    row-gap: 0;
+    min-height: 0;
+    align-items: center;
+    /* Name and values as one block, with the room above and below that a
+       row without values has around its line (L-9). */
+    --el-row-pad: calc((var(--el-row-h, 34px) - 15px) / 2);
+    padding-block: var(--el-row-pad);
+  }
+
+  .row.with-values > .name,
+  .row.with-values > .row-value {
+    line-height: 15px;
+  }
+
+  .row.with-values > .swatch {
+    grid-column: 1;
+    grid-row: 1 / span var(--el-span);
+    align-self: center;
+  }
+
+  .row.with-values > .name {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .row.with-values > .row-value {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  /* A line of values: the left one under the name, the right one flush right
+     under the value. The left gives way first, the prefix before the figure
+     (LZ-3). Above the row's target, so their tooltips show; a tap falls to
+     the row's window. */
+  .vline {
+    grid-column: 2 / -1;
+    grid-row: var(--el-vl);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    font-size: calc(var(--el-list-size) * 0.9);
+    line-height: 1.3;
+  }
+
+  .row.with-values > .vline:nth-of-type(1) {
+    margin-top: 2px;
+  }
+
+  .xv {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 0.3em;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .xv.tappable {
+    cursor: pointer;
+  }
+
+  .xv.left {
+    flex: 0 1 auto;
+  }
+
+  /* The right value keeps its width while the left one gives way; at most
+     two thirds of the line, so the left one never vanishes (LZ-3). */
+  .xv.right {
+    flex: 0 0 auto;
+    max-width: 65%;
+    margin-left: auto;
+  }
+
+  .xv-prefix,
+  .xv-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .xv-prefix {
+    flex: 0 1000 auto;
+    color: var(--secondary-text-color);
+  }
+
+  .xv-value {
+    flex: 0 1 auto;
+    color: var(--primary-text-color);
+  }
+
+  /* A period that hides them keeps their room (LZ-5). */
+  .row.values-hidden .vline {
+    visibility: hidden;
+  }
+
+  /* A bar at the bottom gets 6 px of its own below the values; its tooltip
+     strip stays in that room and never covers a value (LZ-4). */
+  .row.with-values.bar-bottom {
+    padding-bottom: calc(var(--el-row-pad) + 6px);
+  }
+
+  /* Centred in the whole row, where the fan line ends: half the bar's room
+     down (LZ-2, review 08.11.2026). */
+  .row.with-values.bar-bottom > .swatch {
+    margin-bottom: -6px;
+  }
+
+  .row.with-values .bar.bottom::before,
+  .row.with-values .bar.bottom::after {
+    bottom: 3px;
+  }
+
   /* Stacked below the cross the list has the whole card width. The rows become
      a grid with shared columns: runway | mark | name | value. The mark sits
      directly in front of the name so the two read as one label, and the runway
@@ -1339,6 +1465,89 @@ export const styles = css`
     .list.stacked .lane {
       width: auto;
     }
+
+    /* Stacked with values (LZ-2): the row keeps the shared columns - lane,
+       mark, name, value - and adds its value lines as rows of its own grid;
+       the left value under the name, the right one in the value column. */
+    .list.stacked .row.with-values {
+      grid-template-columns: subgrid;
+      grid-template-rows: 15px;
+      grid-auto-rows: auto;
+    }
+
+    .list.stacked .row.with-values > .lane {
+      grid-column: 1;
+      grid-row: 1 / span var(--el-span);
+    }
+
+    .list.stacked .row.with-values > .swatch {
+      grid-column: 2;
+      grid-row: 1 / span var(--el-span);
+    }
+
+    .list.stacked .row.with-values > .name {
+      grid-column: 3;
+    }
+
+    .list.stacked .row.with-values > .row-value {
+      grid-column: 4;
+    }
+
+    /* A line of values spans name and value column: the left one under the
+       name, the right one flush right with the power - it never widens the
+       shared value column, and a long one is shortened (LZ-2, LZ-3). */
+    .list.stacked .row.with-values > .vline {
+      grid-column: 3 / -1;
+    }
+
+    /* With values the value column may give way down to its figures: a long
+       value line then takes room from the runway while there is some, and is
+       shortened once there is none - it never pushes the list out of the
+       card (LZ-3). Lists without values keep their columns exactly. */
+    .list.stacked.has-values {
+      grid-template-columns:
+        minmax(56px, 1fr)
+        var(--el-swatch)
+        minmax(0, max-content)
+        minmax(auto, max-content);
+    }
+
+    .list.stacked.has-values .row-value {
+      white-space: nowrap;
+    }
+
+    /* With values in the list the value column is flush right, power and
+       right values alike, so their edges stand one below the other. */
+    .list.stacked.has-values .row-value {
+      justify-self: end;
+    }
+
+    .list.stacked .row.with-values.band::before,
+    .list.stacked .row.with-values .bar {
+      grid-row: 1 / span var(--el-span);
+    }
+
+    /* The grid area ends at the block of name and values; band and bars
+       reach into the row's room above and below it, as they do beside the
+       cross (LZ-4). */
+    .list.stacked .row.with-values.bar-bottom .bar.bottom {
+      bottom: calc((var(--el-row-pad) + 6px) * -1);
+    }
+
+    .list.stacked .row.with-values .bar.top {
+      top: calc(var(--el-row-pad) * -1);
+    }
+
+    .list.stacked .row.with-values.band::before {
+      top: calc(1px - var(--el-row-pad));
+      bottom: calc(1px - var(--el-row-pad));
+    }
+
+    .list.stacked .row.with-values.band.bar-bottom::before {
+      bottom: calc(1px - var(--el-row-pad) - 6px);
+    }
+
+
   }
 
   /* Stacked, the lines gather left of the block; the icon marks that point as

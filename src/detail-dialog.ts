@@ -18,7 +18,7 @@ import {
   warnTier,
 } from "./energy";
 import { type EnergyView, firstWeekday, formatDay, timeZoneOf } from "./energy-view";
-import { formatEnergy, formatPower, localeFor } from "./format";
+import { formatEnergy, formatPower, localeFor, numericEntity } from "./format";
 import { localize } from "./localize";
 import { POWER_UNITS, readPowerW } from "./model";
 import { type DetailNode, arrowsFor, openMoreInfo } from "./render/cross";
@@ -449,21 +449,37 @@ export function planOf(
 /** The values a window draws below the power: in a period only those asked for there (L-20). */
 /** A row's extra values as charts of their own (L-20, L-21). */
 function extrasOf(indicators: NormalizedIndicators | undefined, hass?: HomeAssistant): Extra[] {
-  return Object.entries(indicators?.slots ?? {}).map(([slot, ind]) => ({
-    entity: ind.entity,
-    // Named as the row names it: own label, "State of charge" for the
-    // ring, else the entity's name or its id (L-20).
-    label:
-      ind.label ??
-      (slot === "ring"
-        ? undefined
-        : ((hass?.states?.[ind.entity]?.attributes?.friendly_name as string | undefined) ??
-          ind.entity)),
-    percent:
-      ind.percent === true ||
-      (ind.min === 0 && ind.max === 100 && unitOf(hass, ind.entity) === "%"),
-    inEnergy: indicators?.inEnergy ?? true,
-  }));
+  return Object.entries(indicators?.slots ?? {})
+    .map(([slot, ind]) => ({
+      entity: ind.entity,
+      // Named as the row names it: own label, "State of charge" for the
+      // ring, else the entity's name or its id (L-20).
+      label:
+        ind.label ??
+        (slot === "ring"
+          ? undefined
+          : ((hass?.states?.[ind.entity]?.attributes?.friendly_name as string | undefined) ??
+            ind.entity)),
+      percent:
+        ind.percent === true ||
+        (ind.min === 0 && ind.max === 100 && unitOf(hass, ind.entity) === "%"),
+      inEnergy: indicators?.inEnergy ?? true,
+    }))
+    .concat(
+      // Text values that are numbers get a chart of their own; words stand in
+      // the row only (LZ-7, Markus 08.11.2026).
+      (indicators?.values ?? [])
+        .filter((value) => numericEntity(hass, value.entity))
+        .map((value) => ({
+          entity: value.entity,
+          label:
+            value.prefix ??
+            (hass?.states?.[value.entity]?.attributes?.friendly_name as string | undefined) ??
+            value.entity,
+          percent: unitOf(hass, value.entity) === "%",
+          inEnergy: indicators?.inEnergy ?? true,
+        })),
+    );
 }
 
 function extrasShown(plan: Plan, energy: boolean): Extra[] {

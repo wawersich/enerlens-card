@@ -4,7 +4,7 @@
 
 Wie die Knoten kann jeder Verbraucher in der Liste mehr zeigen als seine
 Leistung: einen Ring um sein Icon, einen dünnen Balken oben oder unten in der
-Zeile, ein Icon, das sich füllt. Dazu lässt er sich fest oben oder unten
+Zeile, ein Icon, das sich füllt, und Werte als Text unter Name und Leistung. Dazu lässt er sich fest oben oder unten
 anpinnen, immer oder unter einer Bedingung in der Liste halten und hervorheben.
 
 Zum Ansehen: Eine Runde dauert anderthalb Minuten. Die Wallbox ist oben
@@ -127,6 +127,47 @@ von 0 bis 100 % mit `idle_value: ring` und `in_energy: true`; `charge.show` mit
 `plugged` und `unplugged` bedeutet `show` und `condition`. Beides funktioniert
 weiter. Ändert man den Verbraucher im Editor, schreibt er ihn in der neuen
 Form.
+
+[[werte]]
+== Zusatzwerte als Text
+
+Unter Name und Leistung kann eine Zeile beliebig viele Werte als Text zeigen,
+je zwei nebeneinander: der erste, dritte … links unter dem Namen, der zweite,
+vierte … rechtsbündig unter der Leistung. Die Zeile wird dafür höher, sonst
+ändert sich nichts. Typisch sind die kWh von heute, die Temperatur, der Status
+eines Geräts:
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_leistung
+    name: Wallbox
+    indicators:
+      values:
+        - { entity: sensor.wallbox_energie_heute, prefix: heute, decimals: 1 }
+        - { entity: sensor.auto_ladestand, prefix: Auto }
+        - { entity: sensor.wallbox_status }
+----
+
+* *`entity`* ist jede beliebige Entität. Die Karte rechnet nichts aus: Wer die
+kWh von heute sehen will, braucht dafür eine Entität, etwa einen
+Verbrauchszähler (Helfer _Verbrauchszähler_ über den Energiesensor).
+* *`prefix`* steht grau vor dem Wert; ohne ihn steht nur der Wert da.
+* *`decimals`* wie bei den Zusatzwerten an den Knoten (`ha`, `0`–`3`,
+`sig2`–`sig4`).
+* Ein Wert, der nicht verfügbar ist, zeigt „—“. Werte zeigen immer den
+aktuellen Zustand, auch in den Ø-Ansichten.
+* Mit der Maus über einem Wert steht er mit seinem Namen da; ein Tipp öffnet
+das Fenster der Zeile, dort mit einem Diagramm je Zahlenwert. Textwerte wie
+„lädt“ stehen nur in der Zeile.
+* Im Energie-Modus bleiben sie wie die übrigen Zusatzanzeigen stehen (mit
+„· jetzt“ im Tooltip); `in_energy: false` blendet sie aus, ihr Platz bleibt.
+* Werte halten eine Zeile nicht in der Liste. Wer sie auch bei 0 W sehen will,
+stellt _In der Liste anzeigen_ auf _immer_ oder eine Bedingung (siehe unten).
+* Auch die Rest-Zeile kann Werte haben, z. B. die Außentemperatur.
+
+Im Editor stehen sie beim Verbraucher unter _Zusatzwerte_: _Zusatzwert
+hinzufügen_, dann Entität, Vorsatz und Stellen; ziehen ändert die Reihenfolge.
 
 [[halten]]
 == Anpinnen, halten, hervorheben

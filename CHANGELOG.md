@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Extra values as text in the list** (#35): `indicators.values` gives a
+  consumer - and the rest row - any number of values below its name and
+  power, two side by side, e.g. today's kWh from a utility meter, a
+  temperature or a status. In the editor under *Extra values*; numeric ones
+  get a chart in the row's window. The card shows the entity's state and
+  computes nothing. Needs this version: 1.5.2 ignores them, and its editor
+  drops an `indicators` block that holds only values.
+
 ### Changed
 - **Energy mode: extra values stay.** The indicators of a consumer and of the
   rest row (icon ring, bars, icon fill) and the extra values at the nodes now

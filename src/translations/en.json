@@ -87,6 +87,7 @@
       "rest_not_here": "{field} does not apply to the rest and is ignored.",
       "rest_both": "{field} and the rest entry both set this - the entry is used.",
       "show_twice": "{field}: show and charge.show are both set - show is used, charge.show ignored.",
+      "values_not_list": "{field} is not a list and is ignored.",
       "extra_no_entity": "{field} has no entity and is ignored.",
       "not_for_node": "{field} does not exist for this node and is ignored.",
       "rounded": "{field}: whole numbers only - rounded to {value}.",
@@ -350,7 +351,15 @@
     "incomplete": "{name}: not completely chosen yet.",
     "held": "{message} The preview shows the last valid state; nothing is written until this is completed.",
     "rest_entry": "Rest – what the listed consumers do not explain",
-    "entry_ignored": "Skipped by the card (only one rest entry counts, unknown types none)."
+    "entry_ignored": "Skipped by the card (only one rest entry counts, unknown types none).",
+    "values": "Extra values",
+    "value_entity": "Entity",
+    "value_prefix": "Prefix",
+    "value_decimals": "Decimals",
+    "value_add": "Add extra value",
+    "value_remove": "Remove extra value",
+    "value_up": "Move extra value up",
+    "value_down": "Move extra value down"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder. Default: 10 W.",
@@ -446,10 +455,11 @@
     "indicator_min": "Empty = 0. The value at an empty display.",
     "indicator_max": "Empty = 100. The value at a full display.",
     "idle_value": "What is shown as the value while the consumer is below its minimum power, that is, while it is off. With power, that is, while it is on, the power is always shown there. Useful for a wallbox, say: while it is not charging, the car's state of charge is shown instead of the power.",
-    "in_energy": "In the energy mode icon ring, bars and icon fill show the value of now, the tooltip says “now”; the value column keeps showing kWh. Default: on.",
+    "in_energy": "In the energy mode icon ring, bars, icon fill and extra values show the value of now, the tooltip says “now”; the value column keeps showing kWh. Default: on.",
     "rest_min_w": "Below this the rest leaves the list. Empty: the consumers' minimum power. A high value hides power nothing accounts for; the filter button does not lift it.",
     "rest_position": "Only with top/bottom: then its place in this list counts, also among pinned consumers. Otherwise the rest is sorted in by power.",
-    "rest_show": "\"Always\": the rest stays below its minimum power too. Negative, or without a house value, it shows \"—\". It does not count towards the maximum number of consumers."
+    "rest_show": "\"Always\": the rest stays below its minimum power too. Negative, or without a house value, it shows \"—\". It does not count towards the maximum number of consumers.",
+    "values": "Values as text below name and power, two side by side - e.g. today's kWh from an energy meter. The card computes nothing, it shows the entity's state. “Show in the list: always” keeps the row and its values visible at 0 W too."
   },
   "outage": {
     "banner": "Island mode — no grid",

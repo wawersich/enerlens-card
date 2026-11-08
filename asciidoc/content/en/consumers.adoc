@@ -4,7 +4,7 @@
 
 Like the nodes, every consumer in the list can show more than its power: a
 ring around its icon, a thin bar at the top or bottom of the row, an icon that
-fills. It can also be pinned to the top or bottom, kept in the list always or
+fills, and values as text below name and power. It can also be pinned to the top or bottom, kept in the list always or
 under a condition, and highlighted.
 
 Watch: one round takes a minute and a half. The wallbox is pinned to the top
@@ -123,6 +123,46 @@ the editor _Show in the energy mode too_) they are left out; their room stays.
 100 % with `idle_value: ring` and `in_energy: true`; `charge.show` with
 `plugged` and `unplugged` means `show` and `condition`. Both still work.
 Changing the consumer in the editor writes it in the new form.
+
+[[values]]
+== Extra values as text
+
+Below name and power a row can show any number of values as text, two side by
+side: the first, third … on the left under the name, the second, fourth …
+flush right under the power. The row grows for them, nothing else changes.
+Typical are today's kWh, a temperature, a device's status:
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_power
+    name: Wallbox
+    indicators:
+      values:
+        - { entity: sensor.wallbox_energy_today, prefix: today, decimals: 1 }
+        - { entity: sensor.car_soc, prefix: Car }
+        - { entity: sensor.wallbox_status }
+----
+
+* *`entity`* is any entity. The card computes nothing: to see today's kWh you
+need an entity for it, such as a utility meter (helper _Utility meter_ on the
+energy sensor).
+* *`prefix`* stands in grey before the value; without it only the value shows.
+* *`decimals`* as for the extra values at the nodes (`ha`, `0`–`3`,
+`sig2`–`sig4`).
+* A value that is unavailable shows "—". Values always show the current
+state, also in the average views.
+* With the mouse over a value it shows with its name; a tap opens the row's
+window, with a chart for each numeric value. Words like "charging" stand in
+the row only.
+* In the energy mode they stay like the other indicators (with "· now" in the
+tooltip); `in_energy: false` hides them, their room stays.
+* Values do not keep a row in the list. To see them at 0 W as well, set _Show
+in the list_ to _always_ or a condition (see below).
+* The rest row can have values too, e.g. the outside temperature.
+
+In the editor they are with the consumer under _Extra values_: _Add extra
+value_, then entity, prefix and decimals; drag to change the order.
 
 [[hold]]
 == Pin, keep, highlight

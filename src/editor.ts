@@ -168,14 +168,17 @@ export function consumerView(entry: Record<string, unknown>): Record<string, unk
   const { charge: _old, ...base } = row;
   const view: Record<string, unknown> = { ...base };
   // The old charge is a ring with 0-100 % in the value column and the energy
-  // mode (REQ L-20); indicators win where both are written.
-  if (!isRecord(row.indicators)) {
+  // mode (REQ L-20); indicators win where both are written - unless they hold
+  // no place, only values: then the ring joins them, as the card does (LZ-1).
+  const written = isRecord(row.indicators) ? row.indicators : undefined;
+  if (!written || INDICATOR_SLOTS.every((slot) => written[slot] === undefined)) {
     view.indicators = {
       ...rest,
+      ...(written ?? {}),
       ring: prune({ entity: soc, label: nonEmpty(label) ? label : undefined }),
-      idle_value: "ring",
+      idle_value: written?.idle_value === "power" ? "power" : "ring",
       // Written on: back on an older version the ring stays as it was (LZ-10).
-      in_energy: true,
+      in_energy: written?.in_energy !== false,
     };
   }
   // The new form wins where both are written (REQ L-18).
@@ -476,7 +479,13 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>, res
 function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
   if (!isRecord(value)) return undefined;
   const out: Record<string, unknown> = {
-    ...unknownKeys(value, [...INDICATOR_SLOTS, "idle_value", "in_energy", ENERGY_SHOWN_DEFAULT]),
+    ...unknownKeys(value, [
+      ...INDICATOR_SLOTS,
+      "idle_value",
+      "in_energy",
+      "values",
+      ENERGY_SHOWN_DEFAULT,
+    ]),
   };
   for (const slot of INDICATOR_SLOTS) {
     const one = value[slot];
@@ -497,8 +506,48 @@ function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
   // On is the default (LZ-5): only an off is written, and an on the YAML held.
   if (value.in_energy === false) out.in_energy = false;
   else if (value.in_energy === true && value[ENERGY_SHOWN_DEFAULT] !== true) out.in_energy = true;
+  // Text values (LZ-1): only with an entity; something that is no list stays
+  // as written, so the card can still warn about it.
+  if (Array.isArray(value.values)) {
+    const values = value.values.map(cleanValue).filter((v) => v !== undefined);
+    if (values.length > 0) out.values = values;
+  } else if (value.values !== undefined) out.values = value.values;
   const hasSlot = INDICATOR_SLOTS.some((slot) => out[slot] !== undefined);
-  return hasSlot ? prune(out) : undefined;
+  return hasSlot || out.values !== undefined ? prune(out) : undefined;
+}
+
+const VALUE_KEYS = ["entity", "prefix", "decimals"];
+
+/** One text value for the YAML (LZ-1): nothing without its entity, defaults left out. */
+function cleanValue(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value) || !nonEmpty(value.entity)) return undefined;
+  const decimals = value.decimals;
+  return prune({
+    ...unknownKeys(value, VALUE_KEYS),
+    entity: value.entity,
+    // As typed - the card trims; correcting here would fight the keystrokes.
+    prefix: nonEmpty(value.prefix) ? value.prefix : undefined,
+    decimals:
+      decimals === undefined || decimals === null || decimals === "" || decimals === "ha"
+        ? undefined
+        : typeof decimals === "string" && /^\d$/.test(decimals)
+          ? Number(decimals)
+          : decimals,
+  });
+}
+
+/** A text value as its small form shows it: decimals as text, "ha" when unset. */
+function valueForm(value: unknown): Record<string, unknown> {
+  const v = isRecord(value) ? value : {};
+  return {
+    ...v,
+    entity: typeof v.entity === "string" ? v.entity : "",
+    prefix: typeof v.prefix === "string" ? v.prefix : "",
+    decimals:
+      v.decimals === undefined || v.decimals === null || v.decimals === ""
+        ? "ha"
+        : String(v.decimals),
+  };
 }
 
 const HIGHLIGHTS = ["bold", "band"] as const;
@@ -2457,6 +2506,11 @@ class EnerLensCardEditor extends LitElement {
    */
   private _builtSections: ReadonlySet<string> = new Set();
   private _builtConsumers: ReadonlySet<number> = new Set();
+  /**
+   * Text values added but without an entity yet, per entry key (LZ-10): they
+   * stay in the form until one is picked, the YAML only gets them then (E-1).
+   */
+  private _pendingValues = new Map<number, Record<string, unknown>[]>();
 
   setConfig(config: RawConfig): void {
     this._config = config;
@@ -3873,10 +3927,13 @@ class EnerLensCardEditor extends LitElement {
       t("consumer_new");
     const view = consumerView(row);
     const extras = isRecord(view.indicators) ? view.indicators : {};
-    const hasCharge = INDICATOR_SLOTS.some((slot) => {
-      const one = extras[slot];
-      return isRecord(one) && nonEmpty(one.entity);
-    });
+    const hasCharge =
+      INDICATOR_SLOTS.some((slot) => {
+        const one = extras[slot];
+        return isRecord(one) && nonEmpty(one.entity);
+      }) ||
+      (Array.isArray(extras.values) &&
+        extras.values.some((v) => isRecord(v) && nonEmpty(v.entity)));
     const palette = DEFAULT_CONSUMER_PALETTE;
     const colour =
       typeof row.color === "string" && row.color.trim() !== ""
@@ -3954,7 +4011,7 @@ class EnerLensCardEditor extends LitElement {
                   ev.stopPropagation();
                   this._setConsumer(index, ev.detail.value);
                 }}
-              ></ha-form>`
+              ></ha-form>${this._renderValues(index, key, formView(row), false)}`
             : nothing
         }
       </ha-expansion-panel>
@@ -4014,11 +4071,189 @@ class EnerLensCardEditor extends LitElement {
                   ev.stopPropagation();
                   this._setRest(index, ev.detail.value);
                 }}
-              ></ha-form>`
+              ></ha-form>${this._renderValues(index, key, formView(view), true)}`
             : nothing
         }
       </ha-expansion-panel>
     `;
+  }
+
+  /**
+   * The text values of an entry (LZ-10): a list of its own below the entry's
+   * form - ha-form has no adding, removing or dragging. Each value is a small
+   * form of entity, prefix and decimals; a new one stays here until it has an
+   * entity.
+   */
+  private _renderValues(
+    index: number,
+    key: number,
+    view: Record<string, unknown>,
+    rest: boolean,
+  ): TemplateResult {
+    const t = (k: string) => localize(`editor.${k}`, this.hass);
+    const extras = isRecord(view.indicators) ? view.indicators : {};
+    const written = Array.isArray(extras.values) ? (extras.values as unknown[]) : [];
+    const pending = this._pendingValues.get(key) ?? [];
+    const rows = [...written, ...pending];
+    const sortable = customElements.get("ha-sortable") !== undefined;
+    const schema = [
+      {
+        type: "grid",
+        name: "",
+        schema: [
+          { name: "entity", selector: { entity: {} } },
+          { name: "prefix", selector: { text: {} } },
+          { name: "decimals", selector: decimalsSelector(t) },
+        ],
+      },
+    ];
+    const list = html`<div class="value-list">
+      ${rows.map(
+        (value, i) => html`<div class="value-row">
+          ${
+            sortable
+              ? html`<ha-icon class="vhandle" icon="mdi:drag"></ha-icon>`
+              : html`<span class="move">
+                  ${[-1, 1].map(
+                    (step) => html`<button
+                      type="button"
+                      aria-label=${t(step < 0 ? "value_up" : "value_down")}
+                      ?disabled=${i + step < 0 || i + step >= written.length || i >= written.length}
+                      @click=${() => this._moveValue(index, key, view, rest, i, i + step)}
+                    >
+                      <ha-icon icon=${step < 0 ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
+                    </button>`,
+                  )}
+                </span>`
+          }
+          <ha-form
+            .hass=${this.hass}
+            .data=${valueForm(value)}
+            .schema=${schema}
+            .computeLabel=${(item: { name: string }) => t(`value_${item.name}`)}
+            @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
+              ev.stopPropagation();
+              this._setValue(index, key, view, rest, i, ev.detail.value);
+            }}
+          ></ha-form>
+          <button
+            class="remove"
+            type="button"
+            aria-label=${t("value_remove")}
+            title=${t("value_remove")}
+            @click=${() => this._removeValue(index, key, view, rest, i)}
+          >
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+        </div>`,
+      )}
+    </div>`;
+    return html`<div class="values">
+      <div class="values-head">${t("values")}</div>
+      ${
+        sortable
+          ? html`<ha-sortable
+              handle-selector=".vhandle"
+              @item-moved=${(ev: CustomEvent<{ oldIndex: number; newIndex: number }>) => {
+                // Not the consumer list's move: that one sorts the entries.
+                ev.stopPropagation();
+                this._moveValue(index, key, view, rest, ev.detail.oldIndex, ev.detail.newIndex);
+              }}
+              >${list}</ha-sortable
+            >`
+          : list
+      }
+      <button class="add-value" type="button" @click=${() => this._addValue(key)}>
+        <ha-icon icon="mdi:plus"></ha-icon>${t("value_add")}
+      </button>
+      <p class="hint">${localize("editor_help.values", this.hass)}</p>
+    </div>`;
+  }
+
+  /** Writes an entry with its text values changed (LZ-10), the way its form would. */
+  private _writeValues(
+    index: number,
+    view: Record<string, unknown>,
+    rest: boolean,
+    values: unknown[],
+  ): void {
+    const extras = isRecord(view.indicators) ? view.indicators : {};
+    const next = { ...view, indicators: { ...extras, values } };
+    if (rest) this._setRest(index, next);
+    else this._setConsumer(index, next);
+  }
+
+  private _writtenValues(view: Record<string, unknown>): unknown[] {
+    const extras = isRecord(view.indicators) ? view.indicators : {};
+    return Array.isArray(extras.values) ? [...(extras.values as unknown[])] : [];
+  }
+
+  private _setValue(
+    index: number,
+    key: number,
+    view: Record<string, unknown>,
+    rest: boolean,
+    at: number,
+    form: Record<string, unknown>,
+  ): void {
+    const values = this._writtenValues(view);
+    if (at < values.length) {
+      values[at] = form;
+      this._writeValues(index, view, rest, values);
+      return;
+    }
+    // A new one: written once it has an entity, kept here until then (E-1).
+    const pending = [...(this._pendingValues.get(key) ?? [])];
+    const p = at - values.length;
+    if (nonEmpty(form.entity)) {
+      pending.splice(p, 1);
+      this._pendingValues.set(key, pending);
+      this._writeValues(index, view, rest, [...values, form]);
+    } else {
+      pending[p] = form;
+      this._pendingValues.set(key, pending);
+      this.requestUpdate();
+    }
+  }
+
+  private _addValue(key: number): void {
+    this._pendingValues.set(key, [...(this._pendingValues.get(key) ?? []), {}]);
+    this.requestUpdate();
+  }
+
+  private _removeValue(
+    index: number,
+    key: number,
+    view: Record<string, unknown>,
+    rest: boolean,
+    at: number,
+  ): void {
+    const values = this._writtenValues(view);
+    if (at < values.length) {
+      values.splice(at, 1);
+      this._writeValues(index, view, rest, values);
+      return;
+    }
+    const pending = [...(this._pendingValues.get(key) ?? [])];
+    pending.splice(at - values.length, 1);
+    this._pendingValues.set(key, pending);
+    this.requestUpdate();
+  }
+
+  private _moveValue(
+    index: number,
+    _key: number,
+    view: Record<string, unknown>,
+    rest: boolean,
+    from: number,
+    to: number,
+  ): void {
+    const values = this._writtenValues(view);
+    // Only written values move; a new one without entity stays at the end.
+    if (from < 0 || from >= values.length || to < 0 || to >= values.length || from === to) return;
+    const [moved] = values.splice(from, 1);
+    values.splice(to, 0, moved);
+    this._writeValues(index, view, rest, values);
   }
 
   /** An entry the card skips: shown so it can be removed, never edited (L-21). */
@@ -4430,7 +4665,8 @@ class EnerLensCardEditor extends LitElement {
     }
 
     .remove,
-    .add-consumer {
+    .add-consumer,
+    .add-value {
       background: none;
       border: 0;
       cursor: pointer;
@@ -4445,7 +4681,8 @@ class EnerLensCardEditor extends LitElement {
       display: flex;
     }
 
-    .add-consumer {
+    .add-consumer,
+    .add-value {
       align-self: flex-start;
       display: inline-flex;
       align-items: center;
@@ -4458,8 +4695,44 @@ class EnerLensCardEditor extends LitElement {
     }
 
     .remove:focus-visible,
-    .add-consumer:focus-visible {
+    .add-consumer:focus-visible,
+    .add-value:focus-visible {
       outline: 2px solid var(--primary-color);
+    }
+
+    /* Text values of an entry (LZ-10): below its form, one small form each. */
+    .values {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 0 4px;
+    }
+
+    .values-head {
+      font-weight: 500;
+    }
+
+    .value-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .value-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .value-row ha-form {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .vhandle {
+      flex: none;
+      cursor: grab;
+      color: var(--secondary-text-color);
     }
 
     .colors {

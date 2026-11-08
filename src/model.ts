@@ -226,7 +226,12 @@ function readIndicators(indicators: NormalizedIndicators, chargeOf: ChargeOf): R
   ][]) {
     slots[slot] = { ...indicator, ...chargeOf(indicator.entity) };
   }
-  return { slots, idleValue: indicators.idleValue, inEnergy: indicators.inEnergy };
+  return {
+    slots,
+    idleValue: indicators.idleValue,
+    inEnergy: indicators.inEnergy,
+    values: indicators.values,
+  };
 }
 
 /** Whether a consumer row is held in the list right now (REQ L-18); read live, never averaged. */

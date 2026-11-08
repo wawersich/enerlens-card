@@ -7,11 +7,12 @@
  */
 import { type TemplateResult, html, nothing, svg } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import { formatClock, formatExtra, formatPercent, formatPower } from "../format";
+import { formatClock, formatExtra, formatPercent, formatPower, numericEntity } from "../format";
 import { localize } from "../localize";
 import type {
   Breakdown,
   Config,
+  ExtraValue,
   HomeAssistant,
   IndicatorReading,
   IndicatorSlot,
@@ -176,6 +177,57 @@ function shownIndicators(
   return indicators.slots;
 }
 
+/** What a text value is called: its prefix, else its entity's name (LZ-7). */
+function valueName(value: ExtraValue, hass: HomeAssistant): string {
+  if (value.prefix) return value.prefix;
+  const friendly = hass.states?.[value.entity]?.attributes?.friendly_name;
+  return typeof friendly === "string" && friendly ? friendly : value.entity;
+}
+
+/**
+ * The text values of a row (LZ-2): two per line, the first of each pair
+ * left under the name, the second right under the value column. Their room
+ * stays when a period hides them (LZ-5), so the row keeps its height.
+ */
+function valueLines(
+  values: ExtraValue[],
+  hidden: boolean,
+  hass: HomeAssistant,
+  energy: boolean,
+  open: ((ev: Event) => void) | undefined,
+): TemplateResult[] {
+  const one = (value: ExtraValue, side: "left" | "right") => {
+    const text = formatExtra(hass.states?.[value.entity], hass, value.decimals);
+    const tip = `${valueName(value, hass)}: ${text}`;
+    return html`<span
+      class="xv ${side} ${open ? "tappable" : ""}"
+      title=${energy ? localize("list.indicator_now", hass, { text: tip }) : tip}
+      @click=${open ?? nothing}
+      >${value.prefix ? html`<span class="xv-prefix">${value.prefix}</span> ` : nothing}<span
+        class="xv-value"
+        >${text}</span
+      ></span
+    >`;
+  };
+  const lines: TemplateResult[] = [];
+  for (let i = 0; i < values.length; i += 2) {
+    lines.push(html`<div
+      class="vline"
+      style="--el-vl:${i / 2 + 2}"
+      aria-hidden=${hidden ? "true" : "false"}
+    >${one(values[i], "left")}${values[i + 1] ? one(values[i + 1], "right") : nothing}</div>`);
+  }
+  return lines;
+}
+
+/** The row's label names each shown value, with its prefix or name (LZ-7). */
+function valueLabels(values: ExtraValue[], hass: HomeAssistant, energy: boolean): string[] {
+  return values.map((value) => {
+    const text = `${valueName(value, hass)} ${formatExtra(hass.states?.[value.entity], hass, value.decimals)}`;
+    return energy ? localize("list.indicator_now", hass, { text }) : text;
+  });
+}
+
 /**
  * The extra value the value column shows instead of the power, if any: the
  * one `idle_value` names, decided on the tick (REQ L-20), and only while it
@@ -203,9 +255,19 @@ export function renderList(
   const consumers = config.list.enabled;
   if (!consumers && (solarRows.length === 0 || solarApart)) return nothing;
   const count = pitchCount(breakdown, config, solarRows);
+  // Stacked, the value column holds power and right values flush right (LZ-2):
+  // decided by the configuration, so it does not jump as rows come and go.
+  const withValues =
+    consumers &&
+    [...config.consumers.map((c) => c.indicators), config.rest?.indicators].some(
+      (extras) => (extras?.values?.length ?? 0) > 0,
+    );
 
   return html`
-    <div class="list ${stacked ? "stacked" : ""}" style="--el-row-h:${rowHeight(count)}px">
+    <div
+      class="list ${stacked ? "stacked" : ""} ${withValues ? "has-values" : ""}"
+      style="--el-row-h:${rowHeight(count)}px"
+    >
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
       ${solarRows.length > 0 && !solarApart ? renderSolarRows(solarRows, config, hass, onEntry, stacked) : nothing}
       ${consumers ? renderConsumers(breakdown, config, hass, onEntry, stacked) : nothing}
@@ -304,7 +366,11 @@ function renderRow(
   // values alone still open the window (L-21).
   const detail: DetailNode | undefined = entry.isRest
     ? config.sources.house.kind === "single" ||
-      (entry.indicators && (!energy || entry.indicators.inEnergy))
+      (entry.indicators &&
+        (!energy || entry.indicators.inEnergy) &&
+        // A window with a chart in it: a place, or a value that is a number (LZ-7).
+        (Object.keys(entry.indicators.slots).length > 0 ||
+          (entry.indicators.values ?? []).some((v) => numericEntity(hass, v.entity))))
       ? "rest"
       : undefined
     : entry.entity
@@ -313,11 +379,20 @@ function renderRow(
         : `consumer:${entry.key}`
       : undefined;
   const open = (ev: Event) => onEntry(entry.entity ?? "", ev, detail);
+  // A row without entity and window takes no tap, its values neither (LZ-7).
+  const tappable = Boolean(entry.entity || detail);
   const titles = (Object.entries(shown) as [IndicatorSlot, IndicatorReading][]).map(([slot, ind]) =>
     indicatorTitle(ind, slot, hass, energy),
   );
-  // One tap target, one tab stop: the row; its name says every value (L-20).
-  const label = [`${rowLabel(entry, hass)} ${power}`, ...titles].join(", ");
+  const values = entry.indicators?.values ?? [];
+  // A period hides them where switched off; their room stays (LZ-5).
+  const valuesHidden = energy && values.length > 0 && entry.indicators?.inEnergy === false;
+  // One tap target, one tab stop: the row; its name says every value (L-20, LZ-7).
+  const label = [
+    `${rowLabel(entry, hass)} ${power}`,
+    ...titles,
+    ...(valuesHidden ? [] : valueLabels(values, hass, energy)),
+  ].join(", ");
   // The mark's tooltip: ring and fill, one per line. Not a button - a tap on
   // it falls through to the row (REQ L-20).
   const markTitle = [
@@ -356,8 +431,17 @@ function renderRow(
                 ring || fill ? "charge" : ""
               } ${idle?.stale ? "stale" : ""} ${entry.highlight?.bold ? "bold" : ""} ${
                 entry.highlight?.band ? "band" : ""
+              } ${values.length > 0 ? "with-values" : ""} ${valuesHidden ? "values-hidden" : ""} ${
+                // The bar's room is configured, not shown: a period that hides
+                // the bar keeps it, so the row keeps its height (LZ-5).
+                values.length > 0 && entry.indicators?.slots.bar_bottom ? "bar-bottom" : ""
               }"
-              style=${entry.highlight?.band ? `--el-row-color:${entry.color}` : ""}
+              style=${[
+                entry.highlight?.band ? `--el-row-color:${entry.color}` : "",
+                values.length > 0 ? `--el-span:${Math.ceil(values.length / 2) + 1}` : "",
+              ]
+                .filter(Boolean)
+                .join(";")}
               data-key=${entry.key}
             >
               ${stacked ? runway() : nothing}
@@ -385,7 +469,7 @@ function renderRow(
                   ></button>`
                   : nothing
               }
-              ${bar(barTop, "bar_top")}${bar(barBottom, "bar_bottom")}
+              ${bar(barTop, "bar_top")}${bar(barBottom, "bar_bottom")}${valueLines(values, valuesHidden, hass, energy, tappable ? open : undefined)}
             </div>
           `;
 }

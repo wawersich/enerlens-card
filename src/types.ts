@@ -276,6 +276,15 @@ export interface IndicatorsConfig {
   idle_value?: "power" | IndicatorSlot;
   /** Shown in the energy mode too, with the value of now. */
   in_energy?: boolean;
+  /** Extra values as text below name and power (LZ-1). */
+  values?: RawExtraValue[];
+}
+
+/** One extra value as text in a list row, as written in YAML (LZ-1). */
+export interface RawExtraValue {
+  entity?: string;
+  prefix?: string;
+  decimals?: ExtraDecimals | string;
 }
 
 export interface SocStop {
@@ -535,6 +544,15 @@ export interface NormalizedIndicators {
   slots: Partial<Record<IndicatorSlot, NormalizedIndicator>>;
   idleValue: "power" | IndicatorSlot;
   inEnergy: boolean;
+  /** Text values below name and power, in the order written (LZ-1); unset: none. */
+  values?: ExtraValue[];
+}
+
+/** One extra value as text in a list row (LZ-1): read live, never averaged. */
+export interface ExtraValue {
+  entity: string;
+  prefix?: string;
+  decimals: ExtraDecimals;
 }
 
 /**
@@ -559,6 +577,8 @@ export interface RowIndicators {
   slots: Partial<Record<IndicatorSlot, IndicatorReading>>;
   idleValue: "power" | IndicatorSlot;
   inEnergy: boolean;
+  /** Text values below name and power (LZ-1); formatted when drawn. */
+  values?: ExtraValue[];
 }
 
 export interface Config {

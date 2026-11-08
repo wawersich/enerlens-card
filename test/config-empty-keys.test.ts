@@ -69,6 +69,8 @@ const OPTIONAL: readonly Path[] = [
   ["consumers", "0", "name"],
   ["consumers", "0", "min_w"],
   ["consumers", "0", "charge"],
+  ["consumers", "0", "indicators"],
+  ["consumers", "0", "indicators", "values"],
   ["entities", "battery"],
   ["entities", "battery_soc"],
   ["entities", "house"],

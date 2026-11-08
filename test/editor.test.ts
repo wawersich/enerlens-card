@@ -1425,6 +1425,163 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     expect(on.consumers?.[0]).toEqual({ entity: "sensor.wallbox", indicators: ring });
   });
 
+  describe("text values (LZ-10)", () => {
+    const valueForms = (el: Editor, index: number) =>
+      [...entries(el)[index].querySelectorAll(".value-row ha-form")] as Form[];
+    const setValue = (el: Editor, index: number, at: number, value: Record<string, unknown>) =>
+      act(el, () =>
+        valueForms(el, index)[at].dispatchEvent(
+          new CustomEvent("value-changed", { detail: { value }, bubbles: true, composed: true }),
+        ),
+      );
+    const WITH = {
+      ...BASE,
+      consumers: [
+        {
+          entity: "sensor.wallbox",
+          indicators: {
+            values: [{ entity: "sensor.today", prefix: "heute" }, { entity: "sensor.car" }],
+          },
+        },
+      ],
+    };
+
+    it("shows one small form per value, decimals as text", async () => {
+      const el = await mountList(WITH);
+      const forms = valueForms(el, 0);
+      expect(forms).toHaveLength(2);
+      expect(forms[0].data).toMatchObject({
+        entity: "sensor.today",
+        prefix: "heute",
+        decimals: "ha",
+      });
+    });
+
+    it("writes a change: prefix as typed, decimals as a number, ha left out", async () => {
+      const el = await mountList(WITH);
+      const saved = await setValue(el, 0, 1, {
+        entity: "sensor.car",
+        prefix: "Auto",
+        decimals: "1",
+      });
+      expect(saved.consumers?.[0]).toEqual({
+        entity: "sensor.wallbox",
+        indicators: {
+          values: [
+            { entity: "sensor.today", prefix: "heute" },
+            { entity: "sensor.car", prefix: "Auto", decimals: 1 },
+          ],
+        },
+      });
+    });
+
+    it("keeps a new value in the form until it has an entity (E-1)", async () => {
+      const el = await mountList(BASE);
+      const add = entries(el)[0].querySelector(".add-value") as HTMLButtonElement;
+      add.click();
+      await el.updateComplete;
+      expect(valueForms(el, 0)).toHaveLength(1);
+      let emitted = false;
+      el.addEventListener("config-changed", () => {
+        emitted = true;
+      });
+      valueForms(el, 0)[0].dispatchEvent(
+        new CustomEvent("value-changed", {
+          detail: { value: { entity: "", prefix: "heute", decimals: "ha" } },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      await el.updateComplete;
+      expect(emitted).toBe(false);
+      const saved = await setValue(el, 0, 0, {
+        entity: "sensor.today",
+        prefix: "heute",
+        decimals: "ha",
+      });
+      expect(saved.consumers?.[0]).toEqual({
+        entity: "sensor.wallbox",
+        name: "Wallbox",
+        indicators: { values: [{ entity: "sensor.today", prefix: "heute" }] },
+      });
+      expect(valueForms(el, 0)).toHaveLength(1);
+    });
+
+    it("removes a value, and the block with its last one", async () => {
+      const el = await mountList(WITH);
+      const remove = () =>
+        act(el, () =>
+          (entries(el)[0].querySelector(".value-row .remove") as HTMLButtonElement).click(),
+        );
+      const one = await remove();
+      expect(one.consumers?.[0]).toEqual({
+        entity: "sensor.wallbox",
+        indicators: { values: [{ entity: "sensor.car" }] },
+      });
+      const none = await remove();
+      expect(none.consumers?.[0]).toEqual({ entity: "sensor.wallbox" });
+    });
+
+    it("moves a value down", async () => {
+      const el = await mountList(WITH);
+      const down = entries(el)[0].querySelectorAll(
+        ".value-row .move button",
+      )[1] as HTMLButtonElement;
+      const saved = await act(el, () => down.click());
+      expect(saved.consumers?.[0].indicators?.values?.map((v) => v.entity)).toEqual([
+        "sensor.car",
+        "sensor.today",
+      ]);
+    });
+
+    it("keeps the old charge's ring next to values when the consumer is changed (review)", async () => {
+      const el = await mountList({
+        ...BASE,
+        consumers: [
+          {
+            entity: "sensor.wallbox",
+            charge: { soc: "sensor.car" },
+            indicators: { values: [{ entity: "sensor.today" }] },
+          },
+        ],
+      });
+      const saved = await setRow(el, 0, { ...consumerForm(el, 0).data, name: "Box" });
+      expect(saved.consumers?.[0]).toEqual({
+        entity: "sensor.wallbox",
+        name: "Box",
+        indicators: {
+          ring: { entity: "sensor.car" },
+          idle_value: "ring",
+          in_energy: true,
+          values: [{ entity: "sensor.today" }],
+        },
+      });
+    });
+
+    it("gives the rest values too, written as its entry", async () => {
+      const el = await mountList(BASE);
+      const rest = el.shadowRoot?.querySelector(".rest-entry") as HTMLElement;
+      rest.dispatchEvent(new CustomEvent("expanded-will-change", { detail: { expanded: true } }));
+      await el.updateComplete;
+      (rest.querySelector(".add-value") as HTMLButtonElement).click();
+      await el.updateComplete;
+      const form = rest.querySelector(".value-row ha-form") as Form;
+      const saved = await act(el, () =>
+        form.dispatchEvent(
+          new CustomEvent("value-changed", {
+            detail: { value: { entity: "sensor.today", prefix: "", decimals: "ha" } },
+            bubbles: true,
+            composed: true,
+          }),
+        ),
+      );
+      expect(saved.consumers?.at(-1)).toEqual({
+        type: "rest",
+        indicators: { values: [{ entity: "sensor.today" }] },
+      });
+    });
+  });
+
   it("keeps another consumer's in_energy: true when one is changed (LZ-10)", async () => {
     const held = { ring: { entity: "sensor.car" }, idle_value: "ring" as const, in_energy: true };
     const el = await mountList({
