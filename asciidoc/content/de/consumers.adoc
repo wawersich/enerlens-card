@@ -169,6 +169,11 @@ stellt _In der Liste anzeigen_ auf _immer_ oder eine Bedingung (siehe unten).
 Im Editor stehen sie beim Verbraucher unter _Zusatzwerte_: _Zusatzwert
 hinzufügen_, dann Entität, Vorsatz und Stellen; ziehen ändert die Reihenfolge.
 
+*Rahmen:* Mit `list.frame: true` (im Editor unter _Darstellung_ _Rahmen um Listen-Einträge_) steht jede Zeile – auch der Rest – in einem abgerundeten Rahmen
+ihrer Farbe, wie eine Pille. Das passt besonders zu wenigen Verbrauchern mit
+mehreren Werten. Die Fächerlinie endet am Rahmen; ein Farbband (_Hervorheben_)
+tönt die Fläche darin.
+
 [[halten]]
 == Anpinnen, halten, hervorheben
 

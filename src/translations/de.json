@@ -359,7 +359,8 @@
     "value_add": "Zusatzwert hinzufügen",
     "value_remove": "Zusatzwert entfernen",
     "value_up": "Zusatzwert nach oben",
-    "value_down": "Zusatzwert nach unten"
+    "value_down": "Zusatzwert nach unten",
+    "list_frame": "Rahmen um Listen-Einträge"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest. Standard: 10 W.",
@@ -459,7 +460,8 @@
     "rest_min_w": "Darunter verschwindet der Rest aus der Liste. Leer: die Mindestleistung der Verbraucher. Ein hoher Wert blendet nicht zugeordnete Leistung aus; der Filter-Knopf hebt ihn nicht auf.",
     "rest_position": "Wirkt nur mit oben/unten: dann zählt der Platz in dieser Liste, auch gegenüber angepinnten Verbrauchern. Sonst wird der Rest nach Leistung einsortiert.",
     "rest_show": "„Immer“: Der Rest bleibt auch unter seiner Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort „—“. Er zählt nicht zur Höchstzahl der Verbraucher.",
-    "values": "Werte als Text unter Name und Leistung, je zwei nebeneinander – z. B. die kWh von heute aus einem Verbrauchszähler. Die Karte rechnet nichts, sie zeigt den Zustand der Entität. „In der Liste anzeigen: immer“ hält die Zeile samt Werten auch bei 0 W sichtbar."
+    "values": "Werte als Text unter Name und Leistung, je zwei nebeneinander – z. B. die kWh von heute aus einem Verbrauchszähler. Die Karte rechnet nichts, sie zeigt den Zustand der Entität. „In der Liste anzeigen: immer“ hält die Zeile samt Werten auch bei 0 W sichtbar.",
+    "list_frame": "Jede Zeile der Verbraucherliste – auch der Rest – bekommt einen abgerundeten Rahmen in ihrer Farbe, wie eine Pille. Standard: aus."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

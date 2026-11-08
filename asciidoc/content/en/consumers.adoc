@@ -164,6 +164,10 @@ in the list_ to _always_ or a condition (see below).
 In the editor they are with the consumer under _Extra values_: _Add extra
 value_, then entity, prefix and decimals; drag to change the order.
 
+*Frame:* with `list.frame: true` (in the editor under _Display_, _Frame around list entries_) each row - the rest too - stands in a rounded frame of its colour,
+like a pill. It suits a few consumers with several values best. The fan line
+ends at the frame; a band (_Highlight_) tints the area inside.
+
 [[hold]]
 == Pin, keep, highlight
 

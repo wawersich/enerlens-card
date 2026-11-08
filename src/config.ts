@@ -1458,6 +1458,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "title",
     "rest_label",
     "always_below",
+    "frame",
     "scope",
     "default_scope",
     "solar",
@@ -1737,6 +1738,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       ),
       title: readString(rawList.title, "list.title", hass),
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
+      frame: readBoolean(rawList.frame, "list.frame", false, hass),
       // Off by default: existing boards must not change on their own (PV-7).
       solar: readBoolean(rawList.solar, "list.solar", false, hass),
       scope: buttons.scope,

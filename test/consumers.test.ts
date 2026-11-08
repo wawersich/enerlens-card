@@ -64,6 +64,7 @@ function config(
       enabled: true,
       restLabel: over.restLabel,
       alwaysBelow: false,
+      frame: false,
       solar: false,
       scope: ["filtered", "full"],
       defaultScope: "filtered",

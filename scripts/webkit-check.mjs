@@ -60,9 +60,23 @@ const TOLERANCE_PX = 1.5;
 /** How far a line's width may be off what the card asked for, in screen pixels. */
 const LINE_TOLERANCE_PX = 0.1;
 const SCENES = [
-  "plain", "scaled", "below", "extras", "nobatt", "clear", "clearring", "clearlate",
+  "plain",
+  "scaled",
+  "below",
+  "extras",
+  "nobatt",
+  "clear",
+  "clearring",
+  "clearlate",
   // The arrangements with several PV sources (AN-5) and the expanded quick buttons (QB-14).
-  "right", "left", "triangle", "trianglebatt", "quick",
+  "right",
+  "left",
+  "triangle",
+  "trianglebatt",
+  "quick",
+  // Rows with text values, framed, beside and below the cross (LZ-2, LZ-8, LZ-14).
+  "values",
+  "valuesbelow",
 ];
 /** How far a pixel may stray from the page's white and still count as white. */
 const CLEAR_TOLERANCE = 24;
@@ -430,8 +444,10 @@ function problems(m, lines) {
   if (!m.fan.dots) found.push("keine Punkte am Fächer");
   if (m.cross.worst > TOLERANCE_PX) found.push(`Kreuz-Punkte ${m.cross.worst} px neben der Linie`);
   if (m.fan.worst > TOLERANCE_PX) found.push(`Fächer-Punkte ${m.fan.worst} px neben der Linie`);
-  if (m.pvfan?.worst > TOLERANCE_PX) found.push(`PV-Fächer-Punkte ${m.pvfan.worst} px neben der Linie`);
-  if (["right", "left", "triangle", "trianglebatt"].includes(m.scene) && !m.pvfan?.dots) found.push("keine Punkte am PV-Fächer");
+  if (m.pvfan?.worst > TOLERANCE_PX)
+    found.push(`PV-Fächer-Punkte ${m.pvfan.worst} px neben der Linie`);
+  if (["right", "left", "triangle", "trianglebatt"].includes(m.scene) && !m.pvfan?.dots)
+    found.push("keine Punkte am PV-Fächer");
   // The clear scene has no ring on purpose.
   if (m.ring === null) {
     if (!m.ringOff) found.push("kein Ring am Haus");

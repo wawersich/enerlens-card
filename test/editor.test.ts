@@ -349,6 +349,18 @@ describe("editor - colours, icons and thresholds", () => {
     expect(form(el).data.list_always_below).toBe(true);
   });
 
+  it("writes the frame switch only when on (LZ-8)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true },
+    });
+    const on = await change(el, { list_frame: true });
+    expect(on.list).toEqual({ enabled: true, frame: true });
+    const off = await change(el, { list_frame: false });
+    expect(off.list).toEqual({ enabled: true });
+  });
+
   it("writes the ring animation, and keeps it when something else changes (R-4)", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

@@ -50,6 +50,12 @@ if (scene === "below") document.getElementById("host").style.width = "400px";
 // nobatt: the same without a battery, where grid and house labels may reach
 // to the middle between them (Z-3).
 if (scene === "extras" || scene === "nobatt") document.getElementById("host").style.width = "486px";
+// values, valuesbelow: rows with text values below name and power - long ones
+// that must be shortened, a bar below them, a band - in frames (LZ-2, LZ-8):
+// on a dashboard column beside the cross, and on a phone below it.
+const values = scene === "values" || scene === "valuesbelow";
+if (scene === "values") document.getElementById("host").style.width = "486px";
+if (scene === "valuesbelow") document.getElementById("host").style.width = "360px";
 // clear: the card made transparent the way the README shows with card-mod
 // (issue #8), without the ring, so nothing but the fill could hide a line
 // end inside the house. Nothing may show inside a circle then (K-16).
@@ -93,12 +99,22 @@ card.setConfig({
       : { solar: "sensor.s", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
   // "right" carries a list title wider than any row: it must not widen the
   // rows' shared column (PV-7).
-  ...(LAYOUT ? { layout: LAYOUT, list: { solar: true, ...(scene === "right" ? { title: "Alle Verbraucher und PV-Quellen dieses Hauses" } : {}) } } : {}),
+  // right and triangle framed (LZ-8): frames beside PV rows in other arrangements.
+  ...(LAYOUT ? { layout: LAYOUT, list: { solar: true, frame: scene === "right" || scene === "triangle", ...(scene === "right" ? { title: "Alle Verbraucher und PV-Quellen dieses Hauses" } : {}) } } : {}),
   ...(scene === "quick" ? { view: {
     energy_periods: ["power"], quick_style: "segment_compact",
     expanded: ["modes", "pv_scales", "scope"], remember: false,
   } } : {}),
-  consumers: [
+  consumers: values ? [
+    { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave", highlight: { band: true },
+      indicators: { bar_bottom: { entity: "sensor.share" }, values: [
+        { entity: "sensor.today", prefix: "heute" }, { entity: "sensor.share", prefix: "Vorlauf" },
+        { entity: "sensor.today", prefix: "Ein sehr langer Vorsatz" }, { entity: "sensor.today", prefix: "Noch einer, sehr lang" } ] } },
+    { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine",
+      indicators: { ring: { entity: "sensor.share" }, values: [{ entity: "sensor.today", prefix: "heute" }] } },
+    { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
+    { type: "rest", name: "Sonstiges", indicators: { values: [{ entity: "sensor.share", prefix: "Außen" }] } },
+  ] : [
     { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave", highlight: { bold: true, band: true } },
     // Ring, both bars and the fill of an icon (L-20): nothing may leave the card.
     { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine",
@@ -119,6 +135,7 @@ card.setConfig({
     battery: { show_state: false, label: { entity: "sensor.today", prefix: "Rest" } },
   } } : {}),
   ...(scene === "below" ? { list: { always_below: true } } : {}),
+  ...(values ? { list: { frame: true, always_below: scene === "valuesbelow" } } : {}),
   ...(ringOff ? { ring: { enabled: false } } : {}),
 });
 card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };

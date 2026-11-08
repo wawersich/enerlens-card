@@ -265,7 +265,9 @@ export function renderList(
 
   return html`
     <div
-      class="list ${stacked ? "stacked" : ""} ${withValues ? "has-values" : ""}"
+      class="list ${stacked ? "stacked" : ""} ${withValues ? "has-values" : ""} ${
+        consumers && config.list.frame ? "framed" : ""
+      }"
       style="--el-row-h:${rowHeight(count)}px"
     >
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
@@ -381,6 +383,8 @@ function renderRow(
   const open = (ev: Event) => onEntry(entry.entity ?? "", ev, detail);
   // A row without entity and window takes no tap, its values neither (LZ-7).
   const tappable = Boolean(entry.entity || detail);
+  // The frame of a consumer or the rest (LZ-8); the PV rows come with their part.
+  const framed = config.list.frame && !solar;
   const titles = (Object.entries(shown) as [IndicatorSlot, IndicatorReading][]).map(([slot, ind]) =>
     indicatorTitle(ind, slot, hass, energy),
   );
@@ -439,12 +443,15 @@ function renderRow(
               style=${[
                 entry.highlight?.band ? `--el-row-color:${entry.color}` : "",
                 values.length > 0 ? `--el-span:${Math.ceil(values.length / 2) + 1}` : "",
+                framed ? `--el-frame:${entry.color}` : "",
               ]
                 .filter(Boolean)
                 .join(";")}
               data-key=${entry.key}
             >
-              ${stacked ? runway() : nothing}
+              ${stacked ? runway() : nothing}${
+                framed ? html`<span class="frame" aria-hidden="true"></span>` : nothing
+              }
               ${
                 // The colour mark, directly in front of the name so the two read
                 // as one label - the fan line ends on it. A configured icon takes

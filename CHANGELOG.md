@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   get a chart in the row's window. The card shows the entity's state and
   computes nothing. Needs this version: 1.5.2 ignores them, and its editor
   drops an `indicators` block that holds only values.
+- **Frame around the list rows:** `list.frame` (editor: *Frame around list entries*) puts each consumer row and the rest in a rounded frame of its
+  colour, like a pill.
 
 ### Changed
 - **Energy mode: extra values stay.** The indicators of a consumer and of the

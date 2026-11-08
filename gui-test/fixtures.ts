@@ -49,13 +49,20 @@ export const RICH = {
     grid_status: { entity: s("status"), outage: ["not_detected"], ok: ["ok"] },
   },
   consumers: [
-    // A ring, so the fields of an extra value are operated too (L-20).
+    // A ring, so the fields of an extra value are operated too (L-20), and
+    // two text values, so their list is (LZ-10).
     {
       entity: s("heat_pump"),
       name: "Wärmepumpe",
       icon: "mdi:heat-wave",
       min_w: 20,
-      indicators: { ring: { entity: s("car_soc") } },
+      indicators: {
+        ring: { entity: s("car_soc") },
+        values: [
+          { entity: s("car_soc"), prefix: "Auto" },
+          { entity: s("heat_pump"), decimals: 1 },
+        ],
+      },
     },
     { entity: s("washer"), name: "Waschmaschine", color: "#123456" },
     {

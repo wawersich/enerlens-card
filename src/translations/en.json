@@ -359,7 +359,8 @@
     "value_add": "Add extra value",
     "value_remove": "Remove extra value",
     "value_up": "Move extra value up",
-    "value_down": "Move extra value down"
+    "value_down": "Move extra value down",
+    "list_frame": "Frame around list entries"
   },
   "editor_help": {
     "min_consumer_w": "Consumers below this power are hidden and counted towards the remainder. Default: 10 W.",
@@ -459,7 +460,8 @@
     "rest_min_w": "Below this the rest leaves the list. Empty: the consumers' minimum power. A high value hides power nothing accounts for; the filter button does not lift it.",
     "rest_position": "Only with top/bottom: then its place in this list counts, also among pinned consumers. Otherwise the rest is sorted in by power.",
     "rest_show": "\"Always\": the rest stays below its minimum power too. Negative, or without a house value, it shows \"—\". It does not count towards the maximum number of consumers.",
-    "values": "Values as text below name and power, two side by side - e.g. today's kWh from an energy meter. The card computes nothing, it shows the entity's state. “Show in the list: always” keeps the row and its values visible at 0 W too."
+    "values": "Values as text below name and power, two side by side - e.g. today's kWh from an energy meter. The card computes nothing, it shows the entity's state. “Show in the list: always” keeps the row and its values visible at 0 W too.",
+    "list_frame": "Each row of the consumer list - the rest too - gets a rounded frame in its colour, like a pill. Default: off."
   },
   "outage": {
     "banner": "Island mode — no grid",

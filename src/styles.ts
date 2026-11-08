@@ -1410,6 +1410,84 @@ export const styles = css`
     bottom: 3px;
   }
 
+  /* The frame (LZ-8): each row of consumers and the rest in a rounded frame
+     of its colour, filled with the card's background - see-through on a
+     see-through card (K-16). The row's own pitch (L-9, LZ-2) holds inside it;
+     8 px between the rows. Drawn as an element of its own behind the row, so
+     the fan line can end on it. */
+  .list.framed .rows .row {
+    isolation: isolate;
+    padding-inline: 12px;
+    --el-frame-r: min(16px, calc(var(--el-row-h, 34px) / 2));
+  }
+
+  /* Rows with values are always taller than 32 px: the full rounding. */
+  .list.framed .rows .row.with-values {
+    --el-frame-r: 16px;
+  }
+
+  /* The PV rows have no frame yet (PV part), but keep the consumers' indent,
+     so marks, names and values stand one below the other (PV-7). */
+  .list.framed:not(.stacked) .pv-rows .row {
+    padding-inline: 12px;
+  }
+
+  /* 8 px between the frames, which lie 1.5 px outside their rows. */
+  .list.framed .rows .row + .row {
+    margin-top: 11px;
+  }
+
+  /* The line lies just outside the row, so the row's pitch (L-9, LZ-2) and
+     its 12 px indent hold inside the frame (LZ-8). A drawn ring, not a
+     border: a border of 1.5 px is cut to 1 px on a screen of 1 px per pixel. */
+  .frame {
+    position: absolute;
+    inset: -1.5px;
+    z-index: -1;
+    border-radius: calc(var(--el-frame-r) + 1.5px);
+    box-shadow: inset 0 0 0 1.5px var(--el-frame);
+    background: var(--ha-card-background, var(--card-background-color, transparent));
+    pointer-events: none;
+  }
+
+  /* The band tints the frame instead of reaching past it (L-19). */
+  .list.framed .rows .row.band::before {
+    display: none;
+  }
+
+  .list.framed .rows .row.band .frame {
+    background: color-mix(
+      in srgb,
+      var(--el-row-color) 14%,
+      var(--ha-card-background, var(--card-background-color, transparent))
+    );
+  }
+
+  .list.framed .rows .bar {
+    left: calc(12px + var(--el-swatch) + 6px);
+    right: 12px;
+  }
+
+  /* Neighbouring targets touch, never overlap (I-3). */
+  .list.framed .rows .row-hit {
+    inset: -5.5px 0;
+  }
+
+  /* The bars keep clear of the frame's line (review 08.11.2026). */
+  .list.framed .rows .bar.top::before,
+  .list.framed .rows .bar.top::after {
+    top: 5px;
+  }
+
+  .list.framed .rows .bar.bottom::before,
+  .list.framed .rows .bar.bottom::after {
+    bottom: 5px;
+  }
+
+  .row.with-values.bar-bottom {
+    --el-bar-pad: 6px;
+  }
+
   /* Stacked below the cross the list has the whole card width. The rows become
      a grid with shared columns: runway | mark | name | value. The mark sits
      directly in front of the name so the two read as one label, and the runway
@@ -1498,22 +1576,62 @@ export const styles = css`
        shared value column, and a long one is shortened (LZ-2, LZ-3). */
     .list.stacked .row.with-values > .vline {
       grid-column: 3 / -1;
+      /* Takes the width the columns give it and adds none of its own. */
+      contain: inline-size;
     }
 
-    /* With values the value column may give way down to its figures: a long
-       value line then takes room from the runway while there is some, and is
-       shortened once there is none - it never pushes the list out of the
-       card (LZ-3). Lists without values keep their columns exactly. */
+    /* With values the free width goes two thirds to names and values, one
+       third to the runway (at least its 56 px): a value line has room
+       without pushing the list out of the card, and is shortened once there
+       is none (LZ-3). Lists without values keep their columns exactly. */
     .list.stacked.has-values {
       grid-template-columns:
         minmax(56px, 1fr)
         var(--el-swatch)
-        minmax(0, max-content)
-        minmax(auto, max-content);
+        minmax(0, 2fr)
+        max-content;
     }
 
     .list.stacked.has-values .row-value {
       white-space: nowrap;
+    }
+
+    /* Framed below the cross (LZ-8): the frame spans mark, name and value,
+       12 px beyond them on either side - into the runway on the left, into
+       room the list keeps free on the right - and the row's room above and
+       below the block. Rows are 8 px apart. */
+    .list.stacked.framed {
+      padding-right: 13.5px;
+    }
+
+    .list.stacked.framed .rows {
+      row-gap: 11px;
+    }
+
+    .list.stacked.framed .rows .row {
+      padding-inline: 0;
+    }
+
+    .list.stacked.framed .rows .row + .row {
+      margin-top: 0;
+    }
+
+    /* The bars keep their columns, name to value (L-20). */
+    .list.stacked.framed .rows .bar {
+      left: 0;
+      right: 0;
+    }
+
+    .list.stacked.framed .frame {
+      grid-column: 2 / -1;
+      grid-row: 1 / span var(--el-span, 1);
+      inset: calc(var(--el-row-pad, 0px) * -1 - 1.5px) -13.5px
+        calc((var(--el-row-pad, 0px) + var(--el-bar-pad, 0px)) * -1 - 1.5px) -13.5px;
+    }
+
+    /* The target covers the pill's right end too, beyond the value column. */
+    .list.stacked.framed .rows .row-hit {
+      right: -13.5px;
     }
 
     /* With values in the list the value column is flush right, power and

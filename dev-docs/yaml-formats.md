@@ -490,6 +490,9 @@ and is ignored. Nested blocks are not checked for unknown keys.
   spelling keeps rendering as before. 1.5.2 skips `values` silently and its
   editor drops an `indicators` block that holds only values (accepted,
   Markus 08.11.2026).
+- `list.frame` (`true | false`, default `false`): **ADDED.** (REQ LZ-8.) A
+  frame around each consumer row and the rest. 1.5.2 warns about it as an
+  unknown key, no error card.
 - No new legacy spelling, so no new configuration under `test/legacy/`.
 
 ---

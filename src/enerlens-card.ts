@@ -1628,9 +1628,12 @@ class EnerLensCard extends LitElement {
         if (quiet && mode === "hide") return null;
         // Stacked, the line ends at the colour mark, not at the row's edge -
         // the runway column lies in between.
-        const target = this._stacked
-          ? ((row.querySelector(".swatch") as HTMLElement | null) ?? row)
-          : row;
+        // A framed row: the line ends at its frame, on the side towards the
+        // drawing (LZ-8).
+        const frame = row.querySelector(".frame") as HTMLElement | null;
+        const target =
+          frame ??
+          (this._stacked ? ((row.querySelector(".swatch") as HTMLElement | null) ?? row) : row);
         const box = target.getBoundingClientRect();
         const rowBox = row.getBoundingClientRect();
         // A state-of-charge ring reaches beyond the mark; the line stops at

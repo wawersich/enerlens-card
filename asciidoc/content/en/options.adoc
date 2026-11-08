@@ -25,6 +25,7 @@
 |`list.title` |— |Heading above the list
 |`list.solar` |`false` |Show the PV list: one row per source above the consumers, with `square_left` on the left (with several sources)
 |`list.always_below` |`false` |Keep the lists under the drawing even when there is room beside them
+|`list.frame` |`false` |Each row of the consumer list and the rest in a rounded frame of its colour (pill). See _Extra values at the consumers_
 |`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
 |`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house

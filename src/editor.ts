@@ -666,6 +666,7 @@ interface FlatConfig {
   appearance?: string;
   list_enabled?: boolean;
   list_always_below?: boolean;
+  list_frame?: boolean;
   list_solar?: boolean;
   content_max_width?: number;
   content_align?: string;
@@ -973,6 +974,7 @@ function toFlat(config: RawConfig): FlatConfig {
     appearance: config.appearance,
     list_enabled: config.list?.enabled,
     list_always_below: config.list?.always_below,
+    list_frame: config.list?.frame === true,
     content_max_width: config.content?.max_width,
     content_align: config.content?.align,
     ring_enabled: config.ring?.enabled,
@@ -1480,6 +1482,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "enabled",
             "rest_label",
             "always_below",
+            "frame",
             "scope",
             "default_scope",
             "solar",
@@ -1488,6 +1491,8 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
           solar: flat.list_solar,
           rest_label: flat.rest_label,
           always_below: flat.list_always_below,
+          // Only an on is written (LZ-8).
+          frame: flat.list_frame === true ? true : undefined,
           scope: choices(flat.scope, LIST_SCOPES),
           default_scope: offered(flat.default_scope, flat.scope, LIST_SCOPES),
         }),
@@ -2084,6 +2089,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "list_enabled", selector: { boolean: {} } },
         ...(sources ? [{ name: "list_solar", selector: { boolean: {} } }] : []),
         { name: "list_always_below", selector: { boolean: {} } },
+        { name: "list_frame", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },
         ...(sources ? [{ name: "ring_solar", selector: { boolean: {} } }] : []),
         {

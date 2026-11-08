@@ -60,6 +60,7 @@ function configOf(
     list: {
       enabled: true,
       alwaysBelow: false,
+      frame: false,
       solar: false,
       scope: ["filtered", "full"],
       defaultScope: "filtered",

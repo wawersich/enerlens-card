@@ -331,6 +331,8 @@ export interface RawConfig extends LovelaceCardConfig {
     rest_label?: string;
     title?: string;
     always_below?: boolean;
+    /** A frame around each row (LZ-8). */
+    frame?: boolean;
     /** The PV rows (REQ PV-7). */
     solar?: boolean;
     /** The list scopes the quick button offers; one = fixed (REQ QB-2). */
@@ -609,6 +611,8 @@ export interface Config {
     restLabel?: string;
     title?: string;
     alwaysBelow: boolean;
+    /** A frame around each row of consumers and rest (LZ-8). */
+    frame: boolean;
     /** The PV rows (REQ PV-7). */
     solar: boolean;
     /** Offered scopes in their fixed order, never empty (REQ QB-2). */
