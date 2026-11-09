@@ -234,6 +234,36 @@ test("GT-4: an emptied text or number field never makes the card refuse (E-1)", 
   expect(findings, findings.join("\n")).toEqual([]);
 });
 
+test("GT-4: an extra value added, then removed - placeholder first, the others untouched (LZ-10, LZ-15)", async () => {
+  await mountEditor(page, RICH);
+  const valuesOf = (config: Record<string, unknown> | undefined) =>
+    ((config?.consumers as { indicators?: { values?: unknown[] } }[] | undefined)?.[0]?.indicators
+      ?.values ?? []) as unknown[];
+  const click = (selector: string) =>
+    page.evaluate((sel) => {
+      const el = (window as unknown as { __editorEl: HTMLElement }).__editorEl;
+      const all = [...(el.shadowRoot?.querySelectorAll(sel) ?? [])] as HTMLElement[];
+      all[0]?.click();
+      return all.length;
+    }, selector);
+  const before = valuesOf(RICH as unknown as Record<string, unknown>);
+  expect(await click(".consumer .add-value")).toBeGreaterThan(0);
+  await page.waitForTimeout(600);
+  const added = valuesOf(await saved(page));
+  expect(added).toEqual([...before, {}]);
+  const config = (await saved(page)) as object;
+  expect(await cardTakes(page, config)).toBe(true);
+  // The last remove button of the first consumer: the new placeholder.
+  await page.evaluate(() => {
+    const el = (window as unknown as { __editorEl: HTMLElement }).__editorEl;
+    const first = el.shadowRoot?.querySelector(".consumer");
+    const buttons = [...(first?.querySelectorAll(".value-row .remove") ?? [])] as HTMLElement[];
+    buttons[buttons.length - 1]?.click();
+  });
+  await page.waitForTimeout(600);
+  expect(valuesOf(await saved(page))).toEqual(before);
+});
+
 test("GT-5: the preview in the dialog follows a change", async () => {
   // The editor the other tests mounted lies behind the dialog: gone first.
   await page.evaluate(() =>

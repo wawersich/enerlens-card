@@ -33,7 +33,7 @@ image::editor-consumer-display-en-light.png["A consumer's display settings in th
 image::editor-consumer-display-en-dark.png["A consumer's display settings in the editor",490]
 
 [[indicators]]
-== Indicators
+== Indicators (ring, bars & fill)
 
 The ring is one of four indicators every consumer can have, one at a time or
 together, with no extra room in the row:
@@ -78,7 +78,7 @@ of its own.
 
 *Energy mode:* the indicators stay there and show the value of now; the tooltip
 says "· now", the value column keeps showing kWh. With `in_energy: false` (in
-the editor _Show in the energy mode too_) they are left out; their room stays.
+the editor _Show extra values and indicators in the energy mode too_) they are left out; their room stays.
 
 *Older spellings:* `charge` (with `soc` and `label`) means a ring from 0 to
 100 % with `idle_value: ring` and `in_energy: true`; `charge.show` with
@@ -121,6 +121,10 @@ tooltip); `in_energy: false` hides them, their room stays.
 * Values do not keep a row in the list. To see them at 0 W as well, set _Show
 in the list_ to _always_ or a condition (see below).
 * The rest row can have values too, e.g. the outside temperature.
+* An entry without entity (`- {}`) is a *placeholder*: it keeps its place
+free and shows nothing. That puts a value under the power on purpose, e.g.
+`values: [ {}, { entity: sensor.dhw_temperature, prefix: DHW } ]`. In the
+editor, simply leave the entity empty.
 
 In the editor they are with the consumer under _Extra values_: _Add extra
 value_, then entity, prefix and decimals; drag to change the order.

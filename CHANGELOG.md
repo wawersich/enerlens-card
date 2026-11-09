@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Extra values as text in the list** (#35): `indicators.values` gives a
   consumer - and the rest row - any number of values below its name and
   power, two side by side, e.g. today's kWh from a utility meter, a
-  temperature or a status. In the editor under *Extra values*; numeric ones
-  get a chart in the row's window. The card shows the entity's state and
-  computes nothing. Needs this version: 1.5.2 ignores them, and its editor
-  drops an `indicators` block that holds only values.
-- **Frame around the list rows:** `list.frame` (editor: *Frame around list entries*) puts each consumer row and the rest in a rounded frame of its
+  temperature or a status. An entry without entity keeps its place free, so
+  a value can stand under the power on purpose. In the editor under *Extra
+  values*; numeric ones get a chart in the row's window. The card shows the
+  entity's state and computes nothing. Needs this version: 1.5.2 ignores
+  them, and its editor drops an `indicators` block that holds only values.
+- **Frame around the list rows:** `list.frame` (editor: *Frame around list
+  entries*) puts each consumer row and the rest in a rounded frame of its
   colour, like a pill.
 
 ### Changed

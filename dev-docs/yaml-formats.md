@@ -483,9 +483,11 @@ and is ignored. Nested blocks are not checked for unknown keys.
   the old picture. Never inside the grid circle, where the period's import and
   export stand. 1.5.2 warns about the key as unknown, no error card.
 - `consumers[].indicators.values` (also at the `type: rest` entry): list of
-  `{entity, prefix, decimals}`: **ADDED.** (REQ LZ-1, issue #35.) A value
-  without entity, or `values` that is no list, is skipped with a warning; an
-  `indicators` block with values only counts as indicators. Together with the
+  `{entity, prefix, decimals}`: **ADDED.** (REQ LZ-1, LZ-15, issue #35.) An
+  entry without entity (`- {}`, also an empty `- `) is a placeholder that
+  keeps its place; an entry that is no object, or `values` that is no list,
+  is skipped with a warning; an `indicators` block with values only counts
+  as indicators. Together with the
   old `charge` the values join its ring (no "both set" warning) - the old
   spelling keeps rendering as before. 1.5.2 skips `values` silently and its
   editor drops an `indicators` block that holds only values (accepted,

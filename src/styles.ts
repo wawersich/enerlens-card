@@ -1340,6 +1340,8 @@ export const styles = css`
     min-width: 0;
     font-size: calc(var(--el-list-size) * 0.9);
     line-height: 1.3;
+    /* A line of placeholders keeps its height (LZ-15). */
+    min-height: 1.3em;
   }
 
   .row.with-values > .vline:nth-of-type(1) {
@@ -1369,6 +1371,11 @@ export const styles = css`
     flex: 0 0 auto;
     max-width: 65%;
     margin-left: auto;
+  }
+
+  /* Beside a placeholder the whole line is its own (LZ-15). */
+  .xv.right:only-child {
+    max-width: 100%;
   }
 
   .xv-prefix,

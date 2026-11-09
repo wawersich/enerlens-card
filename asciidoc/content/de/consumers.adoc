@@ -35,7 +35,7 @@ image::editor-consumer-display-de-light.png["Darstellung eines Verbrauchers im E
 image::editor-consumer-display-de-dark.png["Darstellung eines Verbrauchers im Editor",490]
 
 [[zusatz]]
-== Zusatzanzeigen
+== Zusatzanzeigen (Ring, Balken & Füllung)
 
 Der Ring ist eine von vier Zusatzanzeigen, die jeder Verbraucher haben kann,
 einzeln oder zusammen und ohne zusätzlichen Platz in der Zeile:
@@ -80,7 +80,7 @@ und darunter jedem Zusatzwert in einem eigenen Diagramm.
 
 *Energie-Modus:* Dort bleiben die Zusatzanzeigen stehen und zeigen den Wert von
 jetzt; der Tooltip sagt „· jetzt“, die Wertspalte zeigt weiter kWh. Mit
-`in_energy: false` (im Editor _Auch im Energie-Modus zeigen_) entfallen sie,
+`in_energy: false` (im Editor _Zusatzwerte und -anzeigen auch im Energie-Modus zeigen_) entfallen sie,
 ihr Platz bleibt.
 
 *Ältere Schreibweisen:* `charge` (mit `soc` und `label`) bedeutet einen Ring
@@ -126,6 +126,10 @@ das Fenster der Zeile, dort mit einem Diagramm je Zahlenwert. Textwerte wie
 * Werte halten eine Zeile nicht in der Liste. Wer sie auch bei 0 W sehen will,
 stellt _In der Liste anzeigen_ auf _immer_ oder eine Bedingung (siehe unten).
 * Auch die Rest-Zeile kann Werte haben, z. B. die Außentemperatur.
+* Ein Eintrag ohne Entität (`- {}`) ist ein *Platzhalter*: Er hält seinen
+Platz frei und zeigt nichts. So steht ein Wert gezielt unter der Leistung,
+etwa `values: [ {}, { entity: sensor.ww_temperatur, prefix: WW } ]`. Im
+Editor bleibt dafür einfach die Entität leer.
 
 Im Editor stehen sie beim Verbraucher unter _Zusatzwerte_: _Zusatzwert
 hinzufügen_, dann Entität, Vorsatz und Stellen; ziehen ändert die Reihenfolge.

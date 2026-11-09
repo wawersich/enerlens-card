@@ -96,7 +96,8 @@
       "unknown_value": "{field}: unbekannter Wert, erlaubt sind {allowed} – die Karte nimmt den Standard.",
       "indicator_no_entity": "{field} hat keine Entität und wird ignoriert.",
       "idle_value_missing": "{field}: idle_value {slot} ist nicht eingerichtet - die Wertspalte zeigt die Leistung.",
-      "indicators_twice": "{field}: indicators und charge sind beide gesetzt - indicators gilt, charge wird ignoriert."
+      "indicators_twice": "{field}: indicators und charge sind beide gesetzt - indicators gilt, charge wird ignoriert.",
+      "value_not_entry": "{field} ist kein Eintrag und wird ignoriert."
     }
   },
   "editor": {
@@ -334,7 +335,7 @@
     "operator_3": "kleiner als",
     "operator_4": "größer oder gleich",
     "operator_5": "kleiner oder gleich",
-    "indicators": "Zusatzanzeigen",
+    "indicators": "Zusatzanzeigen (Ring, Balken & Füllung)",
     "indicator_ring": "Icon-Ring",
     "indicator_bar_top": "Balken oben",
     "indicator_bar_bottom": "Balken unten",
@@ -346,7 +347,7 @@
     "indicator_max": "Max",
     "idle_value": "Ohne Leistung zeigen",
     "idle_power": "Leistung",
-    "in_energy": "Auch im Energie-Modus zeigen",
+    "in_energy": "Zusatzwerte und -anzeigen auch im Energie-Modus zeigen",
     "highlight": "Hervorheben",
     "incomplete": "{name}: noch nicht vollständig ausgewählt.",
     "held": "{message} Die Vorschau zeigt den letzten gültigen Stand; geschrieben wird erst, wenn das ergänzt ist.",
@@ -360,7 +361,16 @@
     "value_remove": "Zusatzwert entfernen",
     "value_up": "Zusatzwert nach oben",
     "value_down": "Zusatzwert nach unten",
-    "list_frame": "Rahmen um Listen-Einträge"
+    "list_frame": "Rahmen um Listen-Einträge",
+    "value_place": "Zeile {line} · {side}",
+    "value_left": "links, unter dem Namen",
+    "value_right": "rechts, unter der Leistung",
+    "value_placeholder": "leer",
+    "badge_ring": "Ring",
+    "badge_bars": "Balken",
+    "badge_fill": "Füllung",
+    "badge_indicator": "Zusatzanzeige",
+    "badge_indicators": "Zusatzanzeigen"
   },
   "editor_help": {
     "min_consumer_w": "Verbraucher unterhalb dieser Leistung werden ausgeblendet und zählen zum Rest. Standard: 10 W.",
@@ -460,7 +470,7 @@
     "rest_min_w": "Darunter verschwindet der Rest aus der Liste. Leer: die Mindestleistung der Verbraucher. Ein hoher Wert blendet nicht zugeordnete Leistung aus; der Filter-Knopf hebt ihn nicht auf.",
     "rest_position": "Wirkt nur mit oben/unten: dann zählt der Platz in dieser Liste, auch gegenüber angepinnten Verbrauchern. Sonst wird der Rest nach Leistung einsortiert.",
     "rest_show": "„Immer“: Der Rest bleibt auch unter seiner Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort „—“. Er zählt nicht zur Höchstzahl der Verbraucher.",
-    "values": "Werte als Text unter Name und Leistung, je zwei nebeneinander – z. B. die kWh von heute aus einem Verbrauchszähler. Die Karte rechnet nichts, sie zeigt den Zustand der Entität. „In der Liste anzeigen: immer“ hält die Zeile samt Werten auch bei 0 W sichtbar.",
+    "values": "Werte als Text unter Name und Leistung, je zwei nebeneinander – z. B. die kWh von heute aus einem Verbrauchszähler. Die Karte rechnet nichts, sie zeigt den Zustand der Entität. „In der Liste anzeigen: immer“ hält die Zeile samt Werten auch bei 0 W sichtbar. Ohne Entität bleibt der Platz leer – so steht ein Wert gezielt unter der Leistung.",
     "list_frame": "Jede Zeile der Verbraucherliste – auch der Rest – bekommt einen abgerundeten Rahmen in ihrer Farbe, wie eine Pille. Standard: aus."
   },
   "outage": {

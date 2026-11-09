@@ -58,8 +58,10 @@ export const RICH = {
       min_w: 20,
       indicators: {
         ring: { entity: s("car_soc") },
+        // A placeholder between them (LZ-15): edited, it must keep its place.
         values: [
           { entity: s("car_soc"), prefix: "Auto" },
+          {},
           { entity: s("heat_pump"), decimals: 1 },
         ],
       },

@@ -469,7 +469,7 @@ function extrasOf(indicators: NormalizedIndicators | undefined, hass?: HomeAssis
       // Text values that are numbers get a chart of their own; words stand in
       // the row only (LZ-7, Markus 08.11.2026).
       (indicators?.values ?? [])
-        .filter((value) => numericEntity(hass, value.entity))
+        .filter((value) => value.entity !== "" && numericEntity(hass, value.entity))
         .map((value) => ({
           entity: value.entity,
           label:

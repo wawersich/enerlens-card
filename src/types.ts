@@ -552,6 +552,7 @@ export interface NormalizedIndicators {
 
 /** One extra value as text in a list row (LZ-1): read live, never averaged. */
 export interface ExtraValue {
+  /** Empty for a placeholder, which keeps its place and shows nothing (LZ-15). */
   entity: string;
   prefix?: string;
   decimals: ExtraDecimals;

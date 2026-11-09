@@ -951,9 +951,10 @@ function readIndicator(
 }
 
 /**
- * The text values of a row (LZ-1): entity, prefix, decimals. Nothing here may
- * fail on what the editor produces on the way (E-1): a value without entity,
- * or values that are no list, are skipped with a word in the console.
+ * The text values of a row (LZ-1): entity, prefix, decimals. Without an
+ * entity an entry is a placeholder (LZ-15). Nothing here may fail on what the
+ * editor produces on the way (E-1): an entry that is no object, or values that
+ * are no list, are skipped with a word in the console.
  */
 function readExtraValues(value: unknown, field: string, hass?: HomeAssistant): ExtraValue[] {
   if (isUnset(value)) return [];
@@ -964,13 +965,28 @@ function readExtraValues(value: unknown, field: string, hass?: HomeAssistant): E
   const out: ExtraValue[] = [];
   value.forEach((entry, i) => {
     const at = `${field}[${i}]`;
-    const raw = isRecord(entry) ? entry : {};
-    const entity = typeof raw.entity === "string" ? raw.entity.trim() : "";
-    if (!entity) {
-      console.warn(localize("error.config.extra_no_entity", hass, { field: at }));
+    // An empty entry (`- ` in YAML) is not set (E-1): a placeholder too.
+    if (entry === null || entry === undefined) {
+      out.push({ entity: "", decimals: "ha" });
       return;
     }
+    if (!isRecord(entry)) {
+      console.warn(localize("error.config.value_not_entry", hass, { field: at }));
+      return;
+    }
+    const raw = entry;
+    // Without an entity the entry is a placeholder: it keeps its place and
+    // shows nothing (LZ-15). An entity that is no text is said, then left out.
+    if (!isUnset(raw.entity) && typeof raw.entity !== "string") {
+      console.warn(localize("error.config.value_not_entry", hass, { field: `${at}.entity` }));
+    }
+    const entity = typeof raw.entity === "string" ? raw.entity.trim() : "";
     warnUnknownIn(raw, VALUE_KEYS, at, hass);
+    if (!entity) {
+      // Prefix and decimals do nothing here; a wrong decimals refuses nothing.
+      out.push({ entity: "", decimals: "ha" });
+      return;
+    }
     // Free text: a stray space from the editor must not refuse the card.
     const prefix = typeof raw.prefix === "string" ? raw.prefix.trim() : "";
     out.push({
@@ -1226,7 +1242,8 @@ export function collectExtraIds(config: Config): string[] {
   // The text values of the rows, read the same way (LZ-6).
   const rows = [...config.consumers.map((c) => c.indicators), config.rest?.indicators];
   for (const extras of rows)
-    for (const { entity } of extras?.values ?? []) if (!ids.includes(entity)) ids.push(entity);
+    for (const { entity } of extras?.values ?? [])
+      if (entity && !ids.includes(entity)) ids.push(entity);
   return ids;
 }
 

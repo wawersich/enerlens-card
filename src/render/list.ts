@@ -197,6 +197,8 @@ function valueLines(
   open: ((ev: Event) => void) | undefined,
 ): TemplateResult[] {
   const one = (value: ExtraValue, side: "left" | "right") => {
+    // A placeholder keeps its place and shows nothing (LZ-15).
+    if (!value.entity) return nothing;
     const text = formatExtra(hass.states?.[value.entity], hass, value.decimals);
     const tip = `${valueName(value, hass)}: ${text}`;
     return html`<span
@@ -222,10 +224,12 @@ function valueLines(
 
 /** The row's label names each shown value, with its prefix or name (LZ-7). */
 function valueLabels(values: ExtraValue[], hass: HomeAssistant, energy: boolean): string[] {
-  return values.map((value) => {
-    const text = `${valueName(value, hass)} ${formatExtra(hass.states?.[value.entity], hass, value.decimals)}`;
-    return energy ? localize("list.indicator_now", hass, { text }) : text;
-  });
+  return values
+    .filter((value) => value.entity)
+    .map((value) => {
+      const text = `${valueName(value, hass)} ${formatExtra(hass.states?.[value.entity], hass, value.decimals)}`;
+      return energy ? localize("list.indicator_now", hass, { text }) : text;
+    });
 }
 
 /**

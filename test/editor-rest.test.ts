@@ -65,6 +65,11 @@ const names = (el: Editor) =>
   );
 const restEntry = (el: Editor) => el.shadowRoot?.querySelector(".rest-entry") as HTMLElement;
 const restForm = (el: Editor) => restEntry(el).querySelector("ha-form") as Form;
+/** All forms of the rest entry but its extra values', as one schema (LZ-10). */
+const restSchema = (el: Editor): Field[] =>
+  ([...restEntry(el).querySelectorAll("ha-form")] as Form[])
+    .filter((f) => !f.closest(".value-row"))
+    .flatMap((f) => f.schema);
 const fieldNames = (fields: Field[] = []): string[] =>
   fields.flatMap((f) => (f.schema ? fieldNames(f.schema) : f.name ? [f.name] : []));
 
@@ -114,13 +119,13 @@ describe("editor - the rest entry (REQ L-21)", () => {
   it("has no entity, no remove button, no condition and no idle value", async () => {
     const el = await mount(BASE);
     expect(restEntry(el).querySelector(".remove")).toBeNull();
-    const fields = fieldNames(restForm(el).schema);
+    const fields = fieldNames(restSchema(el));
     expect(fields).toEqual(expect.arrayContaining(["name", "icon", "min_w", "position", "show"]));
     // Its own entity, that is; the extra values have one each.
     expect(restForm(el).schema.map((f) => f.name)).not.toContain("entity");
     expect(fields).not.toContain("idle_value");
-    const show = restForm(el)
-      .schema.flatMap(function all(f: Field): Field[] {
+    const show = restSchema(el)
+      .flatMap(function all(f: Field): Field[] {
         return f.schema ? f.schema.flatMap(all) : [f];
       })
       .find((f) => f.name === "show");

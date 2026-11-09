@@ -155,14 +155,15 @@ describe("values in the config (LZ-1)", () => {
     ]);
   });
 
-  it("skips a value without entity and values that are no list, with a word in the console", () => {
+  it("takes a value without entity as a placeholder; skips what is no object or no list (LZ-15)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const c = config([
-      { entity: "sensor.a", indicators: { values: [{}, { entity: "sensor.today" }] } },
+      { entity: "sensor.a", indicators: { values: [{}, "text", { entity: "sensor.today" }] } },
       { entity: "sensor.b", indicators: { values: "sensor.today" } },
       { entity: "sensor.c", indicators: { values: [] } },
     ]);
     expect(c.consumers[0].indicators?.values).toEqual([
+      { entity: "", prefix: undefined, decimals: "ha" },
       { entity: "sensor.today", prefix: undefined, decimals: "ha" },
     ]);
     expect(c.consumers[1].indicators).toBeUndefined();
@@ -270,6 +271,69 @@ describe("values in the row (LZ-2, LZ-7)", () => {
     const host = draw(config([WALLBOX, { entity: "sensor.pump" }]), true);
     expect(host.querySelector(".list")?.classList.contains("has-values")).toBe(true);
     expect(draw(config([{ entity: "sensor.pump" }]), true).querySelector(".has-values")).toBeNull();
+  });
+});
+
+describe("placeholders (LZ-15)", () => {
+  const rowOf = (host: HTMLElement) => host.querySelector(".row") as HTMLElement;
+
+  it("keeps the place and shows nothing: the value goes under the value column", () => {
+    const row = rowOf(
+      draw(
+        config([
+          {
+            ...WALLBOX,
+            indicators: { values: [{}, { entity: "sensor.today", prefix: "heute", decimals: 1 }] },
+          },
+        ]),
+      ),
+    );
+    const lines = [...row.querySelectorAll(".vline")];
+    expect(lines).toHaveLength(1);
+    expect(lines[0].querySelector(".xv.left")).toBeNull();
+    expect(lines[0].querySelector(".xv.right")?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "heute 12,4 kWh",
+    );
+    expect(row.querySelector(".row-hit")?.getAttribute("aria-label")).toBe(
+      "Wallbox 2,00 kW, heute 12,4 kWh",
+    );
+  });
+
+  it("takes an empty entry as a placeholder and refuses nothing at one (review)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const c = config([
+      {
+        ...WALLBOX,
+        indicators: {
+          values: [null, { decimals: "lots" }, { entity: 5 }, { entity: "sensor.car" }],
+        },
+      },
+    ]);
+    expect(c.consumers[0].indicators?.values?.map((v) => v.entity)).toEqual([
+      "",
+      "",
+      "",
+      "sensor.car",
+    ]);
+    // Only the entity that is no text is said.
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts a line of placeholders for the height, and draws it empty", () => {
+    const row = rowOf(draw(config([{ ...WALLBOX, indicators: { values: [{}, {}, {}] } }])));
+    expect(row.style.getPropertyValue("--el-span")).toBe("3");
+    expect(row.querySelectorAll(".vline")).toHaveLength(2);
+    expect(row.querySelectorAll(".xv")).toHaveLength(0);
+  });
+
+  it("watches no entity for a placeholder, draws no chart, opens no window of the rest", () => {
+    const c = config([{ ...WALLBOX, indicators: { values: [{}, { entity: "sensor.car" }] } }]);
+    expect(collectExtraIds(c)).not.toContain("");
+    const plan = planOf(`consumer:${c.consumers[0].key}`, c, hassWith(LIVE));
+    expect(plan.extras?.map((e) => e.entity)).toEqual(["sensor.car"]);
+    const derived = { entities: { solar: "sensor.solar", grid: "sensor.grid" } };
+    const rest = config([{ type: "rest", indicators: { values: [{}] } }], derived);
+    expect(draw(rest).querySelector(".row.rest .row-hit")).toBeNull();
   });
 });
 

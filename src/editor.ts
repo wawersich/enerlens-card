@@ -448,26 +448,34 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>, res
               },
             },
           ]),
-      { name: "in_energy", labelKey: "in_energy", selector: { boolean: {} } },
     ],
   });
-  return [
-    ...(rest
-      ? []
-      : [{ name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } }]),
-    { name: "name", selector: { text: {} } },
-    // No colour here: it has a row with a swatch under "Colours", and two
-    // places to set one thing is one place too many.
-    { name: "icon", selector: { icon: {} } },
-    { name: "min_w", selector: { number: { ...limitsOf("consumers.min_w"), mode: "box" } } },
-    {
-      name: "display",
-      type: "expandable",
-      flatten: true,
-      title: t("consumer_display"),
-      schema: display,
-    },
-  ];
+  return {
+    basics: [
+      ...(rest
+        ? []
+        : [{ name: "entity", required: true, selector: { entity: { filter: POWER_FILTER } } }]),
+      { name: "name", selector: { text: {} } },
+      // No colour here: it has a row with a swatch under "Colours", and two
+      // places to set one thing is one place too many.
+      { name: "icon", selector: { icon: {} } },
+      { name: "min_w", selector: { number: { ...limitsOf("consumers.min_w"), mode: "box" } } },
+    ],
+    // "Display" is drawn by the editor itself, not as a group of ha-form: the
+    // extra values sit in it as a group of their own beside the indicators
+    // (Markus 09.11.2026), and ha-form takes no list of ours. Its fields stay
+    // keys of the consumer.
+    display,
+    // The energy switch acts on indicators and values alike: below both, its
+    // key in the indicators block.
+    energy: [
+      {
+        name: "indicators",
+        type: "grid",
+        schema: [{ name: "in_energy", labelKey: "in_energy", selector: { boolean: {} } }],
+      },
+    ],
+  };
 }
 
 /**
@@ -506,7 +514,7 @@ function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
   // On is the default (LZ-5): only an off is written, and an on the YAML held.
   if (value.in_energy === false) out.in_energy = false;
   else if (value.in_energy === true && value[ENERGY_SHOWN_DEFAULT] !== true) out.in_energy = true;
-  // Text values (LZ-1): only with an entity; something that is no list stays
+  // Text values (LZ-1), placeholders without entity kept (LZ-15); something that is no list stays
   // as written, so the card can still warn about it.
   if (Array.isArray(value.values)) {
     const values = value.values.map(cleanValue).filter((v) => v !== undefined);
@@ -518,13 +526,16 @@ function cleanIndicators(value: unknown): Record<string, unknown> | undefined {
 
 const VALUE_KEYS = ["entity", "prefix", "decimals"];
 
-/** One text value for the YAML (LZ-1): nothing without its entity, defaults left out. */
+/** One text value for the YAML (LZ-1): defaults left out; without entity a placeholder (LZ-15); what is no entry goes. */
 function cleanValue(value: unknown): Record<string, unknown> | undefined {
-  if (!isRecord(value) || !nonEmpty(value.entity)) return undefined;
+  // An empty entry (`- `) is a placeholder, as the card reads it (LZ-15).
+  if (value === null || value === undefined) return {};
+  if (!isRecord(value)) return undefined;
   const decimals = value.decimals;
-  return prune({
+  // Without an entity it is a placeholder and keeps its place: `{}` (LZ-15).
+  return (prune({
     ...unknownKeys(value, VALUE_KEYS),
-    entity: value.entity,
+    entity: nonEmpty(value.entity) ? value.entity : undefined,
     // As typed - the card trims; correcting here would fight the keystrokes.
     prefix: nonEmpty(value.prefix) ? value.prefix : undefined,
     decimals:
@@ -533,7 +544,7 @@ function cleanValue(value: unknown): Record<string, unknown> | undefined {
         : typeof decimals === "string" && /^\d$/.test(decimals)
           ? Number(decimals)
           : decimals,
-  });
+  }) ?? {}) as Record<string, unknown>;
 }
 
 /** A text value as its small form shows it: decimals as text, "ha" when unset. */
@@ -2512,11 +2523,6 @@ class EnerLensCardEditor extends LitElement {
    */
   private _builtSections: ReadonlySet<string> = new Set();
   private _builtConsumers: ReadonlySet<number> = new Set();
-  /**
-   * Text values added but without an entity yet, per entry key (LZ-10): they
-   * stay in the form until one is picked, the YAML only gets them then (E-1).
-   */
-  private _pendingValues = new Map<number, Record<string, unknown>[]>();
 
   setConfig(config: RawConfig): void {
     this._config = config;
@@ -3933,13 +3939,24 @@ class EnerLensCardEditor extends LitElement {
       t("consumer_new");
     const view = consumerView(row);
     const extras = isRecord(view.indicators) ? view.indicators : {};
-    const hasCharge =
-      INDICATOR_SLOTS.some((slot) => {
-        const one = extras[slot];
-        return isRecord(one) && nonEmpty(one.entity);
-      }) ||
-      (Array.isArray(extras.values) &&
-        extras.values.some((v) => isRecord(v) && nonEmpty(v.entity)));
+    // Two badges, each naming only what is set (Markus 09.11.2026): the
+    // indicators with their kinds in brackets - "Indicator (ring)" - and,
+    // below it, the extra values.
+    const set = (slot: string) =>
+      isRecord(extras[slot]) && nonEmpty((extras[slot] as Record<string, unknown>).entity);
+    const kinds = [
+      set("ring") ? t("badge_ring") : "",
+      set("bar_top") || set("bar_bottom") ? t("badge_bars") : "",
+      set("fill") ? t("badge_fill") : "",
+    ].filter(Boolean);
+    const badges = [
+      kinds.length > 0
+        ? `${t(kinds.length === 1 ? "badge_indicator" : "badge_indicators")} (${kinds.join(", ")})`
+        : "",
+      Array.isArray(extras.values) && extras.values.some((v) => isRecord(v) && nonEmpty(v.entity))
+        ? t("values")
+        : "",
+    ].filter(Boolean);
     const palette = DEFAULT_CONSUMER_PALETTE;
     const colour =
       typeof row.color === "string" && row.color.trim() !== ""
@@ -3981,9 +3998,10 @@ class EnerLensCardEditor extends LitElement {
             ${entity ? html`<small>${entity}</small>` : nothing}
           </span>
           ${
-            hasCharge
-              ? html`<span class="badge"><ha-icon icon="mdi:gauge"></ha-icon>${t(
-                  "indicators",
+            badges.length > 0
+              ? html`<span class="badges">${badges.map(
+                  (text) =>
+                    html`<span class="badge"><ha-icon icon="mdi:gauge"></ha-icon>${text}</span>`,
                 )}</span>`
               : nothing
           }
@@ -4007,17 +4025,7 @@ class EnerLensCardEditor extends LitElement {
         </div>
         ${
           this._builtConsumers.has(key)
-            ? html`<ha-form
-                .hass=${this.hass}
-                .data=${formView(row)}
-                .schema=${consumerSchema(this.hass as HomeAssistant, formView(row))}
-                .computeLabel=${this._consumerLabel}
-                .computeHelper=${this._consumerHelper}
-                @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
-                  ev.stopPropagation();
-                  this._setConsumer(index, ev.detail.value);
-                }}
-              ></ha-form>${this._renderValues(index, key, formView(row), false)}`
+            ? html`<div class="entry-body">${this._renderEntryForms(index, key, formView(row), false)}</div>`
             : nothing
         }
       </ha-expansion-panel>
@@ -4067,21 +4075,50 @@ class EnerLensCardEditor extends LitElement {
         </div>
         ${
           this._builtConsumers.has(key)
-            ? html`<ha-form
-                .hass=${this.hass}
-                .data=${formView(view)}
-                .schema=${consumerSchema(this.hass as HomeAssistant, formView(view), true)}
-                .computeLabel=${this._consumerLabel}
-                .computeHelper=${this._restHelper}
-                @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
-                  ev.stopPropagation();
-                  this._setRest(index, ev.detail.value);
-                }}
-              ></ha-form>${this._renderValues(index, key, formView(view), true)}`
+            ? html`<div class="entry-body">${this._renderEntryForms(index, key, formView(view), true)}</div>`
             : nothing
         }
       </ha-expansion-panel>
     `;
+  }
+
+  /**
+   * The forms of an entry (E-4, LZ-10): its basics, then "Display" as a panel
+   * of the editor's own - list fields and indicators, the extra values as a
+   * group beside the indicators, and below both the energy switch they share.
+   * Every form gets the whole entry and hands the whole entry back.
+   */
+  private _renderEntryForms(
+    index: number,
+    key: number,
+    view: Record<string, unknown>,
+    rest: boolean,
+  ): TemplateResult {
+    const parts = consumerSchema(this.hass as HomeAssistant, view, rest);
+    const form = (schema: unknown[]) => html`<ha-form
+      .hass=${this.hass}
+      .data=${view}
+      .schema=${schema}
+      .computeLabel=${this._consumerLabel}
+      .computeHelper=${rest ? this._restHelper : this._consumerHelper}
+      @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
+        ev.stopPropagation();
+        if (rest) this._setRest(index, ev.detail.value);
+        else this._setConsumer(index, ev.detail.value);
+      }}
+    ></ha-form>`;
+    return html`${form(parts.basics)}
+      <ha-expansion-panel outlined class="display-panel">
+        <!-- The title as an element of its own, as ha-form's groups do: the
+             header property keeps room for a second line (Markus 09.11.2026). -->
+        <div slot="header" role="heading" aria-level="4">
+          ${localize("editor.consumer_display", this.hass)}
+        </div>
+        <div class="display-body">
+          ${form(parts.display)} ${this._renderValues(index, key, view, rest)}
+          ${form(parts.energy)}
+        </div>
+      </ha-expansion-panel>`;
   }
 
   /**
@@ -4092,30 +4129,24 @@ class EnerLensCardEditor extends LitElement {
    */
   private _renderValues(
     index: number,
-    key: number,
+    _key: number,
     view: Record<string, unknown>,
     rest: boolean,
   ): TemplateResult {
     const t = (k: string) => localize(`editor.${k}`, this.hass);
     const extras = isRecord(view.indicators) ? view.indicators : {};
     const written = Array.isArray(extras.values) ? (extras.values as unknown[]) : [];
-    const pending = this._pendingValues.get(key) ?? [];
-    const rows = [...written, ...pending];
     const sortable = customElements.get("ha-sortable") !== undefined;
+    // One below the other, at every width (Markus 09.11.2026).
     const schema = [
-      {
-        type: "grid",
-        name: "",
-        schema: [
-          { name: "entity", selector: { entity: {} } },
-          { name: "prefix", selector: { text: {} } },
-          { name: "decimals", selector: decimalsSelector(t) },
-        ],
-      },
+      { name: "entity", selector: { entity: {} } },
+      { name: "prefix", selector: { text: {} } },
+      { name: "decimals", selector: decimalsSelector(t) },
     ];
     const list = html`<div class="value-list">
-      ${rows.map(
+      ${written.map(
         (value, i) => html`<div class="value-row">
+          <div class="value-head">
           ${
             sortable
               ? html`<ha-icon class="vhandle" icon="mdi:drag"></ha-icon>`
@@ -4124,14 +4155,25 @@ class EnerLensCardEditor extends LitElement {
                     (step) => html`<button
                       type="button"
                       aria-label=${t(step < 0 ? "value_up" : "value_down")}
-                      ?disabled=${i + step < 0 || i + step >= written.length || i >= written.length}
-                      @click=${() => this._moveValue(index, key, view, rest, i, i + step)}
+                      ?disabled=${i + step < 0 || i + step >= written.length}
+                      @click=${() => this._moveValue(index, view, rest, i, i + step)}
                     >
                       <ha-icon icon=${step < 0 ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
                     </button>`,
                   )}
                 </span>`
           }
+          <span class="value-title">${this._valuePlace(i, value)}</span>
+          <button
+            class="remove"
+            type="button"
+            aria-label=${t("value_remove")}
+            title=${t("value_remove")}
+            @click=${() => this._removeValue(index, view, rest, i)}
+          >
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+          </div>
           <ha-form
             .hass=${this.hass}
             .data=${valueForm(value)}
@@ -4139,23 +4181,18 @@ class EnerLensCardEditor extends LitElement {
             .computeLabel=${(item: { name: string }) => t(`value_${item.name}`)}
             @value-changed=${(ev: CustomEvent<{ value: Record<string, unknown> }>) => {
               ev.stopPropagation();
-              this._setValue(index, key, view, rest, i, ev.detail.value);
+              this._setValue(index, view, rest, i, ev.detail.value);
             }}
           ></ha-form>
-          <button
-            class="remove"
-            type="button"
-            aria-label=${t("value_remove")}
-            title=${t("value_remove")}
-            @click=${() => this._removeValue(index, key, view, rest, i)}
-          >
-            <ha-icon icon="mdi:close"></ha-icon>
-          </button>
         </div>`,
       )}
     </div>`;
-    return html`<div class="values">
-      <div class="values-head">${t("values")}</div>
+    // A group like the indicators: folded, open where values are set.
+    return html`<ha-expansion-panel
+      outlined
+      class="values-panel"
+      .expanded=${written.length > 0}
+    ><div slot="header" role="heading" aria-level="5">${t("values")}</div><div class="values">
       ${
         sortable
           ? html`<ha-sortable
@@ -4163,17 +4200,32 @@ class EnerLensCardEditor extends LitElement {
               @item-moved=${(ev: CustomEvent<{ oldIndex: number; newIndex: number }>) => {
                 // Not the consumer list's move: that one sorts the entries.
                 ev.stopPropagation();
-                this._moveValue(index, key, view, rest, ev.detail.oldIndex, ev.detail.newIndex);
+                this._moveValue(index, view, rest, ev.detail.oldIndex, ev.detail.newIndex);
               }}
               >${list}</ha-sortable
             >`
           : list
       }
-      <button class="add-value" type="button" @click=${() => this._addValue(key)}>
+      <button class="add-value" type="button" @click=${() => this._addValue(index, view, rest)}>
         <ha-icon icon="mdi:plus"></ha-icon>${t("value_add")}
       </button>
       <p class="hint">${localize("editor_help.values", this.hass)}</p>
-    </div>`;
+    </div></ha-expansion-panel>`;
+  }
+
+  /**
+   * Where a value lands in the row, as its block's title (LZ-10, Markus
+   * 09.11.2026: the three fields of one value were hard to tell apart):
+   * line and side by the rule of LZ-2, and "empty" for a placeholder.
+   */
+  private _valuePlace(at: number, value: unknown): string {
+    const t = (k: string) => localize(`editor.${k}`, this.hass);
+    const place = localize("editor.value_place", this.hass, {
+      line: String(Math.floor(at / 2) + 1),
+      side: t(at % 2 === 0 ? "value_left" : "value_right"),
+    });
+    const empty = !isRecord(value) || !nonEmpty(value.entity);
+    return empty ? `${place} · ${t("value_placeholder")}` : place;
   }
 
   /** Writes an entry with its text values changed (LZ-10), the way its form would. */
@@ -4196,66 +4248,44 @@ class EnerLensCardEditor extends LitElement {
 
   private _setValue(
     index: number,
-    key: number,
     view: Record<string, unknown>,
     rest: boolean,
     at: number,
     form: Record<string, unknown>,
   ): void {
     const values = this._writtenValues(view);
-    if (at < values.length) {
-      values[at] = form;
-      this._writeValues(index, view, rest, values);
-      return;
-    }
-    // A new one: written once it has an entity, kept here until then (E-1).
-    const pending = [...(this._pendingValues.get(key) ?? [])];
-    const p = at - values.length;
-    if (nonEmpty(form.entity)) {
-      pending.splice(p, 1);
-      this._pendingValues.set(key, pending);
-      this._writeValues(index, view, rest, [...values, form]);
-    } else {
-      pending[p] = form;
-      this._pendingValues.set(key, pending);
-      this.requestUpdate();
-    }
+    if (at >= values.length) return;
+    // The form handed back as it was shown changes nothing (E-1, GT-4).
+    if (JSON.stringify(cleanValue(form)) === JSON.stringify(cleanValue(values[at]))) return;
+    values[at] = form;
+    this._writeValues(index, view, rest, values);
   }
 
-  private _addValue(key: number): void {
-    this._pendingValues.set(key, [...(this._pendingValues.get(key) ?? []), {}]);
-    this.requestUpdate();
+  /** A new value is written at once, as a placeholder until it has an entity (LZ-15). */
+  private _addValue(index: number, view: Record<string, unknown>, rest: boolean): void {
+    this._writeValues(index, view, rest, [...this._writtenValues(view), {}]);
   }
 
   private _removeValue(
     index: number,
-    key: number,
     view: Record<string, unknown>,
     rest: boolean,
     at: number,
   ): void {
     const values = this._writtenValues(view);
-    if (at < values.length) {
-      values.splice(at, 1);
-      this._writeValues(index, view, rest, values);
-      return;
-    }
-    const pending = [...(this._pendingValues.get(key) ?? [])];
-    pending.splice(at - values.length, 1);
-    this._pendingValues.set(key, pending);
-    this.requestUpdate();
+    if (at >= values.length) return;
+    values.splice(at, 1);
+    this._writeValues(index, view, rest, values);
   }
 
   private _moveValue(
     index: number,
-    _key: number,
     view: Record<string, unknown>,
     rest: boolean,
     from: number,
     to: number,
   ): void {
     const values = this._writtenValues(view);
-    // Only written values move; a new one without entity stays at the end.
     if (from < 0 || from >= values.length || to < 0 || to >= values.length || from === to) return;
     const [moved] = values.splice(from, 1);
     values.splice(to, 0, moved);
@@ -4587,10 +4617,17 @@ class EnerLensCardEditor extends LitElement {
       gap: 8px;
     }
 
+    /* No padding around the content: it stays below the title when folded
+       and pushes the name off the middle (16 px, Markus 09.11.2026). The room
+       goes inside the content instead. */
     .consumer,
     .rest-entry {
       --expansion-panel-summary-padding: 0 8px 0 4px;
-      --expansion-panel-content-padding: 4px 12px 12px;
+      --expansion-panel-content-padding: 0;
+    }
+
+    .entry-body {
+      padding: 4px 12px 12px;
     }
 
     /* An entry the card skips (L-21): framed like the others, nothing to unfold. */
@@ -4635,6 +4672,15 @@ class EnerLensCardEditor extends LitElement {
 
     .consumer-title small {
       color: var(--secondary-text-color);
+    }
+
+    /* One badge below the other: indicators, then extra values. */
+    .badges {
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
     }
 
     .badge {
@@ -4714,24 +4760,65 @@ class EnerLensCardEditor extends LitElement {
       padding: 8px 0 4px;
     }
 
-    .values-head {
-      font-weight: 500;
+    /* "Display" of an entry and its groups (LZ-10): panels of the editor's
+       own, looking like the groups of ha-form around them. */
+    /* As ha-form's own groups: no padding around the content, which would
+       stay below the title when folded (16 px measured, Markus 09.11.2026),
+       the room inside the content instead. */
+    .display-panel,
+    .values-panel {
+      display: block;
+      --expansion-panel-content-padding: 0;
+      border-radius: 6px;
+      --ha-card-border-radius: 6px;
+    }
+
+    .display-panel {
+      margin-top: 8px;
+    }
+
+    .display-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .values-panel .values {
+      padding: 0 12px 12px;
     }
 
     .value-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
+    /* One block per value: a frame around its three fields, a head line
+       saying where it lands (Markus 09.11.2026). */
     .value-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 4px 8px 8px;
+      border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+      border-radius: 8px;
+    }
+
+    .value-head {
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .value-row ha-form {
+    .value-title {
       flex: 1;
+      min-width: 0;
+      color: var(--secondary-text-color);
+      font-size: 0.9em;
+    }
+
+    .value-row ha-form {
       min-width: 0;
     }
 

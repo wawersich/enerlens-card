@@ -193,14 +193,24 @@ describe("B: the forms show what the YAML says", () => {
     // The sections of the main form all share the whole flat state, on
     // purpose; a row - one PV source, one consumer - is its own form.
     const el = await mount(RICH);
-    const rows = forms(el).filter((form) => fieldNames(form.schema).has("entity"));
+    // A row's forms together (LZ-10: a consumer's basics, "Display" and the
+    // energy switch are forms of their own, each with the whole entry); its
+    // extra values are rows of their own.
+    const rows = new Map<Element, Form[]>();
+    for (const form of forms(el)) {
+      const row = form.closest(".value-row") ?? form.closest(".source, .consumer, .rest-entry");
+      if (row) rows.set(row, [...(rows.get(row) ?? []), form]);
+    }
+    const entries = [...rows.entries()].filter(([row]) => !row.classList.contains("value-row"));
     // Three PV sources, two consumers and the rest (L-21).
-    expect(rows).toHaveLength(3 + 2 + 1);
+    expect(entries).toHaveLength(3 + 2 + 1);
     const stray: string[] = [];
-    for (const form of rows) {
-      const names = fieldNames(form.schema);
-      for (const key of Object.keys(form.data ?? {})) {
-        if (!names.has(key) && !NO_FIELD_OK.has(key)) stray.push(key);
+    for (const [, group] of rows) {
+      const names = new Set(group.flatMap((form) => [...fieldNames(form.schema)]));
+      for (const form of group) {
+        for (const key of Object.keys(form.data ?? {})) {
+          if (!names.has(key) && !NO_FIELD_OK.has(key)) stray.push(key);
+        }
       }
     }
     expect(stray).toEqual([]);

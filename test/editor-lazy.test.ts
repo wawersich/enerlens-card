@@ -170,9 +170,9 @@ describe("editor - builds only what is unfolded (REQ E-3, EL-I2)", () => {
   it("builds a consumer entry's form as it unfolds, its display group included", async () => {
     const el = await mount();
     await toggle(el, consumer(el, 0), true);
-    const [inner] = forms(consumer(el, 0));
-    // The charge sits in the group "Display" since 29.10.2026 (REQ E-4).
-    const display = inner.schema.find((f) => f.name === "display");
+    const [inner, display] = forms(consumer(el, 0));
+    // The charge sits in "Display" since 29.10.2026 (REQ E-4), the editor's
+    // own panel since 09.11.2026 (LZ-10).
     expect(display?.schema?.map((f) => f.name)).toContain("indicators");
     expect(forms(consumer(el, 1))).toHaveLength(0);
     await toggle(el, consumer(el, 0), false);

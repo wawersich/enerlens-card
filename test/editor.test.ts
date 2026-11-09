@@ -1467,6 +1467,14 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
         prefix: "heute",
         decimals: "ha",
       });
+      // Each value in a block of its own, titled with where it lands (LZ-10).
+      const titles = [...entries(el)[0].querySelectorAll(".value-row .value-title")].map((e) =>
+        e.textContent?.trim(),
+      );
+      expect(titles).toEqual([
+        "Zeile 1 · links, unter dem Namen",
+        "Zeile 1 · rechts, unter der Leistung",
+      ]);
     });
 
     it("writes a change: prefix as typed, decimals as a number, ha left out", async () => {
@@ -1487,36 +1495,34 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
       });
     });
 
-    it("keeps a new value in the form until it has an entity (E-1)", async () => {
+    it("writes a new value at once as a placeholder, and keeps its place without entity (LZ-15)", async () => {
       const el = await mountList(BASE);
       const add = entries(el)[0].querySelector(".add-value") as HTMLButtonElement;
-      add.click();
-      await el.updateComplete;
-      expect(valueForms(el, 0)).toHaveLength(1);
-      let emitted = false;
-      el.addEventListener("config-changed", () => {
-        emitted = true;
+      const added = await act(el, () => add.click());
+      expect(added.consumers?.[0]).toEqual({
+        entity: "sensor.wallbox",
+        name: "Wallbox",
+        indicators: { values: [{}] },
       });
-      valueForms(el, 0)[0].dispatchEvent(
-        new CustomEvent("value-changed", {
-          detail: { value: { entity: "", prefix: "heute", decimals: "ha" } },
-          bubbles: true,
-          composed: true,
-        }),
-      );
-      await el.updateComplete;
-      expect(emitted).toBe(false);
-      const saved = await setValue(el, 0, 0, {
+      expect(valueForms(el, 0)).toHaveLength(1);
+      const typed = await setValue(el, 0, 0, { entity: "", prefix: "heute", decimals: "ha" });
+      expect(typed.consumers?.[0].indicators).toEqual({ values: [{ prefix: "heute" }] });
+      const picked = await setValue(el, 0, 0, {
         entity: "sensor.today",
         prefix: "heute",
         decimals: "ha",
       });
-      expect(saved.consumers?.[0]).toEqual({
-        entity: "sensor.wallbox",
-        name: "Wallbox",
-        indicators: { values: [{ entity: "sensor.today", prefix: "heute" }] },
+      expect(picked.consumers?.[0].indicators).toEqual({
+        values: [{ entity: "sensor.today", prefix: "heute" }],
       });
-      expect(valueForms(el, 0)).toHaveLength(1);
+    });
+
+    it("keeps a value's place when its entity is cleared (LZ-15)", async () => {
+      const el = await mountList(WITH);
+      const saved = await setValue(el, 0, 0, { entity: "", prefix: "heute", decimals: "ha" });
+      expect(saved.consumers?.[0].indicators).toEqual({
+        values: [{ prefix: "heute" }, { entity: "sensor.car" }],
+      });
     });
 
     it("removes a value, and the block with its last one", async () => {
@@ -1787,30 +1793,34 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
     }
     return undefined;
   };
+  /** The forms of "Display": list fields and indicators, then the energy switch (LZ-10). */
+  const displayForms = (el: Editor, index: number) =>
+    [...entries(el)[index].querySelectorAll(".display-body > ha-form")] as Form[];
+  const displaySchema = (el: Editor, index: number) => displayForms(el, index)[0]?.schema ?? [];
   const indicatorFields = (el: Editor, index: number) =>
-    (findField(consumerForm(el, index).schema, "indicators")?.schema ?? []).map((f) => f.name);
+    (findField(displaySchema(el, index), "indicators")?.schema ?? []).map((f) => f.name);
 
   const fields = (el: Editor, index: number) => consumerForm(el, index).schema.map((f) => f.name);
-  const displayFields = (el: Editor, index: number) =>
-    (findField(consumerForm(el, index).schema, "display")?.schema ?? []).map((f) => f.name);
+  const displayFields = (el: Editor, index: number) => displaySchema(el, index).map((f) => f.name);
   const conditionField = (el: Editor, index: number, name: string) =>
-    findField(consumerForm(el, index).schema, "condition")?.schema?.find((f) => f.name === name);
+    findField(displaySchema(el, index), "condition")?.schema?.find((f) => f.name === name);
 
   it("keeps the charge to its value, and asks for a condition only where it is chosen", async () => {
     const el = await mountList(BASE);
-    // Four places for an extra value, then what the value column shows and the
-    // energy mode (REQ L-20).
-    expect(indicatorFields(el, 0)).toEqual([
-      "ring",
-      "bar_top",
-      "bar_bottom",
-      "fill",
-      "idle_value",
-      "in_energy",
+    // Four places for an extra value, then what the value column shows (L-20).
+    expect(indicatorFields(el, 0)).toEqual(["ring", "bar_top", "bar_bottom", "fill", "idle_value"]);
+    // The energy switch below indicators and values: it acts on both (LZ-10).
+    const energy = displayForms(el, 0)[1]?.schema ?? [];
+    expect(energy.flatMap((f) => (f.schema ?? []).map((g) => g.name))).toEqual(["in_energy"]);
+    // The basics on top, everything else in the editor's own panel "Display",
+    // the extra values as a group between indicators and switch.
+    expect(fields(el, 0)).toEqual(["entity", "name", "icon", "min_w"]);
+    const body = entries(el)[0].querySelector(".display-panel .display-body");
+    expect([...(body?.children ?? [])].map((c) => c.className || c.tagName.toLowerCase())).toEqual([
+      "ha-form",
+      "values-panel",
+      "ha-form",
     ]);
-    // The basics on top, everything else in the flattened group "Display".
-    expect(fields(el, 0)).toEqual(["entity", "name", "icon", "min_w", "display"]);
-    expect(findField(consumerForm(el, 0).schema, "display")?.flatten).toBe(true);
     expect(displayFields(el, 0)).toEqual(["position", "show", "highlight", "indicators"]);
     await setRow(el, 0, { entity: "sensor.wallbox", show: "condition" });
     expect(displayFields(el, 0)).toEqual([
@@ -2062,6 +2072,33 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
       consumers: [{ entity: "sensor.wallbox", charge: { soc: "sensor.car" } }],
     } as RawConfig);
     expect(entries(el)[0].querySelector(".badge")).toBeTruthy();
+  });
+
+  it("names in its badges only what is set, values in a badge of their own (Markus 09.11.2026)", async () => {
+    const el = await mountList({
+      ...BASE,
+      consumers: [
+        { entity: "sensor.wallbox", charge: { soc: "sensor.car" } },
+        { entity: "sensor.pump", indicators: { values: [{ entity: "sensor.today" }, {}] } },
+        {
+          entity: "sensor.dryer",
+          indicators: {
+            ring: { entity: "sensor.c" },
+            bar_top: { entity: "sensor.a" },
+            bar_bottom: { entity: "sensor.b" },
+            values: [{ entity: "sensor.today" }],
+          },
+        },
+        { entity: "sensor.fan", indicators: { values: [{}] } },
+      ],
+    } as RawConfig);
+    const badges = (i: number) =>
+      [...entries(el)[i].querySelectorAll(".badge")].map((b) => b.textContent?.trim());
+    expect(badges(0)).toEqual(["Zusatzanzeige (Ring)"]);
+    expect(badges(1)).toEqual(["Zusatzwerte"]);
+    expect(badges(2)).toEqual(["Zusatzanzeigen (Ring, Balken)", "Zusatzwerte"]);
+    // Placeholders alone set nothing worth a badge.
+    expect(badges(3)).toEqual([]);
   });
 });
 
