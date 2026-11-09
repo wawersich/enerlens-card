@@ -1415,21 +1415,34 @@ export const styles = css`
      see-through card (K-16). The row's own pitch (L-9, LZ-2) holds inside it;
      8 px between the rows. Drawn as an element of its own behind the row, so
      the fan line can end on it. */
+  /* Framed, a row is tight on all four sides (Markus 09.11.2026): 6 px from
+     the line to mark, name and value. A row without values is as high as its
+     mark plus that room, never higher than the pitch of L-9; a row with
+     values has 6 px above and below its block. */
   .list.framed .rows .row {
     isolation: isolate;
-    padding-inline: 12px;
-    --el-frame-r: min(16px, calc(var(--el-row-h, 34px) / 2));
+    padding-inline: var(--el-frame-pad);
+    --el-frame-h: min(var(--el-row-h, 34px), calc(var(--el-swatch) + 2 * var(--el-frame-pad)));
+    min-height: var(--el-frame-h);
+    --el-frame-r: min(16px, calc(var(--el-frame-h) / 2));
   }
 
-  /* Rows with values are always taller than 32 px: the full rounding. */
   .list.framed .rows .row.with-values {
+    --el-row-pad: var(--el-frame-pad);
+    min-height: 0;
     --el-frame-r: 16px;
   }
 
   /* The PV rows have no frame yet (PV part), but keep the consumers' indent,
      so marks, names and values stand one below the other (PV-7). */
   .list.framed:not(.stacked) .pv-rows .row {
-    padding-inline: 12px;
+    padding-inline: var(--el-frame-pad);
+  }
+
+  /* The room between the frame's line and mark or value: 6 px (Markus
+     09.11.2026: 12 px left a lot of room, tighter on all sides). */
+  .list.framed {
+    --el-frame-pad: 6px;
   }
 
   /* 8 px between the frames, which lie 1.5 px outside their rows. */
@@ -1464,8 +1477,8 @@ export const styles = css`
   }
 
   .list.framed .rows .bar {
-    left: calc(12px + var(--el-swatch) + 6px);
-    right: 12px;
+    left: calc(var(--el-frame-pad) + var(--el-swatch) + 6px);
+    right: var(--el-frame-pad);
   }
 
   /* Neighbouring targets touch, never overlap (I-3). */
@@ -1601,7 +1614,7 @@ export const styles = css`
        room the list keeps free on the right - and the row's room above and
        below the block. Rows are 8 px apart. */
     .list.stacked.framed {
-      padding-right: 13.5px;
+      padding-right: calc(var(--el-frame-pad) + 1.5px);
     }
 
     .list.stacked.framed .rows {
@@ -1625,13 +1638,14 @@ export const styles = css`
     .list.stacked.framed .frame {
       grid-column: 2 / -1;
       grid-row: 1 / span var(--el-span, 1);
-      inset: calc(var(--el-row-pad, 0px) * -1 - 1.5px) -13.5px
-        calc((var(--el-row-pad, 0px) + var(--el-bar-pad, 0px)) * -1 - 1.5px) -13.5px;
+      inset: calc(var(--el-row-pad, 0px) * -1 - 1.5px) calc((var(--el-frame-pad) + 1.5px) * -1)
+        calc((var(--el-row-pad, 0px) + var(--el-bar-pad, 0px)) * -1 - 1.5px)
+        calc((var(--el-frame-pad) + 1.5px) * -1);
     }
 
     /* The target covers the pill's right end too, beyond the value column. */
     .list.stacked.framed .rows .row-hit {
-      right: -13.5px;
+      right: calc((var(--el-frame-pad) + 1.5px) * -1);
     }
 
     /* With values in the list the value column is flush right, power and
