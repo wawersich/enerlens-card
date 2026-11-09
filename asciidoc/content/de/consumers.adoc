@@ -12,10 +12,11 @@ angepinnt und hervorgehoben; lädt sie nicht, zeigt sie den Ladestand des Autos.
 Die Wärmepumpe läuft und ruht – im Ruhezustand steht statt der Leistung die
 Warmwasser-Temperatur da, ihre Balken zeigen Warmwasser und Vorlauf. Der
 Pufferspeicher füllt sich, der 3D-Drucker zeigt seinen Fortschritt, die
-Waschmaschine steht unten.
+Waschmaschine steht unten. Die Schalter über der Karte nehmen einzelne Teile weg oder
+schalten Werte als Text und Rahmen dazu; darunter steht das YAML.
 
 ++++
-<div class="card-demo" data-demo="consumers" data-yaml="off"></div>
+<div class="card-demo" data-demo="consumers" data-controls="cring,cbars,cfill,cvalues,cidle,cpin,chigh,cframe"></div>
 ++++
 
 *Mit der Maus über ein Icon oder einen Balken fahren:* Dann steht dort der Wert
@@ -23,48 +24,8 @@ mit seiner Bezeichnung, etwa „Warmwasser 52 °C“ – auch hier in der Demo. 
 Tipp auf die Zeile öffnet in Home Assistant das Fenster mit dem Verlauf der
 Leistung und jedes Zusatzwerts.
 
-So sieht das in YAML aus:
-
-[source,yaml]
-----
-consumers:
-  - entity: sensor.wallbox_leistung
-    name: Wallbox
-    position: top                            # fest oben
-    show: always                             # immer in der Liste
-    highlight: { bold: true, band: true }
-    indicators:
-      ring: { entity: sensor.auto_ladestand }
-      idle_value: ring                       # ohne Leistung: der Ladestand
-  - entity: sensor.waermepumpe_leistung
-    name: Wärmepumpe
-    min_w: 40
-    show: always
-    indicators:
-      bar_top: { entity: sensor.warmwasser, min: 40, max: 60, label: Warmwasser }
-      bar_bottom:
-        entity: sensor.vorlauf
-        min: 20
-        max: 55
-        label: Vorlauf
-        color: "#e53935"                     # eigene Farbe
-      idle_value: bar_top                    # unter 40 W: „52 °C“
-  - entity: sensor.heizstab_leistung
-    name: Pufferspeicher
-    icon: mdi:water-boiler
-    indicators:
-      fill: { entity: sensor.puffer_ladung, label: Ladung }
-  - entity: sensor.drucker_leistung
-    name: 3D-Drucker
-    indicators:
-      bar_top: { entity: sensor.druckfortschritt, label: Druckfortschritt }
-  - entity: sensor.waschmaschine_leistung
-    position: bottom
-    highlight: { band: true }
-----
-
 Im Editor steht das alles beim Verbraucher unter *Darstellung*; die Farben von
-Ring und Balken unter *Farben*. Die Wärmepumpe aus dem Beispiel sieht dort so
+Ring und Balken unter *Farben*. Die Wärmepumpe aus der Demo sieht dort so
 aus – oben angepinnt, mit Farbband, Warmwasser als Balken oben:
 
 [.only-light]

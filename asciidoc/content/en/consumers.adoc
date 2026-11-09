@@ -11,58 +11,19 @@ Watch: one round takes a minute and a half. The wallbox is pinned to the top
 and highlighted; while it does not charge it shows the car's state of charge.
 The heat pump runs and rests - at rest the hot-water temperature stands in
 place of the power, its bars show hot water and flow. The buffer tank fills,
-the 3D printer shows its progress, the washing machine stands at the bottom.
+the 3D printer shows its progress, the washing machine stands at the bottom. The switches above the card take
+single parts away or add values as text and frames; below it is the YAML.
 
 ++++
-<div class="card-demo" data-demo="consumers" data-yaml="off"></div>
+<div class="card-demo" data-demo="consumers" data-controls="cring,cbars,cfill,cvalues,cidle,cpin,chigh,cframe"></div>
 ++++
 
 *Hover an icon or a bar with the mouse:* its value shows with its label, such
 as "Hot water 52 °C" - in this demo too. A tap on the row opens Home
 Assistant's window with the history of the power and of every extra value.
 
-This is the YAML:
-
-[source,yaml]
-----
-consumers:
-  - entity: sensor.wallbox_power
-    name: Wallbox
-    position: top                            # pinned to the top
-    show: always                             # always in the list
-    highlight: { bold: true, band: true }
-    indicators:
-      ring: { entity: sensor.car_battery_level }
-      idle_value: ring                       # without power: the charge
-  - entity: sensor.heat_pump_power
-    name: Heat pump
-    min_w: 40
-    show: always
-    indicators:
-      bar_top: { entity: sensor.hot_water, min: 40, max: 60, label: Hot water }
-      bar_bottom:
-        entity: sensor.flow_temperature
-        min: 20
-        max: 55
-        label: Flow
-        color: "#e53935"                     # a colour of its own
-      idle_value: bar_top                    # below 40 W: "52 °C"
-  - entity: sensor.heating_rod_power
-    name: Buffer tank
-    icon: mdi:water-boiler
-    indicators:
-      fill: { entity: sensor.buffer_charge, label: Charge }
-  - entity: sensor.printer_power
-    name: 3D printer
-    indicators:
-      bar_top: { entity: sensor.print_progress, label: Print progress }
-  - entity: sensor.washing_machine_power
-    position: bottom
-    highlight: { band: true }
-----
-
 In the editor all of this is under the consumer's *Display*; the colours of
-ring and bars under *Colours*. The heat pump of the example looks like this
+ring and bars under *Colours*. The heat pump of the demo looks like this
 there - pinned to the top, with a colour band, hot water as the top bar:
 
 [.only-light]

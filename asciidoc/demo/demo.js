@@ -245,6 +245,8 @@ function statesAt(t, scene, shift = SHIFT) {
   out["sensor.buffer"] = entity("sensor.buffer", Math.round(35 + 55 * heated), "%");
   // Twice per round, so the print visibly moves on (Markus 29.10.2026).
   out["sensor.print"] = entity("sensor.print", Math.round(((round * 2) % 1) * 100), "%");
+  // What the wallbox charged today: rises while it charges, in the first two thirds of the round.
+  out["sensor.wb_today"] = entity("sensor.wb_today", one(4.2 + 12 * Math.min(round * 1.5, 1)), "kWh", "energy");
   out["sensor.grid_status"] = {
     entity_id: "sensor.grid_status", state: scene === "outage" ? "not_detected" : "ok",
     attributes: { device_class: "enum", options: ["ok", "not_detected"] }, last_changed: "", last_updated: "",
@@ -308,8 +310,14 @@ function callWS(scene, clock) {
 /* ------------------------------------------------------------ the scenes */
 /** Names of the consumers page (L-20), beside the shared ones. */
 const X = {
-  de: { hot: "Warmwasser", flow: "Vorlauf", buffer: "Pufferspeicher", charge: "Ladung", printer: "3D-Drucker", progress: "Druckfortschritt" },
-  en: { hot: "Hot water", flow: "Flow", buffer: "Buffer tank", charge: "Charge", printer: "3D printer", progress: "Print progress" },
+  de: {
+    hot: "Warmwasser", flow: "Vorlauf", buffer: "Pufferspeicher", charge: "Ladung", printer: "3D-Drucker", progress: "Druckfortschritt",
+    today: "heute", car: "Auto", hotShort: "WW", flowShort: "VL",
+  },
+  en: {
+    hot: "Hot water", flow: "Flow", buffer: "Buffer tank", charge: "Charge", printer: "3D printer", progress: "Print progress",
+    today: "today", car: "Car", hotShort: "HW", flowShort: "Flow",
+  },
 };
 /** The language of a set of names: the German set has German titles. */
 const lang = (t) => (t.title === "Energie" ? "de" : "en");
@@ -466,55 +474,9 @@ function config(scene, t, data = {}) {
         entities: { ...split, grid_status: { entity: "sensor.grid_status", outage: ["not_detected"], ok: ["ok"] } },
       };
     case "consumers":
-      // Every extra value at once, with pinning and highlighting (L-18 to L-20).
-      return {
-        ...base,
-        consumers: [
-          {
-            entity: "sensor.wb",
-            name: t.wb,
-            icon: "mdi:ev-station",
-            position: "top",
-            show: "always",
-            highlight: { bold: true, band: true },
-            indicators: { ring: { entity: "sensor.car" }, idle_value: "ring" },
-          },
-          {
-            entity: "sensor.hp",
-            name: t.c1,
-            icon: "mdi:heat-pump-outline",
-            min_w: 40,
-            show: "always",
-            indicators: {
-              bar_top: { entity: "sensor.hot_water", min: 40, max: 60, label: X[lang(t)].hot },
-              bar_bottom: {
-                entity: "sensor.flow_temp",
-                min: 20,
-                max: 55,
-                label: X[lang(t)].flow,
-                color: "#e53935",
-              },
-              idle_value: "bar_top",
-            },
-          },
-          {
-            entity: "sensor.rod",
-            name: X[lang(t)].buffer,
-            icon: "mdi:water-boiler",
-            show: "always",
-            indicators: { fill: { entity: "sensor.buffer", label: X[lang(t)].charge }, idle_value: "fill" },
-          },
-          {
-            entity: "sensor.printer",
-            name: X[lang(t)].printer,
-            icon: "mdi:printer-3d-nozzle",
-            indicators: { bar_top: { entity: "sensor.print", label: X[lang(t)].progress } },
-          },
-          { entity: "sensor.c2", name: t.c2, icon: "mdi:washing-machine", position: "bottom", highlight: { band: true } },
-          { entity: "sensor.c4", name: t.c4, icon: "mdi:fridge-outline" },
-        ],
-        view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
-      };
+      // Every extra value at once, with pinning and highlighting (L-18 to L-20);
+      // the switches above the card (data-controls) take parts away.
+      return { ...base, ...consumersScene(t, data), view: { ...base.view, energy_periods: ["power"], modes: ["current"] } };
     case "extras":
       return {
         ...base,
@@ -590,6 +552,90 @@ const speedOf = (step) => {
   const fast = FAST_S[step];
   return { fast_s: fast, slow_s: Math.round(((fast * 5) / 1.8) * 10) / 10 };
 };
+
+/** The consumers of the "consumers" scene, as the switches set them (L-18 to L-20, LZ-1, LZ-8). */
+function consumersScene(t, data) {
+  const x = X[lang(t)];
+  // Unset (no switches): everything on, as the page describes it.
+  const on = (key, dflt = "on") => (data[key] ?? dflt) !== "off";
+  const bars = data.cbars ?? "both";
+  const high = data.chigh ?? "both";
+  const pin = on("cpin");
+  const idle = (data.cidle ?? "value") === "value";
+  const values = on("cvalues", "off");
+  const ind = (o) => {
+    const out = Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+    // The value column only names an indicator that is there.
+    if (!idle || !out[out.idle_value]) delete out.idle_value;
+    return Object.keys(out).length ? out : undefined;
+  };
+  const row = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+  const highlight = {
+    off: undefined, bold: { bold: true }, band: { band: true }, both: { bold: true, band: true },
+  }[high];
+  const consumers = [
+    row({
+      entity: "sensor.wb",
+      name: t.wb,
+      icon: "mdi:ev-station",
+      position: pin ? "top" : undefined,
+      show: "always",
+      highlight,
+      indicators: ind({
+        ring: on("cring") ? { entity: "sensor.car" } : undefined,
+        values: values
+          ? [{ entity: "sensor.wb_today", prefix: x.today, decimals: 1 }, { entity: "sensor.car", prefix: x.car }]
+          : undefined,
+        idle_value: "ring",
+      }),
+    }),
+    row({
+      entity: "sensor.hp",
+      name: t.c1,
+      icon: "mdi:heat-pump-outline",
+      min_w: 40,
+      show: "always",
+      indicators: ind({
+        bar_top: bars !== "off" ? { entity: "sensor.hot_water", min: 40, max: 60, label: x.hot } : undefined,
+        bar_bottom:
+          bars === "both"
+            ? { entity: "sensor.flow_temp", min: 20, max: 55, label: x.flow, color: "#e53935" }
+            : undefined,
+        values: values
+          ? [{ entity: "sensor.hot_water", prefix: x.hotShort }, { entity: "sensor.flow_temp", prefix: x.flowShort }]
+          : undefined,
+        idle_value: "bar_top",
+      }),
+    }),
+    row({
+      entity: "sensor.rod",
+      name: x.buffer,
+      icon: "mdi:water-boiler",
+      show: "always",
+      indicators: ind({
+        fill: on("cfill") ? { entity: "sensor.buffer", label: x.charge } : undefined,
+        idle_value: "fill",
+      }),
+    }),
+    row({
+      entity: "sensor.printer",
+      name: x.printer,
+      icon: "mdi:printer-3d-nozzle",
+      indicators: ind({
+        bar_top: bars !== "off" ? { entity: "sensor.print", label: x.progress } : undefined,
+      }),
+    }),
+    row({
+      entity: "sensor.c2",
+      name: t.c2,
+      icon: "mdi:washing-machine",
+      position: pin ? "bottom" : undefined,
+      highlight: high === "band" || high === "both" ? { band: true } : undefined,
+    }),
+    { entity: "sensor.c4", name: t.c4, icon: "mdi:fridge-outline" },
+  ];
+  return { consumers, ...(data.cframe === "on" ? { list: { frame: true } } : {}) };
+}
 
 /** The extra values of the "nodes" scene, as the switches set them (Z-1 ff.). */
 function extraNodes(t, data) {
@@ -727,6 +773,10 @@ const WORDS = {
     outage: "Netzausfall",
     case: "Moment", c_A: "A · Akku entlädt bei Einspeisung", c_B: "B · Akku lädt bei Netzbezug",
     task: "Aufgabe des Akkus", t_zero_grid: "zero_grid (Standard)", t_supply_house: "supply_house",
+    cring: "Ring (Wallbox)", cbars: "Balken (Wärmepumpe, Drucker)", b_off: "Aus", b_top: "oben", b_both: "oben und unten",
+    cfill: "Füllung (Puffer)", cvalues: "Werte als Text", cidle: "Wertspalte ohne Leistung",
+    i_value: "Zusatzwert", i_power: "Leistung", cpin: "Anpinnen oben/unten",
+    chigh: "Hervorheben", h_off: "Aus", h_bold: "fett", h_band: "Farbband", h_both: "beides", cframe: "Rahmen um Listen-Einträge",
   },
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
@@ -745,6 +795,10 @@ const WORDS = {
     outage: "Grid outage",
     case: "Moment", c_A: "A · battery discharges during export", c_B: "B · battery charges during import",
     task: "Battery task", t_zero_grid: "zero_grid (default)", t_supply_house: "supply_house",
+    cring: "Ring (wallbox)", cbars: "Bars (heat pump, printer)", b_off: "Off", b_top: "top", b_both: "top and bottom",
+    cfill: "Fill (buffer)", cvalues: "Values as text", cidle: "Value column without power",
+    i_value: "Extra value", i_power: "Power", cpin: "Pin top/bottom",
+    chigh: "Highlight", h_off: "Off", h_bold: "bold", h_band: "colour band", h_both: "both", cframe: "Frame around list entries",
   },
 };
 
@@ -755,6 +809,7 @@ function controls(host, card, lang, { set, feed, clock }) {
     inside: "above", label: "prefix", weight: "normal", size: "100", name: "on", word: "on",
     ring: "overtake", design: "electron", dots: 5, speed: SPEED_DEFAULT, dotsize: 100,
     task: "zero_grid",
+    cring: "on", cbars: "both", cfill: "on", cvalues: "off", cidle: "value", cpin: "on", chigh: "both", cframe: "off",
   };
   // The extra-value switches: name, values, the state key they set.
   const EXTRAS = [
@@ -764,6 +819,10 @@ function controls(host, card, lang, { set, feed, clock }) {
     ["ring", ["overtake", "fade", "jump"]],
     ["design", ["none", "kugeln", "partylicht", "leuchtpunkte", "electron", "proton", "neutrino"], "d_"],
     ["task", ["zero_grid", "supply_house"], "t_"],
+    // The consumers page (L-18 to L-20, LZ-1, LZ-8).
+    ["cring", ["on", "off"]], ["cbars", ["off", "top", "both"], "b_"], ["cfill", ["on", "off"]],
+    ["cvalues", ["off", "on"]], ["cidle", ["value", "power"], "i_"], ["cpin", ["on", "off"]],
+    ["chigh", ["off", "bold", "band", "both"], "h_"], ["cframe", ["off", "on"]],
   ];
   // Sliders: range, and what the label says of a value.
   const decimal = (x) => x.toLocaleString(lang, { maximumFractionDigits: 1 });
@@ -915,6 +974,10 @@ function controls(host, card, lang, { set, feed, clock }) {
     );
     const out = [];
     if (shown.nodes) out.push(...nodesYaml(shown.nodes));
+    if (want.includes("cring")) {
+      out.push(...blockYaml("consumers", shown.consumers));
+      if (shown.list?.frame) out.push("list:", "  frame: true");
+    }
     if (want.includes("ring") && state.ring !== "overtake") out.push("ring:", `  animation: ${state.ring}`);
     if (want.includes("task") && state.task !== "zero_grid") out.push("flow:", `  battery_task: ${state.task}`);
     if (want.includes("design")) {
@@ -954,4 +1017,33 @@ function nodesYaml(nodes) {
     for (const [k, v] of Object.entries(node)) out.push(`    ${k}: ${typeof v === "object" ? flow(v) : v}`);
   }
   return out.length > 1 ? out : [];
+}
+
+/** A block as the docs write it: lists and maps nested, small leaf maps in flow style. */
+function blockYaml(key, value) {
+  const scalar = (v) => (typeof v === "string" && /: |\s#|[{}[\],]|^[\s#&*!|>'"%@`-]|\s$/.test(v) ? JSON.stringify(v) : String(v));
+  const leaf = (v) => v && typeof v === "object" && !Array.isArray(v) && Object.values(v).every((x) => typeof x !== "object");
+  const flow = (o) => `{ ${Object.entries(o).map(([k, v]) => `${k}: ${scalar(v)}`).join(", ")} }`;
+  const out = [];
+  const walk = (k, v, pad, dash = "") => {
+    const head = `${pad}${dash}${k === undefined ? "" : `${k}:`}`;
+    if (Array.isArray(v)) {
+      out.push(head);
+      for (const item of v) {
+        if (leaf(item)) out.push(`${pad}  - ${flow(item)}`);
+        else {
+          // The first key on the dash line, the others below it.
+          const [[k0, v0], ...rest] = Object.entries(item);
+          walk(k0, v0, `${pad}  `, "- ");
+          for (const [k1, v1] of rest) walk(k1, v1, `${pad}    `);
+        }
+      }
+    } else if (leaf(v)) out.push(`${head} ${flow(v)}`);
+    else if (v && typeof v === "object") {
+      out.push(head);
+      for (const [k1, v1] of Object.entries(v)) walk(k1, v1, `${pad}  `);
+    } else out.push(`${head} ${scalar(v)}`);
+  };
+  walk(key, value, "");
+  return out;
 }
