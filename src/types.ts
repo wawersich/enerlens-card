@@ -222,6 +222,8 @@ export interface ConsumerConfig {
   condition?: ConditionConfig;
   /** Bold and/or a band in the row's colour (REQ L-19). */
   highlight?: { bold?: boolean; band?: boolean };
+  /** A frame around this row on its own (REQ LZ-16). */
+  frame?: boolean;
 }
 
 /** How a consumer row is highlighted (REQ L-19); absent = not at all. */
@@ -487,6 +489,8 @@ export interface NormalizedConsumer {
   position?: ConsumerPosition;
   hold?: NormalizedHold;
   highlight?: Highlight;
+  /** A frame around its row on its own, without `list.frame` (REQ LZ-16). */
+  frame?: boolean;
 }
 
 /**
@@ -501,6 +505,8 @@ export interface NormalizedRest {
   /** `show: always`: listed below its threshold too, a dash when negative. */
   always: boolean;
   highlight?: Highlight;
+  /** A frame around the rest row on its own (REQ LZ-16). */
+  frame?: boolean;
   /** Never with an `idleValue` other than power: the rest has no device threshold. */
   indicators?: NormalizedIndicators;
   /**
@@ -862,6 +868,8 @@ export interface ConsumerReading {
   held?: boolean;
   position?: ConsumerPosition;
   highlight?: Highlight;
+  /** Framed on its own (REQ LZ-16). */
+  frame?: boolean;
 }
 
 /** One PV source as read now (REQ PV-2). */
@@ -932,6 +940,8 @@ export interface ListEntry {
    * then 0 for sorting and the rest, but no figure may be shown for it (rule 8).
    */
   powerUnknown?: boolean;
+  /** Framed on its own (REQ LZ-16); `list.frame` frames every row. */
+  frame?: boolean;
   /** Bold and/or banded (REQ L-19). */
   highlight?: Highlight;
 }

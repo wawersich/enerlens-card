@@ -392,6 +392,7 @@ export function buildModelFrom(
       held: heldOf?.(consumer) ?? consumer.hold?.kind === "always",
       position: consumer.position,
       highlight: consumer.highlight,
+      frame: consumer.frame,
     };
   });
 

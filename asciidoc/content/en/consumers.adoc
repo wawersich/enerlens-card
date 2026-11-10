@@ -133,6 +133,23 @@ value_, then entity, prefix and decimals; drag to change the order.
 like a pill. It suits a few consumers with several values best. The fan line
 ends at the frame; a band (_Highlight_) tints the area inside.
 
+Single entries get their frame with `frame: true` on the consumer or the rest
+(in the editor under the entry's _Display_: _Frame around this entry_) - say a
+pinned, highlighted consumer. With `list.frame` on, every entry has one anyway
+and the entry's switch is greyed out. The other rows are indented so marks,
+names and values stand one below the other; a band on a row without frame takes
+the same shape, without the line.
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_power
+    position: top
+    highlight:
+      band: true
+    frame: true
+----
+
 [[hold]]
 == Pin, keep, highlight
 

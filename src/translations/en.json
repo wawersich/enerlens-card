@@ -362,6 +362,7 @@
     "value_up": "Move extra value up",
     "value_down": "Move extra value down",
     "list_frame": "Frame around list entries",
+    "entry_frame": "Frame around this entry",
     "value_place": "Line {line} · {side}",
     "value_left": "left, under the name",
     "value_right": "right, under the power",
@@ -471,7 +472,8 @@
     "rest_position": "Only with top/bottom: then its place in this list counts, also among pinned consumers. Otherwise the rest is sorted in by power.",
     "rest_show": "\"Always\": the rest stays below its minimum power too. Negative, or without a house value, it shows \"—\". It does not count towards the maximum number of consumers.",
     "values": "Values as text below name and power, two side by side - e.g. today's kWh from an energy meter. The card computes nothing, it shows the entity's state. “Show in the list: always” keeps the row and its values visible at 0 W too. Without an entity the place stays empty - that puts a value under the power on purpose.",
-    "list_frame": "Each row of the consumer list - the rest too - gets a rounded frame in its colour, like a pill. Default: off."
+    "entry_frame_all": "Frame is on for all list entries.",
+    "list_frame": "Each row of the consumer list - the rest too - gets a rounded frame in its colour, like a pill. While it is off, single entries can still have one, under the entry's “Display”. Default: off."
   },
   "outage": {
     "banner": "Island mode — no grid",

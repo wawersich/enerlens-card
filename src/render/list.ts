@@ -233,6 +233,20 @@ function valueLabels(values: ExtraValue[], hass: HomeAssistant, energy: boolean)
 }
 
 /**
+ * The list stands framed - every row with the frame's indent, height and
+ * gaps - when the card frames all rows or any consumer or the rest asks for
+ * its own frame (LZ-8, LZ-16). Decided by the configuration, not by the rows
+ * on screen, so the list does not jump as a framed row comes and goes.
+ */
+export function listFramed(config: Config): boolean {
+  return (
+    config.list.frame ||
+    config.consumers.some((c) => c.frame === true) ||
+    config.rest?.frame === true
+  );
+}
+
+/**
  * The extra value the value column shows instead of the power, if any: the
  * one `idle_value` names, decided on the tick (REQ L-20), and only while it
  * has a number - without one the power stands there.
@@ -270,7 +284,7 @@ export function renderList(
   return html`
     <div
       class="list ${stacked ? "stacked" : ""} ${withValues ? "has-values" : ""} ${
-        consumers && config.list.frame ? "framed" : ""
+        consumers && listFramed(config) ? "framed" : ""
       }"
       style="--el-row-h:${rowHeight(count)}px"
     >
@@ -387,8 +401,12 @@ function renderRow(
   const open = (ev: Event) => onEntry(entry.entity ?? "", ev, detail);
   // A row without entity and window takes no tap, its values neither (LZ-7).
   const tappable = Boolean(entry.entity || detail);
-  // The frame of a consumer or the rest (LZ-8); the PV rows come with their part.
-  const framed = config.list.frame && !solar;
+  // The frame of a consumer or the rest (LZ-8, LZ-16); the PV rows come with
+  // their part.
+  const framed = !solar && (config.list.frame || entry.frame === true);
+  // In a framed list a banded row without frame keeps the frame's shape,
+  // tinted, without its line - the plain band is off there (LZ-16).
+  const plain = !solar && !framed && entry.highlight?.band === true && listFramed(config);
   const titles = (Object.entries(shown) as [IndicatorSlot, IndicatorReading][]).map(([slot, ind]) =>
     indicatorTitle(ind, slot, hass, energy),
   );
@@ -454,7 +472,9 @@ function renderRow(
               data-key=${entry.key}
             >
               ${stacked ? runway() : nothing}${
-                framed ? html`<span class="frame" aria-hidden="true"></span>` : nothing
+                framed || plain
+                  ? html`<span class="frame ${plain ? "plain" : ""}" aria-hidden="true"></span>`
+                  : nothing
               }
               ${
                 // The colour mark, directly in front of the name so the two read

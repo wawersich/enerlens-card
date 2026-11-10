@@ -243,10 +243,28 @@ function cleanRest(entry: Record<string, unknown>): Record<string, unknown> {
  */
 function formView(row: Record<string, unknown>): Record<string, unknown> {
   const view = energyView(consumerView(row));
-  const ticks = view.highlight;
+  // The switch shows on only for `frame: true`, as the card reads it (LZ-16).
+  const { frame, ...unframed } = view;
+  const shown = frame === true ? view : unframed;
+  const ticks = shown.highlight;
   return isRecord(ticks)
-    ? { ...view, highlight: HIGHLIGHTS.filter((k) => ticks[k] === true) }
-    : view;
+    ? { ...shown, highlight: HIGHLIGHTS.filter((k) => ticks[k] === true) }
+    : shown;
+}
+
+/**
+ * The frame switch as written back (LZ-16): operated, on is `frame: true`
+ * and off drops the key; not operated, the entry keeps what it had - a
+ * written `false` too.
+ */
+function writtenFrame(
+  before: Record<string, unknown>,
+  shownBefore: Record<string, unknown>,
+  value: Record<string, unknown>,
+): { frame?: unknown } {
+  const now = value.frame === true;
+  if (now !== (shownBefore.frame === true)) return now ? { frame: true } : { frame: undefined };
+  return { frame: before.frame };
 }
 
 /**
@@ -279,7 +297,13 @@ function energyView(view: Record<string, unknown>): Record<string, unknown> {
  * the entity's own options, on/off for a switch - and as one number for the
  * comparisons.
  */
-function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>, rest = false) {
+function consumerSchema(
+  hass: HomeAssistant,
+  entry: Record<string, unknown>,
+  rest = false,
+  /** `list.frame` is on: every row has its frame, the entry's switch rests (LZ-16). */
+  allFramed = false,
+) {
   const t = (key: string) => localize(`editor.${key}`, hass);
   const condition = isRecord(entry.condition) ? entry.condition : {};
   const conditionEntity = typeof condition.entity === "string" ? condition.entity : "";
@@ -382,6 +406,14 @@ function consumerSchema(hass: HomeAssistant, entry: Record<string, unknown>, res
         ],
       },
     },
+  });
+  // The entry's own frame (LZ-16), beside the highlight it goes with. While
+  // the card frames every row it rests, greyed out, showing the YAML's value.
+  display.push({
+    name: "frame",
+    labelKey: "entry_frame",
+    selector: { boolean: {} },
+    ...(allFramed ? { disabled: true, helperKey: "entry_frame_all" } : {}),
   });
   // Ring, bars and fill, each with a value of its own (REQ L-20); the old
   // state of charge is the ring.
@@ -4106,7 +4138,12 @@ class EnerLensCardEditor extends LitElement {
     view: Record<string, unknown>,
     rest: boolean,
   ): TemplateResult {
-    const parts = consumerSchema(this.hass as HomeAssistant, view, rest);
+    const parts = consumerSchema(
+      this.hass as HomeAssistant,
+      view,
+      rest,
+      (this._flat as FlatRecord | undefined)?.list_frame === true,
+    );
     const form = (schema: unknown[]) => html`<ha-form
       .hass=${this.hass}
       .data=${view}
@@ -4127,7 +4164,11 @@ class EnerLensCardEditor extends LitElement {
           ${localize("editor.consumer_display", this.hass)}
         </div>
         <div class="display-body">
-          ${form(parts.display)} ${this._renderValues(index, key, view, rest)}
+          ${
+            // Keyed on its locks: HA's switches keep their old look when only
+            // `disabled` changes (LZ-16).
+            keyed(lockKey(parts.display), form(parts.display))
+          } ${this._renderValues(index, key, view, rest)}
           ${form(parts.energy)}
         </div>
       </ha-expansion-panel>`;
@@ -4409,7 +4450,11 @@ class EnerLensCardEditor extends LitElement {
         .filter((k) => !(k in change))
         .map((k) => [k, undefined]),
     );
-    this._writeRest(rows, index, { ...cleared, ...change });
+    this._writeRest(rows, index, {
+      ...cleared,
+      ...change,
+      ...writtenFrame(before, shown, value),
+    });
   }
 
   private _restHelper = (item: { name: string; labelKey?: string }): string => {
@@ -4455,7 +4500,12 @@ class EnerLensCardEditor extends LitElement {
     return text === own ? localize(`editor.${item.name}`, this.hass) : text;
   };
 
-  private _consumerHelper = (item: { name: string; labelKey?: string }): string => {
+  private _consumerHelper = (item: {
+    name: string;
+    labelKey?: string;
+    helperKey?: string;
+  }): string => {
+    if (item.helperKey) return localize(`editor_help.${item.helperKey}`, this.hass);
     if (item.labelKey === "") return "";
     const key = `editor_help.${item.labelKey ?? `consumer_${item.name}`}`;
     const text = localize(key, this.hass);
@@ -4481,7 +4531,10 @@ class EnerLensCardEditor extends LitElement {
           },
         }
       : value;
-    rows[index] = unchanged ? before : consumerView(written);
+    const own = isRecord(before) ? before : {};
+    const { frame: _shown, ...withoutFrame } = written;
+    const framed = prune({ ...withoutFrame, ...writtenFrame(own, formView(own), value) }) ?? {};
+    rows[index] = unchanged ? before : consumerView(framed);
     this._writeConsumers(rows, [...this._consumerKeys]);
   }
 

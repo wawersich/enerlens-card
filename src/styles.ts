@@ -1475,6 +1475,14 @@ export const styles = css`
     display: none;
   }
 
+  /* A banded row without frame in a framed list: the frame's shape, tinted,
+     without its line (LZ-16). See-through, as the plain band is: its fan
+     line runs on to the mark and must show under it (review 09.11.2026). */
+  .list.framed .rows .row.band .frame.plain {
+    box-shadow: none;
+    background: color-mix(in srgb, var(--el-row-color) 14%, transparent);
+  }
+
   .list.framed .rows .row.band .frame {
     background: color-mix(
       in srgb,

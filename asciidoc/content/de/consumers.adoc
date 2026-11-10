@@ -139,6 +139,23 @@ ihrer Farbe, wie eine Pille. Das passt besonders zu wenigen Verbrauchern mit
 mehreren Werten. Die Fächerlinie endet am Rahmen; ein Farbband (_Hervorheben_)
 tönt die Fläche darin.
 
+Einzelne Einträge bekommen ihren Rahmen mit `frame: true` am Verbraucher oder am
+Rest (im Editor unter _Darstellung_ des Eintrags: _Rahmen um diesen Eintrag_) –
+etwa ein angepinnter, hervorgehobener Verbraucher. Ist `list.frame` an, haben ohnehin
+alle einen Rahmen, und der Schalter am Eintrag ist ausgegraut. Die übrigen Zeilen
+rücken so ein, dass Marken, Namen und Werte untereinander stehen; ein Farbband an
+einer Zeile ohne Rahmen hat dieselbe Form, nur ohne Linie.
+
+[source,yaml]
+----
+consumers:
+  - entity: sensor.wallbox_power
+    position: top
+    highlight:
+      band: true
+    frame: true
+----
+
 [[halten]]
 == Anpinnen, halten, hervorheben
 

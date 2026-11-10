@@ -495,6 +495,11 @@ and is ignored. Nested blocks are not checked for unknown keys.
 - `list.frame` (`true | false`, default `false`): **ADDED.** (REQ LZ-8.) A
   frame around each consumer row and the rest. 1.5.2 warns about it as an
   unknown key, no error card.
+- `consumers[].frame` and `frame` on the `type: rest` entry (`true | false`,
+  default `false`): **ADDED.** (REQ LZ-16.) A frame around that row alone;
+  `list.frame: true` frames every row regardless. Anything but a boolean is
+  an error, as for every switch. 1.5.2 ignores the key silently (it checks no
+  unknown keys on list entries).
 - No new legacy spelling, so no new configuration under `test/legacy/`.
 
 ---

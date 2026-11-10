@@ -362,6 +362,7 @@
     "value_up": "Zusatzwert nach oben",
     "value_down": "Zusatzwert nach unten",
     "list_frame": "Rahmen um Listen-Einträge",
+    "entry_frame": "Rahmen um diesen Eintrag",
     "value_place": "Zeile {line} · {side}",
     "value_left": "links, unter dem Namen",
     "value_right": "rechts, unter der Leistung",
@@ -471,7 +472,8 @@
     "rest_position": "Wirkt nur mit oben/unten: dann zählt der Platz in dieser Liste, auch gegenüber angepinnten Verbrauchern. Sonst wird der Rest nach Leistung einsortiert.",
     "rest_show": "„Immer“: Der Rest bleibt auch unter seiner Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort „—“. Er zählt nicht zur Höchstzahl der Verbraucher.",
     "values": "Werte als Text unter Name und Leistung, je zwei nebeneinander – z. B. die kWh von heute aus einem Verbrauchszähler. Die Karte rechnet nichts, sie zeigt den Zustand der Entität. „In der Liste anzeigen: immer“ hält die Zeile samt Werten auch bei 0 W sichtbar. Ohne Entität bleibt der Platz leer – so steht ein Wert gezielt unter der Leistung.",
-    "list_frame": "Jede Zeile der Verbraucherliste – auch der Rest – bekommt einen abgerundeten Rahmen in ihrer Farbe, wie eine Pille. Standard: aus."
+    "entry_frame_all": "Rahmen ist für alle Listen-Einträge eingeschaltet.",
+    "list_frame": "Jede Zeile der Verbraucherliste – auch der Rest – bekommt einen abgerundeten Rahmen in ihrer Farbe, wie eine Pille. Ausgeschaltet gibt es den Rahmen auch einzeln, unter „Darstellung“ des Eintrags. Standard: aus."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

@@ -13,7 +13,7 @@
 |`entities.battery` |— |Battery power, signed
 |`entities.battery_soc` |— |State of charge in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — see _Grid outage_
-|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, highlight, indicators}`; an entry `type: rest` sets the rest row - all but the first five see _Extra values at the consumers_ (`indicators.values`: values as text, see there)
+|`consumers` |— |List of `++{++entity, name, color, icon, min_w, position, show, condition, highlight, frame, indicators}`; an entry `type: rest` sets the rest row - all but the first five see _Extra values at the consumers_ (`indicators.values`: values as text, see there)
 |`min_consumer_w` |`10` |Consumers below this are folded into the remainder (unless the filter is off, see quick buttons); a consumer's own `min_w` overrides it
 |`max_consumers` |all |Maximum number of consumer rows; held ones (`show`) count and come first, the strongest get the remaining places
 |`update_interval_s` |`5` |How often the list reorders
@@ -25,7 +25,7 @@
 |`list.title` |— |Heading above the list
 |`list.solar` |`false` |Show the PV list: one row per source above the consumers, with `square_left` on the left (with several sources)
 |`list.always_below` |`false` |Keep the lists under the drawing even when there is room beside them
-|`list.frame` |`false` |Each row of the consumer list and the rest in a rounded frame of its colour (pill). See _Extra values at the consumers_
+|`list.frame` |`false` |Each row of the consumer list and the rest in a rounded frame of its colour (pill); single entries with `frame: true` on the entry. See _Extra values at the consumers_
 |`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
 |`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house

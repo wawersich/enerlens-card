@@ -54,6 +54,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
         isRest: false,
         powerUnknown: true,
         highlight: consumer.highlight,
+        frame: consumer.frame,
         indicators: consumer.indicators,
       });
       continue;
@@ -76,6 +77,7 @@ function select(model: Model, config: Config, showAll: boolean): ListEntry[] {
       idle: idleOf(consumer, w, threshold, config) || undefined,
       powerUnknown: consumer.reading.available ? undefined : true,
       highlight: consumer.highlight,
+      frame: consumer.frame,
     };
     (keep ? held : candidates).push(entry);
   }
@@ -143,6 +145,7 @@ function restEntry(model: Model, config: Config, shown: ListEntry[]): ListEntry 
     isRest: true,
     powerUnknown: known ? undefined : true,
     highlight: config.rest?.highlight,
+    frame: config.rest?.frame,
     indicators: model.rest?.indicators,
   };
 }

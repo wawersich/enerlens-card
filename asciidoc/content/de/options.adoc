@@ -13,7 +13,7 @@
 |`entities.battery` |— |Batterieleistung, signiert
 |`entities.battery_soc` |— |Ladezustand in %
 |`entities.grid_status` |— |`++{++entity, outage, ok}` — siehe _Netzausfall_
-|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, position, show, condition, highlight, indicators}` – alle außer den ersten fünf siehe _Zusatzwerte an den Verbrauchern_ (`indicators.values`: Werte als Text, siehe dort); ein Eintrag `type: rest` stellt die Rest-Zeile ein
+|`consumers` |— |Liste aus `++{++entity, name, color, icon, min_w, position, show, condition, highlight, frame, indicators}` – alle außer den ersten fünf siehe _Zusatzwerte an den Verbrauchern_ (`indicators.values`: Werte als Text, siehe dort); ein Eintrag `type: rest` stellt die Rest-Zeile ein
 |`min_consumer_w` |`10` |Verbraucher darunter zählen zum Rest (außer mit ausgeschaltetem Filter, siehe Quick-Buttons); ein eigenes `min_w` am Verbraucher hat Vorrang
 |`max_consumers` |alle |Höchstzahl der Verbraucherzeilen; gehaltene (`show`) zählen mit und kommen zuerst, die übrigen Plätze bekommen die stärksten
 |`update_interval_s` |`5` |Wie oft die Liste neu sortiert
@@ -25,7 +25,7 @@
 |`list.title` |— |Überschrift über der Liste
 |`list.solar` |`false` |PV-Liste anzeigen: je Quelle eine Zeile über den Verbrauchern, bei `square_left` links (bei mehreren Quellen)
 |`list.always_below` |`false` |Listen auch dann unter der Zeichnung halten, wenn daneben Platz wäre
-|`list.frame` |`false` |Jede Zeile der Verbraucherliste und der Rest in einem abgerundeten Rahmen ihrer Farbe (Pille). Siehe _Zusatzwerte an den Verbrauchern_
+|`list.frame` |`false` |Jede Zeile der Verbraucherliste und der Rest in einem abgerundeten Rahmen ihrer Farbe (Pille); einzeln mit `frame: true` am Eintrag. Siehe _Zusatzwerte an den Verbrauchern_
 |`content.max_width` |— |Größte Breite des Inhalts in Pixeln (400–2000): Titel, Quick-Buttons, Zeichnung und Liste bleiben auf breiten Dashboards als ein Block zusammen, der Kartenhintergrund bleibt voll breit. Ohne Wert reicht die Liste bis an den rechten Rand
 |`content.align` |`center` |Wo der begrenzte Inhalt steht: `left`, `center` oder `right`. Nur mit `content.max_width`
 |`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen

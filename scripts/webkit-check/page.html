@@ -53,9 +53,16 @@ if (scene === "extras" || scene === "nobatt") document.getElementById("host").st
 // values, valuesbelow: rows with text values below name and power - long ones
 // that must be shortened, a bar below them, a band - in frames (LZ-2, LZ-8):
 // on a dashboard column beside the cross, and on a phone below it.
-const values = scene === "values" || scene === "valuesbelow";
-if (scene === "values") document.getElementById("host").style.width = "486px";
-if (scene === "valuesbelow") document.getElementById("host").style.width = "360px";
+// mixed, mixedbelow, mixedclear: the same rows, framed one by one (LZ-16) -
+// a framed and banded consumer, a banded one without frame, a plain one and a
+// framed rest: marks, names and values in line, each fan line ending at its
+// frame or, without one, at its mark - also on a transparent card.
+const mixed = scene === "mixed" || scene === "mixedbelow" || scene === "mixedclear";
+const values = scene === "values" || scene === "valuesbelow" || mixed;
+if (scene === "values" || scene === "mixed" || scene === "mixedclear")
+  document.getElementById("host").style.width = "486px";
+if (scene === "valuesbelow" || scene === "mixedbelow")
+  document.getElementById("host").style.width = "360px";
 // clear: the card made transparent the way the README shows with card-mod
 // (issue #8), without the ring, so nothing but the fill could hide a line
 // end inside the house. Nothing may show inside a circle then (K-16).
@@ -63,7 +70,8 @@ if (scene === "valuesbelow") document.getElementById("host").style.width = "360p
 // clearlate: as clear, but made transparent the way card-mod does it - after
 // the card has drawn and measured, with no re-render of its own and no state
 // update after it: the fill's own change has to make the card measure (K-16).
-const clear = scene === "clear" || scene === "clearring" || scene === "clearlate";
+const clear =
+  scene === "clear" || scene === "clearring" || scene === "clearlate" || scene === "mixedclear";
 // right, left, triangle, trianglebatt: the other arrangements (AN-1, AN-5), with several PV
 // sources and their rows and fan (PV-7) - at 640 px, so square_left has its PV
 // rows on the left (AN-3). quick: every quick button expanded, compact, on a
@@ -107,13 +115,15 @@ card.setConfig({
   } } : {}),
   consumers: values ? [
     { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave", highlight: { band: true },
+      ...(mixed ? { frame: true } : {}),
       indicators: { bar_bottom: { entity: "sensor.share" }, values: [
         { entity: "sensor.today", prefix: "heute" }, { entity: "sensor.share", prefix: "Vorlauf" },
         { entity: "sensor.today", prefix: "Ein sehr langer Vorsatz" }, { entity: "sensor.today", prefix: "Noch einer, sehr lang" } ] } },
     { entity: "sensor.c2", name: "Waschmaschine", icon: "mdi:washing-machine",
+      ...(mixed ? { highlight: { band: true } } : {}),
       indicators: { ring: { entity: "sensor.share" }, values: [{ entity: "sensor.today", prefix: "heute" }] } },
     { entity: "sensor.c3", name: "Klima", icon: "mdi:air-conditioner" },
-    { type: "rest", name: "Sonstiges", indicators: { values: [{ entity: "sensor.share", prefix: "Außen" }] } },
+    { type: "rest", name: "Sonstiges", ...(mixed ? { frame: true } : {}), indicators: { values: [{ entity: "sensor.share", prefix: "Außen" }] } },
   ] : [
     { entity: "sensor.c1", name: "Wärmepumpe", icon: "mdi:heat-wave", highlight: { bold: true, band: true } },
     // Ring, both bars and the fill of an icon (L-20): nothing may leave the card.
@@ -135,7 +145,9 @@ card.setConfig({
     battery: { show_state: false, label: { entity: "sensor.today", prefix: "Rest" } },
   } } : {}),
   ...(scene === "below" ? { list: { always_below: true } } : {}),
-  ...(values ? { list: { frame: true, always_below: scene === "valuesbelow" } } : {}),
+  ...(values
+    ? { list: { frame: !mixed, always_below: scene === "valuesbelow" || scene === "mixedbelow" } }
+    : {}),
   ...(ringOff ? { ring: { enabled: false } } : {}),
 });
 card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
@@ -371,6 +383,43 @@ function rims(root) {
   };
 }
 
+/**
+ * A list framed one row at a time (LZ-16): what is out of line, in words.
+ * Marks, names and values of all rows stand in line; each fan line ends at
+ * its row's frame or, without one, at its mark (or the ring around it).
+ */
+function mixedRows(root) {
+  if (!mixed) return [];
+  const found = [];
+  const rows = [...root.querySelectorAll(".list .rows .row")];
+  if (!root.querySelector(".list.framed")) found.push("Liste nicht im Rahmen-Layout");
+  if (!root.querySelector(".rows .row .frame.plain")) found.push("kein Farbband ohne Rahmen");
+  const spread = (what, xs) => {
+    const d = Math.max(...xs) - Math.min(...xs);
+    if (d > 1) found.push(`${what} ${d.toFixed(1)} px versetzt`);
+  };
+  const left = (row, sel) => row.querySelector(sel)?.getBoundingClientRect().left;
+  spread("Marken", rows.map((r) => left(r, ".swatch")));
+  spread("Namen", rows.map((r) => left(r, ".name")));
+  spread("Werte", rows.map((r) => r.querySelector(".row-value").getBoundingClientRect().right));
+  const svg = root.querySelector("svg.fan:not(.pv-fan)");
+  const ctm = svg?.getScreenCTM();
+  for (const path of svg?.querySelectorAll("path.fan-line") ?? []) {
+    const row = root.querySelector(`.rows .row[data-key="${CSS.escape(path.dataset.key)}"]`);
+    if (!row) continue;
+    const p = path.getPointAtLength(path.getTotalLength());
+    const x = ctm.a * p.x + ctm.c * p.y + ctm.e;
+    const frame = row.querySelector(".frame:not(.plain)");
+    const ring = row.querySelector(".charge-ring");
+    const want = frame
+      ? frame.getBoundingClientRect().left
+      : Math.min(left(row, ".swatch"), ring ? ring.getBoundingClientRect().left : Infinity);
+    if (Math.abs(x - want) > 1)
+      found.push(`Fächerlinie ${row.querySelector(".name").textContent} ${(x - want).toFixed(1)} px`);
+  }
+  return found;
+}
+
 window.check = () => {
   const root = card.shadowRoot;
   // Dots stop where they are told: no animation may move them while measured.
@@ -391,6 +440,7 @@ window.check = () => {
     outside: outside(root),
     labels: labels(root),
     lines: lineWidths(root),
+    mixed: mixedRows(root),
   };
   result.rims = rims(root);
   // Cut out only where the circles let the lines show (K-16).

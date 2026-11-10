@@ -1265,7 +1265,7 @@ function readPlace(
   entry: Record<string, unknown>,
   field: string,
   hass?: HomeAssistant,
-): Pick<NormalizedConsumer, "indicators" | "hold" | "position" | "highlight"> {
+): Pick<NormalizedConsumer, "indicators" | "hold" | "position" | "highlight" | "frame"> {
   const {
     charge,
     hold: oldHold,
@@ -1308,6 +1308,8 @@ function readPlace(
         ? charge
         : indicators,
     highlight: readHighlight(entry.highlight, `${field}.highlight`, hass),
+    // Only a set switch is kept: unset and false frame alike (LZ-16).
+    ...(readBoolean(entry.frame, `${field}.frame`, false, hass) ? { frame: true } : {}),
     hold: isUnset(entry.show) ? oldHold : hold,
     position: isUnset(entry.position)
       ? undefined
@@ -1419,6 +1421,7 @@ function readRest(
         : readEnum(entry.position, POSITIONS, `${field}.position`, "top", hass),
       always,
       highlight: readHighlight(entry.highlight, `${field}.highlight`, hass),
+      ...(readBoolean(entry.frame, `${field}.frame`, false, hass) ? { frame: true } : {}),
       indicators: readIndicators(rawIndicators, `${field}.indicators`, hass),
       // Between the consumer before it and the one after (L-18, L-21).
       order: rest.after - 0.5,

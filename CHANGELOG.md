@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   them, and its editor drops an `indicators` block that holds only values.
 - **Frame around the list rows:** `list.frame` (editor: *Frame around list
   entries*) puts each consumer row and the rest in a rounded frame of its
-  colour, like a pill.
+  colour, like a pill. `frame: true` on a consumer or the rest (editor:
+  *Frame around this entry*) frames just that entry, e.g. a pinned one.
 
 ### Changed
 - **Energy mode: extra values stay.** The indicators of a consumer and of the

@@ -1850,13 +1850,14 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
       "values-panel",
       "ha-form",
     ]);
-    expect(displayFields(el, 0)).toEqual(["position", "show", "highlight", "indicators"]);
+    expect(displayFields(el, 0)).toEqual(["position", "show", "highlight", "frame", "indicators"]);
     await setRow(el, 0, { entity: "sensor.wallbox", show: "condition" });
     expect(displayFields(el, 0)).toEqual([
       "position",
       "show",
       "condition",
       "highlight",
+      "frame",
       "indicators",
     ]);
   });

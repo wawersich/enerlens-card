@@ -77,6 +77,10 @@ const SCENES = [
   // Rows with text values, framed, beside and below the cross (LZ-2, LZ-8, LZ-14).
   "values",
   "valuesbelow",
+  // Framed one row at a time, beside, below and transparent (LZ-16).
+  "mixed",
+  "mixedbelow",
+  "mixedclear",
 ];
 /** How far a pixel may stray from the page's white and still count as white. */
 const CLEAR_TOLERANCE = 24;
@@ -454,6 +458,7 @@ function problems(m, lines) {
   } else if (m.ring > TOLERANCE_PX) found.push(`Ring ${m.ring} px neben der Hausmitte`);
   if (m.outside.length) found.push(`außerhalb der Karte: ${[...new Set(m.outside)].join(", ")}`);
   if (m.labels?.length) found.push(`Beschriftungen: ${[...new Set(m.labels)].join(", ")}`);
+  if (m.mixed?.length) found.push(`Rahmen je Eintrag: ${[...new Set(m.mixed)].join(", ")}`);
   if (m.circles?.length) found.push(`Kreise: ${m.circles.join(", ")}`);
   // Opaque circles are drawn as before K-16, transparent ones are cut out.
   if (m.rims && m.clipped !== m.clear) {

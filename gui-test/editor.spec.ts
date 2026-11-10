@@ -264,6 +264,57 @@ test("GT-4: an extra value added, then removed - placeholder first, the others u
   expect(valuesOf(await saved(page))).toEqual(before);
 });
 
+test("GT-4: an entry's frame switch rests while every row is framed, at once (LZ-16)", async () => {
+  await mountEditor(page, { ...RICH, list: { ...RICH.list, frame: true } });
+  // The first consumer's frame switch: its disabled state and what it shows.
+  const entrySwitch = () =>
+    page.evaluate(() => {
+      const el = (window as unknown as { __editorEl: HTMLElement }).__editorEl;
+      const deep = (root: Element | ShadowRoot, sel: string): Element[] => {
+        const out = [...root.querySelectorAll(sel)];
+        for (const node of root.querySelectorAll("*")) {
+          if (node.shadowRoot) out.push(...deep(node.shadowRoot, sel));
+        }
+        return out;
+      };
+      const forms = [
+        ...(el.shadowRoot?.querySelector(".consumer")?.querySelectorAll("ha-form") ?? []),
+      ] as (HTMLElement & { schema?: { name?: string }[] })[];
+      const form = forms.find((f) => f.schema?.some((x) => x.name === "frame"));
+      if (!form?.shadowRoot) return undefined;
+      const field = [...form.shadowRoot.querySelectorAll("*")].find(
+        (n) => (n as unknown as { schema?: { name?: string } }).schema?.name === "frame",
+      );
+      // HA's switch, and the input that draws it: the look, not only the state.
+      const toggle = field?.shadowRoot
+        ? (deep(field.shadowRoot, "ha-switch")[0] as HTMLElement | undefined)
+        : undefined;
+      const input = toggle?.shadowRoot?.querySelector("input") as HTMLInputElement | null;
+      return input ? { disabled: input.disabled, checked: input.checked } : undefined;
+    });
+  expect(await entrySwitch()).toEqual({ disabled: true, checked: false });
+  // The card's switch off, through its own form: the entry's comes alive.
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      __forms: () => (HTMLElement & { data?: object; schema?: unknown[] })[];
+    };
+    const flat = (list: unknown[] = []): { name?: string }[] =>
+      (list as { name?: string; schema?: unknown[] }[]).flatMap((f) =>
+        f.schema ? flat(f.schema) : [f],
+      );
+    const global = w.__forms().find((f) => flat(f.schema).some((x) => x.name === "list_frame"));
+    global?.dispatchEvent(
+      new CustomEvent("value-changed", {
+        detail: { value: { ...global.data, list_frame: false } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  });
+  await page.waitForTimeout(800);
+  expect(await entrySwitch()).toEqual({ disabled: false, checked: false });
+});
+
 test("GT-5: the preview in the dialog follows a change", async () => {
   // The editor the other tests mounted lies behind the dialog: gone first.
   await page.evaluate(() =>
