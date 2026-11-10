@@ -1397,12 +1397,24 @@ function kept(value: unknown): unknown {
   if (isRecord(value)) {
     const out: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(value)) {
-      const k = kept(entry);
+      const k = key === "values" && Array.isArray(entry) ? keptValues(entry) : kept(entry);
       if (k !== undefined) out[key] = k;
     }
     return Object.keys(out).length ? out : undefined;
   }
   return value;
+}
+
+/**
+ * A list of text values as kept: an entry without entity - `{}`, `- ` - is a
+ * placeholder that holds its place (LZ-15), not an empty one to drop.
+ */
+function keptValues(list: unknown[]): unknown[] {
+  return list.map((entry) =>
+    entry === null || (isRecord(entry) && Object.keys(entry).length === 0)
+      ? entry
+      : (kept(entry) ?? {}),
+  );
 }
 
 /** A block that is not a block - text, a list - contributes nothing to spread. */

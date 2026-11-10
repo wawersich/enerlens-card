@@ -1517,6 +1517,35 @@ describe("editor - the consumer list (REQ E-4, L-15)", () => {
       });
     });
 
+    it("keeps a placeholder through a change elsewhere in the card (LZ-15)", async () => {
+      const el = await mountList({
+        ...BASE,
+        consumers: [
+          {
+            entity: "sensor.wallbox",
+            indicators: { values: [{ entity: "sensor.a" }, {}, null, { entity: "sensor.b" }] },
+          },
+        ],
+      } as unknown as RawConfig);
+      const forms = [...(el.shadowRoot?.querySelectorAll("ha-form") ?? [])] as Form[];
+      const top = forms.find((f) =>
+        (f.schema as { name?: string }[]).some((x) => x.name === "title"),
+      ) as Form;
+      const saved = await act(el, () =>
+        top.dispatchEvent(
+          new CustomEvent("value-changed", {
+            detail: { value: { ...top.data, title: "Neu" } },
+            bubbles: true,
+            composed: true,
+          }),
+        ),
+      );
+      expect(saved.title).toBe("Neu");
+      expect(
+        (saved.consumers?.[0] as { indicators?: { values?: unknown[] } }).indicators?.values,
+      ).toEqual([{ entity: "sensor.a" }, {}, null, { entity: "sensor.b" }]);
+    });
+
     it("keeps a value's place when its entity is cleared (LZ-15)", async () => {
       const el = await mountList(WITH);
       const saved = await setValue(el, 0, 0, { entity: "", prefix: "heute", decimals: "ha" });
