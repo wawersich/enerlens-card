@@ -246,6 +246,9 @@ function statesAt(t, scene, shift = SHIFT) {
   // Twice per round, so the print visibly moves on (Markus 29.10.2026).
   out["sensor.print"] = entity("sensor.print", Math.round(((round * 2) % 1) * 100), "%");
   // What the wallbox charged today: rises while it charges, in the first two thirds of the round.
+  // The heat pump's energy of today, rising while it runs; the outdoor temperature.
+  out["sensor.hp_today"] = entity("sensor.hp_today", one(6.3 + 2.4 * Math.min(round * 2, 1)), "kWh", "energy");
+  out["sensor.outdoor"] = entity("sensor.outdoor", one(4.5 + 1.5 * Math.sin(round * 2 * Math.PI)), "°C", "temperature");
   out["sensor.wb_today"] = entity("sensor.wb_today", one(4.2 + 12 * Math.min(round * 1.5, 1)), "kWh", "energy");
   out["sensor.grid_status"] = {
     entity_id: "sensor.grid_status", state: scene === "outage" ? "not_detected" : "ok",
@@ -312,11 +315,11 @@ function callWS(scene, clock) {
 const X = {
   de: {
     hot: "Warmwasser", flow: "Vorlauf", buffer: "Pufferspeicher", charge: "Ladung", printer: "3D-Drucker", progress: "Druckfortschritt",
-    today: "heute", car: "Auto", hotShort: "WW", flowShort: "VL",
+    today: "heute", car: "Auto", hotShort: "WW", flowShort: "VL", outdoor: "Außen",
   },
   en: {
     hot: "Hot water", flow: "Flow", buffer: "Buffer tank", charge: "Charge", printer: "3D printer", progress: "Print progress",
-    today: "today", car: "Car", hotShort: "HW", flowShort: "Flow",
+    today: "today", car: "Car", hotShort: "HW", flowShort: "Flow", outdoor: "Outdoor",
   },
 };
 /** The language of a set of names: the German set has German titles. */
@@ -602,7 +605,13 @@ function consumersScene(t, data) {
             ? { entity: "sensor.flow_temp", min: 20, max: 55, label: x.flow, color: "#e53935" }
             : undefined,
         values: values
-          ? [{ entity: "sensor.hot_water", prefix: x.hotShort }, { entity: "sensor.flow_temp", prefix: x.flowShort }]
+          ? [
+              { entity: "sensor.hot_water", prefix: x.hotShort },
+              { entity: "sensor.flow_temp", prefix: x.flowShort },
+              // A second line: two values more make the row one line higher (LZ-1).
+              { entity: "sensor.hp_today", prefix: x.today, decimals: 1 },
+              { entity: "sensor.outdoor", prefix: x.outdoor, decimals: 1 },
+            ]
           : undefined,
         idle_value: "bar_top",
       }),
