@@ -26,6 +26,7 @@
 |`list.solar` |`false` |Show the PV list: one row per source above the consumers, with `square_left` on the left (with several sources)
 |`list.always_below` |`false` |Keep the lists under the drawing even when there is room beside them
 |`list.frame` |`false` |Each row of the consumer list and the rest in a rounded frame of its colour (pill); single entries with `frame: true` on the entry. See _Extra values at the consumers_
+|`list.arc` |`false` |Arched list: beside the drawing the rows stand on an arc - consumers around the house, PV rows around PV. The row level with its circle stays out, the others move in towards the drawing, by at most half the free room; names and values then no longer stand in line. Below the drawing the rows stand on an arc around the point where the lines gather
 |`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
 |`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house
@@ -49,6 +50,7 @@
 |`flow.dot_size` |`100` |Dot size in percent, 40–150. 100 is the dot of the design on a card with large nodes; smaller cards draw somewhat smaller dots on their own
 |`flow.line_width` |`100` |Line width in percent, 30–150 - 100 is 3 px for the connections and 2 px for the lines to the list on a card with large nodes, thinner on smaller cards
 |`flow.lines` |`curved` for the cross, otherwise `straight` |Line form of the connections: `curved` or `straight`
+|`flow.radial` |`false` |Radial lines to the list: each line leaves its circle on its own radius, towards its row, and keeps clear of other circles and labels; below the drawing they leave the house symbol radially; without it they all start at one common point
 |`flow.inactive_lines` |`show` |`show`, `dim` or `hide`
 |`flow.battery_task` |`zero_grid` |The battery's task, YAML only: `zero_grid` (keep the exchange with the grid at zero) or `supply_house` (supply the house, store PV) - decides how the card draws the lines when battery and grid work against each other (link:animation.html[Animations])
 |`flow.animation` |`auto` |`auto`, `on` or `off`

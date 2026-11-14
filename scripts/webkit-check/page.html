@@ -42,8 +42,29 @@ addEventListener("error", (e) => { document.getElementById("out").textContent = 
  * scale out, which fooled the first fix for issue #7. below: the list under
  * the cross, in a narrow column. */
 const params = new URLSearchParams(location.search);
-const scene = params.get("scene") ?? "plain";
-if (scene === "scaled") document.getElementById("frame").style.transform = "scale(0.8)";
+const rawScene = params.get("scene") ?? "plain";
+// arc...: the same scenes with the arched list (LZ-17) - arc: the cross with
+// its consumers; arcpv: the cross with PV rows; arcright, arcleft,
+// arctriangle, arctrianglebatt: the other arrangements with PV rows;
+// arcscaled: PV rows, scaled to 80 % (issue #7); arcvalues: framed rows with
+// values and bars on a dashboard column; arcclear: see-through (K-16);
+// arcbelow: below the cross, around the point the lines gather at; arcone: a single
+// row, which does not move; arctall: more rows than the drawing is high;
+// arcpvonly: PV rows without the consumers' list; arcextras: wide labels at
+// the nodes. All of them with radial lines (flow.radial, L-16); radial,
+// radialleft, radialtrianglebatt: radial lines with a straight list.
+const ARC = { arc: "plain", arcpv: "pvcross", arcright: "right", arcleft: "left", arctriangle: "triangle",
+  arctrianglebatt: "trianglebatt", arcscaled: "pvcross", arcvalues: "values", arcclear: "clear",
+  arcbelow: "below", arcone: "plain", arctall: "plain", arcpvonly: "pvcross", arcextras: "extras" };
+const RADIAL = { radial: "plain", radialleft: "left", radialtrianglebatt: "trianglebatt" };
+const arcScene = rawScene in ARC;
+const radialScene = arcScene || rawScene in RADIAL;
+let scene = arcScene ? ARC[rawScene] : RADIAL[rawScene] ?? rawScene;
+// scaledpv: the cross with PV rows, scaled to 80 %, without the arc - the
+// same drawing as arcscaled, to tell the arc's part apart.
+if (rawScene === "scaledpv") scene = "pvcross";
+if (scene === "scaled" || rawScene === "arcscaled" || rawScene === "scaledpv") document.getElementById("frame").style.transform = "scale(0.8)";
+if (["arc", "arcone", "arctall", "radial"].includes(rawScene)) document.getElementById("host").style.width = "640px";
 if (scene === "below") document.getElementById("host").style.width = "400px";
 // extras: the card as it stands on a dashboard column, with extra values (Z-1)
 // whose prefixes are long enough to make the labels lean and shorten (Z-3).
@@ -76,7 +97,7 @@ const clear =
 // sources and their rows and fan (PV-7) - at 640 px, so square_left has its PV
 // rows on the left (AN-3). quick: every quick button expanded, compact, on a
 // phone (QB-9 to QB-14).
-const LAYOUT = { right: "square_right", left: "square_left", triangle: "triangle", trianglebatt: "triangle_battery", quick: "cross" }[scene];
+const LAYOUT = { right: "square_right", left: "square_left", triangle: "triangle", trianglebatt: "triangle_battery", quick: "cross", pvcross: "cross" }[scene];
 if (LAYOUT) document.getElementById("host").style.width = scene === "quick" ? "380px" : "640px";
 const ringOff = scene === "clear" || scene === "clearlate";
 
@@ -85,6 +106,7 @@ const W = (id, w) => [id, { entity_id: id, state: String(w),
 const states = Object.fromEntries([
   W("sensor.s", 6000), W("sensor.g", 1500), W("sensor.h", 4500), W("sensor.b", -3000),
   W("sensor.c1", 2400), W("sensor.c2", 1200), W("sensor.c3", 600),
+  W("sensor.c4", 450), W("sensor.c5", 380), W("sensor.c6", 260), W("sensor.c7", 150), W("sensor.c8", 90),
   W("sensor.pv1", 3500), W("sensor.pv2", 1800), W("sensor.pv3", 700),
   // Extra values (Z-1): a figure in the PV circle, and a label field at every
   // node, wide enough to need the room and the width limits of Z-3 and Z-8.
@@ -94,7 +116,7 @@ const states = Object.fromEntries([
 
 await customElements.whenDefined("enerlens-card");
 const card = document.createElement("enerlens-card");
-card.setConfig({
+const config = {
   type: "custom:enerlens-card", title: "Energie",
   entities: scene === "nobatt"
     ? { solar: "sensor.s", grid: "sensor.g", house: "sensor.h" }
@@ -149,7 +171,23 @@ card.setConfig({
     ? { list: { frame: !mixed, always_below: scene === "valuesbelow" || scene === "mixedbelow" } }
     : {}),
   ...(ringOff ? { ring: { enabled: false } } : {}),
-});
+};
+if (radialScene) config.flow = { ...config.flow, radial: true };
+if (arcScene) {
+  config.list = { ...(config.list ?? {}), arc: true };
+  if (rawScene === "arcpvonly") config.list.enabled = false;
+  // One row: the first consumer held in the list, everything else - the
+  // rest too - below the threshold.
+  if (rawScene === "arcone") {
+    config.consumers = [{ ...config.consumers[0], show: "always" }];
+    config.min_consumer_w = 3000;
+  }
+  if (rawScene === "arctall") {
+    config.consumers.splice(3, 0, ...["c4", "c5", "c6", "c7", "c8"].map((c, i) =>
+      ({ entity: `sensor.${c}`, name: ["Herd", "Trockner", "Pumpe", "Server", "Licht"][i] })));
+  }
+}
+card.setConfig(config);
 card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
 document.getElementById("host").appendChild(card);
 if (clear) {
@@ -278,7 +316,8 @@ function labels(root) {
   // PV rows and consumers in one list share their columns (PV-7): marks,
   // names and values of both blocks stand one below the other.
   const pv = root.querySelector(".list:not(.pv-side) .pv-rows");
-  if (pv && pv.parentElement.querySelector(".rows")) {
+  // With the arched list every row moves for itself (LZ-17).
+  if (pv && pv.parentElement.querySelector(".rows") && !arcScene) {
     for (const [sel, side, what] of [[".swatch", "left", "Marken"], [".name", "left", "Namen"], [".row-value", "right", "Werte"]]) {
       const xs = [...pv.parentElement.querySelectorAll(`.pv-rows .row ${sel}, .rows .row ${sel}`)].map((e) => e.getBoundingClientRect()[side]);
       const spread = Math.max(...xs) - Math.min(...xs);
@@ -420,6 +459,191 @@ function mixedRows(root) {
   return found;
 }
 
+/**
+ * Radial fan lines (L-16, 13.11.2026), in words: each line leaves its own
+ * node on the circle, keeps radius + 14 px from every other node and out of
+ * every node's label, and crosses no other line - of its fan or the other.
+ * A fan the card had to draw as before is named, since none of these scenes
+ * should need it.
+ */
+function radialLines(root) {
+  // Below the drawing the lines leave the symbol at their gathering point.
+  const stacked = !!root.querySelector(".body.stacked");
+  const found = [];
+  const box = (el) => el.getBoundingClientRect();
+  const circleOf = (node) => {
+    const r = box(node);
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 };
+  };
+  const labelsOf = [...root.querySelectorAll(".node .label")].map(box).filter((b) => b.width && b.height);
+  const fans = [
+    ["svg.fan:not(.pv-fan)", ".node.house", "consumer", "Verbraucher"],
+    ["svg.pv-fan", ".node.solar", "solar", "PV"],
+  ];
+  const all = [];
+  for (const [sel, nodeSel, kind, name] of fans) {
+    const svg = root.querySelector(sel);
+    const own = stacked
+      ? root.querySelector(`${kind === "solar" ? ".pv-rows" : ".rows"} > .origin-icon`)
+      : root.querySelector(nodeSel);
+    const paths = [...(svg?.querySelectorAll("path.fan-line") ?? [])];
+    if (!svg || !own || !paths.length) continue;
+    const wanted = card._config?.flow?.radial === true;
+    if (wanted && card._radialOk?.[kind] !== true) found.push(`${name}-Fächer nicht radial`);
+    if (!wanted && card._radialOk?.[kind] === true) found.push(`${name}-Fächer radial ohne die Option`);
+    const c = circleOf(own);
+    if (stacked) c.r += 3;
+    const others = stacked ? [] : [...root.querySelectorAll(".node")].filter((n) => n !== own).map(circleOf);
+    const lines = paths.map((path) => pathPoints(svg, path, Math.max(8, Math.ceil(path.getTotalLength() / 3))));
+    lines.forEach((pts, i) => {
+      const key = paths[i].dataset.key;
+      const off = Math.hypot(pts[0].x - c.x, pts[0].y - c.y) - c.r;
+      if (wanted && Math.abs(off) > 2) found.push(`${name} ${key}: Linie beginnt ${off.toFixed(1)} px neben dem Kreis`);
+      if (card._radialOk?.[kind] !== true) return;
+      for (const o of others) {
+        const near = Math.min(...pts.map((p) => Math.hypot(p.x - o.x, p.y - o.y))) - o.r;
+        if (near < 13) found.push(`${name} ${key}: Linie ${near.toFixed(1)} px an einem anderen Knoten`);
+      }
+      for (const b of stacked ? [] : labelsOf) {
+        if (pts.some((p) => p.x > b.left + 1 && p.x < b.right - 1 && p.y > b.top + 1 && p.y < b.bottom - 1))
+          found.push(`${name} ${key}: Linie durch eine Beschriftung`);
+      }
+      // PV lines stay out of the strip right of the house below its middle,
+      // where the consumers' lines start (PV-7).
+      const house = root.querySelector(".node.house");
+      if (!stacked && kind === "solar" && house && !root.querySelector(".pv-side")) {
+        const h = box(house);
+        const edge = h.right + 16, hy = h.top + h.height / 2;
+        if (pts.some((p) => p.x < edge - 1 && p.y > hy - 5)) found.push(`PV ${key}: Linie im Bereich rechts unter dem Haus`);
+      }
+    });
+    // Only radial fans promise not to cross; the common exit shares a start.
+    if (wanted && card._radialOk?.[kind] === true) lines.forEach((pts) => all.push({ name, pts }));
+  }
+  const turn = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const crossing = (a, b) => {
+    for (let i = 1; i < a.length; i++) for (let j = 1; j < b.length; j++) {
+      const d1 = turn(b[j - 1], b[j], a[i - 1]), d2 = turn(b[j - 1], b[j], a[i]);
+      const d3 = turn(a[i - 1], a[i], b[j - 1]), d4 = turn(a[i - 1], a[i], b[j]);
+      if (d1 * d2 < -0.01 && d3 * d4 < -0.01) return true;
+    }
+    return false;
+  };
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    if (crossing(all[i].pts, all[j].pts)) found.push(`Linien kreuzen sich (${all[i].name}/${all[j].name})`);
+  }
+  return found;
+}
+
+/**
+ * The arched list (LZ-17), in words: beside the drawing every row of a block
+ * moves in by how far it stands from its node - the row nearest the node's
+ * height least, the others more the farther they are, none by more than half
+ * the room - and each fan line ends where its row now begins. Below the
+ * drawing the same around the point the lines gather at, left of the block
+ * halfway down (L-13). A single row does not move.
+ */
+/**
+ * Points along a path on screen, measured as boxes of little circles put
+ * there - not through getScreenCTM(), which in WebKit leaves a scale above
+ * the card out (issue #7), as offLines() does.
+ */
+function pathPoints(svg, path, n) {
+  const len = path.getTotalLength();
+  const g = document.createElementNS(NS, "g");
+  g.style.visibility = "hidden";
+  const marks = Array.from({ length: n + 1 }, (_, i) => {
+    const at = path.getPointAtLength((len * i) / n);
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", at.x); c.setAttribute("cy", at.y); c.setAttribute("r", "1");
+    g.appendChild(c);
+    return c;
+  });
+  svg.appendChild(g);
+  const pts = marks.map(centre);
+  g.remove();
+  return pts;
+}
+
+const scaleOf = (root) =>
+  root.querySelector(".body").getBoundingClientRect().width / root.querySelector(".body").offsetWidth;
+
+function arcRows(root) {
+  if (!arcScene) return [];
+  const found = [];
+  const stacked = !!root.querySelector(".body.stacked");
+  const shiftOf = (row) => {
+    const m = /(-?[\d.]+)px/.exec(row.style.translate || "");
+    return m ? Number(m[1]) : 0;
+  };
+  const blocks = [[".rows", ".node.house", "Verbraucher"], [".pv-rows", ".node.solar", "PV"]];
+  for (const [sel, nodeSel, name] of blocks) {
+    const block = root.querySelector(sel);
+    const node = root.querySelector(nodeSel);
+    if (!block || !node) continue;
+    const rows = [...block.querySelectorAll(".row")];
+    const side = block.parentElement.classList.contains("pv-side") ? -1 : 1;
+    const shifts = rows.map((r) => -side * shiftOf(r));
+    if (rawScene === "arcone") {
+      if (shifts.some((s) => Math.abs(s) > 0.05)) found.push(`${name}: Zeilen gerückt, wo die Liste gerade bleibt`);
+      continue;
+    }
+    if (rows.length < 2) continue;
+    const bb = block.getBoundingClientRect();
+    const n = stacked ? { top: bb.top, height: bb.height, left: bb.left, right: bb.left } : node.getBoundingClientRect();
+    const cy = n.top + n.height / 2;
+    const ds = rows.map((r) => { const b = r.getBoundingClientRect(); return Math.abs(b.top + b.height / 2 - cy); });
+    if (shifts.some((s) => s < -0.05)) found.push(`${name}: Zeile rückt nach außen`);
+    if (Math.max(...shifts) < 1) found.push(`${name}: kein Bogen zu sehen`);
+    const order = ds.map((d, i) => [d, shifts[i]]).sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < order.length; i++) {
+      if (order[i][1] < order[i - 1][1] - 0.2) found.push(`${name}: weiter entfernte Zeile rückt weniger ein`);
+    }
+    const marks = rows.map((r, i) => r.querySelector(".swatch").getBoundingClientRect().left + shifts[i] * scaleOf(root));
+    let edge = side === 1 ? n.right : n.left;
+    if (!stacked) {
+      const top = Math.min(...rows.map((r) => r.getBoundingClientRect().top));
+      const bottom = Math.max(...rows.map((r) => r.getBoundingClientRect().bottom));
+      const beside = (o, c) => o.bottom + c >= top && o.top - c <= bottom;
+      const outer = (v) => { edge = side === 1 ? Math.max(edge, v) : Math.min(edge, v); };
+      if (name === "PV") for (const other of root.querySelectorAll(".node:not(.solar)")) {
+        const o = other.getBoundingClientRect();
+        if (beside(o, 14)) outer(side === 1 ? o.right + 14 : o.left - 14);
+      }
+      for (const label of root.querySelectorAll(".node .label")) {
+        const o = label.getBoundingClientRect();
+        if (o.width && beside(o, 4)) outer(side === 1 ? o.right + 8 : o.left - 8);
+      }
+    }
+    const free = stacked
+      ? Math.min(...marks) - bb.left
+      : side === 1
+        ? bb.left - edge
+        : edge - bb.right;
+    const scale = scaleOf(root);
+    if (Math.max(...shifts) * scale > free / 2 + 1) found.push(`${name}: rückt mehr als die Hälfte des Raums ein`);
+  }
+  // Each line ends where its row now begins (frame, mark or row edge).
+  for (const [svgSel, rowSel] of [["svg.fan:not(.pv-fan)", ".rows .row"], ["svg.pv-fan", ".pv-rows .row"]]) {
+    const svg = root.querySelector(svgSel);
+    for (const path of svg?.querySelectorAll("path.fan-line") ?? []) {
+      const row = root.querySelector(`${rowSel}[data-key="${CSS.escape(path.dataset.key)}"]`);
+      if (!row) continue;
+      const side = row.closest(".pv-side") ? -1 : 1;
+      const x = pathPoints(svg, path, 1)[1].x;
+      const frame = row.querySelector(".frame:not(.plain)");
+      const ring = row.querySelector(".charge-ring");
+      const atMark = stacked || row.closest(".list.framed");
+      const target = frame ?? (atMark ? row.querySelector(".swatch") ?? row : row);
+      const b = target.getBoundingClientRect();
+      let want = side === 1 ? b.left : b.right;
+      if (ring) want = side === 1 ? Math.min(want, ring.getBoundingClientRect().left) : Math.max(want, ring.getBoundingClientRect().right);
+      if (Math.abs(x - want) > 1.5) found.push(`Linie endet ${(x - want).toFixed(1)} px neben ihrer Zeile`);
+    }
+  }
+  return found;
+}
+
 window.check = () => {
   const root = card.shadowRoot;
   // Dots stop where they are told: no animation may move them while measured.
@@ -441,6 +665,8 @@ window.check = () => {
     labels: labels(root),
     lines: lineWidths(root),
     mixed: mixedRows(root),
+    radial: radialLines(root),
+    arc: arcRows(root),
   };
   result.rims = rims(root);
   // Cut out only where the circles let the lines show (K-16).
@@ -448,6 +674,7 @@ window.check = () => {
   result.fanClipped = !!root.querySelector("svg.fan [clip-path]");
   result.clear = clear;
   result.scene = scene;
+  result.rawScene = rawScene;
   result.ringOff = ringOff;
   return JSON.stringify(result);
 };

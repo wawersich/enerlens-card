@@ -500,6 +500,14 @@ and is ignored. Nested blocks are not checked for unknown keys.
   `list.frame: true` frames every row regardless. Anything but a boolean is
   an error, as for every switch. 1.5.2 ignores the key silently (it checks no
   unknown keys on list entries).
+- `flow.radial` (`true | false`, default `false`): **ADDED.** (REQ L-16.)
+  Radial lines to the list. Anything but a boolean is an error. 1.5.2 warns
+  about it as an unknown key, no error card.
+- `list.arc` (`true | false`, default `false`): **ADDED.** (REQ LZ-17.) The
+  rows on an arc around their node (below the drawing: around the point the
+  lines gather at). Anything but a boolean
+  is an error, as for every switch. 1.5.2 warns about it as an unknown key,
+  no error card, and shows the list straight.
 - No new legacy spelling, so no new configuration under `test/legacy/`.
 
 ---

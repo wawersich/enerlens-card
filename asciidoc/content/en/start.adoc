@@ -120,10 +120,21 @@ with its print progress - hover them for the value. Consumers can also be
 pinned to the top or bottom, kept in the list and highlighted. See
 link:consumers.html[Extra values at the consumers].
 
+*More values in the list, frames, arc.* Each row of the consumer list can
+carry several values as text - today's kWh, a temperature, the car's state of
+charge - and stand in a frame of its colour. The list can stand on an arc
+around the house. Independently of that, the lines can leave their circle
+radially. Each of these is a switch of its own. See link:consumers.html[Extra values at the consumers]
+and link:layout.html[Arrangements].
+
+++++
+<div class="card-demo" data-demo="pills" data-controls="pframe,parc,pradial" data-yaml="off"></div>
+++++
+
 A *grid outage* is shown, provided the installation reports the grid status.
 
 ++++
-<div class="card-demo" data-demo="outage"></div>
+<div class="card-demo" data-demo="outage" data-controls="outage" data-outage="on" data-yaml="off"></div>
 ++++
 
 *Narrow columns.* When there is no room beside the cross — on a phone or in a

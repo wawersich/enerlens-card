@@ -11,7 +11,7 @@ Try it: the switches above the card change what you would change in the
 editor; below it is what of that ends up in YAML.
 
 ++++
-<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list"></div>
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,radial,frame,arc,pvrows,list"></div>
 ++++
 
 == Cross
@@ -50,9 +50,24 @@ battery on its left. Without a battery it looks like Triangle · house centre.
 
 == Setting it
 
-In the editor, *Display* has *Arrangement* and *Line form* at the top. The
-line form is curved for the cross and straight for the other arrangements;
-both can be changed.
+In the editor, *Display* has *Arrangement* and *Line form*, right after
+appearance and content width. The line form is curved for the cross and
+straight for the other arrangements; both can be changed.
+
+*Radial lines* (`flow.radial`, in the editor _Radial lines from the circle_):
+each line to the list leaves its circle on its own radius, towards its row,
+instead of all starting at one point. A line that would graze another circle
+or a label turns towards the list until it is clear; no two lines cross.
+With the list below the drawing, the lines leave the house symbol radially.
+Where that cannot be had without a crossing, the card draws the lines as
+without the option.
+
+*Arched list* (`list.arc`, in the editor _Arched list_): the rows stand on an
+arc - consumers around the house, PV rows around PV, below the drawing around
+the point where the lines gather. The row level with its circle stays out,
+the others move in towards the drawing, by at most half the free room. Short
+lists and narrow cards therefore get only a flat arc. Names and values then
+no longer stand in line. The two options go together, and each works alone.
 
 [.only-light]
 image::editor-layout-en-light.png["Arrangement and line form in the Display section",490]
@@ -69,6 +84,9 @@ export and charging. In both triangles they stand as in the cross.
 layout: square_left        # cross | square_right | square_left | triangle | triangle_battery
 flow:
   lines: curved            # curved | straight
+  radial: true             # radial lines (default false)
+list:
+  arc: true                # arched list (default false)
 ----
 
 == Wide dashboards

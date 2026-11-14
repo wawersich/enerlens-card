@@ -26,6 +26,7 @@
 |`list.solar` |`false` |PV-Liste anzeigen: je Quelle eine Zeile über den Verbrauchern, bei `square_left` links (bei mehreren Quellen)
 |`list.always_below` |`false` |Listen auch dann unter der Zeichnung halten, wenn daneben Platz wäre
 |`list.frame` |`false` |Jede Zeile der Verbraucherliste und der Rest in einem abgerundeten Rahmen ihrer Farbe (Pille); einzeln mit `frame: true` am Eintrag. Siehe _Zusatzwerte an den Verbrauchern_
+|`list.arc` |`false` |Bogenförmige Liste: Neben der Zeichnung stehen die Zeilen auf einem Bogen – Verbraucher ums Haus, PV-Zeilen um die PV. Die Zeile auf Höhe ihres Kreises bleibt außen, die anderen rücken zur Zeichnung hin, höchstens um die Hälfte des freien Raums; Namen und Werte stehen dann nicht mehr untereinander. Unter der Zeichnung stehen die Zeilen im Bogen um den Punkt, an dem sich die Linien sammeln
 |`content.max_width` |— |Größte Breite des Inhalts in Pixeln (400–2000): Titel, Quick-Buttons, Zeichnung und Liste bleiben auf breiten Dashboards als ein Block zusammen, der Kartenhintergrund bleibt voll breit. Ohne Wert reicht die Liste bis an den rechten Rand
 |`content.align` |`center` |Wo der begrenzte Inhalt steht: `left`, `center` oder `right`. Nur mit `content.max_width`
 |`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen
@@ -49,6 +50,7 @@
 |`flow.dot_size` |`100` |Punktgröße in Prozent, 40–150. 100 ist der Punkt des Designs auf einer Karte mit großen Knoten; kleinere Karten zeichnen von sich aus etwas kleinere Punkte
 |`flow.line_width` |`100` |Liniendicke in Prozent, 30–150 – 100 sind 3 px für die Verbindungen und 2 px für die Linien zur Liste auf einer Karte mit großen Knoten, auf kleineren Karten dünner
 |`flow.lines` |`curved` beim Kreuz, sonst `straight` |Linienform der Verbindungen: `curved` (geschwungen) oder `straight` (gerade)
+|`flow.radial` |`false` |Linien zur Liste radial: Jede Linie verlässt ihren Kreis auf eigenem Radius, in Richtung ihrer Zeile, und weicht anderen Kreisen und Beschriftungen aus; unter der Zeichnung kommen sie radial aus dem Haus-Symbol; ohne die Option beginnen alle an einem gemeinsamen Punkt
 |`flow.inactive_lines` |`show` |`show`, `dim` oder `hide`
 |`flow.battery_task` |`zero_grid` |Aufgabe des Akkus, nur YAML: `zero_grid` (Austausch mit dem Netz auf null halten) oder `supply_house` (Haus versorgen, PV speichern) – entscheidet, wie die Karte die Linien zeichnet, wenn Akku und Netz gegeneinander arbeiten (link:animation.html[Animationen])
 |`flow.animation` |`auto` |`auto`, `on` oder `off`

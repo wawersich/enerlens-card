@@ -216,6 +216,7 @@
     "layout_triangle": "Triangle · house centre",
     "layout_triangle_battery": "Triangle · battery centre",
     "flow_lines": "Line form",
+    "flow_radial": "Radial lines from the circle",
     "lines_curved": "Curved",
     "lines_straight": "Straight",
     "appearance": "Card appearance",
@@ -362,6 +363,7 @@
     "value_up": "Move extra value up",
     "value_down": "Move extra value down",
     "list_frame": "Frame around list entries",
+    "list_arc": "Arched list",
     "entry_frame": "Frame around this entry",
     "value_place": "Line {line} · {side}",
     "value_left": "left, under the name",
@@ -417,6 +419,7 @@
     "grid_status_ok": "Optional. Left empty, the entity's own options minus the outage states count as \\u201cgrid is there\\u201d; anything else, including unavailable, leaves the last state standing.",
     "layout": "Where the four nodes stand. With Square · solar left the PV rows stand left of the drawing and the consumers right of it; on a card too narrow for that, both lists go below. Default: Cross.",
     "flow_lines": "How the connections between the nodes run. Default: curved for the cross, straight for the other arrangements.",
+    "flow_radial": "Each line to the list leaves its circle on its own radius, towards its row, and keeps clear of other circles and labels; below the drawing it leaves the house symbol. Off, all lines start at one common point. Default: off.",
     "appearance": "Shows this one card light or dark – whatever the theme says, and without touching the rest of the dashboard. It also settles which of its two value sets a flow design takes. “Follow the theme” reads the ground, which works nearly always – but not for themes that paint no card background of their own. Light and dark use Home Assistant's default colours, not those of a custom theme.",
     "icon_rest": "Empty = a plain dot.",
     "dot_color": "Empty = each dot carries the colour of its flow, which is what shows where the energy comes from. A colour here applies to every dot on the card; the lines keep theirs.",
@@ -473,7 +476,8 @@
     "rest_show": "\"Always\": the rest stays below its minimum power too. Negative, or without a house value, it shows \"—\". It does not count towards the maximum number of consumers.",
     "values": "Values as text below name and power, two side by side - e.g. today's kWh from an energy meter. The card computes nothing, it shows the entity's state. “Show in the list: always” keeps the row and its values visible at 0 W too. Without an entity the place stays empty - that puts a value under the power on purpose.",
     "entry_frame_all": "Frame is on for all list entries.",
-    "list_frame": "Each row of the consumer list - the rest too - gets a rounded frame in its colour, like a pill. While it is off, single entries can still have one, under the entry's “Display”. Default: off."
+    "list_frame": "Each row of the consumer list - the rest too - gets a rounded frame in its colour, like a pill. While it is off, single entries can still have one, under the entry's “Display”. Default: off.",
+    "list_arc": "The rows stand on an arc: beside the drawing the consumers around the house and the PV rows around PV, below it around the point where the lines gather. Default: off."
   },
   "outage": {
     "banner": "Island mode — no grid",

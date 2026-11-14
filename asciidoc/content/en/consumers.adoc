@@ -140,6 +140,9 @@ and the entry's switch is greyed out. The other rows are indented so marks,
 names and values stand one below the other; a band on a row without frame takes
 the same shape, without the line.
 
+The rows can also stand on an arc around the house (`list.arc`), and the
+lines can leave the circle radially (`flow.radial`) - see _Arrangements_.
+
 [source,yaml]
 ----
 consumers:

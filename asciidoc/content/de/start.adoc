@@ -127,10 +127,22 @@ darüberfahren zeigt den Wert. Verbraucher lassen sich außerdem oben oder unten
 anpinnen, in der Liste halten und hervorheben. Siehe
 link:consumers.html[Zusatzwerte an den Verbrauchern].
 
+*Mehr Werte in der Liste, Rahmen, Bogen.* Jede Zeile der Verbraucherliste kann
+mehrere Werte als Text mitbringen – etwa die kWh von heute, eine Temperatur,
+den Ladestand des Autos – und in einem Rahmen ihrer Farbe stehen. Die Liste
+kann im Bogen um das Haus stehen. Unabhängig davon können die Linien radial
+aus ihrem Kreis kommen. Jedes davon ist ein eigener Schalter. Siehe
+link:consumers.html[Zusatzwerte an den Verbrauchern] und
+link:layout.html[Anordnungen].
+
+++++
+<div class="card-demo" data-demo="pills" data-controls="pframe,parc,pradial" data-yaml="off"></div>
+++++
+
 Ein *Netzausfall* wird angezeigt, sofern die Anlage den Netzstatus erfasst.
 
 ++++
-<div class="card-demo" data-demo="outage"></div>
+<div class="card-demo" data-demo="outage" data-controls="outage" data-outage="on" data-yaml="off"></div>
 ++++
 
 *Schmale Spalten.* Ist neben dem Kreuz kein Platz — auf dem Handy oder in

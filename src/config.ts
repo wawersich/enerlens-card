@@ -1479,6 +1479,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "rest_label",
     "always_below",
     "frame",
+    "arc",
     "scope",
     "default_scope",
     "solar",
@@ -1518,6 +1519,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "dot_size",
     "line_width",
     "lines",
+    "radial",
   ]),
   // battery_inside has a warning of its own (not_for_node).
   colors: new Set([
@@ -1759,6 +1761,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       title: readString(rawList.title, "list.title", hass),
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
       frame: readBoolean(rawList.frame, "list.frame", false, hass),
+      arc: readBoolean(rawList.arc, "list.arc", false, hass),
       // Off by default: existing boards must not change on their own (PV-7).
       solar: readBoolean(rawList.solar, "list.solar", false, hass),
       scope: buttons.scope,
@@ -1825,6 +1828,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
         layout === "cross" ? "curved" : "straight",
         hass,
       ),
+      radial: readBoolean(rawFlow.radial, "flow.radial", false, hass),
       inactiveLines: readEnum(
         rawFlow.inactive_lines,
         INACTIVE_LINES,

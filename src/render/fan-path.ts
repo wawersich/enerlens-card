@@ -221,3 +221,169 @@ export function placeBlocks(p: {
   }
   return { pv: Math.round(pvTop - pv.top), consumers: Math.round(consumersTop - consumers.top) };
 }
+
+/** A box a line must not run through - a node's label (L-16). */
+export interface Box {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** One row a radial line runs to. */
+export interface RadialRow extends Point {
+  key: string;
+}
+
+/** Room around a label a line keeps clear of. */
+const BOX_MARGIN = 3;
+/** Steps from the line's own angle to the horizontal when it has to turn. */
+const TURN_STEPS = 40;
+
+/**
+ * One radial line (L-16, 13.11.2026): out of the circle on its own radius at
+ * `angle` - 0 towards the rows, positive downwards, mirrored for rows on the
+ * left - a short straight piece along it, then a curve that runs level into
+ * the row.
+ */
+export function radialPath(
+  centre: Point,
+  radius: number,
+  side: 1 | -1,
+  angle: number,
+  row: Point,
+  lead = 10,
+): string {
+  const dir = { x: side * Math.cos(angle), y: Math.sin(angle) };
+  const s = { x: centre.x + dir.x * radius, y: centre.y + dir.y * radius };
+  const straight =
+    Math.abs(angle) < 1e-9 ? 0 : Math.min(lead, Math.max(0, side * (row.x - s.x) - 4));
+  const p = { x: s.x + dir.x * straight, y: s.y + dir.y * straight };
+  const span = Math.max(1, side * (row.x - p.x));
+  const reach = Math.hypot(row.x - p.x, row.y - p.y);
+  const out = Math.min(80, Math.max(6, reach * 0.4));
+  const into = Math.min(80, Math.max(6, span * 0.45));
+  const head = straight > 0 ? `M${f(s.x)},${f(s.y)} L${f(p.x)},${f(p.y)}` : `M${f(s.x)},${f(s.y)}`;
+  return `${head} C${f(p.x + dir.x * out)},${f(p.y + dir.y * out)} ${f(row.x - side * into)},${f(row.y)} ${f(row.x)},${f(row.y)}`;
+}
+
+/** Whether two polylines cross - touching or running together does not count. */
+export function crosses(a: readonly Point[], b: readonly Point[]): boolean {
+  const turn = (p: Point, q: Point, r: Point) =>
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  for (let i = 1; i < a.length; i++) {
+    const p1 = a[i - 1];
+    const p2 = a[i];
+    for (let j = 1; j < b.length; j++) {
+      const q1 = b[j - 1];
+      const q2 = b[j];
+      if (
+        Math.max(p1.x, p2.x) < Math.min(q1.x, q2.x) ||
+        Math.max(q1.x, q2.x) < Math.min(p1.x, p2.x)
+      )
+        continue;
+      if (
+        Math.max(p1.y, p2.y) < Math.min(q1.y, q2.y) ||
+        Math.max(q1.y, q2.y) < Math.min(p1.y, p2.y)
+      )
+        continue;
+      const d1 = turn(q1, q2, p1);
+      const d2 = turn(q1, q2, p2);
+      const d3 = turn(p1, p2, q1);
+      const d4 = turn(p1, p2, q2);
+      if (
+        ((d1 > 1e-6 && d2 < -1e-6) || (d1 < -1e-6 && d2 > 1e-6)) &&
+        ((d3 > 1e-6 && d4 < -1e-6) || (d3 < -1e-6 && d4 > 1e-6))
+      )
+        return true;
+    }
+  }
+  return false;
+}
+
+export interface RadialFan {
+  centre: Point;
+  radius: number;
+  /** 1: rows to the right of the node, -1: to the left (AN-3). */
+  side: 1 | -1;
+  rows: readonly RadialRow[];
+  /** Other nodes, `r` already holding the clearance (radius + 14 px). */
+  obstacles: readonly Obstacle[];
+  /** Node labels the lines must not run through. */
+  boxes?: readonly Box[];
+  /** Where no line may go (the strip the other fan starts in, PV-7). */
+  noGo?: (x: number, y: number) => boolean;
+  /** Lines already drawn by the other fan; none may be crossed. */
+  others?: readonly string[];
+  lead?: number;
+  /**
+   * Draw radially even where the checks fail - while rows glide, after the
+   * fan was found clear at rest, so a line does not flip between two looks
+   * mid-move (L-16).
+   */
+  force?: boolean;
+}
+
+/**
+ * A whole fan of radial lines (L-16): each line leaves on its own radius
+ * towards its row, at most 80 degrees from the horizontal. A line that would
+ * come near another node or run through a label turns towards the rows, step
+ * by step, until it is clear; the lines then keep the order of their rows -
+ * a turned line takes along every line between it and the horizontal - so
+ * none crosses another. Is no such fan to be had, or would it cross the other
+ * fan, the answer is undefined and the card draws the fan as before.
+ * Returns one path per row key.
+ */
+export function radialFan(fan: RadialFan): Map<string, string> | undefined {
+  const { centre, radius, side, obstacles, boxes = [], noGo, others = [], lead = 10 } = fan;
+  const limit = (MAX_EXIT_DEG * Math.PI) / 180;
+  const rows = [...fan.rows].sort((a, b) => a.y - b.y);
+  const blocked = (d: string) =>
+    samplePath(d).some(
+      (pt) =>
+        obstacles.some((o) => Math.hypot(pt.x - o.x, pt.y - o.y) < o.r) ||
+        boxes.some(
+          (b) =>
+            pt.x > b.left - BOX_MARGIN &&
+            pt.x < b.right + BOX_MARGIN &&
+            pt.y > b.top - BOX_MARGIN &&
+            pt.y < b.bottom + BOX_MARGIN,
+        ) ||
+        (noGo?.(pt.x, pt.y) ?? false),
+    );
+  const path = (row: RadialRow, angle: number) =>
+    radialPath(centre, radius, side, angle, row, lead);
+  let clear = true;
+  const angles = rows.map((row) => {
+    const own = Math.max(
+      -limit,
+      Math.min(limit, Math.atan2(row.y - centre.y, Math.max(1, side * (row.x - centre.x)))),
+    );
+    for (let i = 0; i <= TURN_STEPS; i++) {
+      const angle = own * (1 - i / TURN_STEPS);
+      if (!blocked(path(row, angle))) return angle;
+    }
+    clear = false;
+    return 0;
+  });
+  // Keep the order: below the node from the bottom up, above it from the top down.
+  for (let i = angles.length - 2; i >= 0; i--) {
+    if (angles[i] > 0) angles[i] = Math.min(angles[i], angles[i + 1]);
+  }
+  for (let i = 1; i < angles.length; i++) {
+    if (angles[i] < 0) angles[i] = Math.max(angles[i], angles[i - 1]);
+  }
+  const paths = rows.map((row, i) => path(row, angles[i]));
+  if (!fan.force) {
+    if (!clear || paths.some(blocked)) return undefined;
+    const sampled = paths.map((d) => samplePath(d));
+    for (let i = 0; i < sampled.length; i++) {
+      for (let j = i + 1; j < sampled.length; j++) {
+        if (crosses(sampled[i], sampled[j])) return undefined;
+      }
+    }
+    const theirs = others.map((d) => samplePath(d));
+    if (sampled.some((mine) => theirs.some((t) => crosses(mine, t)))) return undefined;
+  }
+  return new Map(rows.map((row, i) => [row.key, paths[i]]));
+}

@@ -178,6 +178,21 @@ describe("the fan follows the rows only while they glide", () => {
     expect(draws).toBe(4);
   });
 
+  it("follows the arc while it glides to a new shape, with no row gliding (LZ-17)", async () => {
+    await mount();
+    vi.spyOn(el._rows, "gliding").mockReturnValue(false);
+    // Asked before and after the render, then once in each frame.
+    let left = 4;
+    vi.spyOn(el as unknown as { _arcGliding: () => boolean }, "_arcGliding").mockImplementation(
+      () => left-- > 0,
+    );
+    await nudge();
+    expect(draws).toBe(1);
+    runFrames();
+    // Two frames while the arc glides, one after it arrived.
+    expect(draws).toBe(4);
+  });
+
   it("a render mid-glide draws once and leaves the running loop be", async () => {
     await mount();
     glideFor(4);

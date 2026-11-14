@@ -419,8 +419,15 @@ function config(scene, t, data = {}) {
           },
         ],
         layout: data.layout,
-        ...(data.lines ? { flow: { ...base.flow, lines: data.lines } } : {}),
-        list: { solar: data.pvRows, enabled: data.list },
+        ...(data.lines || data.radial
+          ? { flow: { ...base.flow, ...(data.lines ? { lines: data.lines } : {}), ...(data.radial ? { radial: true } : {}) } }
+          : {}),
+        list: {
+          solar: data.pvRows,
+          enabled: data.list,
+          ...(data.frame ? { frame: true } : {}),
+          ...(data.arc ? { arc: true } : {}),
+        },
         ...(data.expanded ? { view: { ...base.view, expanded: data.expanded.split(",") } } : {}),
       };
     case "period":
@@ -480,6 +487,22 @@ function config(scene, t, data = {}) {
       // Every extra value at once, with pinning and highlighting (L-18 to L-20);
       // the switches above the card (data-controls) take parts away.
       return { ...base, ...consumersScene(t, data), view: { ...base.view, energy_periods: ["power"], modes: ["current"] } };
+    case "pills": {
+      // The start page: few consumers, each in its frame, on an arc around
+      // the house, with several values as text and radial lines (LZ-8,
+      // LZ-17, L-16); the switches take the three apart.
+      const c = consumersScene(t, {
+        cvalues: "on", cframe: data.pframe ?? "on", cpin: "on", chigh: "band", cbars: "off",
+        cring: "on", cfill: "on", cidle: "value",
+      });
+      return {
+        ...base,
+        ...c,
+        list: { ...(c.list ?? {}), ...((data.parc ?? "on") === "on" ? { arc: true } : {}) },
+        flow: { ...base.flow, ...((data.pradial ?? "on") === "on" ? { radial: true } : {}) },
+        view: { ...base.view, energy_periods: ["power"], modes: ["current"] },
+      };
+    }
     case "extras":
       return {
         ...base,
@@ -711,6 +734,8 @@ function start(host, { dark, lang }) {
   // The outage page's switch picks the values of a day with or without grid.
   const now = () => {
     if (scene === "outagetoggle") return host.dataset.outage === "on" ? "outage" : "live";
+    // The start page's outage card: in the outage until its switch says off.
+    if (scene === "outage") return host.dataset.outage === "off" ? "live" : "outage";
     // The battery-task page's switch picks moment A or B.
     if (scene === "batterytask") return host.dataset.case === "B" ? "taskB" : "taskA";
     return scene;
@@ -759,7 +784,7 @@ export function startDemos(env) {
 }
 
 /* ------------------------------------------------------- the switches
- * data-controls="layout,lines,pvrows,list,time" puts switches above a card. They
+ * data-controls="layout,lines,radial,arc,pvrows,list,time" puts switches above a card. They
  * change what an editor would change - the configuration - or, for the time
  * of day, the invented day. Below the card the YAML of the changes, only
  * what differs from the defaults, as the editor writes it.
@@ -768,7 +793,8 @@ const WORDS = {
   de: {
     layout: "Anordnung", cross: "Kreuz", square_right: "Quadrat · PV rechts", square_left: "Quadrat · PV links",
     triangle: "Dreieck · Haus Mitte", triangle_battery: "Dreieck · Batterie Mitte", lines: "Linienform", curved: "Geschwungen", straight: "Gerade",
-    pvrows: "PV-Liste", list: "Verbraucherliste", on: "An", off: "Aus", time: "Tageszeit (erfundener Tag)",
+    radial: "Linien radial", arc: "Bogenförmige Liste", frame: "Rahmen um Listen-Einträge",
+    pframe: "Rahmen", parc: "Bogenförmige Liste", pradial: "Linien radial", pvrows: "PV-Liste", list: "Verbraucherliste", on: "An", off: "Aus", time: "Tageszeit (erfundener Tag)",
     yaml: "So sieht das in YAML aus:", none: "# alles Standard - nichts einzutragen",
     inside: "Zusatzwert im Kreis", above: "über dem Icon", below: "unter dem Wert",
     label: "Zusatzwert beim Text", plain: "ohne Vorsatz", prefix: "mit Vorsatz",
@@ -790,7 +816,8 @@ const WORDS = {
   en: {
     layout: "Arrangement", cross: "Cross", square_right: "Square · solar right", square_left: "Square · solar left",
     triangle: "Triangle · house centre", triangle_battery: "Triangle · battery centre", lines: "Line form", curved: "Curved", straight: "Straight",
-    pvrows: "PV list", list: "Consumer list", on: "On", off: "Off", time: "Time of day (invented day)",
+    radial: "Radial lines", arc: "Arched list", frame: "Frame around list entries",
+    pframe: "Frame", parc: "Arched list", pradial: "Radial lines", pvrows: "PV list", list: "Consumer list", on: "On", off: "Off", time: "Time of day (invented day)",
     yaml: "This is the YAML:", none: "# all defaults - nothing to set",
     inside: "Extra value in the circle", above: "above the icon", below: "below the value",
     label: "Extra value with the label", plain: "without prefix", prefix: "with prefix",
@@ -814,11 +841,12 @@ const WORDS = {
 function controls(host, card, lang, { set, feed, clock }) {
   const w = WORDS[lang] ?? WORDS.en;
   const state = {
-    layout: "cross", lines: undefined, pvRows: true, list: true, expanded: host.dataset.expanded,
+    layout: "cross", lines: undefined, radial: false, frame: false, arc: false, pvRows: true, list: true, expanded: host.dataset.expanded,
     inside: "above", label: "prefix", weight: "normal", size: "100", name: "on", word: "on",
     ring: "overtake", design: "electron", dots: 5, speed: SPEED_DEFAULT, dotsize: 100,
     task: "zero_grid",
     cring: "on", cbars: "both", cfill: "on", cvalues: "off", cidle: "value", cpin: "on", chigh: "both", cframe: "off",
+    pframe: "on", parc: "on", pradial: "on",
   };
   // The extra-value switches: name, values, the state key they set.
   const EXTRAS = [
@@ -832,6 +860,8 @@ function controls(host, card, lang, { set, feed, clock }) {
     ["cring", ["on", "off"]], ["cbars", ["off", "top", "both"], "b_"], ["cfill", ["on", "off"]],
     ["cvalues", ["off", "on"]], ["cidle", ["value", "power"], "i_"], ["cpin", ["on", "off"]],
     ["chigh", ["off", "bold", "band", "both"], "h_"], ["cframe", ["off", "on"]],
+    // The start page's framed rows on an arc (LZ-8, LZ-17, L-16).
+    ["pframe", ["on", "off"]], ["parc", ["on", "off"]], ["pradial", ["on", "off"]],
   ];
   // Sliders: range, and what the label says of a value.
   const decimal = (x) => x.toLocaleString(lang, { maximumFractionDigits: 1 });
@@ -933,6 +963,21 @@ function controls(host, card, lang, { set, feed, clock }) {
             state.lines = v === (state.layout === "cross" ? "curved" : "straight") ? undefined : v;
             apply();
           }),
+        want.includes("radial") &&
+          choice(w.radial, ["off", "on"], state.radial ? "on" : "off", (v) => {
+            state.radial = v === "on";
+            apply();
+          }),
+        want.includes("frame") &&
+          choice(w.frame, ["off", "on"], state.frame ? "on" : "off", (v) => {
+            state.frame = v === "on";
+            apply();
+          }),
+        want.includes("arc") &&
+          choice(w.arc, ["off", "on"], state.arc ? "on" : "off", (v) => {
+            state.arc = v === "on";
+            apply();
+          }),
         want.includes("pvrows") &&
           choice(w.pvrows, ["on", "off"], state.pvRows ? "on" : "off", (v) => {
             state.pvRows = v === "on";
@@ -983,9 +1028,11 @@ function controls(host, card, lang, { set, feed, clock }) {
     );
     const out = [];
     if (shown.nodes) out.push(...nodesYaml(shown.nodes));
-    if (want.includes("cring")) {
+    if (want.includes("cring") || want.includes("pframe")) {
       out.push(...blockYaml("consumers", shown.consumers));
-      if (shown.list?.frame) out.push("list:", "  frame: true");
+      const list = [shown.list?.frame && "  frame: true", shown.list?.arc && "  arc: true"].filter(Boolean);
+      if (list.length) out.push("list:", ...list);
+      if (want.includes("pframe") && shown.flow?.radial) out.push("flow:", "  radial: true");
     }
     if (want.includes("ring") && state.ring !== "overtake") out.push("ring:", `  animation: ${state.ring}`);
     if (want.includes("task") && state.task !== "zero_grid") out.push("flow:", `  battery_task: ${state.task}`);
@@ -1006,10 +1053,17 @@ function controls(host, card, lang, { set, feed, clock }) {
     const pvRows = want.includes("pvrows") && state.pvRows;
     const noList = want.includes("list") && !state.list;
     if (state.layout !== "cross") out.push(`layout: ${state.layout}`);
-    if (state.lines) out.push("flow:", `  lines: ${state.lines}`);
-    if (pvRows || noList) out.push("list:");
+    const radial = want.includes("radial") && state.radial;
+    const arc = want.includes("arc") && state.arc;
+    const framed = want.includes("frame") && state.frame;
+    if (state.lines || radial) out.push("flow:");
+    if (state.lines) out.push(`  lines: ${state.lines}`);
+    if (radial) out.push("  radial: true");
+    if (pvRows || noList || arc || framed) out.push("list:");
     if (noList) out.push("  enabled: false");
     if (pvRows) out.push("  solar: true");
+    if (framed) out.push("  frame: true");
+    if (arc) out.push("  arc: true");
     if (state.expanded) out.push("view:", `  expanded: [${state.expanded.split(",").join(", ")}]`);
     yaml.innerHTML = `<span class="demo-label">${w.yaml}</span><pre><code></code></pre>`;
     yaml.querySelector("code").textContent = out.length ? out.join("\n") : w.none;

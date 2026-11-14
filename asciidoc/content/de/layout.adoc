@@ -11,7 +11,7 @@ Zum Ausprobieren: Die Schalter über der Karte stellen um, was du im Editor
 umstellen würdest; darunter steht, was davon in YAML landet.
 
 ++++
-<div class="card-demo" data-demo="arrange" data-controls="layout,lines,pvrows,list"></div>
+<div class="card-demo" data-demo="arrange" data-controls="layout,lines,radial,frame,arc,pvrows,list"></div>
 ++++
 
 == Kreuz
@@ -49,9 +49,25 @@ sieht es aus wie das Dreieck · Haus Mitte.
 
 == Einstellen
 
-Im Editor unter *Darstellung* stehen ganz oben *Anordnung* und *Linienform*.
-Die Linienform ist beim Kreuz geschwungen, bei den anderen Anordnungen gerade;
-beides lässt sich umstellen.
+Im Editor unter *Darstellung* stehen *Anordnung* und *Linienform*, gleich nach
+Erscheinungsbild und Inhaltsbreite. Die Linienform ist beim Kreuz geschwungen,
+bei den anderen Anordnungen gerade; beides lässt sich umstellen.
+
+*Linien radial* (`flow.radial`, im Editor _Linien radial aus dem Kreis_): Jede
+Linie zur Liste verlässt ihren Kreis auf eigenem Radius, in Richtung ihrer
+Zeile, statt dass alle an einem Punkt beginnen. Eine Linie, die einen anderen
+Kreis oder eine Beschriftung streifen würde, dreht zur Liste hin, bis sie frei
+ist; keine zwei Linien kreuzen sich. Steht die Liste unter der Zeichnung,
+kommen die Linien radial aus dem Haus-Symbol. Geht es einmal nicht ohne
+Kreuzung, zeichnet die Karte die Linien wie ohne die Option.
+
+*Bogenförmige Liste* (`list.arc`, im Editor _Bogenförmige Liste_): Die Zeilen
+stehen auf einem Bogen – Verbraucher ums Haus, PV-Zeilen um die PV, unter der
+Zeichnung um den Punkt, an dem sich die Linien sammeln. Die Zeile auf Höhe
+ihres Kreises bleibt außen, die anderen rücken zur Zeichnung hin, höchstens
+um die Hälfte des freien Raums. Kurze Listen und schmale Karten bekommen
+deshalb nur einen flachen Bogen. Namen und Werte stehen dann nicht mehr
+untereinander. Beide Optionen passen zueinander, jede geht auch allein.
 
 [.only-light]
 image::editor-layout-de-light.png["Anordnung und Linienform im Abschnitt Darstellung",490]
@@ -68,6 +84,9 @@ Einspeisen und Laden. In beiden Dreiecken stehen sie wie beim Kreuz.
 layout: square_left        # cross | square_right | square_left | triangle | triangle_battery
 flow:
   lines: curved            # curved | straight
+  radial: true             # Linien radial (Standard false)
+list:
+  arc: true                # bogenförmige Liste (Standard false)
 ----
 
 == Breite Dashboards

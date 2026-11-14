@@ -146,6 +146,9 @@ alle einen Rahmen, und der Schalter am Eintrag ist ausgegraut. Die übrigen Zeil
 rücken so ein, dass Marken, Namen und Werte untereinander stehen; ein Farbband an
 einer Zeile ohne Rahmen hat dieselbe Form, nur ohne Linie.
 
+Die Zeilen können auch auf einem Bogen um das Haus stehen (`list.arc`), und die
+Linien radial aus dem Kreis kommen (`flow.radial`) – siehe _Anordnungen_.
+
 [source,yaml]
 ----
 consumers:

@@ -81,6 +81,27 @@ const SCENES = [
   "mixed",
   "mixedbelow",
   "mixedclear",
+  // The arched list (LZ-17) in every arrangement, scaled, framed with values,
+  // see-through, below the cross, with one row and with many.
+  "arc",
+  "arcpv",
+  "arcright",
+  "arcleft",
+  "arctriangle",
+  "arctrianglebatt",
+  "arcscaled",
+  "scaledpv",
+  "arcvalues",
+  "arcclear",
+  "arcbelow",
+  "arcone",
+  "arctall",
+  "arcpvonly",
+  "arcextras",
+  // Radial lines with a straight list (L-16, flow.radial).
+  "radial",
+  "radialleft",
+  "radialtrianglebatt",
 ];
 /** How far a pixel may stray from the page's white and still count as white. */
 const CLEAR_TOLERANCE = 24;
@@ -375,7 +396,7 @@ function judge(scene, rims, picture) {
   if (!rims?.nodes?.length) return ["keine Kreise gemessen"];
   const png = readPng(readFileSync(picture));
   const found = gaps(rims, png);
-  if (scene.startsWith("clear")) found.push(...insideCircles(rims, png));
+  if (scene.startsWith("clear") || scene === "arcclear") found.push(...insideCircles(rims, png));
   return found;
 }
 
@@ -445,7 +466,9 @@ function problems(m, lines) {
   if (m.error) return [m.error];
   const found = [];
   if (!m.cross.dots) found.push("keine Punkte im Kreuz");
-  if (!m.fan.dots) found.push("keine Punkte am Fächer");
+  // arcpvonly has the PV rows alone, without the consumers' list.
+  if (!m.fan.dots && m.rawScene !== "arcpvonly") found.push("keine Punkte am Fächer");
+  if (m.rawScene === "arcpvonly" && !m.pvfan?.dots) found.push("keine Punkte am PV-Fächer");
   if (m.cross.worst > TOLERANCE_PX) found.push(`Kreuz-Punkte ${m.cross.worst} px neben der Linie`);
   if (m.fan.worst > TOLERANCE_PX) found.push(`Fächer-Punkte ${m.fan.worst} px neben der Linie`);
   if (m.pvfan?.worst > TOLERANCE_PX)
@@ -459,6 +482,8 @@ function problems(m, lines) {
   if (m.outside.length) found.push(`außerhalb der Karte: ${[...new Set(m.outside)].join(", ")}`);
   if (m.labels?.length) found.push(`Beschriftungen: ${[...new Set(m.labels)].join(", ")}`);
   if (m.mixed?.length) found.push(`Rahmen je Eintrag: ${[...new Set(m.mixed)].join(", ")}`);
+  if (m.radial?.length) found.push(`Radiale Linien: ${[...new Set(m.radial)].join(", ")}`);
+  if (m.arc?.length) found.push(`Bogenförmige Liste: ${[...new Set(m.arc)].join(", ")}`);
   if (m.circles?.length) found.push(`Kreise: ${m.circles.join(", ")}`);
   // Opaque circles are drawn as before K-16, transparent ones are cut out.
   if (m.rims && m.clipped !== m.clear) {
@@ -480,7 +505,9 @@ function problems(m, lines) {
 }
 
 const rows = [];
-for (const scene of SCENES) {
+// --scenes a,b: only these, to try a change quickly - a release runs them all.
+const only = option("--scenes")?.split(",");
+for (const scene of only ? SCENES.filter((s) => only.includes(s)) : SCENES) {
   for (const setting of WEBKIT_RUNS) {
     const m = await inWebkit(scene, setting).catch((e) => ({ error: e.message }));
     rows.push({

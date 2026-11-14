@@ -46,6 +46,7 @@ import { HoldTracker } from "./hold";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
 import { applyStatus, fetchLastKnownStatus, readStatus, statusOptions } from "./outage";
+import { type Arc, arcEase, arcGeometry, arcShift } from "./render/arc";
 import {
   type DetailNode,
   type DetailRequest,
@@ -57,10 +58,15 @@ import {
 import { DotLayer, type DotTechnique, detectTechnique } from "./render/dots";
 import { FanLayer } from "./render/fan";
 import {
+  type Box,
+  type Obstacle,
+  type Point,
+  type RadialFan,
   exitDirection,
   fanPath,
   placeBlock,
   placeBlocks,
+  radialFan,
   splitPoint,
   trunkPath,
 } from "./render/fan-path";
@@ -76,7 +82,7 @@ import {
 import { GLIDE_MS, RowAnimator, renderList, renderSolarSide } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
-import { sizeFactors } from "./render/sizing";
+import { growth, sizeFactors } from "./render/sizing";
 import { buildSolarRows, refreshSolarRows, solarSegments } from "./solar";
 import { SolarMemory } from "./solar-memory";
 import { styles } from "./styles";
@@ -259,6 +265,26 @@ class EnerLensCard extends LitElement {
   private _fanFollow?: number;
   /** When the fan stops following the rows, should a glide never end. */
   private _fanFollowUntil = 0;
+  /**
+   * Whether each fan was found clear for radial lines at rest (L-16). While
+   * rows move the answer is kept, so no line flips between two looks.
+   */
+  private readonly _radialOk: { consumer?: boolean; solar?: boolean } = {};
+  /** Rows are moving in the draw under way. */
+  private _fanMoving = false;
+  /**
+   * The arc each block of rows stands on (LZ-17): where it glides from and
+   * to, and since when. Cleared whenever the next arc should simply be there.
+   */
+  private readonly _arcs = new Map<"consumer" | "solar", { from: Arc; to: Arc; start: number }>();
+  /** The shift last written to each row, so a draw writes only what changed. */
+  private _arcWritten = new WeakMap<HTMLElement, string>();
+  /** Some row carries a shift - only then is there anything to take back. */
+  private _arcAny = false;
+  /** Whether the arc was last placed below the drawing - a switch jumps. */
+  private _arcStacked?: boolean;
+  /** The card's width when the arc was last measured from scratch. */
+  private _arcWidth?: number;
   private _technique: DotTechnique = "static";
   private _motionQuery?: MediaQueryList;
   private _visible = true;
@@ -1026,6 +1052,11 @@ class EnerLensCard extends LitElement {
     // never do - they are rendered inside the card (REQ E-1).
     this._config = normalizeConfig(config, this._hass);
     this._rawConfig = config;
+    // After an edit the arc is simply there, it does not glide (LZ-17), and
+    // the fans are judged anew.
+    this._arcs.clear();
+    this._radialOk.consumer = undefined;
+    this._radialOk.solar = undefined;
     this._entityIds = collectEntityIds(this._config);
     this._chargeIds = collectChargeIds(this._config);
     this._extraIds = collectExtraIds(this._config);
@@ -1130,6 +1161,11 @@ class EnerLensCard extends LitElement {
     // Text keeps a minimum size in CSS pixels while the drawing scales, so the
     // card stays legible on a phone (REQ K-12).
     this._resizeObserver = new ResizeObserver(() => {
+      // A new width brings its arc at once (LZ-17); a card growing taller
+      // for a new row keeps the arc gliding.
+      if (this.offsetWidth !== this._arcWidth) this._arcs.clear();
+      this._arcWidth = this.offsetWidth;
+      this._fanMoving = this._fanFollow !== undefined;
       this._measure();
       // The rows may have moved without a render - a late font, a column
       // that got its width. Cheap: the fan writes only what changed.
@@ -1503,13 +1539,16 @@ class EnerLensCard extends LitElement {
    * drawn in CSS pixels on its own overlay.
    */
   private _updateFan(): void {
+    // Asked before drawing: the render that starts a glide already moves.
+    const gliding = this._rows.gliding(this.renderRoot.querySelector(".body"));
+    this._fanMoving = this._fanFollow !== undefined || gliding || this._arcGliding();
     this._drawFan();
     // Rows glide for GLIDE_MS after a reorder. The lines follow them frame by
     // frame - measured mid-transform, getBoundingClientRect reports where a
     // row is drawn, not where it will land - but only while one is under way:
     // most renders move no row, and the loop used to run after each of them.
     if (!this._visible || typeof requestAnimationFrame !== "function") return;
-    if (!this._rows.gliding(this.renderRoot.querySelector(".body"))) return;
+    if (!gliding && !this._arcGliding()) return;
     // A glide that starts while the loop runs gets its full time too.
     this._fanFollowUntil = performance.now() + FAN_FOLLOW_MAX_MS;
     // A loop already running is left be; it asks the rows itself.
@@ -1519,10 +1558,13 @@ class EnerLensCard extends LitElement {
       this._fanFollow = undefined;
       // Asked before drawing, so the frame after the last glide ended still
       // draws - the rows in their places, a new row at full opacity.
+      // The arc's own glide is bounded in time; it may outlast the rows'.
       const more =
         this._visible &&
-        performance.now() < this._fanFollowUntil &&
-        this._rows.gliding(this.renderRoot.querySelector(".body"));
+        ((performance.now() < this._fanFollowUntil &&
+          this._rows.gliding(this.renderRoot.querySelector(".body"))) ||
+          this._arcGliding());
+      this._fanMoving = more;
       this._drawFan();
       if (more) this._fanFollow = requestAnimationFrame(step);
     };
@@ -1533,8 +1575,215 @@ class EnerLensCard extends LitElement {
     if (!this._config) return;
     // The blocks first: the fans are measured from where the rows stand.
     this._placeLists();
+    this._placeArc();
     this._drawConsumerFan();
     this._drawSolarFan();
+    // Moving is said for one draw at a time, by the loop that knows.
+    this._fanMoving = false;
+  }
+
+  /** An arc on its way from one shape to the next (LZ-17). */
+  private _arcGliding(): boolean {
+    const now = performance.now();
+    for (const arc of this._arcs.values()) if (now - arc.start < GLIDE_MS) return true;
+    return false;
+  }
+
+  /**
+   * The arched list (LZ-17): beside the drawing each row moves in towards its
+   * node by how far it stands above or below it - the consumers around the
+   * house, the PV rows around PV. Measured on the layout without the arc, in
+   * the card's own pixels whatever scales it from outside (issue #7), every
+   * draw - so a row gliding up or down takes its place on the arc as it goes.
+   * The arc itself glides when it changes; the first one, one after an edit,
+   * a resize or with motion off is simply there.
+   */
+  private _placeArc(): void {
+    const root = this.renderRoot;
+    const on =
+      this._config?.list.arc === true &&
+      typeof CSS !== "undefined" &&
+      typeof CSS.supports === "function" &&
+      CSS.supports("translate", "1px 0px");
+    if (!on) {
+      this._arcs.clear();
+      if (!this._arcAny) return;
+      for (const row of root.querySelectorAll<HTMLElement>(".rows .row, .pv-rows .row")) {
+        if (row.style.translate) row.style.translate = "";
+      }
+      this._arcWritten = new WeakMap();
+      this._arcAny = false;
+      return;
+    }
+    const body = root.querySelector(".body") as HTMLElement | null;
+    if (!body) return;
+    const b = body.getBoundingClientRect();
+    // Screen pixels per pixel of the card: 1 unless something scales it.
+    const scale = body.offsetWidth > 0 && b.width > 0 ? b.width / body.offsetWidth : 1;
+    const x = (v: number) => (v - b.left) / scale;
+    const y = (v: number) => (v - b.top) / scale;
+    // Beside the drawing or below it: a switch between the two jumps.
+    const stacked = this._stacked;
+    if (this._arcStacked !== stacked) {
+      this._arcs.clear();
+      this._radialOk.consumer = undefined;
+      this._radialOk.solar = undefined;
+    }
+    this._arcStacked = stacked;
+    const snap = !this._animationsWanted || !this._visible;
+    const now = performance.now();
+    const nodes = [...root.querySelectorAll<HTMLElement>(".node")];
+    for (const [kind, blockSel, nodeSel] of [
+      ["consumer", ".rows", ".node.house"],
+      ["solar", ".pv-rows", ".node.solar"],
+    ] as const) {
+      const block = root.querySelector(blockSel) as HTMLElement | null;
+      const node = root.querySelector(nodeSel) as HTMLElement | null;
+      const rows = [...(block?.querySelectorAll<HTMLElement>(".row") ?? [])];
+      if (!block || !node || rows.length === 0) {
+        this._arcs.delete(kind);
+        continue;
+      }
+      const side: 1 | -1 = !stacked && block.parentElement?.classList.contains("pv-side") ? -1 : 1;
+      const boxes = rows.map((row) => row.getBoundingClientRect());
+      const ys = boxes.map((r) => y(r.top + r.height / 2));
+      const live = boxes.map((r) => r.height > 0);
+      // Where each row stands without its glide (L-8): the arc's shape comes
+      // from these, so it does not change frame by frame while rows move;
+      // each row's own shift comes from where it is drawn.
+      const rest = rows.map((row, i) => {
+        const moved = getComputedStyle(row).transform;
+        if (!moved || moved === "none") return ys[i];
+        try {
+          return ys[i] - new DOMMatrixReadOnly(moved).m42;
+        } catch {
+          return ys[i];
+        }
+      });
+      const blockBox = block.getBoundingClientRect();
+      if (stacked) {
+        // Below the drawing the lines gather at the left of the block,
+        // halfway down (L-13): the rows stand on an arc around that point,
+        // moving in across the runway towards it.
+        const gatherY = y(blockBox.top + blockBox.height / 2);
+        const reach = Math.min(
+          ...rows.map((row, i) => {
+            const marks = [row.querySelector(".swatch"), row.querySelector(".charge-ring")]
+              .filter((el): el is Element => el !== null)
+              .map((el) => el.getBoundingClientRect().left);
+            return (marks.length ? Math.min(...marks) : boxes[i].left) - boxes[i].left;
+          }),
+        );
+        this._glideArc(
+          kind,
+          arcGeometry({
+            side: 1,
+            nodeY: gatherY,
+            nodeEdge: x(blockBox.left),
+            rowsEdge: x(blockBox.left) + reach / scale,
+            rows: rest.filter((_, i) => live[i]),
+            minRadius: 160 * growth(this._plotScale),
+          }),
+          snap,
+          now,
+          rows,
+          ys,
+          live,
+          gatherY,
+          1,
+        );
+        continue;
+      }
+      const n = node.getBoundingClientRect();
+      const nodeY = y(n.top + n.height / 2);
+      // The rows' own edge, without the arc: the block does not move
+      // sideways; a frame's line or a charge ring may reach past the row.
+      const reach = Math.max(
+        0,
+        ...rows.map((row, i) => {
+          const parts = [row.querySelector(".frame:not(.plain)"), row.querySelector(".charge-ring")]
+            .filter((el): el is Element => el !== null)
+            .map((el) => el.getBoundingClientRect());
+          const r = boxes[i];
+          return side === 1
+            ? Math.max(0, ...parts.map((p) => r.left - p.left))
+            : Math.max(0, ...parts.map((p) => p.right - r.right));
+        }),
+      );
+      const rowsEdge =
+        side === 1 ? x(blockBox.left) - reach / scale : x(blockBox.right) + reach / scale;
+      // The node's edge - and that of any other node beside the rows, by
+      // its clearance, so no row moves into it (the house beside the PV rows).
+      const half = (i: number) => boxes[i].height / 2 / scale;
+      const top = Math.min(...rest.map((v, i) => v - half(i)));
+      const bottom = Math.max(...rest.map((v, i) => v + half(i)));
+      const edges = [side === 1 ? x(n.right) : x(n.left)];
+      const beside = (o: DOMRect, clear: number) =>
+        y(o.bottom) + clear >= top && y(o.top) - clear <= bottom;
+      // PV rows keep clear of the neighbour node on their side (the house
+      // in the cross): by its radius and 14 px.
+      if (kind === "solar") {
+        for (const other of nodes) {
+          if (other === node) continue;
+          const o = other.getBoundingClientRect();
+          if (!beside(o, 14)) continue;
+          edges.push(side === 1 ? x(o.right) + 14 : x(o.left) - 14);
+        }
+      }
+      // No row moves over a node's label, wider than its circle (Z-3).
+      for (const label of root.querySelectorAll<HTMLElement>(".node .label")) {
+        const o = label.getBoundingClientRect();
+        if (!o.width || !beside(o, 4)) continue;
+        edges.push(side === 1 ? x(o.right) + 8 : x(o.left) - 8);
+      }
+      const nodeEdge = side === 1 ? Math.max(...edges) : Math.min(...edges);
+      const target = arcGeometry({
+        side,
+        nodeY,
+        nodeEdge,
+        rowsEdge,
+        rows: rest.filter((_, i) => live[i]),
+        minRadius: 160 * growth(this._plotScale),
+      });
+      this._glideArc(kind, target, snap, now, rows, ys, live, nodeY, side);
+    }
+  }
+
+  /**
+   * Takes a block's arc towards `target` - at once, or gliding from where it
+   * stands (LZ-17) - and moves each row onto it.
+   */
+  private _glideArc(
+    kind: "consumer" | "solar",
+    target: Arc,
+    snap: boolean,
+    now: number,
+    rows: HTMLElement[],
+    ys: number[],
+    live: boolean[],
+    nodeY: number,
+    side: 1 | -1,
+  ): void {
+    const was = this._arcs.get(kind);
+    let arc: Arc = target;
+    if (!was || snap) {
+      this._arcs.set(kind, { from: target, to: target, start: now - GLIDE_MS });
+    } else {
+      arc = arcEase(was.from, was.to, (now - was.start) / GLIDE_MS);
+      if (Math.abs(target.M - was.to.M) > 0.5 || Math.abs(target.R - was.to.R) > 0.5) {
+        this._arcs.set(kind, { from: arc, to: target, start: now });
+      }
+    }
+    rows.forEach((row, i) => {
+      const shift = live[i] ? arcShift(ys[i] - nodeY, arc) : 0;
+      const value = shift > 0.05 ? `${(-side * shift).toFixed(1)}px 0px` : "";
+      // A render may have rewritten the row's style and taken the shift with it.
+      if (this._arcWritten.get(row) === value && (value === "" || row.style.translate !== ""))
+        return;
+      row.style.translate = value;
+      this._arcWritten.set(row, value);
+      if (value) this._arcAny = true;
+    });
   }
 
   /**
@@ -1713,6 +1962,85 @@ class EnerLensCard extends LitElement {
   }
 
   /**
+   * What radial lines keep clear of (L-16): every node but the fan's own, by
+   * its radius and 14 px, and every node's label.
+   */
+  private _keepClear(own: HTMLElement, origin: DOMRect): { obstacles: Obstacle[]; boxes: Box[] } {
+    const nodes = [...this.renderRoot.querySelectorAll<HTMLElement>(".node")];
+    const obstacles = nodes
+      .filter((node) => node !== own)
+      .map((node) => {
+        const b = node.getBoundingClientRect();
+        return {
+          x: b.left + b.width / 2 - origin.left,
+          y: b.top + b.height / 2 - origin.top,
+          r: b.width / 2 + 14,
+        };
+      });
+    return { obstacles, boxes: this._labelBoxes(origin) };
+  }
+
+  /** Every node's label, which no line may cross (L-16). */
+  private _labelBoxes(origin: DOMRect): Box[] {
+    return [...this.renderRoot.querySelectorAll<HTMLElement>(".node .label")]
+      .map((label) => label.getBoundingClientRect())
+      .filter((b) => b.width > 0 && b.height > 0)
+      .map((b) => ({
+        left: b.left - origin.left,
+        top: b.top - origin.top,
+        right: b.right - origin.left,
+        bottom: b.bottom - origin.top,
+      }));
+  }
+
+  /**
+   * Below the drawing, radial lines leave the house (or PV) symbol at the
+   * point where they gather (L-13, L-16) - each on its own radius, towards
+   * its row. Undefined: the lines run from the point as before.
+   */
+  private _stackedRadial(
+    kind: "consumer" | "solar",
+    block: HTMLElement,
+    rows: { key: string; x: number; y: number }[],
+    origin: DOMRect,
+  ): Map<string, string> | undefined {
+    const icon = block.querySelector(":scope > .origin-icon") as HTMLElement | null;
+    const b = icon?.getBoundingClientRect();
+    if (!b || !b.width) return this._radialLines(kind, undefined);
+    return this._radialLines(kind, {
+      centre: { x: b.left + b.width / 2 - origin.left, y: b.top + b.height / 2 - origin.top },
+      radius: b.width / 2 + 3,
+      side: 1,
+      rows,
+      obstacles: [],
+      lead: 4,
+    });
+  }
+
+  /**
+   * A fan's radial lines (L-16), or undefined to draw it as before. Decided
+   * at rest; while rows glide a fan found clear stays radial and one that was
+   * not stays as before, so no line flips between the two mid-move.
+   */
+  private _radialLines(
+    kind: "consumer" | "solar",
+    fan: RadialFan | undefined,
+  ): Map<string, string> | undefined {
+    // An option of the card; without it every fan is drawn as before.
+    if (this._config?.flow.radial !== true || !fan) {
+      this._radialOk[kind] = false;
+      return undefined;
+    }
+    const before = this._radialOk[kind];
+    if (this._fanMoving && before !== undefined) {
+      return before ? radialFan({ ...fan, force: true }) : undefined;
+    }
+    const lines = radialFan(fan);
+    this._radialOk[kind] = lines !== undefined;
+    return lines;
+  }
+
+  /**
    * One line from the house node to each row, with dots on it (REQ P-1 style).
    *
    * Beside the cross the lines leave the house towards their rows (L-16).
@@ -1740,7 +2068,10 @@ class EnerLensCard extends LitElement {
     const size = { width: origin.width, height: origin.height };
     if (this._stacked) {
       const b = block.getBoundingClientRect();
-      this._fan.route = undefined;
+      const radial = this._stackedRadial("consumer", block, fanRows, origin);
+      this._fan.route = radial
+        ? (o, r) => radial.get((r as { key?: string }).key ?? "") ?? fanPath(o, { x: 1, y: 0 }, r)
+        : undefined;
       this._fan.update(
         fanRows,
         { x: b.left - origin.left, y: b.top + b.height / 2 - origin.top },
@@ -1750,7 +2081,20 @@ class EnerLensCard extends LitElement {
       return;
     }
     const exit = this._exit(house, fanRows, origin, 1);
-    this._fan.route = exit.dir.y !== 0 ? (o, r) => fanPath(o, exit.dir, r, exit.lead) : undefined;
+    const old =
+      exit.dir.y !== 0 ? (o: Point, r: Point) => fanPath(o, exit.dir, r, exit.lead) : undefined;
+    const radial = this._radialLines("consumer", {
+      centre: exit.centre,
+      radius: exit.radius,
+      side: 1,
+      rows: fanRows,
+      ...this._keepClear(house, origin),
+      lead: exit.lead,
+    });
+    this._fan.route = radial
+      ? (o, r) =>
+          radial.get((r as { key?: string }).key ?? "") ?? fanPath(o, exit.dir, r, exit.lead)
+      : old;
     this._fan.update(fanRows, exit.start, size, this._animationsWanted, exit.hole);
   }
 
@@ -1781,7 +2125,10 @@ class EnerLensCard extends LitElement {
     const size = { width: origin.width, height: origin.height };
     if (this._stacked) {
       const b = block.getBoundingClientRect();
-      this._solarFan.route = undefined;
+      const radial = this._stackedRadial("solar", block, fanRows, origin);
+      this._solarFan.route = radial
+        ? (o, r) => radial.get((r as { key?: string }).key ?? "") ?? fanPath(o, { x: 1, y: 0 }, r)
+        : undefined;
       this._solarFan.update(
         fanRows,
         { x: b.left - origin.left, y: b.top + b.height / 2 - origin.top },
@@ -1812,17 +2159,47 @@ class EnerLensCard extends LitElement {
     const fanEdge = h.right - origin.left + 16;
     const rowX =
       side === 1 ? Math.min(...fanRows.map((r) => r.x)) : Math.max(...fanRows.map((r) => r.x));
-    const xs = splitPoint(
-      exit.start,
-      fanRows.map((r) => r.y),
-      rowX,
+    const noGo = side === 1 ? (x: number, y: number) => x < fanEdge && y > houseY - 6 : undefined;
+    const fan = {
+      centre: exit.centre,
+      radius: exit.radius,
       side,
+      rows: fanRows,
       obstacles,
-      side === 1 ? (x, y) => x < fanEdge && y > houseY - 6 : undefined,
-      exit.dir,
-      exit.lead,
-    );
-    this._solarFan.route = (o, r) => trunkPath(o, exit.dir, xs, r, exit.lead);
+      boxes: this._labelBoxes(origin),
+      noGo,
+      lead: exit.lead,
+    };
+    // The consumers' lines are drawn first; the PV fan gives way (L-16).
+    let radial = this._radialLines("solar", { ...fan, others: this._fan?.drawnPaths() ?? [] });
+    if (!radial && !this._fanMoving && this._radialOk.consumer) {
+      // No radial PV fan beside radial consumer lines: the consumers go back
+      // to their common exit, which the PV trunk was made to pass (PV-7) -
+      // and the PV fan tries once more beside those.
+      this._radialOk.consumer = false;
+      this._fanMoving = true;
+      this._drawConsumerFan();
+      this._fanMoving = false;
+      radial = this._radialLines("solar", { ...fan, others: this._fan?.drawnPaths() ?? [] });
+    }
+    // The split point only where the trunk is drawn: it is the costly part.
+    let xs: number | undefined;
+    const trunk = (o: Point, r: Point) => {
+      xs ??= splitPoint(
+        exit.start,
+        fanRows.map((row) => row.y),
+        rowX,
+        side,
+        obstacles,
+        noGo,
+        exit.dir,
+        exit.lead,
+      );
+      return trunkPath(o, exit.dir, xs, r, exit.lead);
+    };
+    this._solarFan.route = radial
+      ? (o, r) => radial.get((r as { key?: string }).key ?? "") ?? trunk(o, r)
+      : trunk;
     this._solarFan.update(fanRows, exit.start, size, this._animationsWanted, exit.hole);
   }
 

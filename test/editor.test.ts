@@ -361,6 +361,65 @@ describe("editor - colours, icons and thresholds", () => {
     expect(off.list).toEqual({ enabled: true });
   });
 
+  it("writes the arc switch only when on, and reads it back (LZ-17)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true },
+    });
+    const on = await change(el, { list_arc: true });
+    expect(on.list).toEqual({ enabled: true, arc: true });
+    expect(form(el).data.list_arc).toBe(true);
+    const off = await change(el, { list_arc: false });
+    expect(off.list).toEqual({ enabled: true });
+  });
+
+  it("writes the radial-lines switch only when on, and reads it back (L-16)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+    });
+    expect(findField(el, "flow_radial")).toBeDefined();
+    const on = await change(el, { flow_radial: true });
+    expect(on.flow).toEqual({ radial: true });
+    expect(form(el).data.flow_radial).toBe(true);
+    const off = await change(el, { flow_radial: false });
+    expect(off.flow).toBeUndefined();
+  });
+
+  it("offers the arc switch beside the frame switch, named in both languages (LZ-17)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true },
+    });
+    const names: string[] = [];
+    const walk = (fields: Field[]) => {
+      for (const f of fields) {
+        if (f.name && !f.schema) names.push(f.name);
+        if (f.schema) walk(f.schema);
+      }
+    };
+    for (const each of forms(el)) walk(each.schema ?? []);
+    expect(findField(el, "list_arc")).toBeDefined();
+    expect(names).toContain("list_arc");
+    expect(names.indexOf("list_arc")).toBe(names.indexOf("list_frame") + 1);
+    const de = (await import("../src/translations/de.json")).default as unknown as Record<
+      string,
+      Record<string, string>
+    >;
+    const en = (await import("../src/translations/en.json")).default as unknown as Record<
+      string,
+      Record<string, string>
+    >;
+    const labels = (j: Record<string, Record<string, string>>) =>
+      Object.values(j)
+        .filter((v) => typeof v === "object" && v.list_arc !== undefined)
+        .map((v) => v.list_arc);
+    expect(labels(de)).toContain("Bogenförmige Liste");
+    expect(labels(en)).toContain("Arched list");
+  });
+
   it("writes the ring animation, and keeps it when something else changes (R-4)", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

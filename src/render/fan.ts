@@ -111,6 +111,11 @@ export class FanLayer {
     return this.dark ? this.design?.dark : this.design?.light;
   }
 
+  /** The lines as last drawn, for the other fan to keep from crossing (L-16). */
+  drawnPaths(): string[] {
+    return [...this.lines.values()].map((line) => line.d ?? "").filter((d) => d !== "");
+  }
+
   /**
    * Redraws the fan for the given rows. `origin` is where the lines start -
    * the right edge of the house node, relative to the overlay.

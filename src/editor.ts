@@ -679,6 +679,7 @@ interface FlatConfig {
   title?: string;
   layout?: string;
   flow_lines?: string;
+  flow_radial?: boolean;
   solar_source?: Source;
   solar?: string;
   solar_invert?: boolean;
@@ -710,6 +711,7 @@ interface FlatConfig {
   list_enabled?: boolean;
   list_always_below?: boolean;
   list_frame?: boolean;
+  list_arc?: boolean;
   list_solar?: boolean;
   content_max_width?: number;
   content_align?: string;
@@ -1005,6 +1007,7 @@ function toFlat(config: RawConfig): FlatConfig {
     title: config.title,
     layout: config.layout,
     flow_lines: config.flow?.lines,
+    flow_radial: config.flow?.radial === true,
     battery_soc: e.battery_soc,
     grid_status: typeof status === "string" ? status : statusRecord?.entity,
     grid_status_outage: statusRecord?.outage,
@@ -1018,6 +1021,7 @@ function toFlat(config: RawConfig): FlatConfig {
     list_enabled: config.list?.enabled,
     list_always_below: config.list?.always_below,
     list_frame: config.list?.frame === true,
+    list_arc: config.list?.arc === true,
     content_max_width: config.content?.max_width,
     content_align: config.content?.align,
     ring_enabled: config.ring?.enabled,
@@ -1273,6 +1277,7 @@ function energyReady(flat: FlatConfig): boolean {
 
 const FLOW_FIELDS = [
   "flow_lines",
+  "flow_radial",
   "inactive_lines",
   "animation",
   "design",
@@ -1538,6 +1543,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "rest_label",
             "always_below",
             "frame",
+            "arc",
             "scope",
             "default_scope",
             "solar",
@@ -1548,6 +1554,8 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
           always_below: flat.list_always_below,
           // Only an on is written (LZ-8).
           frame: flat.list_frame === true ? true : undefined,
+          // Only an on is written (LZ-17).
+          arc: flat.list_arc === true ? true : undefined,
           scope: choices(flat.scope, LIST_SCOPES),
           default_scope: offered(flat.default_scope, flat.scope, LIST_SCOPES),
         }),
@@ -1632,6 +1640,8 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
         prune({
           ...rec(previous.flow),
           lines: flat.flow_lines,
+          // Only an on is written (L-16).
+          radial: flat.flow_radial === true ? true : undefined,
           inactive_lines: flat.inactive_lines,
           animation: flat.animation,
           design: flat.design,
@@ -2075,34 +2085,8 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
        * written, the bar above it, and how often it refreshes.
        */
       schema: [
-        // Where the nodes stand and how the lines run (AN-1, AN-2, AN-6).
-        {
-          name: "layout",
-          selector: {
-            select: {
-              mode: "dropdown",
-              options: [
-                { value: "cross", label: t("layout_cross") },
-                { value: "square_right", label: t("layout_square_right") },
-                { value: "square_left", label: t("layout_square_left") },
-                { value: "triangle", label: t("layout_triangle") },
-                { value: "triangle_battery", label: t("layout_triangle_battery") },
-              ],
-            },
-          },
-        },
-        {
-          name: "flow_lines",
-          selector: {
-            select: {
-              mode: "dropdown",
-              options: [
-                { value: "curved", label: t("lines_curved") },
-                { value: "straight", label: t("lines_straight") },
-              ],
-            },
-          },
-        },
+        // The card's look and its width first, then the arrangement, so the
+        // switches below stand together (Markus 13.11.2026).
         {
           name: "appearance",
           selector: {
@@ -2141,10 +2125,40 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                 },
               },
             ]),
+        // Where the nodes stand and how the lines run (AN-1, AN-2, AN-6).
+        {
+          name: "layout",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "cross", label: t("layout_cross") },
+                { value: "square_right", label: t("layout_square_right") },
+                { value: "square_left", label: t("layout_square_left") },
+                { value: "triangle", label: t("layout_triangle") },
+                { value: "triangle_battery", label: t("layout_triangle_battery") },
+              ],
+            },
+          },
+        },
+        {
+          name: "flow_lines",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "curved", label: t("lines_curved") },
+                { value: "straight", label: t("lines_straight") },
+              ],
+            },
+          },
+        },
+        { name: "flow_radial", selector: { boolean: {} } },
         { name: "list_enabled", selector: { boolean: {} } },
         ...(sources ? [{ name: "list_solar", selector: { boolean: {} } }] : []),
         { name: "list_always_below", selector: { boolean: {} } },
         { name: "list_frame", selector: { boolean: {} } },
+        { name: "list_arc", selector: { boolean: {} } },
         { name: "ring_enabled", selector: { boolean: {} } },
         ...(sources ? [{ name: "ring_solar", selector: { boolean: {} } }] : []),
         {

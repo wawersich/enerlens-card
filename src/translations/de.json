@@ -216,6 +216,7 @@
     "layout_triangle": "Dreieck · Haus Mitte",
     "layout_triangle_battery": "Dreieck · Batterie Mitte",
     "flow_lines": "Linienform",
+    "flow_radial": "Linien radial aus dem Kreis",
     "lines_curved": "Geschwungen",
     "lines_straight": "Gerade",
     "appearance": "Erscheinungsbild der Karte",
@@ -362,6 +363,7 @@
     "value_up": "Zusatzwert nach oben",
     "value_down": "Zusatzwert nach unten",
     "list_frame": "Rahmen um Listen-Einträge",
+    "list_arc": "Bogenförmige Liste",
     "entry_frame": "Rahmen um diesen Eintrag",
     "value_place": "Zeile {line} · {side}",
     "value_left": "links, unter dem Namen",
@@ -417,6 +419,7 @@
     "grid_status_ok": "Optional. Leer gelassen gelten die eigenen Optionen der Entität ohne die Ausfall-Zustände als „Netz liegt an“; alles andere, auch unavailable, lässt den letzten Zustand stehen.",
     "layout": "Wo die vier Knoten stehen. Beim Quadrat · PV links stehen die PV-Zeilen links der Zeichnung, die Verbraucher rechts; ist die Karte dafür zu schmal, stehen beide Listen darunter. Standard: Kreuz.",
     "flow_lines": "Wie die Verbindungen zwischen den Knoten laufen. Standard: geschwungen beim Kreuz, gerade bei den anderen Anordnungen.",
+    "flow_radial": "Jede Linie zur Liste verlässt ihren Kreis auf eigenem Radius, in Richtung ihrer Zeile, und weicht anderen Kreisen und Beschriftungen aus; unter der Zeichnung kommt sie aus dem Haus-Symbol. Ausgeschaltet beginnen alle Linien an einem gemeinsamen Punkt. Standard: aus.",
     "appearance": "Zeigt diese eine Karte hell oder dunkel – unabhängig vom Theme und ohne den Rest des Dashboards zu verändern. Es legt zugleich fest, welchen der beiden Wertesätze ein Fluss-Design nimmt. „Wie das Theme“ liest den Untergrund aus; das klappt fast immer, aber nicht bei Themes ohne eigenen Kartenhintergrund. Hell und Dunkel verwenden die Standardfarben von Home Assistant, nicht die eines eigenen Themes.",
     "icon_rest": "Leer = ein schlichter Punkt.",
     "dot_color": "Leer = jeder Punkt hat die Farbe seines Flusses und zeigt damit, woher die Energie kommt. Eine Farbe hier gilt für alle Punkte der Karte; die Linien behalten ihre.",
@@ -473,7 +476,8 @@
     "rest_show": "„Immer“: Der Rest bleibt auch unter seiner Mindestleistung stehen. Ist er negativ oder fehlt der Hauswert, steht dort „—“. Er zählt nicht zur Höchstzahl der Verbraucher.",
     "values": "Werte als Text unter Name und Leistung, je zwei nebeneinander – z. B. die kWh von heute aus einem Verbrauchszähler. Die Karte rechnet nichts, sie zeigt den Zustand der Entität. „In der Liste anzeigen: immer“ hält die Zeile samt Werten auch bei 0 W sichtbar. Ohne Entität bleibt der Platz leer – so steht ein Wert gezielt unter der Leistung.",
     "entry_frame_all": "Rahmen ist für alle Listen-Einträge eingeschaltet.",
-    "list_frame": "Jede Zeile der Verbraucherliste – auch der Rest – bekommt einen abgerundeten Rahmen in ihrer Farbe, wie eine Pille. Ausgeschaltet gibt es den Rahmen auch einzeln, unter „Darstellung“ des Eintrags. Standard: aus."
+    "list_frame": "Jede Zeile der Verbraucherliste – auch der Rest – bekommt einen abgerundeten Rahmen in ihrer Farbe, wie eine Pille. Ausgeschaltet gibt es den Rahmen auch einzeln, unter „Darstellung“ des Eintrags. Standard: aus.",
+    "list_arc": "Die Zeilen stehen auf einem Bogen: neben der Zeichnung Verbraucher ums Haus und PV-Zeilen um die PV, unter der Zeichnung um den Punkt, an dem sich die Linien sammeln. Standard: aus."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

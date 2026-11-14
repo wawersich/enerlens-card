@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   entries*) puts each consumer row and the rest in a rounded frame of its
   colour, like a pill. `frame: true` on a consumer or the rest (editor:
   *Frame around this entry*) frames just that entry, e.g. a pinned one.
+- **Radial lines to the list:** `flow.radial` (editor: *Radial lines from
+  the circle*) lets each line beside the drawing leave its circle on its own
+  radius, towards its row, instead of all from one point; the PV lines then
+  share no trunk. A line that would pass another circle or a label turns
+  towards the list until it is clear, and no two lines cross. Where that
+  cannot be had, the fan is drawn as without the option.
+- **Arched list:** `list.arc` (editor: *Arched list*) stands the rows beside
+  the drawing on an arc - the consumers around the house, the PV rows around
+  PV. The row level with its circle stays out, the others move in towards
+  the drawing, by at most half the free room. Below the drawing they stand
+  around the point where the lines gather.
 
 ### Changed
 - **Energy mode: extra values stay.** The indicators of a consumer and of the

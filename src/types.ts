@@ -335,6 +335,8 @@ export interface RawConfig extends LovelaceCardConfig {
     always_below?: boolean;
     /** A frame around each row (LZ-8). */
     frame?: boolean;
+    /** Rows beside the drawing on an arc around their node (LZ-17). */
+    arc?: boolean;
     /** The PV rows (REQ PV-7). */
     solar?: boolean;
     /** The list scopes the quick button offers; one = fixed (REQ QB-2). */
@@ -377,6 +379,8 @@ export interface RawConfig extends LovelaceCardConfig {
   flow?: {
     /** Curved or straight lines (AN-2); the default depends on the arrangement. */
     lines?: LineForm;
+    /** Lines to the list leave their circle each on its own radius (L-16). */
+    radial?: boolean;
     min_w?: number;
     /** One knob for the whole step rule: the power at which the animation peaks.
      *  The three thresholds default to peak/12, peak/3 and peak (REQ P-3). */
@@ -620,6 +624,8 @@ export interface Config {
     alwaysBelow: boolean;
     /** A frame around each row of consumers and rest (LZ-8). */
     frame: boolean;
+    /** Rows beside the drawing on an arc around their node (LZ-17). */
+    arc: boolean;
     /** The PV rows (REQ PV-7). */
     solar: boolean;
     /** Offered scopes in their fixed order, never empty (REQ QB-2). */
@@ -672,6 +678,8 @@ export interface Config {
     batteryTask: BatteryTask;
     /** Curved or straight, by default after the arrangement (AN-2). */
     lines: LineForm;
+    /** Lines to the list leave their circle each on its own radius (L-16). */
+    radial: boolean;
     /**
      * One colour for every dot on the card, whatever the connection (P-13).
      * Unset - and that is the default - a dot carries the colour of the flow
