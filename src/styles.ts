@@ -181,8 +181,9 @@ export const styles = css`
   }
 
   .fan-line {
-    /* 2 px at full node size, like the connections (K-12, sizing.ts). */
-    stroke-width: calc(2px * var(--el-line-k, 1));
+    /* 2 px at full node size, like the connections (K-12, sizing.ts); the
+       fan's own factor holds a scaled ancestor too, see _layer(). */
+    stroke-width: calc(2px * var(--el-fan-k, var(--el-line-k, 1)));
     /* --el-fade: a row still fading in brings its line along. */
     opacity: calc(0.45 * var(--el-fade, 1));
     fill: none;

@@ -355,7 +355,11 @@ function lineWidths(root) {
   const fan = root.querySelector("path.fan-line");
   if (!link || !fan || !s) return { error: "keine Linien" };
   const width = (el) => parseFloat(getComputedStyle(el).strokeWidth);
-  const off = Math.max(Math.abs(width(link) * s - 3 * k), Math.abs(width(fan) - 2 * k));
+  // The fan is drawn in screen pixels: under a scaled ancestor its line
+  // shrinks with the card, as the cross's does (K-16, 14.11.2026).
+  const body = root.querySelector(".body");
+  const ratio = body.offsetWidth ? body.getBoundingClientRect().width / body.offsetWidth : 1;
+  const off = Math.max(Math.abs(width(link) * s - 3 * k), Math.abs(width(fan) - 2 * k * ratio));
   return { off: +off.toFixed(3) };
 }
 
@@ -644,6 +648,33 @@ function arcRows(root) {
   return found;
 }
 
+/**
+ * Every line of the cross runs on under the circles it joins (K-16): each end
+ * lies inside its node's circle - measured on the geometry, not on the
+ * picture, so a gap below the picture's threshold counts too. A scaled
+ * ancestor made the circles too small once (14.11.2026).
+ */
+function lineEnds(root) {
+  const svg = root.querySelector(".plot svg");
+  if (!svg) return [];
+  const nodes = [...root.querySelectorAll(".node")].map((n) => {
+    const b = n.getBoundingClientRect();
+    const key = [...n.classList].find((c) => ["solar", "grid", "house", "battery"].includes(c));
+    return { key, x: b.left + b.width / 2, y: b.top + b.height / 2, r: b.width / 2 };
+  });
+  const found = [];
+  for (const path of svg.querySelectorAll("path.link")) {
+    const [a, , b] = pathPoints(svg, path, 2);
+    for (const end of [a, b]) {
+      const near = nodes
+        .map((n) => ({ n, d: Math.hypot(end.x - n.x, end.y - n.y) }))
+        .sort((p, q) => p.d - q.d)[0];
+      if (near && near.d > near.n.r) found.push(`${near.n.key}: Linie endet ${(near.d - near.n.r).toFixed(1)} px vor dem Kreis`);
+    }
+  }
+  return found;
+}
+
 window.check = () => {
   const root = card.shadowRoot;
   // Dots stop where they are told: no animation may move them while measured.
@@ -667,6 +698,7 @@ window.check = () => {
     mixed: mixedRows(root),
     radial: radialLines(root),
     arc: arcRows(root),
+    ends: lineEnds(root),
   };
   result.rims = rims(root);
   // Cut out only where the circles let the lines show (K-16).

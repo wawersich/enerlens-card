@@ -484,6 +484,7 @@ function problems(m, lines) {
   if (m.mixed?.length) found.push(`Rahmen je Eintrag: ${[...new Set(m.mixed)].join(", ")}`);
   if (m.radial?.length) found.push(`Radiale Linien: ${[...new Set(m.radial)].join(", ")}`);
   if (m.arc?.length) found.push(`Bogenförmige Liste: ${[...new Set(m.arc)].join(", ")}`);
+  if (m.ends?.length) found.push(`Linienenden: ${[...new Set(m.ends)].join(", ")}`);
   if (m.circles?.length) found.push(`Kreise: ${m.circles.join(", ")}`);
   // Opaque circles are drawn as before K-16, transparent ones are cut out.
   if (m.rims && m.clipped !== m.clear) {

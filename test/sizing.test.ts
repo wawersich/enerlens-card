@@ -158,8 +158,10 @@ describe("the layers draw at the factor they are given (K-12)", () => {
     expect(rule(/\.link\s*\{[^}]*\}/)).toContain(
       "stroke-width: calc(3px * var(--el-line-k, 1) / var(--el-scale, 1))",
     );
+    // The fan's own factor is the same one, times the screen ratio under a
+    // scaled ancestor (K-16, 14.11.2026); without one it falls back to it.
     expect(rule(/\.fan-line\s*\{[^}]*\}/)).toContain(
-      "stroke-width: calc(2px * var(--el-line-k, 1))",
+      "stroke-width: calc(2px * var(--el-fan-k, var(--el-line-k, 1)))",
     );
   });
 });

@@ -44,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Editor:** *Ring* and *Fill* of the indicators are now called *Icon ring*
   and *Icon fill*.
 
+### Fixed
+- **No gap between line and circle in a scaled card.** Inside something that
+  scales the card down - a dialog as it opens, card-mod - the circles came
+  out too small and the lines ended a little short of them. The card now
+  sizes its drawing by its own width; circles, lines and dots shrink with it.
+
 ## [1.5.2] - 2026-11-06
 
 ### Changed

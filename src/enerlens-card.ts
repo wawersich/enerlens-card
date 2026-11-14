@@ -1411,16 +1411,29 @@ class EnerLensCard extends LitElement {
   }
 
   /**
-   * Line widths, dot sizes and font sizes are meant in screen pixels and are
-   * divided by this scale to survive resizing. It has to come from the drawing
-   * itself: with the list beside the cross the SVG is only about half the
-   * card's width, and measuring the card would leave lines and dots too thin.
+   * The drawing's width in the card's own CSS pixels (K-12, K-16): the
+   * circles are sized from it in CSS pixels, the lines end at a fixed radius
+   * of the viewBox. Measured on screen, a scaled ancestor - a dialog opening,
+   * card-mod - shrank the circles but not the lines, and a gap opened between
+   * them. The screen box only where there is no layout (tests).
    */
-  /** Returns true when the measurement moved the layout, so the caller knows
-   *  the picture is not settled yet. */
+  private _plotWidth(plot: HTMLElement | null): number {
+    if (!plot) return 0;
+    const own = Number.parseFloat(getComputedStyle(plot).width);
+    return Number.isFinite(own) && own > 0 ? own : plot.getBoundingClientRect().width;
+  }
+
+  /**
+   * Line widths, dot sizes and font sizes are meant in the card's CSS pixels
+   * and are divided by this scale to survive resizing. It has to come from
+   * the drawing itself: with the list beside the cross the SVG is only about
+   * half the card's width, and measuring the card would leave lines and dots
+   * too thin. Returns true when the measurement moved the layout, so the
+   * caller knows the picture is not settled yet.
+   */
   private _measure(): boolean {
     const plot = this.renderRoot?.querySelector(".plot") as HTMLElement | null;
-    const width = plot?.getBoundingClientRect().width ?? 0;
+    const width = this._plotWidth(plot);
     if (width > 0) {
       const scale = width / VIEW_W;
       this._plotScale = scale;
@@ -1915,10 +1928,24 @@ class EnerLensCard extends LitElement {
     layer.setDesign(flowDesign(config.flow.design), groundIsDark(this, config.appearance));
     layer.setDotColor(config.flow.dotColor);
     // The base size of the connection dots and the colour mark, grown with
-    // the card like the cross (K-12).
+    // the card like the cross (K-12). The fans are drawn in screen pixels:
+    // under a scaled ancestor their lines and dots shrink with it, as the
+    // cross's do (K-16, 14.11.2026).
+    const ratio = this._screenRatio();
+    const sizes = sizeFactors(this._plotScale, config.flow);
     layer.setDotRadius(5);
-    layer.setDotScale(sizeFactors(this._plotScale, config.flow).dot);
+    layer.setDotScale(sizes.dot * ratio);
+    const fanK = (sizes.line * ratio).toFixed(4);
+    if (this.style.getPropertyValue("--el-fan-k") !== fanK)
+      this.style.setProperty("--el-fan-k", fanK);
     return layer;
+  }
+
+  /** Screen pixels per CSS pixel of the card: below 1 under a scaled ancestor. */
+  private _screenRatio(): number {
+    const body = this.renderRoot?.querySelector(".body") as HTMLElement | null;
+    const width = body?.getBoundingClientRect().width ?? 0;
+    return body && body.offsetWidth > 0 && width > 0 ? width / body.offsetWidth : 1;
   }
 
   /**
@@ -1957,7 +1984,8 @@ class EnerLensCard extends LitElement {
       ? { x: centre.x, y: centre.y, r: radius - border * scale }
       : undefined;
     // The straight piece out of the circle grows with the lines (K-12).
-    const lead = 10 * sizeFactors(this._plotScale, (this._config as Config).flow).line;
+    const lead =
+      10 * sizeFactors(this._plotScale, (this._config as Config).flow).line * this._screenRatio();
     return { centre, dir, start, hole, lead, radius };
   }
 
@@ -2288,7 +2316,7 @@ class EnerLensCard extends LitElement {
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
     const plot = this.renderRoot.querySelector(".plot") as HTMLElement | null;
-    const width = plot?.getBoundingClientRect().width ?? 0;
+    const width = this._plotWidth(plot);
     const design = flowDesign(this._config.flow.design);
     this._warnUnknownDesign(design !== undefined);
     const dark = groundIsDark(this, this._config.appearance);
