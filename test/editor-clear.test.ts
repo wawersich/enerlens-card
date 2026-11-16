@@ -245,7 +245,11 @@ describe("editor: clearing fields never yields an invalid configuration (REQ E-1
         } as unknown as RawConfig);
         const data = (el.shadowRoot?.querySelector("ha-form") as Form).data;
         expect(data[`${quantity}_source`], `${quantity}: ${empty}`).toBe(
-          quantity === "house" ? "derived" : quantity === "battery" ? "none" : "entity",
+          quantity === "house"
+            ? "derived"
+            : quantity === "solar" || quantity === "battery"
+              ? "none"
+              : "entity",
         );
         el.remove();
       }

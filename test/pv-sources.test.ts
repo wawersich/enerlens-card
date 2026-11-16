@@ -110,10 +110,10 @@ describe("PV-1: entities.solar as a list", () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it("an empty list is no PV: the card says what is missing", () => {
-    expect(() => normalizeConfig(raw([]))).toThrow("error.config.missing_entities");
+  it("an empty list is no PV", () => {
+    expect(normalizeConfig(raw([])).sources.solar).toEqual({ kind: "absent" });
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(() => normalizeConfig(raw([{ entity: "" }]))).toThrow("error.config.missing_entities");
+    expect(normalizeConfig(raw([{ entity: "" }])).sources.solar).toEqual({ kind: "absent" });
   });
 
   it("derived exists only in the single form", () => {

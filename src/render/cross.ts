@@ -403,24 +403,26 @@ export function buildNodeViews(
 ): NodeView[] {
   const views: NodeView[] = [];
 
-  views.push({
-    key: "solar",
-    icon: config.icons.solar ?? DEFAULT_ICONS.solar,
-    color: model.solar.available && model.solar.w > 0 ? config.colors.solar : "var(--el-line)",
-    label: localize("node.solar", hass),
-    derived: model.solar.derived,
-    value: readingValue(model.solar, hass, config),
-    available: model.solar.available,
-    // Several sources: no one entity behind the sum, the window instead; a
-    // list of one is that source (PV-10, DF-13).
-    entity: model.solar.derived
-      ? undefined
-      : (model.solar.entity ??
-        (config.solarSources.length === 1 ? config.solarSources[0].entity : undefined)),
-    // Every node with something measured behind it opens the window (DF-20).
-    detail: model.solar.derived ? undefined : "solar",
-    partial: partialNote(model.solar.missing, config, hass),
-  });
+  if (config.sources.solar.kind !== "absent") {
+    views.push({
+      key: "solar",
+      icon: config.icons.solar ?? DEFAULT_ICONS.solar,
+      color: model.solar.available && model.solar.w > 0 ? config.colors.solar : "var(--el-line)",
+      label: localize("node.solar", hass),
+      derived: model.solar.derived,
+      value: readingValue(model.solar, hass, config),
+      available: model.solar.available,
+      // Several sources: no one entity behind the sum, the window instead; a
+      // list of one is that source (PV-10, DF-13).
+      entity: model.solar.derived
+        ? undefined
+        : (model.solar.entity ??
+          (config.solarSources.length === 1 ? config.solarSources[0].entity : undefined)),
+      // Every node with something measured behind it opens the window (DF-20).
+      detail: model.solar.derived ? undefined : "solar",
+      partial: partialNote(model.solar.missing, config, hass),
+    });
+  }
 
   const grid = model.grid;
   const gridDirection = direction(grid, config.flow.minW);
@@ -709,6 +711,10 @@ export function renderCross(
   const withBattery = model.battery
     ? DRAWN_CONNECTIONS
     : DRAWN_CONNECTIONS.filter((id) => !BATTERY_LINKS.has(id));
+  const withSolar =
+    config.sources.solar.kind === "absent"
+      ? withBattery.filter((id) => !id.startsWith("solar_"))
+      : withBattery;
   // Battery -> grid runs on the grid-battery line (#27): either direction
   // colours it, and it counts as carrying something.
   const colourOf = (id: string) =>
@@ -718,8 +724,8 @@ export function renderCross(
   // their positions either way - the cross must not change shape with the data.
   const drawn =
     config.flow.inactiveLines === "hide"
-      ? withBattery.filter((id) => colourOf(id) !== undefined)
-      : withBattery;
+      ? withSolar.filter((id) => colourOf(id) !== undefined)
+      : withSolar;
   /*
    * Lines that carry something are drawn last, so they lie on top.
    *

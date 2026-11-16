@@ -7,7 +7,7 @@
 |Option |Default |Meaning
 |`title` |— |Card heading
 |`layout` |`cross` |Arrangement of the nodes: `cross`, `square_right` (square · solar right), `square_left` (square · solar left), `triangle` (triangle · house centre), `triangle_battery` (triangle · battery centre) — see _Arrangements_
-|`entities.solar` |required |PV power, W or kW: one entity or a list of sources `++{++entity, name, kwp, icon, color, invert, house}` — see _Balcony solar and more PV_
+|`entities.solar` |— |Optional PV power, W or kW: one entity, a list of sources `++{++entity, name, kwp, icon, color, invert, house}`, or `none`; when absent, the PV node, flows, ring, list and PV scale are hidden — see _Balcony solar and more PV_
 |`entities.grid` |required |Grid power, signed
 |`entities.house` |derived |House consumption
 |`entities.battery` |— |Battery power, signed

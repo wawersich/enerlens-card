@@ -57,25 +57,6 @@ const SPLIT_GRID = { import: "sensor.gi", export: "sensor.ge" };
 
 describe("a step the card would refuse is not written (E-1, 29.10.2026)", () => {
   const cases: [string, Record<string, unknown>, Record<string, unknown>, RegExp][] = [
-    [
-      "PV sources -> one entity",
-      { solar: SOURCES, grid: "sensor.g", house: "sensor.h" },
-      { solar_source: "entity" },
-      /PV/,
-    ],
-    ["PV entity cleared", { solar: "sensor.s", grid: "sensor.g" }, { solar: "" }, /PV/],
-    [
-      "PV entity -> sources without a row",
-      { solar: "sensor.s", grid: "sensor.g" },
-      { solar_source: "sources", solar_sources: [] },
-      /PV/,
-    ],
-    [
-      "PV derived -> entity",
-      { solar: "derived", grid: "sensor.g", house: "sensor.h" },
-      { solar_source: "entity" },
-      /PV/,
-    ],
     ["grid entity cleared", { solar: "sensor.s", grid: "sensor.g" }, { grid: "" }, /Netz/],
     [
       "grid -> split, one side only",

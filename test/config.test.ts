@@ -57,12 +57,10 @@ describe("entities section (E-1)", () => {
     );
   });
 
-  it("requires solar (G-2, A-1)", () => {
-    expectError(
-      () => normalizeConfig(withEntities({ grid: "sensor.grid", house: "sensor.house" })),
-      "error.config.missing_entities",
-      "entities.solar",
-    );
+  it("allows solar to be absent", () => {
+    const config = normalizeConfig(withEntities({ grid: "sensor.grid", house: "sensor.house" }));
+    expect(config.sources.solar).toEqual({ kind: "absent" });
+    expect(config.solarSources).toEqual([]);
   });
 
   it("requires grid (G-2, A-1)", () => {
@@ -121,6 +119,12 @@ describe("entity reference forms (E-2)", () => {
     expect(config.sources.solar).toEqual({ kind: "derived" });
   });
 
+  it("accepts the keyword none as an absent solar source", () => {
+    const config = normalizeConfig(withEntities({ ...ENTITIES, solar: "none" }));
+    expect(config.sources.solar).toEqual({ kind: "absent" });
+    expect(config.solarSources).toEqual([]);
+  });
+
   it("treats a missing battery as absent, not derived (A-5)", () => {
     const config = normalizeConfig(cfg());
     expect(config.sources.battery).toEqual({ kind: "absent" });
@@ -173,12 +177,9 @@ describe("entity reference forms (E-2)", () => {
     );
   });
 
-  it("rejects an empty entity string as missing (E-1, issue #15)", () => {
-    expectError(
-      () => normalizeConfig(withEntities({ ...ENTITIES, solar: "" })),
-      "error.config.missing_entities",
-      "entities.solar",
-    );
+  it("treats an empty solar entity string as absent", () => {
+    const config = normalizeConfig(withEntities({ ...ENTITIES, solar: "" }));
+    expect(config.sources.solar).toEqual({ kind: "absent" });
   });
 
   it("rejects a value that is neither string nor object (E-1)", () => {
