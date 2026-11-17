@@ -532,12 +532,12 @@ type Quantity = (typeof QUANTITIES)[number];
 /** The four nodes plus the rest row, which has an icon but no entity. */
 const ICON_KEYS = [...QUANTITIES, "rest"] as const;
 
-/** How a quantity gets its value. "none" exists only for the battery (REQ A-5),
- *  "sources" only for the PV (PV-1). */
+/** How a quantity gets its value. "none" is supported for battery and solar;
+ *  "sources" is the multi-PV form (PV-1). */
 type Source = "entity" | "split" | "derived" | "none" | "sources";
 
 const SOURCES: Record<Quantity, Source[]> = {
-  solar: ["entity", "sources", "derived"],
+  solar: ["none", "entity", "sources", "derived"],
   grid: ["entity", "split", "derived"],
   house: ["entity", "derived"],
   battery: ["none", "entity", "split", "derived"],
@@ -678,7 +678,7 @@ const DOT_COLOR_SEED = "var(--primary-text-color)";
 // ---------------------------------------------------------------------------
 
 /** Which source a YAML entry represents. Absent means "derived" for the house
- *  (REQ A-1), "none" for the battery (A-5) and an empty entity picker otherwise.
+ *  (REQ A-1), "none" for solar/battery and an empty entity picker otherwise.
  *  A YAML key left empty (null, "") is absent too, as for the card (issue #15). */
 const isAbsent = (ref: EntityRef | null | undefined): ref is undefined =>
   ref === undefined || ref === null || (typeof ref === "string" && ref.trim() === "");
@@ -693,7 +693,11 @@ function sourceOf(quantity: Quantity, ref: EntityRef | undefined): Source {
   // Absent - or something hand-typed the form cannot show (false, 5, a
   // misspelt key): the empty choice, and fromFlat keeps the YAML as it is
   // until this quantity is edited (issue #19).
-  return quantity === "house" ? "derived" : quantity === "battery" ? "none" : "entity";
+  return quantity === "house"
+    ? "derived"
+    : quantity === "solar" || quantity === "battery"
+      ? "none"
+      : "entity";
 }
 
 function flattenQuantity(quantity: Quantity, ref: EntityRef | undefined, out: FlatRecord): void {
@@ -957,6 +961,13 @@ function incompleteOf(flat: FlatRecord, hass?: HomeAssistant): string | undefine
     return localize("editor.incomplete", hass, { name: localize(`node.${quantity}`, hass) });
   }
   return undefined;
+}
+
+function incompleteSolarOf(flat: FlatRecord, hass?: HomeAssistant): string | undefined {
+  const source = flat.solar_source as Source | undefined;
+  if (source !== "entity" && source !== "split" && source !== "sources") return undefined;
+  if (buildRef("solar", flat) !== undefined) return undefined;
+  return localize("editor.incomplete", hass, { name: localize("node.solar", hass) });
 }
 
 /**
@@ -1541,7 +1552,13 @@ function quantitySchema(
     .filter((s) => s !== "derived" || !derivedElsewhere || source === "derived")
     .map((s) => ({
       value: s,
-      label: t(s === "split" ? `source_split_${quantity}` : `source_${s}`),
+      label: t(
+        s === "split"
+          ? `source_split_${quantity}`
+          : s === "none" && quantity === "solar"
+            ? "source_none_solar"
+            : `source_${s}`,
+      ),
     }));
 
   const fields: unknown[] = [
@@ -2579,7 +2596,15 @@ class EnerLensCardEditor extends LitElement {
         this._validFor = this._config;
         this._wasValid = refuses(this._config, this.hass) === undefined;
       }
-      if (this._wasValid) normalizeConfig(config, this.hass, []);
+      if (this._wasValid) {
+        const incomplete = incompleteSolarOf(flat as FlatRecord, this.hass);
+        if (incomplete) {
+          this._held = incomplete;
+          this.requestUpdate();
+          return;
+        }
+        normalizeConfig(config, this.hass, []);
+      }
       this._held = undefined;
     } catch (error) {
       this._held =

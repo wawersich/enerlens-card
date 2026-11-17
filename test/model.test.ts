@@ -421,6 +421,16 @@ describe("derivation (REQ 4.3, A-2)", () => {
     expect(available(model.house).w).toBe(1500);
     expect(model.house.derived).toBe(true);
   });
+
+  it("treats an absent solar source as zero when deriving the house value", () => {
+    const model = buildModel(
+      hassOf(entity("sensor.grid", "500")),
+      configOf({ solar: { kind: "absent" }, house: { kind: "derived" } }),
+    );
+    expect(model.solar.available).toBe(false);
+    expect(available(model.house).w).toBe(500);
+    expect(model.house.derived).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

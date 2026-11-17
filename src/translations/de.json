@@ -160,6 +160,7 @@
     "source_split_battery": "Zwei Entitäten (Entladen / Laden)",
     "source_derived": "Abgeleitet aus den anderen Größen",
     "source_none": "Keine Batterie",
+    "source_none_solar": "Keine PV",
     "grid_import": "Bezug",
     "grid_export": "Einspeisung",
     "battery_discharge": "Entladen",

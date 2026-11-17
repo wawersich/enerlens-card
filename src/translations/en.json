@@ -160,6 +160,7 @@
     "source_split_battery": "Two entities (discharge / charge)",
     "source_derived": "Derived from the other quantities",
     "source_none": "No battery",
+    "source_none_solar": "No solar",
     "grid_import": "Import",
     "grid_export": "Export",
     "battery_discharge": "Discharge",

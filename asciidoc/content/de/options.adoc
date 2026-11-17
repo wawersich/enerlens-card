@@ -7,7 +7,7 @@
 |Option |Standard |Bedeutung
 |`title` |— |Überschrift der Karte
 |`layout` |`cross` |Anordnung der Knoten: `cross` (Kreuz), `square_right` (Quadrat · PV rechts), `square_left` (Quadrat · PV links), `triangle` (Dreieck · Haus Mitte), `triangle_battery` (Dreieck · Batterie Mitte) — siehe _Anordnungen_
-|`entities.solar` |Pflicht |PV-Leistung, W oder kW: eine Entität oder eine Liste von Quellen `++{++entity, name, kwp, icon, color, invert, house}` — siehe _Balkonkraftwerk und weitere PV_
+|`entities.solar` |— |Optionale PV-Leistung, W oder kW: eine Entität, eine Liste von Quellen `++{++entity, name, kwp, icon, color, invert, house}` oder `none`; ohne PV werden PV-Knoten, Flüsse, Ring, Liste und PV-Skala ausgeblendet — siehe _Balkonkraftwerk und weitere PV_
 |`entities.grid` |Pflicht |Netzleistung, signiert
 |`entities.house` |abgeleitet |Hausverbrauch
 |`entities.battery` |— |Batterieleistung, signiert

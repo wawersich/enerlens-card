@@ -560,6 +560,7 @@ function parseSource(
 
   if (typeof value === "string") {
     if (value === "derived") return { kind: "derived" };
+    if (value === "none") return { kind: "absent" };
     return { kind: "single", entity: value, invert: false };
   }
 
@@ -1495,7 +1496,8 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
   // A missing house is derived silently - the most common setup (REQ A-1).
   const house: SourceSpec = parsedHouse.kind === "absent" ? { kind: "derived" } : parsedHouse;
 
-  requireConfigured(solar, "entities.solar", hass);
+  // Solar is optional: an installation may have no PV at all. Grid remains
+  // mandatory because it is the one anchor of the card (PV-11).
   requireConfigured(grid, "entities.grid", hass);
 
   // An absent battery is not derived, it simply does not exist (REQ A-5).

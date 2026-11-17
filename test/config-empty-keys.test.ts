@@ -42,7 +42,7 @@ const DOCUMENTED: readonly string[] = (() => {
 })();
 
 /** Documented, but not a key of its own to leave empty here. */
-const NOT_EMPTIABLE = new Set(["entities.solar", "entities.grid"]);
+const NOT_EMPTIABLE = new Set(["entities.grid"]);
 
 /*
  * Every optional top-level key comes from the card's own list, every key
@@ -111,7 +111,7 @@ describe("an empty key is a missing key (E-1, issue #15)", () => {
     }
   }
 
-  for (const required of ["solar", "grid"]) {
+  for (const required of ["grid"]) {
     for (const empty of [null, "", "  "]) {
       it(`a required entity left empty stays an error: ${required}: ${JSON.stringify(empty)}`, () => {
         expect(() => normalizeConfig(withKey(["entities", required], empty))).toThrow(

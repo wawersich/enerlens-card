@@ -1749,6 +1749,12 @@ class EnerLensCard extends LitElement {
     this._fan.update(fanRows, exit.start, size, this._animationsWanted, exit.hole);
   }
 
+  private _clearSolarAnimation(): void {
+    this._solarFan?.destroy();
+    this._solarFan = undefined;
+    this._solarRing.stop();
+  }
+
   /**
    * The PV fan (PV-7): from each PV row into the PV node, dots running in.
    * Beside the drawing the lines leave the node together and part at one
@@ -1758,7 +1764,10 @@ class EnerLensCard extends LitElement {
    */
   private _drawSolarFan(): void {
     const svg = this.renderRoot?.querySelector("svg.pv-fan") as SVGSVGElement | null;
-    if (!svg || !this._config) return;
+    if (!svg || !this._config) {
+      this._clearSolarAnimation();
+      return;
+    }
     this._solarFan = this._layer(this._solarFan, svg);
     this._solarFan.reverse = true;
     const body = this.renderRoot.querySelector(".body") as HTMLElement | null;
@@ -1902,6 +1911,7 @@ class EnerLensCard extends LitElement {
     this._ring.update(nodeOf("house") ?? this.renderRoot, ringMoves, this._nodePx);
     const solarNode = nodeOf("solar");
     if (solarNode) this._solarRing.update(solarNode, ringMoves, this._nodePx);
+    else this._clearSolarAnimation();
     if (!this._hass || !this._config) return;
     const group = this.renderRoot.querySelector("g.dots") as SVGGElement | null;
     if (!group) return;
@@ -2064,7 +2074,7 @@ class EnerLensCard extends LitElement {
     const solarApart = this._splitsLists() && !this._stacked;
     // The PV ring: its order from the tick like the rows, its figures live (L-7).
     const solarRing =
-      shown.view.pvScales.length > 0
+      shown.sources.solar.kind !== "absent" && shown.view.pvScales.length > 0
         ? {
             segments: solarSegments(
               model,
@@ -2117,7 +2127,7 @@ class EnerLensCard extends LitElement {
             style=${labelRoom(this._config, model.battery !== null)}
           >
             <svg class="fan" aria-hidden="true"></svg>
-            <svg class="fan pv-fan" aria-hidden="true"></svg>
+            ${shown.sources.solar.kind !== "absent" ? html`<svg class="fan pv-fan" aria-hidden="true"></svg>` : nothing}
             ${solarApart ? renderSolarSide(breakdown, shown, this._hass, openEntry, solarRows) : nothing}
             ${renderCross(
               model,

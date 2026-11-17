@@ -56,6 +56,18 @@ function save(el: Editor, patch: Record<string, unknown>): Record<string, unknow
   return saved;
 }
 
+function trySave(el: Editor, patch: Record<string, unknown>): Record<string, unknown> | undefined {
+  const editor = el as unknown as Inner;
+  let saved: Record<string, unknown> | undefined;
+  const listener = (ev: Event) => {
+    saved = (ev as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
+  };
+  el.addEventListener("config-changed", listener);
+  editor._emit({ ...editor._flat, ...patch });
+  el.removeEventListener("config-changed", listener);
+  return saved;
+}
+
 beforeAll(async () => {
   await import("../src/editor");
 });
@@ -109,14 +121,18 @@ describe("PV sources in the editor (PV-9)", () => {
     expect((saved.entities as Record<string, unknown>).solar).toBe("sensor.roof");
   });
 
-  it("switching from one entity to several starts the list empty and writes nothing yet", async () => {
+  it("holds an incomplete source list until a valid row is entered", async () => {
     const el = await mount({ entities: { solar: "sensor.pv", grid: "sensor.grid" } });
-    // Nothing at all since 29.10.2026: without PV the card would refuse the
-    // configuration, so the list is held in the form until a row is filled (E-1).
-    expect(() => save(el, { solar_source: "sources", solar_sources: [{}] })).toThrow(
-      "no config-changed",
-    );
+    expect(trySave(el, { solar_source: "sources", solar_sources: [{}] })).toBeUndefined();
+    await el.updateComplete;
     expect((el as unknown as Inner)._flat.solar_sources).toEqual([{}]);
+    expect(el.shadowRoot?.querySelector(".held-note")?.textContent).toMatch(/Solar/);
+  });
+
+  it("allows an explicit none choice to remove PV", async () => {
+    const el = await mount({ entities: { solar: "sensor.pv", grid: "sensor.grid" } });
+    const saved = save(el, { solar_source: "none" });
+    expect((saved.entities as Record<string, unknown>).solar).toBeUndefined();
   });
 });
 

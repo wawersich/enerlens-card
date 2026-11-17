@@ -306,7 +306,7 @@ export function buildModelFrom(
   // in the balance (REQ A-5).
   // `measure` already yields null for a derived quantity, so these are exactly
   // the measured inputs.
-  const solarIn = solarMeasured?.net ?? null;
+  const solarIn = solarSpec.kind === "absent" ? 0 : (solarMeasured?.net ?? null);
   const gridIn = gridMeasured?.net ?? null;
   const houseIn = houseMeasured?.net ?? null;
   const batteryIn = batteryIsAbsent ? 0 : (batteryMeasured?.net ?? null);
