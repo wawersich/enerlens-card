@@ -963,6 +963,13 @@ function incompleteOf(flat: FlatRecord, hass?: HomeAssistant): string | undefine
   return undefined;
 }
 
+function incompleteSolarOf(flat: FlatRecord, hass?: HomeAssistant): string | undefined {
+  const source = flat.solar_source as Source | undefined;
+  if (source !== "entity" && source !== "split" && source !== "sources") return undefined;
+  if (buildRef("solar", flat) !== undefined) return undefined;
+  return localize("editor.incomplete", hass, { name: localize("node.solar", hass) });
+}
+
 /**
  * The YAML entry for one quantity. Returns undefined while the chosen source
  * is not filled in yet - a half-configured split stays in the form state, not
@@ -2589,7 +2596,15 @@ class EnerLensCardEditor extends LitElement {
         this._validFor = this._config;
         this._wasValid = refuses(this._config, this.hass) === undefined;
       }
-      if (this._wasValid) normalizeConfig(config, this.hass, []);
+      if (this._wasValid) {
+        const incomplete = incompleteSolarOf(flat as FlatRecord, this.hass);
+        if (incomplete) {
+          this._held = incomplete;
+          this.requestUpdate();
+          return;
+        }
+        normalizeConfig(config, this.hass, []);
+      }
       this._held = undefined;
     } catch (error) {
       this._held =
