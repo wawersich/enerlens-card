@@ -27,6 +27,10 @@
 |`list.always_below` |`false` |Keep the lists under the drawing even when there is room beside them
 |`list.frame` |`false` |Each row of the consumer list and the rest in a rounded frame of its colour (pill); single entries with `frame: true` on the entry. See _Extra values at the consumers_
 |`list.arc` |`false` |Arched list: beside the drawing the rows stand on an arc - consumers around the house, PV rows around PV. The row level with its circle stays out, the others move in towards the drawing, by at most half the free room; names and values then no longer stand in line. Below the drawing the rows stand on an arc around the point where the lines gather
+|`list.history.consumers` |`false` |History line in each consumer row and the rest: roughly the power of the last hours, from Home Assistant's five-minute statistics. None in the energy mode, its room stays
+|`list.history.solar` |`false` |The same for the PV rows
+|`list.history.place` |`auto` |Where the line stands: `auto` (next to the power where there is room, otherwise below the row), `inline` (next to the power), `below` (below the row)
+|`list.history.hours` |`12` |How far the line reaches back: `3`, `6`, `12` or `24` hours
 |`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
 |`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house

@@ -149,6 +149,26 @@ einer Zeile ohne Rahmen hat dieselbe Form, nur ohne Linie.
 Die Zeilen können auch auf einem Bogen um das Haus stehen (`list.arc`), und die
 Linien radial aus dem Kreis kommen (`flow.radial`) – siehe _Anordnungen_.
 
+*Verlaufslinie:* Mit `list.history.consumers: true` (im Editor unter _Darstellung_
+_Verlaufslinie bei Verbrauchern_) zeigt jede Verbraucher-Zeile – auch der Rest –
+eine kleine Linie mit dem ungefähren Leistungsverlauf der letzten 12 Stunden,
+jede auf ihrer eigenen Skala: Man sieht, *wann* etwas lief; wie viel, steht in der
+Zahl. Die Daten kommen aus der 5-Minuten-Statistik von Home Assistant, der Tooltip
+nennt den höchsten 5-Minuten-Mittelwert. `list.history.solar` tut dasselbe für die
+PV-Zeilen. Die Linie steht automatisch neben der Leistung, wenn Platz ist, sonst
+unter der Zeile (`place`), der Zeitraum ist 3, 6, 12 oder 24 Stunden (`hours`).
+Im Energie-Modus gibt es keine Linie, ihr Platz bleibt.
+
+[source,yaml]
+----
+list:
+  history:
+    consumers: true
+    solar: true
+    place: auto      # auto | inline | below
+    hours: 12        # 3 | 6 | 12 | 24
+----
+
 [source,yaml]
 ----
 consumers:

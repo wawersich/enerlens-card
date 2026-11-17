@@ -57,14 +57,23 @@ const ARC = { arc: "plain", arcpv: "pvcross", arcright: "right", arcleft: "left"
   arctrianglebatt: "trianglebatt", arcscaled: "pvcross", arcvalues: "values", arcclear: "clear",
   arcbelow: "below", arcone: "plain", arctall: "plain", arcpvonly: "pvcross", arcextras: "extras" };
 const RADIAL = { radial: "plain", radialleft: "left", radialtrianglebatt: "trianglebatt" };
+// history...: the history line (LZ-18) with invented statistics - history:
+// automatic on a 640 px card; historyinline, historybelow: each place fixed;
+// historyframed: framed rows with values; historybar: below the row above
+// the bottom bars;
+// historystacked: below the cross; historyscaled: PV rows too, scaled to
+// 80 %; historyleft: PV rows left of the drawing.
+const HISTORY = { history: "plain", historyinline: "plain", historybelow: "plain", historyframed: "values",
+  historybar: "plain", historystacked: "below", historyscaled: "pvcross", historyleft: "left" };
+const historyScene = rawScene in HISTORY;
 const arcScene = rawScene in ARC;
 const radialScene = arcScene || rawScene in RADIAL;
-let scene = arcScene ? ARC[rawScene] : RADIAL[rawScene] ?? rawScene;
+let scene = arcScene ? ARC[rawScene] : HISTORY[rawScene] ?? RADIAL[rawScene] ?? rawScene;
 // scaledpv: the cross with PV rows, scaled to 80 %, without the arc - the
 // same drawing as arcscaled, to tell the arc's part apart.
 if (rawScene === "scaledpv") scene = "pvcross";
-if (scene === "scaled" || rawScene === "arcscaled" || rawScene === "scaledpv") document.getElementById("frame").style.transform = "scale(0.8)";
-if (["arc", "arcone", "arctall", "radial"].includes(rawScene)) document.getElementById("host").style.width = "640px";
+if (scene === "scaled" || rawScene === "arcscaled" || rawScene === "scaledpv" || rawScene === "historyscaled") document.getElementById("frame").style.transform = "scale(0.8)";
+if (["arc", "arcone", "arctall", "radial", "history", "historyinline", "historybelow", "historybar"].includes(rawScene)) document.getElementById("host").style.width = "640px";
 if (scene === "below") document.getElementById("host").style.width = "400px";
 // extras: the card as it stands on a dashboard column, with extra values (Z-1)
 // whose prefixes are long enough to make the labels lean and shorten (Z-3).
@@ -173,6 +182,10 @@ const config = {
   ...(ringOff ? { ring: { enabled: false } } : {}),
 };
 if (radialScene) config.flow = { ...config.flow, radial: true };
+if (historyScene) {
+  const place = { historyinline: "inline", historybelow: "below", historybar: "below" }[rawScene] ?? "auto";
+  config.list = { ...(config.list ?? {}), history: { consumers: true, solar: true, place } };
+}
 if (arcScene) {
   config.list = { ...(config.list ?? {}), arc: true };
   if (rawScene === "arcpvonly") config.list.enabled = false;
@@ -188,7 +201,43 @@ if (arcScene) {
   }
 }
 card.setConfig(config);
-card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de", callWS: async () => ({}) };
+/*
+ * For the history scenes: statistics as HA would answer - every sensor a
+ * power sensor with a mean, five-minute rows up to ten minutes ago (HA writes
+ * late), one sensor with a gap, one starting late; the readings after them.
+ */
+const wave = (id, t) => {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 997;
+  const x = t / 3_600_000;
+  return Math.max(0, 600 + 500 * Math.sin(x / (1 + (h % 5)) + h) + 200 * Math.sin(x * 3 + h));
+};
+const fakeWS = async (msg) => {
+  if (msg.type === "recorder/get_statistics_metadata")
+    return msg.statistic_ids.map((id) => ({ statistic_id: id, mean_type: 1, unit_class: "power" }));
+  if (msg.type === "recorder/statistics_during_period") {
+    const from = Date.parse(msg.start_time), to = Date.parse(msg.end_time) - 600_000;
+    const out = {};
+    for (const id of msg.statistic_ids) {
+      const rows = [];
+      for (let t = Math.ceil(from / 300_000) * 300_000; t + 300_000 <= to; t += 300_000) {
+        if (id === "sensor.c3" && t > to - 4 * 3_600_000 && t < to - 3 * 3_600_000) continue;
+        if (id === "sensor.c2" && t < to - 6 * 3_600_000) continue;
+        rows.push({ start: t, mean: wave(id, t) });
+      }
+      out[id] = rows;
+    }
+    return out;
+  }
+  if (msg.type === "history/history_during_period") {
+    const out = {};
+    for (const id of msg.entity_ids) out[id] = [{ s: states[id]?.state ?? "0", lu: (Date.now() - 500_000) / 1000 }];
+    return out;
+  }
+  return {};
+};
+card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de",
+  callWS: historyScene ? fakeWS : async () => ({}) };
 document.getElementById("host").appendChild(card);
 if (clear) {
   await card.updateComplete;
@@ -675,6 +724,32 @@ function lineEnds(root) {
   return found;
 }
 
+/**
+ * The history line (LZ-18), in words: every row of a list with the line on
+ * has drawn one (two points at least), it stays inside its row or frame, and
+ * a fixed place is kept.
+ */
+function historyRows(root) {
+  if (!historyScene) return [];
+  const found = [];
+  const rows = [...root.querySelectorAll(".rows .row, .pv-rows .row")];
+  if (!rows.length) return ["keine Zeilen"];
+  for (const row of rows) {
+    const name = row.querySelector(".name")?.textContent ?? row.dataset.key;
+    const line = row.querySelector(".hline");
+    if (!line) { found.push(`${name}: keine Verlaufslinie`); continue; }
+    const drawn = [...line.querySelectorAll("polyline")].some((p) => p.points.numberOfItems >= 2);
+    if (!drawn) found.push(`${name}: Linie nicht gezeichnet`);
+    const box = (row.querySelector(".frame:not(.plain)") ?? row).getBoundingClientRect();
+    const l = line.getBoundingClientRect();
+    if (l.left < box.left - 1 || l.right > box.right + 1 || l.top < box.top - 1 || l.bottom > box.bottom + 1)
+      found.push(`${name}: Linie ragt aus Zeile oder Rahmen`);
+    const want = { historyinline: "inline", historybelow: "below", historybar: "below" }[rawScene];
+    if (want && !line.classList.contains(want)) found.push(`${name}: Lage ${line.className} statt ${want}`);
+  }
+  return found;
+}
+
 window.check = () => {
   const root = card.shadowRoot;
   // Dots stop where they are told: no animation may move them while measured.
@@ -699,6 +774,7 @@ window.check = () => {
     radial: radialLines(root),
     arc: arcRows(root),
     ends: lineEnds(root),
+    history: historyRows(root),
   };
   result.rims = rims(root);
   // Cut out only where the circles let the lines show (K-16).

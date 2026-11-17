@@ -712,6 +712,11 @@ interface FlatConfig {
   list_always_below?: boolean;
   list_frame?: boolean;
   list_arc?: boolean;
+  /** The history line (LZ-18); the hours as the select hands them, text. */
+  list_history_consumers?: boolean;
+  list_history_solar?: boolean;
+  list_history_place?: string;
+  list_history_hours?: string;
   list_solar?: boolean;
   content_max_width?: number;
   content_align?: string;
@@ -1022,6 +1027,10 @@ function toFlat(config: RawConfig): FlatConfig {
     list_always_below: config.list?.always_below,
     list_frame: config.list?.frame === true,
     list_arc: config.list?.arc === true,
+    list_history_consumers: config.list?.history?.consumers === true,
+    list_history_solar: config.list?.history?.solar === true,
+    list_history_place: config.list?.history?.place ?? "auto",
+    list_history_hours: String(config.list?.history?.hours ?? 12),
     content_max_width: config.content?.max_width,
     content_align: config.content?.align,
     ring_enabled: config.ring?.enabled,
@@ -1242,6 +1251,29 @@ function prune<T extends Record<string, unknown>>(obj: T): T | undefined {
     if (value !== undefined && value !== null && value !== "") out[key] = value;
   }
   return Object.keys(out).length ? (out as T) : undefined;
+}
+
+/**
+ * The history line's block (LZ-18): only what differs from the defaults, the
+ * hours as a number, keys the form has no field for kept; no empty block.
+ */
+function historyBlock(flat: FlatConfig, rawList: unknown): Record<string, unknown> | undefined {
+  const raw =
+    rawList && typeof rawList === "object"
+      ? (rawList as Record<string, unknown>).history
+      : undefined;
+  // Only an hour the card takes; a cleared field is the default (E-1).
+  const hours = [3, 6, 24].find((h) => String(h) === String(flat.list_history_hours ?? "").trim());
+  return prune({
+    ...unknownKeys(raw, ["consumers", "solar", "place", "hours"]),
+    consumers: flat.list_history_consumers === true ? true : undefined,
+    solar: flat.list_history_solar === true ? true : undefined,
+    place:
+      flat.list_history_place === "inline" || flat.list_history_place === "below"
+        ? flat.list_history_place
+        : undefined,
+    hours,
+  });
 }
 
 /** The names in a YAML list; anything else is no list the form can show. */
@@ -1544,6 +1576,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "always_below",
             "frame",
             "arc",
+            "history",
             "scope",
             "default_scope",
             "solar",
@@ -1556,6 +1589,7 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
           frame: flat.list_frame === true ? true : undefined,
           // Only an on is written (LZ-17).
           arc: flat.list_arc === true ? true : undefined,
+          history: historyBlock(flat, raw.list),
           scope: choices(flat.scope, LIST_SCOPES),
           default_scope: offered(flat.default_scope, flat.scope, LIST_SCOPES),
         }),
@@ -2159,6 +2193,40 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         { name: "list_always_below", selector: { boolean: {} } },
         { name: "list_frame", selector: { boolean: {} } },
         { name: "list_arc", selector: { boolean: {} } },
+        // The history line (LZ-18): the consumers' switch with their list, the
+        // PV rows' with theirs; place and hours once a line is on.
+        ...(flat.list_enabled !== false
+          ? [{ name: "list_history_consumers", selector: { boolean: {} } }]
+          : []),
+        ...(sources && flat.list_solar === true
+          ? [{ name: "list_history_solar", selector: { boolean: {} } }]
+          : []),
+        ...(flat.list_history_consumers === true || flat.list_history_solar === true
+          ? [
+              {
+                name: "list_history_place",
+                selector: {
+                  select: {
+                    mode: "dropdown",
+                    options: [
+                      { value: "auto", label: t("history_place_auto") },
+                      { value: "inline", label: t("history_place_inline") },
+                      { value: "below", label: t("history_place_below") },
+                    ],
+                  },
+                },
+              },
+              {
+                name: "list_history_hours",
+                selector: {
+                  select: {
+                    mode: "dropdown",
+                    options: ["3", "6", "12", "24"].map((h) => ({ value: h, label: `${h} h` })),
+                  },
+                },
+              },
+            ]
+          : []),
         { name: "ring_enabled", selector: { boolean: {} } },
         ...(sources ? [{ name: "ring_solar", selector: { boolean: {} } }] : []),
         {

@@ -102,6 +102,15 @@ const SCENES = [
   "radial",
   "radialleft",
   "radialtrianglebatt",
+  // The history line (LZ-18), fed by invented statistics.
+  "history",
+  "historyinline",
+  "historybelow",
+  "historyframed",
+  "historybar",
+  "historystacked",
+  "historyscaled",
+  "historyleft",
 ];
 /** How far a pixel may stray from the page's white and still count as white. */
 const CLEAR_TOLERANCE = 24;
@@ -485,6 +494,7 @@ function problems(m, lines) {
   if (m.radial?.length) found.push(`Radiale Linien: ${[...new Set(m.radial)].join(", ")}`);
   if (m.arc?.length) found.push(`Bogenförmige Liste: ${[...new Set(m.arc)].join(", ")}`);
   if (m.ends?.length) found.push(`Linienenden: ${[...new Set(m.ends)].join(", ")}`);
+  if (m.history?.length) found.push(`Verlaufslinie: ${[...new Set(m.history)].join(", ")}`);
   if (m.circles?.length) found.push(`Kreise: ${m.circles.join(", ")}`);
   // Opaque circles are drawn as before K-16, transparent ones are cut out.
   if (m.rims && m.clipped !== m.clear) {

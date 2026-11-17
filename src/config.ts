@@ -26,6 +26,8 @@ import {
   type ExtraWeight,
   type GridStatusSpec,
   type Highlight,
+  type HistoryHours,
+  type HistoryPlace,
   type HoldOperator,
   type HomeAssistant,
   INDICATOR_SLOTS,
@@ -186,6 +188,36 @@ function readString(value: unknown, field: string, hass?: HomeAssistant): string
  */
 function readBlock(value: unknown, field: string, hass?: HomeAssistant): Record<string, unknown> {
   return isUnset(value) ? {} : requireRecord(value, field, hass);
+}
+
+const HISTORY_PLACES: readonly HistoryPlace[] = ["auto", "inline", "below"];
+const HISTORY_HOURS: readonly HistoryHours[] = [3, 6, 12, 24];
+const HISTORY_KEYS: ReadonlySet<string> = new Set(["consumers", "solar", "place", "hours"]);
+
+/**
+ * The history line's block (LZ-18). The hours are a number; the same number
+ * as text is read too, as a select may hand it over (E-1).
+ */
+function readHistory(value: unknown, hass?: HomeAssistant): Config["list"]["history"] {
+  const raw = readBlock(value, "list.history", hass);
+  warnUnknownIn(raw, HISTORY_KEYS, "list.history", hass);
+  let hours: HistoryHours = 12;
+  if (!isUnset(raw.hours)) {
+    const n =
+      typeof raw.hours === "string" && raw.hours.trim() !== "" ? Number(raw.hours) : raw.hours;
+    if (!HISTORY_HOURS.includes(n as HistoryHours)) {
+      throw fail("error.config.enum", "list.history.hours", hass, {
+        allowed: HISTORY_HOURS.join(", "),
+      });
+    }
+    hours = n as HistoryHours;
+  }
+  return {
+    consumers: readBoolean(raw.consumers, "list.history.consumers", false, hass),
+    solar: readBoolean(raw.solar, "list.history.solar", false, hass),
+    place: readEnum(raw.place, HISTORY_PLACES, "list.history.place", "auto", hass),
+    hours,
+  };
 }
 
 function readBoolean(
@@ -1480,6 +1512,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "always_below",
     "frame",
     "arc",
+    "history",
     "scope",
     "default_scope",
     "solar",
@@ -1762,6 +1795,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       alwaysBelow: readBoolean(rawList.always_below, "list.always_below", false, hass),
       frame: readBoolean(rawList.frame, "list.frame", false, hass),
       arc: readBoolean(rawList.arc, "list.arc", false, hass),
+      history: readHistory(rawList.history, hass),
       // Off by default: existing boards must not change on their own (PV-7).
       solar: readBoolean(rawList.solar, "list.solar", false, hass),
       scope: buttons.scope,

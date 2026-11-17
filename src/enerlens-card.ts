@@ -42,6 +42,9 @@ import {
   timeZoneOf,
 } from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
+import { formatPower } from "./format";
+import { HistoryLines } from "./history-fetch";
+import { restLine, shapeLine, zeroGaps } from "./history-line";
 import { HoldTracker } from "./hold";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
@@ -79,7 +82,13 @@ import {
   renderHeader,
   renderOutageBanner,
 } from "./render/header";
-import { GLIDE_MS, RowAnimator, renderList, renderSolarSide } from "./render/list";
+import {
+  GLIDE_MS,
+  type HistoryRender,
+  RowAnimator,
+  renderList,
+  renderSolarSide,
+} from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
 import { growth, sizeFactors } from "./render/sizing";
@@ -87,6 +96,7 @@ import { buildSolarRows, refreshSolarRows, solarSegments } from "./solar";
 import { SolarMemory } from "./solar-memory";
 import { styles } from "./styles";
 import {
+  type Breakdown,
   type Config,
   ConfigError,
   type EnergyPeriod,
@@ -285,6 +295,22 @@ class EnerLensCard extends LitElement {
   private _arcStacked?: boolean;
   /** The card's width when the arc was last measured from scratch. */
   private _arcWidth?: number;
+  /** The history lines' data (LZ-18), fetched while a switch is on. */
+  private readonly _lines = new HistoryLines();
+  private _linesTimer?: ReturnType<typeof setInterval>;
+  /** Shapes drawn from the data at hand, by row; anew when data or step change. */
+  private readonly _lineShapes = new Map<string, ReturnType<HistoryRender["shape"]>>();
+  private _lineStamp = "";
+  private _lineConfig?: Config;
+  /** Each entity's line once per drawing - the rest needs the consumers' too. */
+  private readonly _lineMemo = new Map<string, (number | null)[] | undefined>();
+  /** The consumers the rest's line takes off, kept per fetch (DF-18). */
+  private _restShown?: string[];
+  private _restVersion = -1;
+  /** Where the automatic place put the line, and what that was decided on. */
+  private _autoPlace: "inline" | "below" = "below";
+  private _autoKey = "";
+  private _autoConfig?: Config;
   private _technique: DotTechnique = "static";
   private _motionQuery?: MediaQueryList;
   private _visible = true;
@@ -790,7 +816,11 @@ class EnerLensCard extends LitElement {
   private readonly _onVisibility = () => {
     this._syncPlayState();
     if (document.visibilityState === "hidden") this._pause(Date.now());
-    else this._resume();
+    else {
+      this._resume();
+      // Back: the history lines catch up at once if due (LZ-18).
+      this._ensureLines();
+    }
   };
 
   /** When the card stopped seeing readings: page hidden, connection lost,
@@ -979,6 +1009,192 @@ class EnerLensCard extends LitElement {
   }
 
   /**
+   * The entities the history lines need (LZ-18): every configured consumer,
+   * not only the rows shown, so a new row has its line at once; for the rest
+   * the house and the PV fed in past it (DF-18, PV-3); the PV sources.
+   */
+  private _lineIds(): string[] {
+    const config = this._config;
+    if (!config) return [];
+    const { consumers, solar } = config.list.history;
+    const ids = new Set<string>();
+    if (consumers && config.list.enabled) {
+      for (const c of config.consumers) ids.add(c.entity);
+      const house = config.sources.house;
+      if (house.kind === "single") ids.add(house.entity);
+      for (const s of config.solarSources) if (s.excluded) ids.add(s.entity);
+    }
+    if (solar && config.list.solar && config.solarSources.length >= 2) {
+      for (const s of config.solarSources) ids.add(s.entity);
+    }
+    return [...ids];
+  }
+
+  /**
+   * Fetches the history lines when due (LZ-18): not in the editor's preview
+   * (issue #17), not for the example (E-5), not in a period, not while
+   * nobody looks (P-8). One fetch at a time; a new answer draws again.
+   */
+  private _ensureLines(): void {
+    const config = this._config;
+    const hass = this._realHass ?? this._hass;
+    if (!config || !hass || this._example || isPreview(this) || this._period) return;
+    if (!this._visible || document.hidden) return;
+    const ids = this._lineIds();
+    if (ids.length === 0) return;
+    const now = Date.now();
+    const hours = config.list.history.hours;
+    if (!this._lines.due(now, ids, hours)) return;
+    const before = this._lines.version;
+    void this._lines.refresh(hass, ids, hours, now).then(() => {
+      if (this._lines.version !== before) this.requestUpdate();
+    });
+  }
+
+  /** What the list needs to draw the history lines, or undefined (LZ-18). */
+  private _historyRender(breakdown: Breakdown, config: Config): HistoryRender | undefined {
+    const history = config.list.history;
+    if (!history.consumers && !history.solar) return undefined;
+    const hass = this._hass;
+    const now = Date.now();
+    // Drawn anew with new data, every half minute for the running step, and
+    // after an edit (a threshold, a unit).
+    const stamp = `${this._lines.version}|${Math.floor(now / 30_000)}`;
+    if (stamp !== this._lineStamp || config !== this._lineConfig) {
+      this._lineStamp = stamp;
+      this._lineConfig = config;
+      this._lineShapes.clear();
+      this._lineMemo.clear();
+    }
+    // The rest takes off the consumers shown (DF-18) - as they were when the
+    // data came, so it does not jump as rows come and go between fetches.
+    if (this._restVersion !== this._lines.version || this._restShown === undefined) {
+      this._restVersion = this._lines.version;
+      this._restShown = breakdown.entries
+        .filter((e) => !e.isRest && e.entity)
+        .map((e) => e.entity as string);
+    }
+    const shown = this._restShown;
+    const lineOf = (id: string, invert = false) => {
+      const key = `${id}|${invert}`;
+      if (!this._lineMemo.has(key))
+        this._lineMemo.set(key, hass ? this._lines.line(hass, id, now, invert) : undefined);
+      return this._lineMemo.get(key);
+    };
+    const preview = isPreview(this) || this._example;
+    const tip = (max: number) =>
+      localize("list.history_tip", hass, {
+        hours: String(history.hours),
+        max: hass ? formatPower(max, hass, config.power) : String(Math.round(max)),
+      });
+    return {
+      place: history.place === "auto" ? this._autoPlace : history.place,
+      consumers: history.consumers && config.list.enabled,
+      solar: history.solar,
+      shape: (entry, solar) => {
+        if (preview || !hass) return undefined;
+        const key = `${solar ? "s" : "c"}|${entry.key}`;
+        if (this._lineShapes.has(key)) return this._lineShapes.get(key);
+        let line: (number | null)[] | undefined;
+        if (solar) {
+          const source = config.solarSources.find((s) => s.key === entry.key);
+          const own = source && lineOf(source.entity, source.invert);
+          line = own && zeroGaps(own);
+        } else if (entry.isRest) {
+          const house = config.sources.house;
+          const houseLine =
+            house.kind === "single" ? lineOf(house.entity, house.invert) : undefined;
+          line =
+            houseLine &&
+            restLine(
+              houseLine,
+              shown.map((id) => lineOf(id) ?? []),
+              config.solarSources
+                .filter((s) => s.excluded)
+                .map((s) => lineOf(s.entity, s.invert) ?? []),
+            );
+        } else if (entry.entity) {
+          line = lineOf(entry.entity);
+        }
+        const shape = line ? shapeLine(line, entry.threshold) : undefined;
+        const drawn =
+          shape && shape.segments.length > 0 ? { shape, tip: tip(shape.max) } : undefined;
+        this._lineShapes.set(key, drawn);
+        return drawn;
+      },
+    };
+  }
+
+  /**
+   * The automatic place of the history line (LZ-18), decided for the whole
+   * card on the layout at hand, never by drawing the other place to try:
+   * next to the power where the list can take the line's 52 px without a
+   * name shortened and the fan lines keep 40 px, else below the row; back
+   * next to the power only with 20 px to spare. Anew only when the width,
+   * the configuration or the layout changed - not as rows come and go.
+   */
+  private _placeHistory(): void {
+    const config = this._config;
+    if (!config || config.list.history.place !== "auto") return;
+    const { consumers, solar } = config.list.history;
+    if (!consumers && !solar) return;
+    // Not the energy mode: its wider figures must not move the line (LZ-18).
+    const key = `${this.offsetWidth}|${this._stacked}|${config.layout}`;
+    if (key === this._autoKey && this._autoConfig === config) return;
+    this._autoKey = key;
+    this._autoConfig = config;
+    const root = this.renderRoot;
+    const NEED = 46 + 6;
+    const was = this._autoPlace;
+    const cut = [...root.querySelectorAll<HTMLElement>(".row .name")].some(
+      (n) => n.scrollWidth > n.clientWidth + 1,
+    );
+    let fits: boolean;
+    if (this._stacked) {
+      // Below the drawing the runway gives way, down to its 56 px.
+      const lane = root.querySelector(".row .lane")?.getBoundingClientRect().width ?? 0;
+      fits = was === "inline" ? !cut : !cut && lane - NEED >= 56 + 20;
+    } else {
+      // The list grows into its free column; the fan lines give the room.
+      const { room, free } = this._fanRoom();
+      fits = was === "inline" ? !cut && room >= 40 : !cut && free >= NEED + 20 && room - NEED >= 60;
+    }
+    const place = fits ? "inline" : "below";
+    if (place !== was) {
+      this._autoPlace = place;
+      this.requestUpdate();
+    }
+  }
+
+  /**
+   * Beside the drawing (LZ-17 F, without the arc), in the card's own pixels:
+   * the room of the narrowest fan, and the free column the list can still
+   * grow into. Nothing to measure counts as no room.
+   */
+  private _fanRoom(): { room: number; free: number } {
+    const root = this.renderRoot;
+    const body = root.querySelector(".body") as HTMLElement | null;
+    const b = body?.getBoundingClientRect();
+    const scale = body && b && body.offsetWidth > 0 && b.width > 0 ? b.width / body.offsetWidth : 1;
+    let room = Number.POSITIVE_INFINITY;
+    let free = Number.POSITIVE_INFINITY;
+    for (const [blockSel, nodeSel] of [
+      [".rows", ".node.house"],
+      [".pv-rows", ".node.solar"],
+    ] as const) {
+      const el = root.querySelector(blockSel) as HTMLElement | null;
+      const block = el?.getBoundingClientRect();
+      const node = root.querySelector(nodeSel)?.getBoundingClientRect();
+      const list = el?.parentElement?.getBoundingClientRect();
+      if (!el || !block || !node || !list || !block.width) continue;
+      const left = el.parentElement?.classList.contains("pv-side");
+      room = Math.min(room, (left ? node.left - block.right : block.left - node.right) / scale);
+      free = Math.min(free, (list.width - block.width) / scale);
+    }
+    return room === Number.POSITIVE_INFINITY ? { room: 0, free: 0 } : { room, free };
+  }
+
+  /**
    * The two recorder lookups besides the averaging history: the last real
    * grid status, so an outage that began before the card opened is shown
    * (REQ NS-6), and the last value of a state of charge that has none right
@@ -1157,6 +1373,8 @@ class EnerLensCard extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    // The history lines look for news every half minute; a fetch only when due (LZ-18).
+    this._linesTimer ??= setInterval(() => this._ensureLines(), 30_000);
     LIVE.add(this);
     // Text keeps a minimum size in CSS pixels while the drawing scales, so the
     // card stays legible on a phone (REQ K-12).
@@ -1187,6 +1405,7 @@ class EnerLensCard extends LitElement {
       // Back in view: the lines to where the rows are now, and along with any
       // glide still under way.
       if (this._visible && this._config) this._updateFan();
+      if (this._visible) this._ensureLines();
     });
     this._intersectionObserver.observe(this);
     this._pickUpLiveDesigns();
@@ -1588,6 +1807,8 @@ class EnerLensCard extends LitElement {
     if (!this._config) return;
     // The blocks first: the fans are measured from where the rows stand.
     this._placeLists();
+    // The line's place first: it changes the list's width, the arc after it.
+    this._placeHistory();
     this._placeArc();
     this._drawConsumerFan();
     this._drawSolarFan();
@@ -2294,6 +2515,7 @@ class EnerLensCard extends LitElement {
   protected updated(): void {
     this._ensureHistory();
     this._ensureLookups();
+    this._ensureLines();
     this._ensureEnergy();
     this._rows.play(
       this.renderRoot.querySelector(".body"),
@@ -2380,6 +2602,8 @@ class EnerLensCard extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    if (this._linesTimer !== undefined) clearInterval(this._linesTimer);
+    this._linesTimer = undefined;
     // A detail window of this card closes with it (DF-2) - unless the card
     // only moved: a masonry view takes cards out and puts them back when its
     // columns change, e.g. when a phone is turned.
@@ -2472,6 +2696,8 @@ class EnerLensCard extends LitElement {
     );
     // Square, solar left: the PV rows left of the drawing, as long as it fits (AN-3).
     const solarApart = this._splitsLists() && !this._stacked;
+    // The history lines, where switched on (LZ-18).
+    const history = this._historyRender(breakdown, shown);
     // The PV ring: its order from the tick like the rows, its figures live (L-7).
     const solarRing =
       shown.view.pvScales.length > 0
@@ -2528,7 +2754,7 @@ class EnerLensCard extends LitElement {
           >
             <svg class="fan" aria-hidden="true"></svg>
             <svg class="fan pv-fan" aria-hidden="true"></svg>
-            ${solarApart ? renderSolarSide(breakdown, shown, this._hass, openEntry, solarRows) : nothing}
+            ${solarApart ? renderSolarSide(breakdown, shown, this._hass, openEntry, solarRows, history) : nothing}
             ${renderCross(
               model,
               shown,
@@ -2542,7 +2768,7 @@ class EnerLensCard extends LitElement {
               this._seeThrough,
               solarRing,
             )}
-            ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart)}
+            ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart, history)}
           </div>
         </div>
       </ha-card>

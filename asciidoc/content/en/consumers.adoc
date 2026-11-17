@@ -143,6 +143,25 @@ the same shape, without the line.
 The rows can also stand on an arc around the house (`list.arc`), and the
 lines can leave the circle radially (`flow.radial`) - see _Arrangements_.
 
+*History line:* with `list.history.consumers: true` (editor: _Display_, _History
+line for consumers_) each consumer row - the rest too - shows a small line of
+its rough power over the last 12 hours, each on its own scale: it shows *when*
+something ran; how much is in the figure. The data comes from Home Assistant's
+five-minute statistics; the tooltip names the highest five-minute mean.
+`list.history.solar` does the same for the PV rows. The line stands next to the
+power where there is room, otherwise below the row (`place`); the span is 3,
+6, 12 or 24 hours (`hours`). In the energy mode there is no line; its room stays.
+
+[source,yaml]
+----
+list:
+  history:
+    consumers: true
+    solar: true
+    place: auto      # auto | inline | below
+    hours: 12        # 3 | 6 | 12 | 24
+----
+
 [source,yaml]
 ----
 consumers:

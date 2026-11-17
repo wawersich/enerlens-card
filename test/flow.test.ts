@@ -58,6 +58,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       alwaysBelow: false,
       frame: false,
       arc: false,
+      history: { consumers: false, solar: false, place: "auto", hours: 12 },
       solar: false,
       scope: ["filtered", "full"],
       defaultScope: "filtered",

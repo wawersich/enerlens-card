@@ -299,6 +299,11 @@ export type ArrowColors = "red_green" | "direction";
 /** The four directions of grid and battery, each with an arrow (EM-5, C-8). */
 export type DirectionKey = "grid_import" | "grid_export" | "battery_charge" | "battery_discharge";
 
+/** Where the history line stands in a row (LZ-18). */
+export type HistoryPlace = "auto" | "inline" | "below";
+/** How far the history line looks back, in hours (LZ-18). */
+export type HistoryHours = 3 | 6 | 12 | 24;
+
 /** The arrangement of the four nodes (REQ AN-1). */
 export type LayoutName = "cross" | "square_right" | "square_left" | "triangle" | "triangle_battery";
 /** How the lines between the nodes run (REQ AN-2). */
@@ -337,6 +342,13 @@ export interface RawConfig extends LovelaceCardConfig {
     frame?: boolean;
     /** Rows beside the drawing on an arc around their node (LZ-17). */
     arc?: boolean;
+    /** A small line of each row's recent power (LZ-18). */
+    history?: {
+      consumers?: boolean;
+      solar?: boolean;
+      place?: HistoryPlace;
+      hours?: HistoryHours | `${HistoryHours}`;
+    };
     /** The PV rows (REQ PV-7). */
     solar?: boolean;
     /** The list scopes the quick button offers; one = fixed (REQ QB-2). */
@@ -626,6 +638,8 @@ export interface Config {
     frame: boolean;
     /** Rows beside the drawing on an arc around their node (LZ-17). */
     arc: boolean;
+    /** The history line (LZ-18): for consumers and rest, for PV rows, where, how long. */
+    history: { consumers: boolean; solar: boolean; place: HistoryPlace; hours: HistoryHours };
     /** The PV rows (REQ PV-7). */
     solar: boolean;
     /** Offered scopes in their fixed order, never empty (REQ QB-2). */

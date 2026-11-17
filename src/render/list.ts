@@ -8,6 +8,7 @@
 import { type TemplateResult, html, nothing, svg } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { formatClock, formatExtra, formatPercent, formatPower, numericEntity } from "../format";
+import type { LineShape } from "../history-line";
 import { localize } from "../localize";
 import type {
   Breakdown,
@@ -269,6 +270,8 @@ export function renderList(
   solarRows: ListEntry[] = [],
   /** The PV rows stand apart, left of the drawing (AN-3): not in this list. */
   solarApart = false,
+  /** The history line, where switched on (LZ-18). */
+  history?: HistoryRender,
 ): TemplateResult | typeof nothing {
   const consumers = config.list.enabled;
   if (!consumers && (solarRows.length === 0 || solarApart)) return nothing;
@@ -289,8 +292,8 @@ export function renderList(
       style="--el-row-h:${rowHeight(count)}px"
     >
       ${config.list.title ? html`<p class="list-title">${config.list.title}</p>` : nothing}
-      ${solarRows.length > 0 && !solarApart ? renderSolarRows(solarRows, config, hass, onEntry, stacked) : nothing}
-      ${consumers ? renderConsumers(breakdown, config, hass, onEntry, stacked) : nothing}
+      ${solarRows.length > 0 && !solarApart ? renderSolarRows(solarRows, config, hass, onEntry, stacked, history) : nothing}
+      ${consumers ? renderConsumers(breakdown, config, hass, onEntry, stacked, history) : nothing}
     </div>
   `;
 }
@@ -305,11 +308,12 @@ export function renderSolarSide(
   hass: HomeAssistant,
   onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   solarRows: ListEntry[],
+  history?: HistoryRender,
 ): TemplateResult | typeof nothing {
   if (solarRows.length === 0) return nothing;
   return html`
     <div class="list pv-side" style="--el-row-h:${rowHeight(pitchCount(breakdown, config, solarRows))}px">
-      ${renderSolarRows(solarRows, config, hass, onEntry, false)}
+      ${renderSolarRows(solarRows, config, hass, onEntry, false, history)}
     </div>
   `;
 }
@@ -325,13 +329,14 @@ function renderSolarRows(
   hass: HomeAssistant,
   onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
+  history?: HistoryRender,
 ): TemplateResult {
   return html`<div class="pv-rows">
     ${stacked ? origin(config, "solar") : nothing}
     ${repeat(
       solarRows,
       (entry) => entry.key,
-      (entry) => renderRow(entry, config, hass, onEntry, stacked, true),
+      (entry) => renderRow(entry, config, hass, onEntry, stacked, true, history),
     )}
   </div>`;
 }
@@ -342,6 +347,7 @@ function renderConsumers(
   hass: HomeAssistant,
   onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
+  history?: HistoryRender,
 ): TemplateResult {
   return html`
       <div class="rows">
@@ -349,7 +355,7 @@ function renderConsumers(
         ${repeat(
           breakdown.entries,
           (entry) => entry.key,
-          (entry) => renderRow(entry, config, hass, onEntry, stacked, false),
+          (entry) => renderRow(entry, config, hass, onEntry, stacked, false, history),
         )}
       </div>
   `;
@@ -363,6 +369,7 @@ function renderRow(
   onEntry: (entity: string, ev: Event, detail?: DetailNode) => void,
   stacked: boolean,
   solar: boolean,
+  history?: HistoryRender,
 ): TemplateResult {
   const energy = config.energy !== undefined;
   const shown = shownIndicators(entry, config);
@@ -451,9 +458,22 @@ function renderRow(
           @click=${open}
         ></span>`
       : nothing;
+  // The history line (LZ-18): its room stays in a period, without a line.
+  const lineOn = history !== undefined && (solar ? history.solar : history.consumers);
+  const hline = lineOn
+    ? historyLine(
+        history.place,
+        energy ? undefined : history.shape(entry, solar),
+        entry.color,
+        tappable ? open : undefined,
+      )
+    : nothing;
+  const below = lineOn && history.place === "below";
   return html`
             <div
-              class="row ${solar ? "pv" : ""} ${entry.isRest ? "rest" : ""} ${
+              class="row ${solar ? "pv" : ""} ${entry.isRest ? "rest" : ""} ${below ? "hline-below" : ""} ${
+                below && entry.indicators?.slots.bar_bottom ? "hline-bar" : ""
+              } ${
                 ring || fill ? "charge" : ""
               } ${idle?.stale ? "stale" : ""} ${entry.highlight?.bold ? "bold" : ""} ${
                 entry.highlight?.band ? "band" : ""
@@ -488,7 +508,7 @@ function renderRow(
                 class="row-value ${idle ? "soc" : ""} ${markClass}"
                 title=${mark?.note ?? ""}
                 style=${idle && idleSlot && idleSlot !== "fill" && idle.color ? `color:${idle.color}` : ""}
-                >${value}</span
+                >${lineOn && !below ? hline : nothing}${value}</span
               >
               ${
                 entry.entity || detail
@@ -500,9 +520,57 @@ function renderRow(
                   ></button>`
                   : nothing
               }
-              ${bar(barTop, "bar_top")}${bar(barBottom, "bar_bottom")}${valueLines(values, valuesHidden, hass, energy, tappable ? open : undefined)}
+              ${below ? hline : nothing}${bar(barTop, "bar_top")}${bar(barBottom, "bar_bottom")}${valueLines(values, valuesHidden, hass, energy, tappable ? open : undefined)}
             </div>
           `;
+}
+
+/** What a list needs to draw the history line (LZ-18); the card fills it. */
+export interface HistoryRender {
+  /** Where it stands, decided by the card for the whole list. */
+  place: "inline" | "below";
+  /** On for the consumers and the rest. */
+  consumers: boolean;
+  /** On for the PV rows. */
+  solar: boolean;
+  /** The row's line and tooltip; undefined while nothing is there yet. */
+  shape: (entry: ListEntry, solar: boolean) => { shape: LineShape; tip: string } | undefined;
+}
+
+/**
+ * The history line of one row (LZ-18): a small line of the row's colour with
+ * a light area below, on its own scale. Without a shape - still loading, in
+ * the editor's preview, in a period - its room stays and holds nothing, so
+ * the list does not move when the line comes. A tap opens the row's window,
+ * like the bars (L-20).
+ */
+function historyLine(
+  place: "inline" | "below",
+  drawn: { shape: LineShape; tip: string } | undefined,
+  color: string,
+  open: ((ev: Event) => void) | undefined,
+): TemplateResult {
+  const w = place === "inline" ? 46 : 100;
+  const h = place === "inline" ? 14 : 9;
+  const f = (v: number) => v.toFixed(1);
+  const parts = (drawn?.shape.segments ?? []).map((seg) => {
+    const pts = seg.map(([x, y]) => `${f(x * w)},${f(h - 1 - y * (h - 2))}`).join(" ");
+    const first = seg[0][0] * w;
+    const last = (seg.at(-1) as [number, number])[0] * w;
+    return svg`${
+      seg.length > 1
+        ? svg`<polygon class="hline-area" points=${`${f(first)},${h} ${pts} ${f(last)},${h}`}></polygon>`
+        : nothing
+    }<polyline class="hline-line" points=${pts}></polyline>`;
+  });
+  return html`<span
+    class="hline ${place} ${open ? "" : "inert"}"
+    aria-hidden="true"
+    title=${drawn ? drawn.tip : nothing}
+    style="color:${color}"
+    @click=${open ?? nothing}
+    ><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${parts}</svg></span
+  >`;
 }
 
 /**

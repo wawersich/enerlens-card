@@ -374,6 +374,58 @@ describe("editor - colours, icons and thresholds", () => {
     expect(off.list).toEqual({ enabled: true });
   });
 
+  it("writes the history line's settings, only what differs from the defaults (LZ-18)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true },
+    });
+    expect(findField(el, "list_history_consumers")).toBeDefined();
+    // Place and hours only once a line is on.
+    expect(findField(el, "list_history_place")).toBeUndefined();
+    const on = await change(el, { list_history_consumers: true });
+    expect(on.list).toEqual({ enabled: true, history: { consumers: true } });
+    expect(findField(el, "list_history_place")).toBeDefined();
+    expect(findField(el, "list_history_hours")).toBeDefined();
+    const set = await change(el, { list_history_place: "below", list_history_hours: "6" });
+    expect(set.list).toEqual({
+      enabled: true,
+      history: { consumers: true, place: "below", hours: 6 },
+    });
+    expect(form(el).data.list_history_hours).toBe("6");
+    const back = await change(el, { list_history_place: "auto", list_history_hours: "12" });
+    expect(back.list).toEqual({ enabled: true, history: { consumers: true } });
+    const off = await change(el, { list_history_consumers: false });
+    expect(off.list).toEqual({ enabled: true });
+  });
+
+  it("keeps the history line's place and hours while both switches are off (#19)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true, history: { consumers: true, place: "below", hours: 24 } },
+    });
+    const off = await change(el, { list_history_consumers: false });
+    expect(off.list).toEqual({ enabled: true, history: { place: "below", hours: 24 } });
+    const cleared = await change(el, { list_history_consumers: true, list_history_hours: "" });
+    expect(cleared.list).toEqual({ enabled: true, history: { consumers: true, place: "below" } });
+  });
+
+  it("offers the PV rows' switch only where PV rows are shown (LZ-18)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: ["sensor.pv1", "sensor.pv2"], grid: "sensor.grid" },
+      list: { enabled: true, solar: true },
+    });
+    expect(findField(el, "list_history_solar")).toBeDefined();
+    const without = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true },
+    });
+    expect(findField(without, "list_history_solar")).toBeUndefined();
+  });
+
   it("writes the radial-lines switch only when on, and reads it back (L-16)", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

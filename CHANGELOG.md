@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   share no trunk. A line that would pass another circle or a label turns
   towards the list until it is clear, and no two lines cross. Where that
   cannot be had, the fan is drawn as without the option.
+- **History line in the list:** `list.history` (editor: *History line for
+  consumers* / *for PV rows*) gives each row - the rest too - a small line of
+  its rough power over the last 12 hours (3, 6 or 24 to choose), from Home
+  Assistant's five-minute statistics, each on its own scale. It stands next to
+  the power where there is room, otherwise below the row; none in the energy
+  mode.
 - **Arched list:** `list.arc` (editor: *Arched list*) stands the rows beside
   the drawing on an arc - the consumers around the house, the PV rows around
   PV. The row level with its circle stays out, the others move in towards

@@ -27,6 +27,10 @@
 |`list.always_below` |`false` |Listen auch dann unter der Zeichnung halten, wenn daneben Platz wäre
 |`list.frame` |`false` |Jede Zeile der Verbraucherliste und der Rest in einem abgerundeten Rahmen ihrer Farbe (Pille); einzeln mit `frame: true` am Eintrag. Siehe _Zusatzwerte an den Verbrauchern_
 |`list.arc` |`false` |Bogenförmige Liste: Neben der Zeichnung stehen die Zeilen auf einem Bogen – Verbraucher ums Haus, PV-Zeilen um die PV. Die Zeile auf Höhe ihres Kreises bleibt außen, die anderen rücken zur Zeichnung hin, höchstens um die Hälfte des freien Raums; Namen und Werte stehen dann nicht mehr untereinander. Unter der Zeichnung stehen die Zeilen im Bogen um den Punkt, an dem sich die Linien sammeln
+|`list.history.consumers` |`false` |Verlaufslinie in jeder Verbraucher-Zeile und beim Rest: ungefähr die Leistung der letzten Stunden, aus der 5-Minuten-Statistik von Home Assistant. Im Energie-Modus ohne Linie, ihr Platz bleibt
+|`list.history.solar` |`false` |Dasselbe für die PV-Zeilen
+|`list.history.place` |`auto` |Lage der Linie: `auto` (neben der Leistung, wenn Platz ist, sonst unter der Zeile), `inline` (neben der Leistung), `below` (unter der Zeile)
+|`list.history.hours` |`12` |Zeitraum der Linie: `3`, `6`, `12` oder `24` Stunden
 |`content.max_width` |— |Größte Breite des Inhalts in Pixeln (400–2000): Titel, Quick-Buttons, Zeichnung und Liste bleiben auf breiten Dashboards als ein Block zusammen, der Kartenhintergrund bleibt voll breit. Ohne Wert reicht die Liste bis an den rechten Rand
 |`content.align` |`center` |Wo der begrenzte Inhalt steht: `left`, `center` oder `right`. Nur mit `content.max_width`
 |`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen

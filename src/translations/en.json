@@ -22,7 +22,8 @@
     "charge": "{label} {value}",
     "charge_stale": "{label} {value} · as of {time}",
     "charge_unknown": "{label} unknown",
-    "indicator_now": "{text} · now"
+    "indicator_now": "{text} · now",
+    "history_tip": "{hours} h · max {max} (5-min mean)"
   },
   "view": {
     "now": "Now",
@@ -364,6 +365,13 @@
     "value_down": "Move extra value down",
     "list_frame": "Frame around list entries",
     "list_arc": "Arched list",
+    "list_history_consumers": "History line for consumers",
+    "list_history_solar": "History line for PV rows",
+    "list_history_place": "Place of the history line",
+    "list_history_hours": "Span of the history line",
+    "history_place_auto": "automatic",
+    "history_place_inline": "next to the power",
+    "history_place_below": "below the row",
     "entry_frame": "Frame around this entry",
     "value_place": "Line {line} · {side}",
     "value_left": "left, under the name",
@@ -477,7 +485,11 @@
     "values": "Values as text below name and power, two side by side - e.g. today's kWh from an energy meter. The card computes nothing, it shows the entity's state. “Show in the list: always” keeps the row and its values visible at 0 W too. Without an entity the place stays empty - that puts a value under the power on purpose.",
     "entry_frame_all": "Frame is on for all list entries.",
     "list_frame": "Each row of the consumer list - the rest too - gets a rounded frame in its colour, like a pill. While it is off, single entries can still have one, under the entry's “Display”. Default: off.",
-    "list_arc": "The rows stand on an arc: beside the drawing the consumers around the house and the PV rows around PV, below it around the point where the lines gather. Default: off."
+    "list_arc": "The rows stand on an arc: beside the drawing the consumers around the house and the PV rows around PV, below it around the point where the lines gather. Default: off.",
+    "list_history_consumers": "A small line in each consumer row, the rest too, shows roughly the power of the last hours - from Home Assistant's statistics. None in the energy mode. Default: off.",
+    "list_history_solar": "The same for the PV rows. Default: off.",
+    "list_history_place": "Automatic: next to the power where there is room, otherwise below the row. Default: automatic.",
+    "list_history_hours": "How far back the line reaches. Default: 12 h."
   },
   "outage": {
     "banner": "Island mode — no grid",

@@ -1517,6 +1517,88 @@ export const styles = css`
     --el-bar-pad: 6px;
   }
 
+  /* The history line (LZ-18): the row's colour, a light area below, its own
+     scale. Above the row's tap target like the bars, so it has a tooltip;
+     a tap opens the row's window all the same. */
+  .hline {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+
+  .hline.inert {
+    pointer-events: none;
+  }
+
+  .hline svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .hline-line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3px;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .hline-area {
+    fill: currentColor;
+    opacity: 0.16;
+    stroke: none;
+  }
+
+  /* Next to the power, in the value's cell: the columns stay as they are. */
+  .hline.inline {
+    width: 46px;
+    height: 14px;
+    margin-right: 6px;
+  }
+
+  /* Below the row: a strip of its own inside the row and its frame, 12 px
+     more for the row (strip and air), above a bottom bar. */
+  .row.hline-below {
+    --el-hline-pad: 12px;
+    padding-bottom: 12px;
+  }
+
+  .row.hline-below.hline-bar:not(.with-values) {
+    --el-hline-pad: 18px;
+    padding-bottom: 18px;
+  }
+
+  .row.with-values.hline-below {
+    padding-bottom: calc(var(--el-row-pad) + 12px);
+  }
+
+  .row.with-values.bar-bottom.hline-below {
+    padding-bottom: calc(var(--el-row-pad) + 18px);
+  }
+
+  .hline.below {
+    position: absolute;
+    display: block;
+    left: 0;
+    right: 0;
+    bottom: 3px;
+    height: 9px;
+  }
+
+  .row.hline-bar .hline.below {
+    bottom: 9px;
+  }
+
+  .list.framed:not(.stacked) .rows .hline.below,
+  .list.framed:not(.stacked) .pv-rows .hline.below {
+    left: var(--el-frame-pad);
+    right: var(--el-frame-pad);
+  }
+
   /* Stacked below the cross the list has the whole card width. The rows become
      a grid with shared columns: runway | mark | name | value. The mark sits
      directly in front of the name so the two read as one label, and the runway
@@ -1571,6 +1653,11 @@ export const styles = css`
 
     .list.stacked .lane {
       width: auto;
+    }
+
+    /* From the mark to the end of the value, as the frame (LZ-18). */
+    .list.stacked .hline.below {
+      grid-column: 2 / -1;
     }
 
     /* Stacked with values (LZ-2): the row keeps the shared columns - lane,
@@ -1655,7 +1742,7 @@ export const styles = css`
       grid-column: 2 / -1;
       grid-row: 1 / span var(--el-span, 1);
       inset: calc(var(--el-row-pad, 0px) * -1 - 1.5px) calc((var(--el-frame-pad) + 1.5px) * -1)
-        calc((var(--el-row-pad, 0px) + var(--el-bar-pad, 0px)) * -1 - 1.5px)
+        calc((var(--el-row-pad, 0px) + var(--el-bar-pad, 0px) + var(--el-hline-pad, 0px)) * -1 - 1.5px)
         calc((var(--el-frame-pad) + 1.5px) * -1);
     }
 
