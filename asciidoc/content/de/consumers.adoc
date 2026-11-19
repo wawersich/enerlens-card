@@ -156,7 +156,7 @@ jede auf ihrer eigenen Skala: Man sieht, *wann* etwas lief; wie viel, steht in d
 Zahl. Die Daten kommen aus der 5-Minuten-Statistik von Home Assistant, der Tooltip
 nennt den höchsten 5-Minuten-Mittelwert. `list.history.solar` tut dasselbe für die
 PV-Zeilen. Die Linie steht automatisch neben der Leistung, wenn Platz ist, sonst
-unter der Zeile (`place`), der Zeitraum ist 3, 6, 12 oder 24 Stunden (`hours`).
+unter der Zeile (`place`), der Zeitraum ist 1 bis 24 Stunden (`hours`).
 Im Energie-Modus gibt es keine Linie, ihr Platz bleibt.
 
 [source,yaml]
@@ -166,7 +166,7 @@ list:
     consumers: true
     solar: true
     place: auto      # auto | inline | below
-    hours: 12        # 3 | 6 | 12 | 24
+    hours: 12        # 1 bis 24
 ----
 
 [source,yaml]

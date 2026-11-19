@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   cannot be had, the fan is drawn as without the option.
 - **History line in the list:** `list.history` (editor: *History line for
   consumers* / *for PV rows*) gives each row - the rest too - a small line of
-  its rough power over the last 12 hours (3, 6 or 24 to choose), from Home
+  its rough power over the last 12 hours (1 to 24 to choose), from Home
   Assistant's five-minute statistics, each on its own scale. It stands next to
   the power where there is room, otherwise below the row; none in the energy
   mode.

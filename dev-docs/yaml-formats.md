@@ -504,9 +504,9 @@ and is ignored. Nested blocks are not checked for unknown keys.
   Radial lines to the list. Anything but a boolean is an error. 1.5.2 warns
   about it as an unknown key, no error card.
 - `list.history` (block `consumers`, `solar` bool, `place` `auto | inline | below`,
-  `hours` `3 | 6 | 12 | 24`; defaults false/false/auto/12): **ADDED.** (REQ LZ-18.)
-  `hours` is a number, the same number as text is read too. Invalid values are
-  errors. 1.5.2 warns about the unknown key, no error card.
+  `hours` whole hours 1–24; defaults false/false/auto/12): **ADDED.** (REQ LZ-18.)
+  `hours` is a number (as text too), set to 1–24 with a hint when outside,
+  rounded when not whole; no number at all is an error. 1.5.2 warns about the unknown key, no error card.
 - `list.arc` (`true | false`, default `false`): **ADDED.** (REQ LZ-17.) The
   rows on an arc around their node (below the drawing: around the point the
   lines gather at). Anything but a boolean

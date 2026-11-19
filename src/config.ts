@@ -191,27 +191,23 @@ function readBlock(value: unknown, field: string, hass?: HomeAssistant): Record<
 }
 
 const HISTORY_PLACES: readonly HistoryPlace[] = ["auto", "inline", "below"];
-const HISTORY_HOURS: readonly HistoryHours[] = [3, 6, 12, 24];
 const HISTORY_KEYS: ReadonlySet<string> = new Set(["consumers", "solar", "place", "hours"]);
 
 /**
- * The history line's block (LZ-18). The hours are a number; the same number
- * as text is read too, as a select may hand it over (E-1).
+ * The history line's block (LZ-18). The hours are a whole number from 1 to
+ * 24; the same number as text is read too, as a select may hand it over (E-1).
  */
 function readHistory(value: unknown, hass?: HomeAssistant): Config["list"]["history"] {
   const raw = readBlock(value, "list.history", hass);
   warnUnknownIn(raw, HISTORY_KEYS, "list.history", hass);
-  let hours: HistoryHours = 12;
-  if (!isUnset(raw.hours)) {
-    const n =
-      typeof raw.hours === "string" && raw.hours.trim() !== "" ? Number(raw.hours) : raw.hours;
-    if (!HISTORY_HOURS.includes(n as HistoryHours)) {
-      throw fail("error.config.enum", "list.history.hours", hass, {
-        allowed: HISTORY_HOURS.join(", "),
-      });
-    }
-    hours = n as HistoryHours;
-  }
+  // A number as text is read too; out of range is set to the limit (19.11.2026).
+  const asText = typeof raw.hours === "string" && raw.hours.trim() !== "";
+  const hours: HistoryHours = readLimited(
+    asText && Number.isFinite(Number(raw.hours)) ? Number(raw.hours) : raw.hours,
+    "list.history.hours",
+    12,
+    hass,
+  );
   return {
     consumers: readBoolean(raw.consumers, "list.history.consumers", false, hass),
     solar: readBoolean(raw.solar, "list.history.solar", false, hass),
@@ -279,6 +275,8 @@ export const NUMBER_LIMITS: Readonly<
   "power.decimals": { min: 1, max: 3, integer: true },
   "power.digits": { min: 2, max: 4, integer: true },
   "content.max_width": { min: 400, max: 2000, integer: true },
+  // The history line's span (LZ-18): whole hours, a day at most.
+  "list.history.hours": { min: 1, max: 24, integer: true },
 };
 
 /**

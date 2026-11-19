@@ -30,7 +30,7 @@
 |`list.history.consumers` |`false` |History line in each consumer row and the rest: roughly the power of the last hours, from Home Assistant's five-minute statistics. None in the energy mode, its room stays
 |`list.history.solar` |`false` |The same for the PV rows
 |`list.history.place` |`auto` |Where the line stands: `auto` (next to the power where there is room, otherwise below the row), `inline` (next to the power), `below` (below the row)
-|`list.history.hours` |`12` |How far the line reaches back: `3`, `6`, `12` or `24` hours
+|`list.history.hours` |`12` |How far the line reaches back, in whole hours, 1 to 24
 |`content.max_width` |— |Widest the content gets, in pixels (400–2000): title, quick buttons, drawing and list stay together as one block on wide dashboards, the card's background stays the full width. Without it the list reaches the right edge
 |`content.align` |`center` |Where the limited content stands: `left`, `center` or `right`. Only with `content.max_width`
 |`ring.enabled` |on with consumers |Show the consumer ring at the house

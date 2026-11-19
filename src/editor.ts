@@ -1262,8 +1262,11 @@ function historyBlock(flat: FlatConfig, rawList: unknown): Record<string, unknow
     rawList && typeof rawList === "object"
       ? (rawList as Record<string, unknown>).history
       : undefined;
-  // Only an hour the card takes; a cleared field is the default (E-1).
-  const hours = [3, 6, 24].find((h) => String(h) === String(flat.list_history_hours ?? "").trim());
+  // A number as typed - the card sets it to its limits; a cleared field or
+  // what is no number is the default (E-1), never corrected while typing.
+  const typed = String(flat.list_history_hours ?? "").trim();
+  const n = typed === "" ? Number.NaN : Number(typed);
+  const hours = Number.isFinite(n) && n !== 12 ? n : undefined;
   return prune({
     ...unknownKeys(raw, ["consumers", "solar", "place", "hours"]),
     consumers: flat.list_history_consumers === true ? true : undefined,
@@ -2219,8 +2222,10 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
               {
                 name: "list_history_hours",
                 selector: {
+                  // Suggestions; another whole number of hours can be typed (19.11.2026).
                   select: {
                     mode: "dropdown",
+                    custom_value: true,
                     options: ["3", "6", "12", "24"].map((h) => ({ value: h, label: `${h} h` })),
                   },
                 },

@@ -30,7 +30,7 @@
 |`list.history.consumers` |`false` |Verlaufslinie in jeder Verbraucher-Zeile und beim Rest: ungefähr die Leistung der letzten Stunden, aus der 5-Minuten-Statistik von Home Assistant. Im Energie-Modus ohne Linie, ihr Platz bleibt
 |`list.history.solar` |`false` |Dasselbe für die PV-Zeilen
 |`list.history.place` |`auto` |Lage der Linie: `auto` (neben der Leistung, wenn Platz ist, sonst unter der Zeile), `inline` (neben der Leistung), `below` (unter der Zeile)
-|`list.history.hours` |`12` |Zeitraum der Linie: `3`, `6`, `12` oder `24` Stunden
+|`list.history.hours` |`12` |Zeitraum der Linie in ganzen Stunden, 1 bis 24
 |`content.max_width` |— |Größte Breite des Inhalts in Pixeln (400–2000): Titel, Quick-Buttons, Zeichnung und Liste bleiben auf breiten Dashboards als ein Block zusammen, der Kartenhintergrund bleibt voll breit. Ohne Wert reicht die Liste bis an den rechten Rand
 |`content.align` |`center` |Wo der begrenzte Inhalt steht: `left`, `center` oder `right`. Nur mit `content.max_width`
 |`ring.enabled` |an mit Verbrauchern |Verbraucher-Ring am Haus anzeigen

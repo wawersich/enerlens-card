@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
  * The history line in the rows (REQ LZ-18): next to the power or below the
- * row, its room kept while nothing is there and in a period, and no fetch
- * where the card must not ask (issue #17).
+ * row, its room kept while nothing is there and in a period, and a preview
+ * fetches once only (issue #17).
  */
 import { render } from "lit";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -135,6 +135,8 @@ describe("the card fetches only where it may (LZ-18, issue #17, E-5)", () => {
     await import("../src/enerlens-card");
   });
 
+  let lastSent: unknown[] = [];
+
   async function mount(raw: RawConfig, preview = false) {
     const el = document.createElement("enerlens-card") as HTMLElement & {
       setConfig: (c: unknown) => void;
@@ -151,9 +153,9 @@ describe("the card fetches only where it may (LZ-18, issue #17, E-5)", () => {
       await el.updateComplete;
       await new Promise((r) => setTimeout(r, 0));
     }
-    const calls = (hass.callWS as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
-      ([m]) => (m as { type: string }).type,
-    );
+    const sent = (hass.callWS as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([m]) => m);
+    const calls = sent.map((m) => (m as { type: string }).type);
+    lastSent = sent;
     el.remove();
     return calls;
   }
@@ -168,8 +170,21 @@ describe("the card fetches only where it may (LZ-18, issue #17, E-5)", () => {
     expect(calls).not.toContain("recorder/get_statistics_metadata");
   });
 
-  it("in the editor's preview it asks nothing (issue #17)", async () => {
+  it("in a preview it asks once, and not again on the next change (issue #17)", async () => {
     const calls = await mount(RAW, true);
-    expect(calls).not.toContain("recorder/get_statistics_metadata");
+    expect(calls.filter((c) => c === "recorder/get_statistics_metadata")).toHaveLength(1);
+  });
+
+  it("a sensor HA does not know - a half-typed entity - asks nothing", async () => {
+    const calls = await mount(
+      {
+        ...RAW,
+        consumers: [{ entity: "sensor.pu", name: "Pumpe" }],
+        entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      } as RawConfig,
+      true,
+    );
+    expect(calls).toBeDefined();
+    expect(JSON.stringify(lastSent)).not.toContain("sensor.pu");
   });
 });

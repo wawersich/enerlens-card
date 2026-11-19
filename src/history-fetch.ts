@@ -26,7 +26,7 @@ interface Held {
 }
 
 /** A reading's factor to watts, as the card reads the value (K-8); undefined: no power. */
-function wattsFactor(hass: HomeAssistant, entity: string): number | undefined {
+export function wattsFactor(hass: HomeAssistant, entity: string): number | undefined {
   const attrs = hass.states?.[entity]?.attributes;
   const unit = attrs?.unit_of_measurement;
   if (typeof unit === "string" && unit !== "") return POWER_UNITS[unit];
@@ -65,6 +65,11 @@ export class HistoryLines {
   private retryMs = 0;
   /** Something new arrived, or all was dropped: the lines must be drawn again. */
   version = 0;
+
+  /** Fetched at least once for exactly these entities and hours. */
+  has(ids: string[], hours: HistoryHours): boolean {
+    return this.fetchedAt > 0 && keyOf(ids, hours) === this.key;
+  }
 
   /**
    * Whether a fetch is due: for other entities or hours, never fetched, or

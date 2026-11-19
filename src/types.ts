@@ -301,8 +301,8 @@ export type DirectionKey = "grid_import" | "grid_export" | "battery_charge" | "b
 
 /** Where the history line stands in a row (LZ-18). */
 export type HistoryPlace = "auto" | "inline" | "below";
-/** How far the history line looks back, in hours (LZ-18). */
-export type HistoryHours = 3 | 6 | 12 | 24;
+/** How far the history line looks back: whole hours, 1 to 24 (LZ-18). */
+export type HistoryHours = number;
 
 /** The arrangement of the four nodes (REQ AN-1). */
 export type LayoutName = "cross" | "square_right" | "square_left" | "triangle" | "triangle_battery";
@@ -347,7 +347,7 @@ export interface RawConfig extends LovelaceCardConfig {
       consumers?: boolean;
       solar?: boolean;
       place?: HistoryPlace;
-      hours?: HistoryHours | `${HistoryHours}`;
+      hours?: number | string;
     };
     /** The PV rows (REQ PV-7). */
     solar?: boolean;

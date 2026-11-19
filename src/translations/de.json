@@ -489,7 +489,7 @@
     "list_history_consumers": "Eine kleine Linie in jeder Verbraucher-Zeile, auch beim Rest, zeigt ungefähr die Leistung der letzten Stunden – aus der Statistik von Home Assistant. Im Energie-Modus ohne Linie. Standard: aus.",
     "list_history_solar": "Dasselbe für die PV-Zeilen. Standard: aus.",
     "list_history_place": "Automatisch: neben der Leistung, wenn genug Platz ist, sonst unter der Zeile. Standard: automatisch.",
-    "list_history_hours": "Wie weit die Linie zurückreicht. Standard: 12 h."
+    "list_history_hours": "Wie weit die Linie zurückreicht, ganze Stunden von 1 bis 24 – auswählen oder eintippen. Standard: 12 h."
   },
   "outage": {
     "banner": "Inselbetrieb — kein Netz",

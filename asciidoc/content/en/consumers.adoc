@@ -149,8 +149,8 @@ its rough power over the last 12 hours, each on its own scale: it shows *when*
 something ran; how much is in the figure. The data comes from Home Assistant's
 five-minute statistics; the tooltip names the highest five-minute mean.
 `list.history.solar` does the same for the PV rows. The line stands next to the
-power where there is room, otherwise below the row (`place`); the span is 3,
-6, 12 or 24 hours (`hours`). In the energy mode there is no line; its room stays.
+power where there is room, otherwise below the row (`place`); the span is 1 to
+24 hours (`hours`). In the energy mode there is no line; its room stays.
 
 [source,yaml]
 ----
@@ -159,7 +159,7 @@ list:
     consumers: true
     solar: true
     place: auto      # auto | inline | below
-    hours: 12        # 3 | 6 | 12 | 24
+    hours: 12        # 1 to 24
 ----
 
 [source,yaml]

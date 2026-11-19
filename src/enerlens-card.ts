@@ -43,7 +43,7 @@ import {
 } from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
 import { formatPower } from "./format";
-import { HistoryLines } from "./history-fetch";
+import { HistoryLines, wattsFactor } from "./history-fetch";
 import { restLine, shapeLine, zeroGaps } from "./history-line";
 import { HoldTracker } from "./hold";
 import { localize } from "./localize";
@@ -1031,20 +1031,24 @@ class EnerLensCard extends LitElement {
   }
 
   /**
-   * Fetches the history lines when due (LZ-18): not in the editor's preview
+   * Fetches the history lines when due (LZ-18): in a preview once only
    * (issue #17), not for the example (E-5), not in a period, not while
    * nobody looks (P-8). One fetch at a time; a new answer draws again.
    */
   private _ensureLines(): void {
     const config = this._config;
     const hass = this._realHass ?? this._hass;
-    if (!config || !hass || this._example || isPreview(this) || this._period) return;
+    if (!config || !hass || this._example || this._period) return;
     if (!this._visible || document.hidden) return;
-    const ids = this._lineIds();
+    // Only sensors HA knows as power: a half-typed entity in the editor asks nothing.
+    const ids = this._lineIds().filter((id) => wattsFactor(hass, id) !== undefined);
     if (ids.length === 0) return;
     const now = Date.now();
     const hours = config.list.history.hours;
-    if (!this._lines.due(now, ids, hours)) return;
+    // In a preview - the editor's dialog, a dashboard being edited - once
+    // per set of entities and hours, never again: a picture of how it looks,
+    // without asking on every keystroke (issue #17, Markus 19.11.2026).
+    if (isPreview(this) ? this._lines.has(ids, hours) : !this._lines.due(now, ids, hours)) return;
     const before = this._lines.version;
     void this._lines.refresh(hass, ids, hours, now).then(() => {
       if (this._lines.version !== before) this.requestUpdate();
@@ -1081,7 +1085,8 @@ class EnerLensCard extends LitElement {
         this._lineMemo.set(key, hass ? this._lines.line(hass, id, now, invert) : undefined);
       return this._lineMemo.get(key);
     };
-    const preview = isPreview(this) || this._example;
+    // The example's values have no history (E-5).
+    const example = this._example;
     const tip = (max: number) =>
       localize("list.history_tip", hass, {
         hours: String(history.hours),
@@ -1092,7 +1097,7 @@ class EnerLensCard extends LitElement {
       consumers: history.consumers && config.list.enabled,
       solar: history.solar,
       shape: (entry, solar) => {
-        if (preview || !hass) return undefined;
+        if (example || !hass) return undefined;
         const key = `${solar ? "s" : "c"}|${entry.key}`;
         if (this._lineShapes.has(key)) return this._lineShapes.get(key);
         let line: (number | null)[] | undefined;

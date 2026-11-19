@@ -33,13 +33,21 @@ describe("list.history (LZ-18)", () => {
     });
   });
 
-  it("takes the hours as a number, and as text the editor might hand over", () => {
-    for (const h of [3, 6, 12, 24]) expect(withHistory({ hours: h }).list.history.hours).toBe(h);
-    expect(withHistory({ hours: "24" }).list.history.hours).toBe(24);
+  it("takes any whole number of hours from 1 to 24, as a number or as text", () => {
+    for (const h of [1, 3, 7, 12, 24]) expect(withHistory({ hours: h }).list.history.hours).toBe(h);
+    expect(withHistory({ hours: "7" }).list.history.hours).toBe(7);
   });
 
-  it("anything else is an error, as for every switch and choice", () => {
-    expect(() => withHistory({ hours: 5 })).toThrow();
+  it("a number out of range is set to the limit, with a hint - no error card", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(withHistory({ hours: 48 }).list.history.hours).toBe(24);
+    expect(withHistory({ hours: 0 }).list.history.hours).toBe(1);
+    expect(withHistory({ hours: 7.6 }).list.history.hours).toBe(8);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("what is no number at all is an error, as for every number", () => {
     expect(() => withHistory({ hours: "lots" })).toThrow();
     expect(() => withHistory({ place: "left" })).toThrow();
     expect(() => withHistory({ consumers: "yes" })).toThrow();
