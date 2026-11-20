@@ -1146,9 +1146,11 @@ class EnerLensCard extends LitElement {
     // Not the energy mode: its wider figures must not move the line (LZ-18).
     const key = `${this.offsetWidth}|${this._stacked}|${config.layout}`;
     if (key === this._autoKey && this._autoConfig === config) return;
+    const root = this.renderRoot;
+    // Nothing to measure yet (no row drawn): decided later, not stuck now.
+    if (!root.querySelector(".rows .row, .pv-rows .row")) return;
     this._autoKey = key;
     this._autoConfig = config;
-    const root = this.renderRoot;
     const NEED = 46 + 6;
     const was = this._autoPlace;
     const cut = [...root.querySelectorAll<HTMLElement>(".row .name")].some(
@@ -1157,7 +1159,11 @@ class EnerLensCard extends LitElement {
     let fits: boolean;
     if (this._stacked) {
       // Below the drawing the runway gives way, down to its 56 px.
-      const lane = root.querySelector(".row .lane")?.getBoundingClientRect().width ?? 0;
+      const body = root.querySelector(".body") as HTMLElement | null;
+      const b = body?.getBoundingClientRect();
+      const scale =
+        body && b && body.offsetWidth > 0 && b.width > 0 ? b.width / body.offsetWidth : 1;
+      const lane = (root.querySelector(".row .lane")?.getBoundingClientRect().width ?? 0) / scale;
       fits = was === "inline" ? !cut : !cut && lane - NEED >= 56 + 20;
     } else {
       // The list grows into its free column; the fan lines give the room.

@@ -135,8 +135,6 @@ describe("the card fetches only where it may (LZ-18, issue #17, E-5)", () => {
     await import("../src/enerlens-card");
   });
 
-  let lastSent: unknown[] = [];
-
   async function mount(raw: RawConfig, preview = false) {
     const el = document.createElement("enerlens-card") as HTMLElement & {
       setConfig: (c: unknown) => void;
@@ -155,7 +153,6 @@ describe("the card fetches only where it may (LZ-18, issue #17, E-5)", () => {
     }
     const sent = (hass.callWS as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([m]) => m);
     const calls = sent.map((m) => (m as { type: string }).type);
-    lastSent = sent;
     el.remove();
     return calls;
   }
@@ -170,21 +167,77 @@ describe("the card fetches only where it may (LZ-18, issue #17, E-5)", () => {
     expect(calls).not.toContain("recorder/get_statistics_metadata");
   });
 
-  it("in a preview it asks once, and not again on the next change (issue #17)", async () => {
-    const calls = await mount(RAW, true);
-    expect(calls.filter((c) => c === "recorder/get_statistics_metadata")).toHaveLength(1);
+  /**
+   * A card that stays mounted: changes and a clock moved on, then the
+   * requests for the line's data counted (those name the line's entities).
+   */
+  async function live(preview: boolean) {
+    const el = document.createElement("enerlens-card") as HTMLElement & {
+      setConfig: (c: unknown) => void;
+      hass: HomeAssistant;
+      preview?: boolean;
+      updateComplete: Promise<unknown>;
+    };
+    let clock = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => clock);
+    el.setConfig(RAW);
+    const hass = hassWith(LIVE);
+    if (preview) el.preview = true;
+    el.hass = hass;
+    document.body.appendChild(el);
+    const settle = async () => {
+      for (let i = 0; i < 3; i++) {
+        await el.updateComplete;
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    };
+    await settle();
+    const statsCalls = () =>
+      (hass.callWS as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([m]) => (m as { type: string }).type === "recorder/statistics_during_period",
+      ).length +
+      (hass.callWS as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([m]) => (m as { type: string }).type === "history/history_during_period",
+      ).length;
+    const first = statsCalls();
+    return {
+      first,
+      /** A change in the editor, then six minutes on and another update. */
+      async later(raw: RawConfig = RAW) {
+        el.setConfig(raw);
+        await settle();
+        clock += 6 * 60_000;
+        // A new reading, so the card draws (and asks, where due).
+        const pump = hass.states["sensor.pump"];
+        el.hass = {
+          ...hass,
+          states: { ...hass.states, "sensor.pump": { ...pump, state: "650" } },
+        } as HomeAssistant;
+        await settle();
+        const n = statsCalls();
+        el.remove();
+        return n;
+      },
+    };
+  }
+
+  it("in a preview it asks once, not again on a change or after five minutes (issue #17)", async () => {
+    const card = await live(true);
+    expect(card.first).toBeGreaterThan(0);
+    expect(await card.later()).toBe(card.first);
   });
 
-  it("a sensor HA does not know - a half-typed entity - asks nothing", async () => {
-    const calls = await mount(
-      {
-        ...RAW,
-        consumers: [{ entity: "sensor.pu", name: "Pumpe" }],
-        entities: { solar: "sensor.solar", grid: "sensor.grid" },
-      } as RawConfig,
-      true,
-    );
-    expect(calls).toBeDefined();
-    expect(JSON.stringify(lastSent)).not.toContain("sensor.pu");
+  it("on a dashboard it asks again once five minutes have passed", async () => {
+    const card = await live(false);
+    expect(await card.later()).toBeGreaterThan(card.first);
+  });
+
+  it("a half-typed entity added in the editor asks nothing new", async () => {
+    const card = await live(true);
+    const typing = {
+      ...RAW,
+      consumers: [...(RAW.consumers ?? []), { entity: "sensor.pu", name: "Neu" }],
+    } as RawConfig;
+    expect(await card.later(typing)).toBe(card.first);
   });
 });

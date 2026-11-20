@@ -716,7 +716,7 @@ interface FlatConfig {
   list_history_consumers?: boolean;
   list_history_solar?: boolean;
   list_history_place?: string;
-  list_history_hours?: string;
+  list_history_hours?: number | string;
   list_solar?: boolean;
   content_max_width?: number;
   content_align?: string;
@@ -1030,7 +1030,7 @@ function toFlat(config: RawConfig): FlatConfig {
     list_history_consumers: config.list?.history?.consumers === true,
     list_history_solar: config.list?.history?.solar === true,
     list_history_place: config.list?.history?.place ?? "auto",
-    list_history_hours: String(config.list?.history?.hours ?? 12),
+    list_history_hours: config.list?.history?.hours ?? 12,
     content_max_width: config.content?.max_width,
     content_align: config.content?.align,
     ring_enabled: config.ring?.enabled,
@@ -1913,6 +1913,7 @@ const NOTABLE = new Set(
 function noteField(field: string): string | undefined {
   if (field.startsWith("view.") || field.startsWith("flow.")) return field.slice(5);
   if (field.startsWith("power.") || field.startsWith("content.")) return field.replace(".", "_");
+  if (field === "list.history.hours") return "list_history_hours";
   return field.includes(".") || field.includes("[") ? undefined : field;
 }
 
@@ -2219,14 +2220,16 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
                   },
                 },
               },
+              // Whole hours as a number field, like the card's other numbers:
+              // the select with a typed value drew without room below it and
+              // hid the next switch (Markus 20.11.2026).
               {
                 name: "list_history_hours",
                 selector: {
-                  // Suggestions; another whole number of hours can be typed (19.11.2026).
-                  select: {
-                    mode: "dropdown",
-                    custom_value: true,
-                    options: ["3", "6", "12", "24"].map((h) => ({ value: h, label: `${h} h` })),
+                  number: {
+                    ...limitsOf("list.history.hours"),
+                    mode: "box",
+                    unit_of_measurement: "h",
                   },
                 },
               },

@@ -411,6 +411,21 @@ describe("editor - colours, icons and thresholds", () => {
     expect(cleared.list).toEqual({ enabled: true, history: { consumers: true, place: "below" } });
   });
 
+  it("writes a typed span as a number, and nothing for what is no number (LZ-18)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { enabled: true, history: { consumers: true } },
+    });
+    const seven = await change(el, { list_history_hours: "7" });
+    expect(seven.list).toEqual({ enabled: true, history: { consumers: true, hours: 7 } });
+    // Out of range is written as typed - the card sets it to 24 (rule 7: no correcting).
+    const thirty = await change(el, { list_history_hours: "30" });
+    expect(thirty.list).toEqual({ enabled: true, history: { consumers: true, hours: 30 } });
+    const text = await change(el, { list_history_hours: "abc" });
+    expect(text.list).toEqual({ enabled: true, history: { consumers: true } });
+  });
+
   it("offers the PV rows' switch only where PV rows are shown (LZ-18)", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

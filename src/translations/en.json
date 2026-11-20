@@ -489,7 +489,7 @@
     "list_history_consumers": "A small line in each consumer row, the rest too, shows roughly the power of the last hours - from Home Assistant's statistics. None in the energy mode. Default: off.",
     "list_history_solar": "The same for the PV rows. Default: off.",
     "list_history_place": "Automatic: next to the power where there is room, otherwise below the row. Default: automatic.",
-    "list_history_hours": "How far back the line reaches, whole hours from 1 to 24 - pick one or type it. Default: 12 h."
+    "list_history_hours": "How far back the line reaches, in whole hours from 1 to 24. Default: 12 h."
   },
   "outage": {
     "banner": "Island mode — no grid",

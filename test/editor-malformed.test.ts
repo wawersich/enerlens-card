@@ -289,7 +289,7 @@ describe("every form field reaches the YAML (issue #19)", () => {
   /** A value of the field's own kind that differs from the one it has. */
   function another(name: string, value: unknown): unknown {
     if (name === "energy_periods") return ["week"];
-    // The history line takes only its own choices (LZ-18).
+    // The history line: a span the card takes as it is, a place it offers (LZ-18).
     if (name === "list_history_hours") return "6";
     if (name === "list_history_place") return "below";
     // Quick buttons show their defaults ticked; a real value differs from those.

@@ -180,6 +180,21 @@ describe("every number field, whatever is typed (E-1 checklist)", () => {
     expect(forms(el).find((f) => "avg_long_minutes" in f.data)?.data.avg_long_minutes).toBe(1);
   });
 
+  it("says under the history line's span what the card uses instead (LZ-18)", async () => {
+    const el = await mount({ ...BASE, list: { history: { consumers: true } } } as typeof BASE);
+    for (const [typed, note] of [
+      ["30", "Höchstens 24."],
+      ["0", "Mindestens 1."],
+    ] as const) {
+      await type(el, "list_history_hours", typed as unknown as number);
+      await el.updateComplete;
+      const notes = [...(el.shadowRoot?.querySelectorAll(".field-note") ?? [])].map((n) =>
+        (n.textContent ?? "").trim(),
+      );
+      expect(notes, typed).toContain(note);
+    }
+  });
+
   it("names both windows when they are swapped", async () => {
     const el = await mount({ ...BASE, view: { avg_short_minutes: 5, avg_long_minutes: 2 } });
     const notes = [...(el.shadowRoot?.querySelectorAll(".field-note") ?? [])].map(

@@ -150,7 +150,9 @@ something ran; how much is in the figure. The data comes from Home Assistant's
 five-minute statistics; the tooltip names the highest five-minute mean.
 `list.history.solar` does the same for the PV rows. The line stands next to the
 power where there is room, otherwise below the row (`place`); the span is 1 to
-24 hours (`hours`). In the energy mode there is no line; its room stays.
+24 hours (`hours`). In the energy mode there is no line; its room stays. Only sensors that measure
+power get a line. In the editor's preview and while the dashboard is being
+edited it is loaded once and not updated after that.
 
 [source,yaml]
 ----

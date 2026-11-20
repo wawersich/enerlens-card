@@ -157,7 +157,10 @@ Zahl. Die Daten kommen aus der 5-Minuten-Statistik von Home Assistant, der Toolt
 nennt den höchsten 5-Minuten-Mittelwert. `list.history.solar` tut dasselbe für die
 PV-Zeilen. Die Linie steht automatisch neben der Leistung, wenn Platz ist, sonst
 unter der Zeile (`place`), der Zeitraum ist 1 bis 24 Stunden (`hours`).
-Im Energie-Modus gibt es keine Linie, ihr Platz bleibt.
+Im Energie-Modus gibt es keine Linie, ihr Platz bleibt. Eine Linie bekommen nur
+Sensoren, die eine Leistung messen. In der Vorschau des Editors und im
+Bearbeitungsmodus des Dashboards wird sie einmal geladen und dann nicht mehr
+aktualisiert.
 
 [source,yaml]
 ----

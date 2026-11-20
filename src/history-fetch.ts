@@ -97,11 +97,15 @@ export class HistoryLines {
     if (typeof hass.callWS !== "function") return;
     const key = keyOf(ids, hours);
     if (key !== this.key) {
+      // Another set of entities over the same hours: what is held for the
+      // ones that stay is kept and drawn on until the new data is there - an
+      // entity edited in the editor does not blank every other line.
+      const keep = hours === this.hours ? new Set(ids) : new Set<string>();
+      this.held = new Map([...this.held].filter(([id]) => keep.has(id)));
+      this.withRows = new Set([...this.withRows].filter((id) => keep.has(id)));
+      this.asked = new Set([...this.asked].filter((id) => keep.has(id)));
       this.key = key;
       this.hours = hours;
-      this.held = new Map();
-      this.withRows = new Set();
-      this.asked = new Set();
       this.fetchedAt = 0;
       this.retryAt = 0;
       this.retryMs = 0;
@@ -138,7 +142,7 @@ export class HistoryLines {
       // Readings: for the sensors with rows only after their latest row (at
       // most 15 minutes, DF-22); for the others the window once, then since
       // the last fetch.
-      const plainFrom = first ? start : this.fetchedAt - STEP_MS;
+      const plainFrom = first ? start : Math.max(start, this.fetchedAt - STEP_MS);
       const tailFrom = now - LIVE_MAX_MS - STEP_MS;
       const minutes = (from: number) => Math.ceil((now - from) / 60_000) + 1;
       const [tail, own] = await Promise.all([
@@ -159,9 +163,13 @@ export class HistoryLines {
           .sort((a, b) => a.t - b.t);
         const since = got.length ? got[0].t : Number.POSITIVE_INFINITY;
         held.readings = [...held.readings.filter((s) => s.t < since), ...got];
-        // What fell out of the window goes; the reading in effect at its start stays.
+        // What fell out of the window goes; the reading in effect at its start
+        // stays. With rows, only the readings after them are needed (DF-22).
         for (const t of held.rows.keys()) if (t < start) held.rows.delete(t);
-        const keep = held.readings.findIndex((s) => s.t >= start);
+        const ownLatest = Math.max(0, ...held.rows.keys());
+        const from =
+          this.withRows.has(id) && ownLatest > 0 ? Math.max(start, ownLatest - LIVE_MAX_MS) : start;
+        const keep = held.readings.findIndex((s) => s.t >= from);
         if (keep > 1) held.readings = held.readings.slice(keep - 1);
         this.held.set(id, held);
       }
@@ -169,9 +177,12 @@ export class HistoryLines {
       this.retryMs = 0;
       this.version++;
     } catch (error) {
-      // Not on every tick: a minute, then twice as long each time, up to five.
-      this.retryMs = Math.min(5 * 60_000, Math.max(60_000, this.retryMs * 2));
-      this.retryAt = now + this.retryMs;
+      // Not on every tick: a minute, then twice as long each time, up to five -
+      // unless the failure was an older set's, which holds up nothing new.
+      if (asked === this.key) {
+        this.retryMs = Math.min(5 * 60_000, Math.max(60_000, this.retryMs * 2));
+        this.retryAt = now + this.retryMs;
+      }
       console.warn(error);
     } finally {
       this.busy = false;

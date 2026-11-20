@@ -111,12 +111,12 @@ describe("the rest (DF-18)", () => {
 });
 
 describe("PV rows (DF-17)", () => {
-  it("a source without a value is 0 - from its first value on", () => {
-    expect(zeroGaps([null, 5, null, 7])).toEqual([null, 5, 0, 7]);
+  it("a source without a value is 0, also before its first value", () => {
+    expect(zeroGaps([null, 5, null, 7])).toEqual([0, 5, 0, 7]);
   });
 
-  it("a source without any value has no line", () => {
-    expect(zeroGaps([null, null])).toBeUndefined();
+  it("a source without any value in the window lies on zero", () => {
+    expect(zeroGaps([null, null])).toEqual([0, 0]);
   });
 });
 

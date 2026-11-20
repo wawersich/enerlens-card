@@ -99,14 +99,12 @@ export function restLine(house: Line, consumers: readonly Line[], excluded: read
 }
 
 /**
- * A PV source without a value is 0, as at the node (DF-17, PV-2) - from its
- * first value on: before it the line has not begun, and a source without any
- * value has no line at all.
+ * A PV source without a value is 0, as at the node (DF-17, PV-2): at night
+ * the line lies on zero whether zeros came or nothing (Markus 17.11.2026),
+ * also when nothing came in the whole window.
  */
-export function zeroGaps(line: Line): Line | undefined {
-  const first = line.findIndex((v) => v !== null);
-  if (first < 0) return undefined;
-  return line.map((v, i) => (i < first ? null : (v ?? 0)));
+export function zeroGaps(line: Line): Line {
+  return line.map((v) => v ?? 0);
 }
 
 export interface LineShape {
