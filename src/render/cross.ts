@@ -701,6 +701,8 @@ export function renderCross(
   cut = false,
   /** The PV ring (PV-4, PV-5); undefined when there is none. */
   solarRing?: { segments: Segment[]; layout: "share" | "peak" },
+  /** Width factor per connection (flow.line_scale, K-17); a connection left out is drawn at its base. */
+  lineFactors: ReadonlyMap<string, number> = new Map(),
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass, outage);
   // The arrangement (AN-1): where the nodes stand, the lines, the labels.
@@ -711,6 +713,11 @@ export function renderCross(
     : DRAWN_CONNECTIONS.filter((id) => !BATTERY_LINKS.has(id));
   // Battery -> grid runs on the grid-battery line (#27): either direction
   // colours it, and it counts as carrying something.
+  // Battery -> grid shares the grid-battery line: the wider of the two (K-17).
+  const factorOf = (id: string) =>
+    id === "grid_battery"
+      ? Math.max(lineFactors.get(id) ?? 1, lineFactors.get("battery_grid") ?? 1)
+      : (lineFactors.get(id) ?? 1);
   const colourOf = (id: string) =>
     activeConnections.get(id) ??
     (id === "grid_battery" ? activeConnections.get("battery_grid") : undefined);
@@ -752,7 +759,12 @@ export function renderCross(
             (id) =>
               svg`<path
                 class="link ${colourOf(id) !== undefined ? "active" : `inactive-${config.flow.inactiveLines}`}"
-                style=${colourOf(id) !== undefined ? `stroke:${colourOf(id)}` : ""}
+                style=${[
+                  colourOf(id) !== undefined ? `stroke:${colourOf(id)}` : "",
+                  factorOf(id) !== 1 ? `--el-line-f:${factorOf(id).toFixed(2)}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(";")}
                 d=${g.paths[id]}
               ></path>`,
           )}

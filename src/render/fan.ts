@@ -30,6 +30,8 @@ interface FanRow {
   inactive?: "show" | "dim";
   /** Opacity of a row still fading in; line and dots come with it. */
   fade?: number;
+  /** How many times its base width the line is drawn (flow.line_scale, K-17); 1 = base. */
+  width?: number;
 }
 
 interface FanLine {
@@ -39,6 +41,8 @@ interface FanLine {
   dots: SVGGElement[];
   animations: Animation[];
   count: number;
+  /** The width factor written to the line, to write it only when it changes. */
+  width?: string;
   /** What the dots were painted for - repainted only when one of these moves. */
   paintKey?: string;
   /** The dot colour as the browser reads it; undefined until it answered. */
@@ -172,6 +176,13 @@ export class FanLayer {
         // Without a design the stylesheet's opacity applies, scaled by this.
         line.path.style.setProperty("--el-fade", String(fade));
         line.group.style.opacity = fade < 1 ? String(fade) : "";
+      }
+      // Its own test: the factor follows the figure, which moves more often than the look.
+      const width = String(Math.round((row.width ?? 1) * 100) / 100);
+      if (width !== line.width) {
+        line.width = width;
+        if (width === "1") line.path.style.removeProperty("--el-line-f");
+        else line.path.style.setProperty("--el-line-f", width);
       }
 
       while (line.dots.length > row.count) {

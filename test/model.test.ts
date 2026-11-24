@@ -97,6 +97,7 @@ function configOf(
       design: "none",
       dotSize: 100,
       lineWidth: 100,
+      lineScale: 1,
     },
     appearance: "auto" as const,
     colors: {

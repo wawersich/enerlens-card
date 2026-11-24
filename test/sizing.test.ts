@@ -156,10 +156,10 @@ describe("the layers draw at the factor they are given (K-12)", () => {
     const css = styles.cssText.replace(/\/\*[\s\S]*?\*\//g, "");
     const rule = (selector: RegExp) => selector.exec(css)?.[0] ?? "";
     expect(rule(/\.link\s*\{[^}]*\}/)).toContain(
-      "stroke-width: calc(3px * var(--el-line-k, 1) / var(--el-scale, 1))",
+      "stroke-width: calc(3px * var(--el-line-k, 1) / var(--el-scale, 1) * var(--el-line-f, 1))",
     );
     expect(rule(/\.fan-line\s*\{[^}]*\}/)).toContain(
-      "stroke-width: calc(2px * var(--el-line-k, 1))",
+      "stroke-width: calc(2px * var(--el-line-k, 1) * var(--el-line-f, 1))",
     );
   });
 });

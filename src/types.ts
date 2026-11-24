@@ -388,6 +388,12 @@ export interface RawConfig extends LovelaceCardConfig {
     dot_size?: number;
     /** Line width in percent of the base width, 30-150 (K-12). */
     line_width?: number;
+    /**
+     * Lines grow with the flow they carry (K-17): the busiest line is this many
+     * times as wide as the base width, the others in proportion (by the square
+     * root, so a small flow still shows). 1 = all lines alike, the default; 1-6.
+     */
+    line_scale?: number;
   };
   colors?: Partial<Record<ColorKey | ExtraColorKey, string>> & {
     soc_stops?: SocStop[];
@@ -649,6 +655,8 @@ export interface Config {
     /** Dots and lines in percent of their base size at full node size (K-12). */
     dotSize: number;
     lineWidth: number;
+    /** Width of the busiest line as a multiple of the base width; 1 = all alike (K-17). */
+    lineScale: number;
   };
   /** Which half of a flow design applies (REQ P-10). */
   appearance: Appearance;

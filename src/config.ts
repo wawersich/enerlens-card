@@ -240,6 +240,7 @@ export const NUMBER_LIMITS: Readonly<
   "flow.fast_s": { min: 0.1 },
   "flow.dot_size": { min: 40, max: 150 },
   "flow.line_width": { min: 30, max: 150 },
+  "flow.line_scale": { min: 1, max: 6 },
   "consumers.min_w": { min: 0 },
   "entities.solar.kwp": { min: 0.01, max: 10000 },
   "nodes.size": { min: 60, max: 150 },
@@ -1426,6 +1427,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "dot_color",
     "dot_size",
     "line_width",
+    "line_scale",
     "lines",
   ]),
   // battery_inside has a warning of its own (not_for_node).
@@ -1725,6 +1727,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
           : undefined,
       dotSize: readLimited(rawFlow.dot_size, "flow.dot_size", 100, hass),
       lineWidth: readLimited(rawFlow.line_width, "flow.line_width", 100, hass),
+      lineScale: readLimited(rawFlow.line_scale, "flow.line_scale", 1, hass),
       // The cross is curved, the others straight - each may be switched (AN-2).
       lines: readLenient(
         rawFlow.lines,

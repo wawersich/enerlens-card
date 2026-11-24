@@ -182,8 +182,8 @@ export const styles = css`
 
   .fan-line {
     /* 2 px at full node size, like the connections (K-12, sizing.ts). */
-    stroke-width: calc(2px * var(--el-line-k, 1));
-    /* --el-fade: a row still fading in brings its line along. */
+    stroke-width: calc(2px * var(--el-line-k, 1) * var(--el-line-f, 1));
+    /* --el-line-f: flow.line_scale (K-17), 1 without it. --el-fade: a row still fading in brings its line along. */
     opacity: calc(0.45 * var(--el-fade, 1));
     fill: none;
   }
@@ -679,7 +679,7 @@ export const styles = css`
     stroke: var(--el-line);
     /* 3 px at full node size, grown with the card and the configured
        line_width - --el-line-k comes from sizing.ts (K-12). */
-    stroke-width: calc(3px * var(--el-line-k, 1) / var(--el-scale, 1));
+    stroke-width: calc(3px * var(--el-line-k, 1) / var(--el-scale, 1) * var(--el-line-f, 1));
     stroke-linecap: round;
   }
 

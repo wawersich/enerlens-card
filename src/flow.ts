@@ -225,6 +225,17 @@ export function splitFlows(
   return flows;
 }
 
+/**
+ * How much wider than its base a line is drawn (REQ K-17): 1 for a line that
+ * carries nothing, up to `scale` for the busiest line of the view. The square
+ * root keeps a small flow visible next to a large one - at a quarter of the
+ * busiest it is already halfway. Always 1 when `scale` is 1 (the default).
+ */
+export function lineFactor(w: number, busiestW: number, scale: number): number {
+  if (!(scale > 1) || !(busiestW > 0) || !(w > 0)) return 1;
+  return 1 + (scale - 1) * Math.sqrt(Math.min(w / busiestW, 1));
+}
+
 /** How much slower than slow_s a dot runs at the bottom of the resting range (REQ P-3). */
 const REST_SLOWDOWN = 0.3;
 /** The resting range spans S1 / REST_RANGE to S1; below it the pace stays put. */

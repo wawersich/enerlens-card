@@ -83,6 +83,36 @@ describe("enerlens-card element", () => {
     return el;
   }
 
+  it("draws the connections wider the more they carry, when flow.line_scale asks for it (K-17)", async () => {
+    const mountScaled = async (scale?: number) => {
+      const el = document.createElement("enerlens-card") as HTMLElement & {
+        setConfig: (c: unknown) => void;
+        hass: HomeAssistant;
+        updateComplete: Promise<unknown>;
+      };
+      el.setConfig({ ...CONFIG, ...(scale ? { flow: { line_scale: scale } } : {}) });
+      el.hass = fakeHass(STATES);
+      document.body.appendChild(el);
+      await el.updateComplete;
+      return el;
+    };
+    const factors = (el: HTMLElement) =>
+      [...(el.shadowRoot?.querySelectorAll(".link.active") ?? [])].map((link) =>
+        Number(/--el-line-f:\s*([\d.]+)/.exec(link.getAttribute("style") ?? "")?.[1] ?? 1),
+      );
+    // Default: every line at its base width, nothing written.
+    const plain = await mountScaled();
+    expect(factors(plain).length).toBeGreaterThan(1);
+    expect(factors(plain).every((f) => f === 1)).toBe(true);
+    plain.remove();
+    // Scale 3: the busiest line is three times as wide, the quieter ones in between.
+    const scaled = await mountScaled(3);
+    const widths = factors(scaled);
+    expect(Math.max(...widths)).toBeCloseTo(3);
+    expect(widths.some((f) => f > 1 && f < 3)).toBe(true);
+    scaled.remove();
+  });
+
   it("starts a new card with placeholders, never guessing sensors (E-5)", () => {
     // Guessing by order or by name picks plausible wrong sensors on large
     // setups - a single PV string, one battery module, a tablet's battery.

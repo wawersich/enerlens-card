@@ -41,7 +41,7 @@ import {
   periodKey,
   timeZoneOf,
 } from "./energy-view";
-import { computeFlows, dotParams, planDots } from "./flow";
+import { computeFlows, dotParams, lineFactor, planDots } from "./flow";
 import { HoldTracker } from "./hold";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
@@ -1602,6 +1602,8 @@ class EnerLensCard extends LitElement {
     origin: DOMRect,
     side: 1 | -1 = 1,
   ) {
+    const lineScale = this._config?.flow.lineScale ?? 1;
+    const busiest = Math.max(0, ...[...entries.values()].map((e) => e.w));
     return rows
       .map((row) => {
         const key = row.dataset.key;
@@ -1645,6 +1647,8 @@ class EnerLensCard extends LitElement {
           // No dots without motion, as on the cross (P-7).
           count: this._dotsMove ? (params?.count ?? 0) : 0,
           durationS: params?.durationS ?? 1,
+          // A line grows with its share of the busiest row (flow.line_scale, K-17).
+          width: lineFactor(entry.w, busiest, lineScale),
           inactive: quiet && mode !== "hide" ? mode : undefined,
           // A row still fading in brings its line along, not ahead of it.
           fade: rowOpacity(row),
@@ -2050,6 +2054,12 @@ class EnerLensCard extends LitElement {
     if (charging && exporting && exporting.w > charging.w) {
       active.set("grid_battery", active.get("battery_grid") ?? "");
     }
+    // Lines grow with the flow they carry (K-17): the busiest connection sets the scale.
+    const lineScale = this._config.flow.lineScale;
+    const busiest = Math.max(0, ...plans.map((p) => p.w));
+    const lineFactors = new Map(
+      plans.map((p) => [p.connection, lineFactor(p.w, busiest, lineScale)]),
+    );
     this._lastEntries = new Map(
       breakdown.entries.map((e) => [e.key, { w: e.w, color: e.color, threshold: e.threshold }]),
     );
@@ -2131,6 +2141,7 @@ class EnerLensCard extends LitElement {
               this._holeR,
               this._seeThrough,
               solarRing,
+              lineFactors,
             )}
             ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart)}
           </div>

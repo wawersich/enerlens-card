@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`flow.line_scale` (YAML): lines grow with the flow they carry.** The busiest
+  line of the view is this many times as wide as its base width (1-6), the
+  others in proportion by the square root, so a small flow still shows. It
+  applies to the connections and to the lines to the list, in the power view
+  and in every energy period - a period is just another set of flows, so the
+  lines show where a day, a week or a month went. 1, the default, keeps all
+  lines alike.
+
 ## [1.5.2] - 2026-11-06
 
 ### Changed

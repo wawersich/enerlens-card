@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultExtraColors, defaultNodes, normalizeConfig } from "../src/config";
-import { computeFlows, dotParams, planDots } from "../src/flow";
+import { computeFlows, dotParams, lineFactor, planDots } from "../src/flow";
 import type { Config, ConnectionId, Flows, Model, Reading, Signed } from "../src/types";
 
 // Test data is built by hand: config.ts and model.ts are implemented in
@@ -93,6 +93,7 @@ function config(over: Partial<Config["flow"]> = {}): Config {
       design: "none",
       dotSize: 100,
       lineWidth: 100,
+      lineScale: 1,
       ...over,
     },
     appearance: "auto" as const,
@@ -423,5 +424,30 @@ describe("dotParams - resting pace below S1 still follows the power (REQ P-3, 01
 
   it("stays at slow_s when S1 is 0", () => {
     expect(lap(0, withFlow({ min_w: 0, slow_below_w: 0 }))).toBeCloseTo(5, 6);
+  });
+});
+
+describe("line width by flow (REQ K-17)", () => {
+  it("leaves every line at its base while the scale is 1, the default", () => {
+    expect(lineFactor(0, 3000, 1)).toBe(1);
+    expect(lineFactor(500, 3000, 1)).toBe(1);
+    expect(lineFactor(3000, 3000, 1)).toBe(1);
+  });
+
+  it("gives the busiest line the whole scale and a line without flow the base", () => {
+    expect(lineFactor(3000, 3000, 3)).toBe(3);
+    expect(lineFactor(0, 3000, 3)).toBe(1);
+    expect(lineFactor(100, 0, 3)).toBe(1);
+  });
+
+  it("follows the square root, so a quarter of the busiest is already halfway", () => {
+    expect(lineFactor(750, 3000, 3)).toBeCloseTo(2);
+    expect(lineFactor(30, 3000, 3)).toBeGreaterThan(1.1);
+  });
+
+  it("never grows past the scale, and rises with the flow", () => {
+    expect(lineFactor(4000, 3000, 3)).toBe(3);
+    const widths = [100, 400, 900, 1600, 2500].map((w) => lineFactor(w, 3000, 4));
+    for (let i = 1; i < widths.length; i++) expect(widths[i]).toBeGreaterThan(widths[i - 1]);
   });
 });

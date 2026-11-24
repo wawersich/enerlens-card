@@ -562,6 +562,7 @@ describe("defaults (section 3)", () => {
       design: "none",
       dotSize: 100,
       lineWidth: 100,
+      lineScale: 1,
     });
   });
 
@@ -711,6 +712,7 @@ describe("numeric ranges (schema rules)", () => {
       design: "none",
       dotSize: 100,
       lineWidth: 100,
+      lineScale: 1,
     });
   });
 
@@ -1028,6 +1030,15 @@ describe("unknown keys (E-1)", () => {
     expect(warn).toHaveBeenCalledTimes(4);
     expect(String(warn.mock.calls[0][0])).toContain("error.config.clamped");
     expect(String(warn.mock.calls[0][0])).toContain("flow.dot_size");
+  });
+
+  it("reads flow.line_scale: 1 = lines alike (default), up to 6, clamped with a warning (K-17)", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const scale = (v: unknown) => normalizeConfig(cfg({ flow: { line_scale: v } })).flow.lineScale;
+    expect(scale(undefined)).toBe(1);
+    expect(scale(3)).toBe(3);
+    expect(scale(0.5)).toBe(1);
+    expect(scale(9)).toBe(6);
   });
 
   it("takes the limits themselves without a word (K-12)", () => {
