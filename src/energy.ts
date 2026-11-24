@@ -156,6 +156,21 @@ function localMidnight(year: number, month: number, day: number, tz: string): nu
 /** Rolling periods: their length in hours. */
 const ROLLING: Partial<Record<EnergyPeriod, number>> = { "24h": 24, "7d": 7 * 24, "30d": 30 * 24 };
 
+/**
+ * Past periods (EM-15): the calendar day, week or month before the running
+ * one, whole. Each is the running period of its own kind, one step back.
+ */
+const PAST: Partial<Record<EnergyPeriod, EnergyPeriod>> = {
+  yesterday: "today",
+  last_week: "week",
+  last_month: "month",
+};
+
+/** Whether a period lies wholly in the past - it ends at a midnight, not now. */
+export function isPast(period: EnergyPeriod): boolean {
+  return PAST[period] !== undefined;
+}
+
 /** Whether a period rolls with the clock rather than starting on the calendar. */
 export function isRolling(period: EnergyPeriod): boolean {
   return ROLLING[period] !== undefined;
@@ -174,6 +189,11 @@ export function periodStart(
   tz: string,
   firstWeekday: number,
 ): number {
+  const running = PAST[period];
+  if (running !== undefined) {
+    // One millisecond before the running period began lies in the one before.
+    return periodStart(running, periodStart(running, now, tz, firstWeekday) - 1, tz, firstWeekday);
+  }
   const hours = ROLLING[period];
   if (hours !== undefined) {
     const step = period === "30d" ? HOUR : FIVE_MIN;
@@ -205,12 +225,13 @@ export function bucketStart(t: number, step: "hour" | "day", tz: string): number
  */
 export function periodEnd(period: EnergyPeriod, start: number, now: number, tz: string): number {
   if (isRolling(period)) return now;
+  const kind = PAST[period] ?? period;
   const local = new Date(start + zoneOffset(start, tz));
   const year = local.getUTCFullYear();
   const month = local.getUTCMonth();
   const day = local.getUTCDate();
-  if (period === "month") return localMidnight(year, month + 1, 1, tz);
-  return localMidnight(year, month, day + (period === "week" ? 7 : 1), tz);
+  if (kind === "month") return localMidnight(year, month + 1, 1, tz);
+  return localMidnight(year, month, day + (kind === "week" ? 7 : 1), tz);
 }
 
 /** 0 normal, 1 muted, 2 amber - by the share of filled time (EM-11). */

@@ -74,7 +74,17 @@ const DEFAULT_ICONS: Partial<Record<NodeKey, string>> = {
 };
 
 const VIEW_MODES: readonly ViewMode[] = ["current", "avg_short", "avg_long"];
-const ENERGY_PERIODS: readonly EnergyPeriod[] = ["today", "24h", "week", "7d", "month", "30d"];
+const ENERGY_PERIODS: readonly EnergyPeriod[] = [
+  "today",
+  "24h",
+  "week",
+  "7d",
+  "month",
+  "30d",
+  "yesterday",
+  "last_week",
+  "last_month",
+];
 const ENERGY_CHOICES: readonly EnergyChoice[] = ["power", ...ENERGY_PERIODS];
 /** Offered without any configuration, once the statistics are there (QB-8). */
 const ENERGY_DEFAULT: readonly EnergyChoice[] = ["power", "today", "24h", "week"];

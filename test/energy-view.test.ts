@@ -1,13 +1,14 @@
 /**
  * How the energy mode hands its figures to the drawing (REQ EM-7, EM-8).
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { normalizeConfig } from "../src/config";
 import {
   type EnergyView,
   energyConfig,
   energyEntities,
   energyKey,
+  fetchEnergy,
   mainEntities,
   toView,
 } from "../src/energy-view";
@@ -219,5 +220,80 @@ describe("the battery's task on the signed-grid path (EM-8, P-14)", () => {
     expect(run("zero_grid").solar_house).toBeCloseTo(1000, 6);
     expect(run("supply_house").solar_grid).toBeCloseTo(500, 6);
     expect(run("supply_house").solar_house).toBeCloseTo(500, 6);
+  });
+});
+
+describe("a past period fetches its own day (EM-15)", () => {
+  const HOUR = 3_600_000;
+  // Monday 19 Oct 2026, 14:30 in Berlin; yesterday began 17 Oct 22:00 UTC.
+  const now = Date.parse("2026-10-19T12:30:00Z");
+  const yesterdayStart = Date.parse("2026-10-17T22:00:00Z");
+  const todayStart = Date.parse("2026-10-18T22:00:00Z");
+
+  const setup = normalizeConfig({
+    type: "custom:enerlens-card",
+    entities: {
+      solar: "sensor.pv",
+      grid: { import: "sensor.i", export: "sensor.e" },
+      house: "sensor.h",
+    },
+    consumers: [{ entity: "sensor.heat" }],
+  } as RawConfig);
+
+  /** Hourly rows for three days: 1000 W (solar) yesterday, 5000 W from today on. */
+  function hassWith(calls: Record<string, unknown>[]) {
+    return {
+      language: "en",
+      locale: { language: "en", number_format: "language", first_weekday: "monday" },
+      config: { time_zone: "Europe/Berlin" },
+      states: {},
+      callWS: vi.fn(async (msg: Record<string, unknown>) => {
+        calls.push(msg);
+        const out: Record<string, { start: number; mean: number }[]> = {};
+        if (msg.period !== "hour") return out;
+        const from = Date.parse(String(msg.start_time));
+        for (const id of msg.statistic_ids as string[]) {
+          out[id] = [];
+          for (let t = from; t < todayStart + 14 * HOUR; t += HOUR) {
+            const yesterday = t >= yesterdayStart && t < todayStart;
+            out[id].push({ start: t, mean: id === "sensor.pv" ? (yesterday ? 1000 : 5000) : 100 });
+          }
+        }
+        return out;
+      }),
+    };
+  }
+
+  it("counts yesterday's 24 hours and nothing of today", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const view = await fetchEnergy(hassWith(calls) as never, setup, "yesterday", now);
+    expect(view.period).toBe("yesterday");
+    expect(view.from).toBe(yesterdayStart);
+    expect(view.to).toBe(todayStart);
+    expect(view.hours).toBe(24);
+    // 24 h x 1000 W: not a watt of today's 5000 W is in it.
+    expect(view.meanW("sensor.pv")).toBeCloseTo(1000);
+  });
+
+  it("draws the window's axis over yesterday, in hours", async () => {
+    const view = await fetchEnergy(hassWith([]) as never, setup, "yesterday", now);
+    expect(view.detail?.step).toBe("hour");
+    expect(view.detail?.axisFrom).toBe(yesterdayStart);
+    expect(view.detail?.axisTo).toBe(todayStart);
+  });
+
+  it("counts last week in days and ends where this week begins", async () => {
+    const view = await fetchEnergy(hassWith([]) as never, setup, "last_week", now);
+    expect(view.detail?.step).toBe("day");
+    expect(view.detail?.axisFrom).toBe(Date.parse("2026-10-11T22:00:00Z"));
+    expect(view.detail?.axisTo).toBe(Date.parse("2026-10-18T22:00:00Z"));
+  });
+
+  it("goes stale when a new day begins, not before", async () => {
+    const today = await fetchEnergy(hassWith([]) as never, setup, "yesterday", now);
+    const later = await fetchEnergy(hassWith([]) as never, setup, "yesterday", now + 5 * HOUR);
+    expect(later.start).toBe(today.start);
+    const tomorrow = await fetchEnergy(hassWith([]) as never, setup, "yesterday", now + 12 * HOUR);
+    expect(tomorrow.start).toBe(todayStart);
   });
 });

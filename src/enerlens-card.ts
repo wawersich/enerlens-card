@@ -27,7 +27,7 @@ import {
 import { buildBreakdown, carries, refreshBreakdownValues } from "./consumers";
 import { flowDesign, loadLiveDesigns } from "./designs";
 import { CARD_GONE, CARD_GONE_MS } from "./detail-dialog";
-import { periodStart } from "./energy";
+import { isPast, periodStart } from "./energy";
 import {
   type EnergyView,
   energyChipLabel,
@@ -567,7 +567,7 @@ class EnerLensCard extends LitElement {
     if (
       view?.detail &&
       this._fresh(period, hass, now) &&
-      now - view.fetchedAt < ENERGY_REFRESH_MS
+      (isPast(period) || now - view.fetchedAt < ENERGY_REFRESH_MS)
     ) {
       return view;
     }
@@ -610,7 +610,16 @@ class EnerLensCard extends LitElement {
     const asked = this._energyAsked.get(period);
     // A tap asks again after a failed try at once - only not twice at a time.
     if (asked?.open) return;
-    if (!tapped && asked && asked.start === start && now - asked.at < ENERGY_REFRESH_MS) return;
+    // A past period does not change until the next midnight: once its figures are
+    // here they stay, only a failed or missing one is asked for again (EM-15).
+    const settled = isPast(period) && this._energyViews.has(period);
+    if (
+      !tapped &&
+      asked &&
+      asked.start === start &&
+      (settled || now - asked.at < ENERGY_REFRESH_MS)
+    )
+      return;
     const ask = { at: now, start, open: true };
     this._energyAsked.set(period, ask);
     const key = this._energyKey;

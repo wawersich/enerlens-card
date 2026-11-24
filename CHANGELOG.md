@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Past periods in the energy mode:** `yesterday`, `last_week` and
+  `last_month` for `view.energy_periods` - the whole calendar day, week or
+  month before the running one, in the quick button, the chip and the detail
+  window. Not offered unless switched on.
+
 ## [1.5.2] - 2026-11-06
 
 ### Changed

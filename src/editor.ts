@@ -1189,7 +1189,18 @@ function expandedOut(flat: FlatRecord, raw: unknown): unknown[] | undefined {
 
 /** What each quick button offers, in its fixed order (REQ QB-2, EM-2). */
 const VIEW_MODES = ["current", "avg_short", "avg_long"];
-const ENERGY_CHOICES = ["power", "today", "24h", "week", "7d", "month", "30d"];
+const ENERGY_CHOICES = [
+  "power",
+  "today",
+  "24h",
+  "week",
+  "7d",
+  "month",
+  "30d",
+  "yesterday",
+  "last_week",
+  "last_month",
+];
 const LIST_SCOPES = ["filtered", "full"];
 const PV_SCALES = ["share", "peak"];
 const ALLOWED = { modes: VIEW_MODES, energy_periods: ENERGY_CHOICES, scope: LIST_SCOPES };

@@ -72,7 +72,17 @@ export interface LovelaceCardConfig {
 export type ViewMode = "current" | "avg_short" | "avg_long";
 
 /** Calendar periods of the energy mode (REQ EM-1). */
-export type EnergyPeriod = "today" | "24h" | "week" | "7d" | "month" | "30d";
+export type EnergyPeriod =
+  | "today"
+  | "24h"
+  | "week"
+  | "7d"
+  | "month"
+  | "30d"
+  // The calendar period before the running one, whole (EM-15).
+  | "yesterday"
+  | "last_week"
+  | "last_month";
 /** What the quick button power/energy offers: the power view or a period (REQ QB-2). */
 export type EnergyChoice = "power" | EnergyPeriod;
 /** What the quick button list scope offers (REQ QB-2, L-12). */

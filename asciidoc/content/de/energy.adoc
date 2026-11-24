@@ -41,7 +41,7 @@ Zustände_: Die Entität muss das Attribut `state_class: measurement` haben.
 [source,yaml]
 ----
 view:
-  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # beliebig viele
+  energy_periods: [power, today, 24h, week, 7d, month, 30d, yesterday, last_week, last_month]   # beliebig viele
 ----
 
 Im Editor stehen die Zeiträume in der Gruppe *Quick-Buttons*, Teil
@@ -67,9 +67,19 @@ Woche an (siehe _Quick-Buttons_):
 |`7d` |7 Tage |die letzten 7 × 24 Stunden
 |`month` |Monat |seit dem Monatsersten
 |`30d` |30 Tage |die letzten 30 × 24 Stunden
+|`yesterday` |Gestern |der ganze gestrige Tag, von 0 bis 24 Uhr
+|`last_week` |Letzte Woche |die ganze Woche vor dieser
+|`last_month` |Letzter Monat |der ganze Monat vor diesem
 |===
 
-Jeder Zeitraum endet bei der letzten Statistik, die Home Assistant geschrieben
+Die letzten drei schauen zurück statt bis jetzt: Es sind der Kalendertag, die
+Woche oder der Monat vor dem laufenden, und sie bleiben gleich, bis der nächste
+beginnt. Angeboten werden sie nur, wenn du sie einschaltest. Die
+Stundenstatistik bleibt dauerhaft erhalten, ein vergangener Zeitraum reicht also
+so weit zurück, wie die Sensoren Daten haben; das Detailfenster zeigt gestern in
+Stunden, letzte Woche und letzten Monat in Tagen.
+
+Die laufenden Zeiträume enden bei der letzten Statistik, die Home Assistant geschrieben
 hat, ein paar Minuten hinter der Uhr. Die rollenden sind auf fünf Minuten
 genau; _30 Tage_ beginnen zur vollen Stunde, weil Home Assistant die
 Fünf-Minuten-Statistik nur rund zehn Tage aufhebt - bis zu einer Stunde

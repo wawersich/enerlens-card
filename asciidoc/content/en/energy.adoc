@@ -39,7 +39,7 @@ the attribute `state_class: measurement`.
 [source,yaml]
 ----
 view:
-  energy_periods: [power, today, 24h, week, 7d, month, 30d]   # any of them
+  energy_periods: [power, today, 24h, week, 7d, month, 30d, yesterday, last_week, last_month]   # any of them
 ----
 
 In the editor the periods sit in the group *Quick buttons*, part
@@ -65,9 +65,18 @@ _Quick buttons_):
 |`7d` |7 days |the last 7 × 24 hours
 |`month` |Month |since the first of the month
 |`30d` |30 days |the last 30 × 24 hours
+|`yesterday` |Yesterday |the whole of yesterday, midnight to midnight
+|`last_week` |Last week |the whole week before this one
+|`last_month` |Last month |the whole month before this one
 |===
 
-Every period ends at the last statistics Home Assistant has written, a few
+The last three look back instead of up to now: they are the calendar day, week
+or month before the running one, and they stay the same until the next one
+begins. They are not offered unless you switch them on. Hourly statistics are
+kept for good, so a past period works as far back as the sensors have them; the
+detail window shows yesterday in hours, last week and last month in days.
+
+The running periods end at the last statistics Home Assistant has written, a few
 minutes behind the clock. The rolling ones are exact to five minutes; _30
 days_ starts on the full hour, because Home Assistant keeps its five-minute
 statistics only about ten days - up to an hour shorter, never made up.

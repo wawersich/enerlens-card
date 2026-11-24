@@ -12,6 +12,7 @@ import {
   type StatRow,
   bucketStart,
   integrateEnergy,
+  isPast,
   isRolling,
   periodEnd,
   periodStart,
@@ -66,7 +67,7 @@ export interface EnergyView {
 
 /** A day or less in hourly bars, longer periods in daily ones (DF-3). */
 export function barStep(period: EnergyPeriod): "hour" | "day" {
-  return period === "today" || period === "24h" ? "hour" : "day";
+  return period === "today" || period === "24h" || period === "yesterday" ? "hour" : "day";
 }
 
 interface Roles {
@@ -341,7 +342,9 @@ export async function fetchEnergy(
   const { roles, inverted, signed } = all;
   const ids = entityIds(all, config);
   const from = periodStart(period, now, timeZoneOf(hass), firstWeekday(hass));
-  const hourStart = Math.floor(now / HOUR) * HOUR;
+  // A past period ends at its own midnight, a running one now (EM-15).
+  const to = isPast(period) ? periodEnd(period, from, now, timeZoneOf(hass)) : now;
+  const hourStart = Math.floor(to / HOUR) * HOUR;
   // A rolling start off the full hour reads its first part-hour from the
   // five-minute rows; seven days back they need a request of their own (EM-1).
   const headEnd = Math.ceil(from / HOUR) * HOUR;
@@ -361,7 +364,7 @@ export async function fetchEnergy(
   const result = integrateEnergy({
     bucketOf: (t) => bucketStart(t, step, tz),
     from,
-    to: now,
+    to,
     roles,
     consumers: config.consumers.map((c) => c.entity),
     hourly: splitSigned(rowsOf(hourly, ids, inverted), signed),

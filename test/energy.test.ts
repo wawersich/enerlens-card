@@ -8,6 +8,7 @@ import {
   type StatRow,
   bucketStart,
   integrateEnergy,
+  isPast,
   periodEnd,
   periodStart,
   warnTier,
@@ -100,6 +101,56 @@ function query(patch: Partial<EnergyQuery> = {}): EnergyQuery {
     ...patch,
   };
 }
+
+describe("past periods (EM-15)", () => {
+  // Monday 19 Oct 2026, 14:30 in Berlin (summer time, +2 h).
+  const now = iso("2026-10-19T12:30:00Z");
+  const tz = "Europe/Berlin";
+
+  it("starts yesterday at yesterday's midnight and ends at today's", () => {
+    const start = periodStart("yesterday", now, tz, 1);
+    expect(start).toBe(iso("2026-10-17T22:00:00Z"));
+    expect(periodEnd("yesterday", start, now, tz)).toBe(periodStart("today", now, tz, 1));
+  });
+
+  it("starts last week one week before this week's first day, whole to the day this one begins", () => {
+    const start = periodStart("last_week", now, tz, 1);
+    expect(start).toBe(iso("2026-10-11T22:00:00Z"));
+    expect(periodEnd("last_week", start, now, tz)).toBe(periodStart("week", now, tz, 1));
+    // The first weekday decides, as for this week.
+    expect(periodStart("last_week", now, tz, 0)).toBe(iso("2026-10-10T22:00:00Z"));
+  });
+
+  it("starts last month on the first of the month before, across a year end", () => {
+    const start = periodStart("last_month", now, tz, 1);
+    expect(start).toBe(iso("2026-08-31T22:00:00Z"));
+    expect(periodEnd("last_month", start, now, tz)).toBe(periodStart("month", now, tz, 1));
+    const january = iso("2027-01-15T12:00:00Z");
+    expect(periodStart("last_month", january, tz, 1)).toBe(iso("2026-11-30T23:00:00Z"));
+  });
+
+  it("is 25 hours long on the day the clocks go back", () => {
+    // 26 Oct 2026, Berlin: the day before (25 Oct) has 25 hours.
+    const at = iso("2026-10-26T10:00:00Z");
+    const start = periodStart("yesterday", at, tz, 1);
+    expect(periodEnd("yesterday", start, at, tz) - start).toBe(25 * 3_600_000);
+  });
+
+  it("is past, a rolling or running period is not", () => {
+    expect(isPast("yesterday")).toBe(true);
+    expect(isPast("last_week")).toBe(true);
+    expect(isPast("last_month")).toBe(true);
+    for (const running of ["today", "24h", "week", "7d", "month", "30d"] as const) {
+      expect(isPast(running)).toBe(false);
+    }
+  });
+
+  it("does not move while the running period does: the same figures all day", () => {
+    const morning = periodStart("yesterday", iso("2026-10-19T00:30:00Z"), tz, 1);
+    const evening = periodStart("yesterday", iso("2026-10-19T20:30:00Z"), tz, 1);
+    expect(evening).toBe(morning);
+  });
+});
 
 describe("integration (EM-4)", () => {
   it("adds mean times duration over the period", () => {

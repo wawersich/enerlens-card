@@ -1846,6 +1846,9 @@ describe("editor: energy periods (REQ EM-15)", () => {
       "7d",
       "month",
       "30d",
+      "yesterday",
+      "last_week",
+      "last_month",
     ]);
     expect(field.disabled).toBeFalsy();
     const saved = await change(el, { energy_periods: ["month", "today"] });

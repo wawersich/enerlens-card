@@ -445,6 +445,45 @@ describe("energy mode on the card (REQ 2.15)", () => {
     warn.mockRestore();
   });
 
+  it("does not ask for a past period every five minutes, only when its day changes (EM-15)", async () => {
+    const { el, asked } = await mount({
+      ...CONFIG,
+      view: { energy_periods: ["power", "yesterday"] },
+    });
+    const stats = () => asked.filter((m) => m.type === "recorder/statistics_during_period").length;
+    await tap(el);
+    expect(label(el)).toBe("Gestern");
+    expect(stats()).toBe(3);
+    // Five minutes later a running period would ask again; yesterday has not changed.
+    vi.setSystemTime(NOW + 5 * 60_000 + 1000);
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(el);
+    expect(stats()).toBe(3);
+    // After midnight it is another day.
+    vi.setSystemTime(NOW + 13 * H);
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(el);
+    expect(stats()).toBe(6);
+    vi.setSystemTime(NOW);
+  });
+
+  it("asks again for a past period that never arrived, on the next tap (EM-15)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { el, asked } = await mount({
+      ...CONFIG,
+      view: { energy_periods: ["power", "yesterday"] },
+    });
+    const stats = () => asked.filter((m) => m.type === "recorder/statistics_during_period").length;
+    failing = 3;
+    await tap(el);
+    expect(stats()).toBe(3);
+    expect(label(el)).toBe("kW");
+    await tap(el);
+    expect(stats()).toBe(6);
+    expect(label(el)).toBe("Gestern");
+    warn.mockRestore();
+  });
+
   it("renews the day at midnight, keeping yesterday's figures only until it is there (EM-1)", async () => {
     const { el, asked } = await mount();
     await tap(el);
