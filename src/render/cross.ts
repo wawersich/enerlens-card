@@ -23,7 +23,7 @@ import type {
   Signed,
 } from "../types";
 import { DRAWN_CONNECTIONS, NODE_R, geometryFor, holesPathOf, nodePercentOf } from "./geometry";
-import { renderRing } from "./ring";
+import { type RingTools, renderRing } from "./ring";
 
 /**
  * Which way a signed quantity is running, as one answer for the label and the
@@ -701,6 +701,8 @@ export function renderCross(
   cut = false,
   /** The PV ring (PV-4, PV-5); undefined when there is none. */
   solarRing?: { segments: Segment[]; layout: "share" | "peak" },
+  /** Tooltip and tap on the ring segments, per ring (R-8). */
+  ringTools?: { house?: RingTools; solar?: RingTools },
 ): TemplateResult {
   const views = buildNodeViews(model, config, hass, outage);
   // The arrangement (AN-1): where the nodes stand, the lines, the labels.
@@ -781,7 +783,7 @@ export function renderCross(
               ringShown ? "transparent" : v.color
             }"
           >
-            ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx, config.ring.animation, moving) : ""}
+            ${v.key === "house" ? renderRing(segments, segments.length > 0, nodePx, config.ring.animation, moving, "share", ringTools?.house) : ""}
             ${
               v.key === "solar" && solarRing
                 ? renderRing(
@@ -791,6 +793,7 @@ export function renderCross(
                     config.ring.animation,
                     moving,
                     solarRing.layout,
+                    ringTools?.solar,
                   )
                 : ""
             }

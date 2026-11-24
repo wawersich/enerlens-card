@@ -13,6 +13,7 @@ import {
   RING_INSET_PX,
   RingAnimator,
   type RingClock,
+  type RingTools,
   laneScale,
   renderRing,
   ringGeometry,
@@ -634,5 +635,83 @@ describe("the ring in motion (R-4)", () => {
       expect(atTarget(host)).toBe(true);
       expect(drawn(host).some((a) => a.transform)).toBe(false);
     });
+  });
+});
+
+describe("ring tooltip and tap (REQ R-8)", () => {
+  function show(segments: Segment[], tools?: RingTools): HTMLElement {
+    const host = document.createElement("div");
+    const result = renderRing(segments, true, NODE_PX, "overtake", false, "share", tools);
+    if (result === null || typeof result !== "object") throw new Error("nothing rendered");
+    render(result, host);
+    return host;
+  }
+  const named = (key: string, share: number, entity?: string): Segment => ({
+    key,
+    share,
+    color: "#123456",
+    isRest: false,
+    entity,
+    name: key.toUpperCase(),
+    w: share * 1000,
+  });
+
+  it("is only a picture without tools: no label, no tap", () => {
+    const host = show([named("a", 0.6, "sensor.a"), named("b", 0.4, "sensor.b")]);
+    expect(host.querySelectorAll("circle[data-label]")).toHaveLength(0);
+    expect(host.querySelectorAll("circle.selectable")).toHaveLength(0);
+  });
+
+  it("gives every segment the tooltip the card asks for", () => {
+    const host = show([named("a", 0.6, "sensor.a"), named("b", 0.4)], {
+      label: (s) => `${s.name}: ${s.w} W`,
+    });
+    const titles = [...host.querySelectorAll("circle")].map((c) => ({
+      key: c.getAttribute("data-key"),
+      title: c.getAttribute("data-label"),
+    }));
+    expect(titles).toContainEqual({ key: "a", title: "A: 600 W" });
+    expect(titles).toContainEqual({ key: "b", title: "B: 400 W" });
+  });
+
+  it("leaves a segment without a label unlabelled and silent", () => {
+    const seen: unknown[] = [];
+    const host = show([named("a", 1)], { label: () => "", hover: (s) => seen.push(s) });
+    expect(host.querySelectorAll("circle[data-label]")).toHaveLength(0);
+    host.querySelector("circle")?.dispatchEvent(new Event("pointermove"));
+    expect(seen).toEqual([]);
+    expect(host.querySelector("circle")?.classList.contains("named")).toBe(false);
+  });
+
+  it("opens only the segments the card says can be opened", () => {
+    const picked: string[] = [];
+    const host = show([named("a", 0.6, "sensor.a"), named("b", 0.4)], {
+      label: () => "x",
+      selectable: (s) => s.entity !== undefined,
+      select: (s) => picked.push(s.key),
+    });
+    const [a, b] = [host.querySelector('[data-key="a"]'), host.querySelector('[data-key="b"]')];
+    expect(a?.classList.contains("selectable")).toBe(true);
+    expect(b?.classList.contains("selectable")).toBe(false);
+    a?.dispatchEvent(new Event("click"));
+    b?.dispatchEvent(new Event("click"));
+    expect(picked).toEqual(["a"]);
+  });
+
+  it("tells the card when the pointer is over a segment and when it has left (R-8)", () => {
+    const seen: (string | null)[] = [];
+    const host = show([named("a", 0.6, "sensor.a"), named("b", 0.4)], {
+      label: (s) => `${s.name}`,
+      hover: (s) => seen.push(s ? s.key : null),
+    });
+    const [a, b] = [host.querySelector('[data-key="a"]'), host.querySelector('[data-key="b"]')];
+    a?.dispatchEvent(new Event("pointermove"));
+    b?.dispatchEvent(new Event("pointermove"));
+    b?.dispatchEvent(new Event("pointerleave"));
+    expect(seen).toEqual(["a", "b", null]);
+  });
+
+  it("lets pointers reach a segment, which the ring box itself does not", () => {
+    expect(styles.cssText).toMatch(/\.ring-seg\s*{[^}]*pointer-events:\s*stroke/);
   });
 });

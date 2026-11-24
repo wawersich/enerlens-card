@@ -42,6 +42,7 @@ import {
   timeZoneOf,
 } from "./energy-view";
 import { computeFlows, dotParams, planDots } from "./flow";
+import { formatPercent, formatPower } from "./format";
 import { HoldTracker } from "./hold";
 import { localize } from "./localize";
 import { buildModel, buildModelFrom, readPowerW } from "./model";
@@ -75,7 +76,7 @@ import {
 } from "./render/header";
 import { GLIDE_MS, RowAnimator, renderList, renderSolarSide } from "./render/list";
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
-import { RingAnimator } from "./render/ring";
+import { RingAnimator, type RingTools } from "./render/ring";
 import { sizeFactors } from "./render/sizing";
 import { buildSolarRows, refreshSolarRows, solarSegments } from "./solar";
 import { SolarMemory } from "./solar-memory";
@@ -856,6 +857,26 @@ class EnerLensCard extends LitElement {
    * the detail window (REQ DF-2). In the editor's preview it would cover the
    * editor - there the entity of the running direction opens, as before.
    */
+  /**
+   * The ring's tooltip (R-8): written straight into its element, so a pointer moving over the
+   * ring never costs a render. Empty text hides it. Kept inside the card and clear of its edge.
+   */
+  private _showRingTip(text: string, ev: PointerEvent): void {
+    const tip = this.shadowRoot?.querySelector<HTMLElement>(".ring-tip");
+    const card = this.shadowRoot?.querySelector<HTMLElement>("ha-card");
+    if (!tip || !card) return;
+    if (!text) {
+      tip.hidden = true;
+      return;
+    }
+    tip.textContent = text;
+    tip.hidden = false;
+    const box = card.getBoundingClientRect();
+    const left = Math.min(ev.clientX - box.left + 12, box.width - tip.offsetWidth - 4);
+    tip.style.left = `${Math.max(4, left)}px`;
+    tip.style.top = `${Math.max(4, ev.clientY - box.top - tip.offsetHeight - 10)}px`;
+  }
+
   private _onDetail = (ev: Event): void => {
     ev.stopPropagation();
     if (this._example) return;
@@ -2081,6 +2102,39 @@ class EnerLensCard extends LitElement {
         ? openDetail(ev.currentTarget as EventTarget, { node: detail, entity: entity || undefined })
         : openMoreInfo(ev.currentTarget as EventTarget, entity);
 
+    // The ring says what a segment is, in the figure the row shows (R-8), and a
+    // tap opens what a tap on the row opens - the same window (DF-15).
+    const ringHass = this._hass;
+    const ringConfig = this._config;
+    const ringTools = (solar: boolean): RingTools => {
+      const hass = ringHass;
+      const config = ringConfig;
+      const tools: RingTools = {
+        label: (segment) => {
+          // The rest row has no configured name by default: the interface language's "Other" (L-5).
+          const name = segment.name || (segment.isRest ? localize("list.rest", hass) : "");
+          return name && segment.w !== undefined
+            ? `${name}: ${formatPower(segment.w, hass, config.power)} (${formatPercent(segment.share * 100, hass)})`
+            : "";
+        },
+        hover: (segment, ev) => this._showRingTip(segment ? tools.label(segment) : "", ev),
+        selectable: (segment) =>
+          segment.isRest
+            ? config.sources.house.kind === "single"
+            : segment.entity !== undefined && segment.entity !== "",
+        select: (segment, ev) => {
+          ev.stopPropagation();
+          const detail: DetailNode = segment.isRest
+            ? "rest"
+            : solar
+              ? `source:${segment.key}`
+              : `consumer:${segment.key}`;
+          openEntry(segment.entity ?? "", ev, detail);
+        },
+      };
+      return tools;
+    };
+
     // Header, drawing, fans and lists as one block: limited, it keeps them
     // together and every width rule measures it rather than the card (AN-7).
     const content = this._config.content;
@@ -2090,6 +2144,7 @@ class EnerLensCard extends LitElement {
         @hass-more-info=${this._onMoreInfo}
         @enerlens-detail=${this._onDetail}
       >
+        <div class="ring-tip" role="tooltip" hidden></div>
         <div
           class="content align-${content?.align ?? "center"}"
           style=${content ? `max-width: ${content.maxWidth}px` : ""}
@@ -2131,6 +2186,7 @@ class EnerLensCard extends LitElement {
               this._holeR,
               this._seeThrough,
               solarRing,
+              { house: ringTools(false), solar: ringTools(true) },
             )}
             ${renderList(breakdown, shown, this._hass, openEntry, this._stacked, solarRows, solarApart)}
           </div>

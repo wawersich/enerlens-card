@@ -98,6 +98,8 @@ export function solarSegments(
     color: source.color,
     entity: source.entity,
     isRest: false,
+    name: source.name,
+    w: watts(source),
   }));
   if (scale === "peak" && segments.length > 0) {
     const used = segments.reduce((total, segment) => total + segment.share, 0);

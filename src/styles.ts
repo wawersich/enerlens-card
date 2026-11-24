@@ -640,8 +640,8 @@ export const styles = css`
      shrinks into place rather than snapping (REQ R-4). */
   /* The ring stands in for the border and is centred on it: its box reaches
      the 2 px border plus half the 11 px stroke beyond the padding edge, so the
-     stroke's middle lies on the contour (K-14). Below the icon and figure
-     (z-index), above the node's background. */
+     stroke's middle lies on the contour (K-14). Above the node's background,
+     and since R-8 above the tap buttons, too (see z-index below). */
   .node .ring {
     position: absolute;
     left: -7.5px;
@@ -652,17 +652,55 @@ export const styles = css`
        to the lower right and too large on iOS while Chromium looked fine. */
     width: calc(100% + 15px);
     height: calc(100% + 15px);
-    z-index: 0;
+    /* Above the .hit buttons (R-8): they cover the node and would take every tap
+       on a segment. The box lets pointers through (pointer-events: none), the
+       segments take them back on their stroke alone, so the rest of the node
+       still goes to the buttons. Icon and figure sit inside the contour and
+       do not meet the stroke, so nothing is painted over. */
+    z-index: 3;
     pointer-events: none;
     overflow: visible;
   }
 
   .ring-seg {
     fill: none;
+    /* The ring box lets pointers through (.node .ring); a segment takes them
+       back on its stroke alone, so the hover and the tap land on the arc and
+       not on the node behind it (R-8). */
+    pointer-events: stroke;
     /* stroke-width is set per render in viewBox units (ringGeometry). */
     stroke-linecap: butt;
     /* Not animated in CSS: RingAnimator moves the segments, all from one progress,
        so their gaps cannot drift apart (R-4). */
+  }
+
+  .ring-seg.selectable {
+    cursor: pointer;
+  }
+  .ring-seg.selectable:hover,
+  .ring-seg.named:hover {
+    stroke-opacity: 0.8;
+  }
+
+  /* The ring's tooltip (R-8): shown at once, hidden again when the pointer leaves the segment. */
+  ha-card {
+    position: relative;
+  }
+  .ring-tip {
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    background: var(--primary-text-color, #212121);
+    color: var(--card-background-color, #fff);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+  .ring-tip[hidden] {
+    display: none;
   }
 
   /* ring.animation: fade - a place takes on its new consumer's colour over the

@@ -207,6 +207,8 @@ function toSegments(entries: ListEntry[], config: Config): Segment[] {
     color: entry.color,
     entity: entry.entity,
     isRest: entry.isRest,
+    name: entry.name,
+    w: entry.w,
   }));
 }
 

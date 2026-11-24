@@ -55,6 +55,26 @@ export function ringGeometry(nodePx: number): { r: number; strokeWidth: number }
   return { r: 50 - strokeWidth / 2, strokeWidth };
 }
 
+/**
+ * What the ring can do for the user (REQ R-8): say what a segment is, and open
+ * it. Both come from the card, which knows the figures, the formats and the
+ * window; the ring only draws them.
+ */
+export interface RingTools {
+  /** Tooltip text of a segment - name, figure, share. Empty for none. */
+  label: (segment: Segment) => string;
+  /**
+   * The pointer is over a segment (or, with null, has left it). The card shows its own tooltip:
+   * a native <title> waits a second, vanishes whenever the card redraws under the pointer and
+   * never shows in the app's web view.
+   */
+  hover?: (segment: Segment | null, ev: PointerEvent) => void;
+  /** A tap on a segment; only offered where the segment has something to open. */
+  select?: (segment: Segment, ev: Event) => void;
+  /** Whether a segment opens anything - the pointer and the hover follow it. */
+  selectable?: (segment: Segment) => boolean;
+}
+
 export function renderRing(
   allSegments: Segment[],
   enabled: boolean,
@@ -69,6 +89,8 @@ export function renderRing(
    * that comes last in `allSegments`.
    */
   layout: "share" | "peak" = "share",
+  /** Tooltip and tap on the segments (R-8); without it the ring is only a picture. */
+  tools?: RingTools,
 ): TemplateResult | typeof nothing {
   // Entries at 0 W (only there with the filter lifted, REQ L-12) would each
   // still claim a gap; a ring of gaps says nothing, so they are skipped here.
@@ -146,8 +168,11 @@ export function renderRing(
           : peak && arc.segment.isRest
             ? `fade-${arc.segment.key}`
             : `slot-${arc.index}`,
-      (arc) => svg`<circle
-        class="ring-seg"
+      (arc) => {
+        const text = tools?.label(arc.segment) ?? "";
+        const opens = tools?.select !== undefined && (tools.selectable?.(arc.segment) ?? true);
+        return svg`<circle
+        class="ring-seg ${opens ? "selectable" : text ? "named" : ""}"
         data-key=${arc.segment.key}
         data-index=${arc.index}
         r=${r.toFixed(2)}
@@ -159,7 +184,12 @@ export function renderRing(
         data-offset=${arc.offset.toFixed(2)}
         data-circ=${circumference.toFixed(2)}
         data-gap=${(segments.length > 1 ? gap : 0).toFixed(2)}
-      ></circle>`,
+        data-label=${text || nothing}
+        @click=${opens ? (ev: Event) => tools?.select?.(arc.segment, ev) : nothing}
+        @pointermove=${text && tools?.hover ? (ev: PointerEvent) => tools.hover?.(arc.segment, ev) : nothing}
+        @pointerleave=${text && tools?.hover ? (ev: PointerEvent) => tools.hover?.(null, ev) : nothing}
+      ></circle>`;
+      },
     )}</g>
   </svg>`;
 }

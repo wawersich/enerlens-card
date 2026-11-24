@@ -914,6 +914,9 @@ export interface Segment {
   color: string;
   entity?: string;
   isRest: boolean;
+  /** What the segment stands for and its figure (W, or Wh x 1 h in the energy mode) - for the ring's tooltip. */
+  name?: string;
+  w?: number;
 }
 
 export interface Breakdown {
