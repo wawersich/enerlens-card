@@ -50,6 +50,13 @@ sortieren sich wie die Verbraucher und haben ihren eigenen Fächer zum
 PV-Knoten. Sie stehen über den Verbrauchern, bei „Quadrat · PV links“ links der
 Zeichnung.
 
+Gefiltert wird wie bei den Verbrauchern: Eine Quelle unter der Mindestleistung
+fehlt, bis der Listenumfang „vollständig“ gewählt ist. Mit *Alle PV-Quellen
+immer anzeigen* bleibt jede Quelle stehen, auch bei 0 W; ein Wechselrichter,
+der nachts abschaltet, steht dann mit 0 W da. Eine einzelne Quelle hat ihre
+Zeile immer, auch nachts – sie zeigt denselben Wert wie der PV-Knoten und
+trägt die Verlaufslinie.
+
 [.only-light]
 image::editor-pv-display-de-light.png["Die Schalter für Verbraucherliste, PV-Liste und Ringe",490]
 

@@ -232,8 +232,10 @@ describe("PV-7, PV-8: the PV rows", () => {
     ]);
   });
 
-  it("none for a single source - its row would repeat the node", () => {
+  it("one for a single source since 20.11.2026 - it carries what the node has not (PV-11)", () => {
     const one = normalizeConfig(raw([ROOF]));
-    expect(buildSolarRows(buildModel(hassOf(STATES), one), one, true)).toEqual([]);
+    expect(buildSolarRows(buildModel(hassOf(STATES), one), one, false).map((r) => r.key)).toEqual([
+      "sensor.roof",
+    ]);
   });
 });

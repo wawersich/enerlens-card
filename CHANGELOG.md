@@ -36,8 +36,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   PV. The row level with its circle stays out, the others move in towards
   the drawing, by at most half the free room. Below the drawing they stand
   around the point where the lines gather.
+- **All PV sources always in the list:** `list.solar_always` (editor:
+  *Always show all PV sources*) keeps every PV source on its row, at 0 W too,
+  whatever the list scope - a source switched off for the night stands at
+  0 W.
 
 ### Changed
+- **Editor: several PV sources start with the one chosen.** Switching the PV
+  from *One entity* to *Several sources* makes the entity chosen so far the
+  first source, so it is not picked twice and the card stays as it is. With
+  *Invert sign* it is written as a list of one, where the night rule of the
+  list applies (0 W instead of "—" while the inverter is off).
+- **A PV row for a single source:** with *Show PV list* on, a PV of one
+  entity - or a list of one source - now has its row too, always, at night as
+  well; it shows what the PV node shows and carries the history line. The
+  switch is offered for *One entity* now. A board that already had
+  `list.solar: true` with one source shows the row after the update; to keep
+  the previous look, remove `list.solar`.
 - **Energy mode: extra values stay.** The indicators of a consumer and of the
   rest row (icon ring, bars, icon fill) and the extra values at the nodes now
   stay in the energy
@@ -51,6 +66,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and *Icon fill*.
 
 ### Fixed
+- **Editor: groups stay open.** Choosing *Several sources* for the PV folded
+  every group of the editor; now every group stays as it was, and *PV
+  sources* opens, since that is where the next step is. A note that appears
+  above a field no longer takes the focus away after the first digit (e.g.
+  the long average, or *Slow below* under fine tuning, which also folded). An
+  open colour field stays with its consumer or charge stop when one above it
+  is removed, moved or added. Clearing the entity of a ring or bar, or
+  removing the last extra value, no longer folds the group being worked in.
+  A charge stop's percentage shows the value it is kept at.
+- **Figures flush right below the drawing.** With the list below the drawing,
+  each row's power now ends at one edge, as beside the drawing. Before, the
+  figures stood flush left in their column, and a row without a history line
+  began its figure where the other rows' lines began - a PV row stood clearly
+  left of the consumers. Lists below the drawing without lines or extra values
+  now show their figures flush right too.
 - **No gap between line and circle in a scaled card.** Inside something that
   scales the card down - a dialog as it opens, card-mod - the circles came
   out too small and the lines ended a little short of them. The card now

@@ -1514,6 +1514,7 @@ const BLOCK_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "scope",
     "default_scope",
     "solar",
+    "solar_always",
   ]),
   ring: new Set(["enabled", "animation", "solar"]),
   content: new Set(["max_width", "align"]),
@@ -1796,6 +1797,7 @@ function readConfig(raw: RawConfig, hass?: HomeAssistant): Config {
       history: readHistory(rawList.history, hass),
       // Off by default: existing boards must not change on their own (PV-7).
       solar: readBoolean(rawList.solar, "list.solar", false, hass),
+      solarAlways: readBoolean(rawList.solar_always, "list.solar_always", false, hass),
       scope: buttons.scope,
       defaultScope: buttons.defaultScope,
     },

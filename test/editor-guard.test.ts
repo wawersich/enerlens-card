@@ -65,9 +65,11 @@ describe("a step the card would refuse is not written (E-1, 29.10.2026)", () => 
     ],
     ["PV entity cleared", { solar: "sensor.s", grid: "sensor.g" }, { solar: "" }, /PV/],
     [
-      "PV entity -> sources without a row",
+      // Since 24.11.2026 (C2) a chosen entity becomes the first source; with
+      // none chosen, the first row stays empty and is held.
+      "PV without entity -> sources with an empty row",
       { solar: "sensor.s", grid: "sensor.g" },
-      { solar_source: "sources", solar_sources: [] },
+      { solar_source: "sources", solar_sources: [{ excluded: false }], solar: "" },
       /PV/,
     ],
     [

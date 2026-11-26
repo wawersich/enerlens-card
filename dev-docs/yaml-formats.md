@@ -512,6 +512,16 @@ and is ignored. Nested blocks are not checked for unknown keys.
   lines gather at). Anything but a boolean
   is an error, as for every switch. 1.5.2 warns about it as an unknown key,
   no error card, and shows the list straight.
+- `list.solar` with one PV source (a list of one, or a plain
+  `entities.solar`): **CHANGED-COMPATIBLE.** (REQ PV-11, Markus 20.11.2026.)
+  Before, it had no effect with fewer than two sources; now the one source
+  has its row, always, at night too. The editor kept the key when a list of
+  two lost a source, so such boards show the row after the update; removing
+  `list.solar` restores the old picture (CHANGELOG says so).
+- `list.solar_always` (`true | false`, default `false`): **ADDED.** (REQ
+  PV-11.) With several sources every one stays on its row, at 0 W too,
+  whatever the list scope. Anything but a boolean is an error, as for every
+  switch. 1.5.2 warns about it as an unknown key, no error card.
 - No new legacy spelling, so no new configuration under `test/legacy/`.
 
 ---
@@ -554,6 +564,7 @@ with one key, so they are classed CHANGED-COMPATIBLE, not incompatible:
 - 0.11.0 energy mode offered by default (`energy_periods: [power]`)
 - 1.2.0 red and green arrows (`colors.arrows: direction`)
 - dev extras in the energy mode (`indicators.in_energy`, `nodes.<node>.in_energy`)
+- dev `list.solar` with one PV source shows its row (remove the key to undo)
 - 0.9.0 dot and line scaling (no key restores it exactly; `flow.dot_size` /
   `line_width` come close)
 

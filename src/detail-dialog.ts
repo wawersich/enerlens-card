@@ -23,6 +23,7 @@ import { localize } from "./localize";
 import { POWER_UNITS, readPowerW } from "./model";
 import { type DetailNode, arrowsFor, openMoreInfo } from "./render/cross";
 import { radioStep } from "./render/header";
+import { rowSources } from "./solar";
 import type {
   Config,
   DirectionKey,
@@ -247,7 +248,8 @@ export function planOf(
   }
   if (node.startsWith("source:")) {
     // One PV source of the list, as its row shows it (DF-19).
-    const source = config.solarSources.find((s) => `source:${s.key}` === node);
+    // A list's source, or the one entity of a PV that is no list (PV-11).
+    const source = rowSources(config).find((s) => `source:${s.key}` === node);
     const title =
       source?.name ??
       (source
@@ -267,6 +269,9 @@ export function planOf(
           sign: 1,
           role: "solar",
           invert: source.invert,
+          // The one entity of a PV that is no list is the node's own: its kWh
+          // bars and mark come from the PV role, as in the node's window (PV-11).
+          ...(config.solarSources.length === 0 ? { roles: ["solar"] } : {}),
         },
       ],
     };

@@ -1751,9 +1751,12 @@ export const styles = css`
       right: calc((var(--el-frame-pad) + 1.5px) * -1);
     }
 
-    /* With values in the list the value column is flush right, power and
-       right values alike, so their edges stand one below the other. */
-    .list.stacked.has-values .row-value {
+    /* The value column is flush right, always (L-22, Markus 22.11.2026: "Zahl
+       und W ... immer rechtsbündig"): power and right values alike, PV rows
+       and consumers alike. A history line beside the power stands just in
+       front of its figure; without this, a row without one began its figure
+       where the others' lines begin. */
+    .list.stacked .row-value {
       justify-self: end;
     }
 

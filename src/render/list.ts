@@ -380,10 +380,12 @@ function renderRow(
   const value = idle ? indicatorFigure(idle, hass) : power;
   // In a period: gaps filled in, a late start, a remainder that holds
   // them (EM-11, EM-12) - a PV source's under its entity as well (PV-2).
+  // One PV entity has no mark of its own: it is the node's (PV-11).
   const mark = config.energy
     ? entry.isRest
       ? config.energy.rest
-      : config.energy.consumers[entry.entity ?? ""]
+      : (config.energy.consumers[entry.entity ?? ""] ??
+        (solar && config.sources.solar.kind === "single" ? config.energy.roles.solar : undefined))
     : undefined;
   const markClass = mark && mark.tier > 0 ? `warn${mark.tier}` : "";
   // Every row opens its window: a consumer's, a PV source's, the rest's -

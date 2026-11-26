@@ -98,6 +98,11 @@ const SCENES = [
   "arctall",
   "arcpvonly",
   "arcextras",
+  // One PV entity with its row (PV-11).
+  "pvone",
+  "pvoneleft",
+  "pvonebelow",
+  "pvoneradial",
   // Radial lines with a straight list (L-16, flow.radial).
   "radial",
   "radialleft",
@@ -111,6 +116,11 @@ const SCENES = [
   "historystacked",
   "historyscaled",
   "historyleft",
+  // The value column below the drawing, flush right (L-22).
+  "valuecolpv",
+  "valuecolpvmirror",
+  "valuecolarc",
+  "valuecolplain",
 ];
 /** How far a pixel may stray from the page's white and still count as white. */
 const CLEAR_TOLERANCE = 24;
@@ -495,6 +505,7 @@ function problems(m, lines) {
   if (m.arc?.length) found.push(`Bogenförmige Liste: ${[...new Set(m.arc)].join(", ")}`);
   if (m.ends?.length) found.push(`Linienenden: ${[...new Set(m.ends)].join(", ")}`);
   if (m.history?.length) found.push(`Verlaufslinie: ${[...new Set(m.history)].join(", ")}`);
+  if (m.valueCol?.length) found.push(`Wertspalte: ${[...new Set(m.valueCol)].join(", ")}`);
   if (m.circles?.length) found.push(`Kreise: ${m.circles.join(", ")}`);
   // Opaque circles are drawn as before K-16, transparent ones are cut out.
   if (m.rims && m.clipped !== m.clear) {

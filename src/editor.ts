@@ -418,15 +418,19 @@ function consumerSchema(
   // Ring, bars and fill, each with a value of its own (REQ L-20); the old
   // state of charge is the ring.
   const indicators = isRecord(entry.indicators) ? entry.indicators : {};
+  // Offered where an entity is set, as the card counts a slot (L-20) ...
   const configured = INDICATOR_SLOTS.filter((slot) => {
     const one = indicators[slot];
     return isRecord(one) && nonEmpty(one.entity);
   });
+  // ... but open where something is set or was: a slot whose entity is
+  // cleared to pick another stays open under the cursor (bug hunt 23.11.2026).
+  const opened = INDICATOR_SLOTS.filter((slot) => isRecord(indicators[slot]));
   display.push({
     name: "indicators",
     type: "expandable",
     title: t("indicators"),
-    expanded: configured.length > 0,
+    expanded: opened.length > 0,
     schema: [
       ...INDICATOR_SLOTS.map((slot) => ({
         name: slot,
@@ -434,7 +438,7 @@ function consumerSchema(
         title: t(`indicator_${slot}`),
         // Open where something is set, closed where nothing is (Markus
         // 29.10.2026); a place opened by hand stays open.
-        expanded: configured.includes(slot),
+        expanded: opened.includes(slot),
         schema: [
           { name: "entity", labelKey: "indicator_entity", selector: { entity: {} } },
           // Its own name, e.g. a printer's progress (issue #31).
@@ -718,6 +722,7 @@ interface FlatConfig {
   list_history_place?: string;
   list_history_hours?: number | string;
   list_solar?: boolean;
+  list_solar_always?: boolean;
   content_max_width?: number;
   content_align?: string;
   ring_enabled?: boolean;
@@ -1074,6 +1079,7 @@ function toFlat(config: RawConfig): FlatConfig {
   for (const q of QUICK_NAMES) out[`expanded_${q}`] = expanded.includes(q) ? true : undefined;
   out.default_pv_scale = config.view?.default_pv_scale;
   out.list_solar = config.list?.solar;
+  out.list_solar_always = config.list?.solar_always === true;
   out.ring_solar = config.ring?.solar;
   const colors = (config.colors ?? {}) as Record<string, unknown>;
   for (const key of COLOR_KEYS) out[`color_${key}`] = colors[key];
@@ -1583,9 +1589,12 @@ function fromFlat(flat: FlatConfig, previous: RawConfig): RawConfig {
             "scope",
             "default_scope",
             "solar",
+            "solar_always",
           ]),
           enabled: flat.list_enabled,
           solar: flat.list_solar,
+          // Only an on is written (PV-11).
+          solar_always: flat.list_solar_always === true ? true : undefined,
           rest_label: flat.rest_label,
           always_below: flat.list_always_below,
           // Only an on is written (LZ-8).
@@ -2025,6 +2034,8 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
   const derivedBy = QUANTITIES.filter((q) => flat[`${q}_source`] === "derived");
   // Several PV sources: their panel, the PV scale, the switches for ring and rows.
   const sources = flat.solar_source === "sources";
+  // PV rows exist for one entity or a list of sources, never a derived PV (PV-11).
+  const pvRows = sources || flat.solar_source === "entity";
   const sourceRows = (Array.isArray(flat.solar_sources) ? flat.solar_sources : []).filter(
     (row) => isRecord(row) && nonEmpty(row.entity),
   ) as Record<string, unknown>[];
@@ -2094,6 +2105,9 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
     },
     // Several PV sources have their panel here, like the consumers (PV-9) -
     // after the main entities' labels, which belong to those (Markus 27.10.2026).
+    // Keep it straight before the consumers' slot: _renderBody splits the
+    // groups around it, and anything between the two would be rebuilt when
+    // the PV source is switched (E-3).
     ...(sources ? [{ name: SOLAR_SLOT, type: "constant" }] : []),
     // The consumers have a panel of their own, drawn between the form pieces
     // (REQ E-4): the object selector could not unfold a section inside an entry
@@ -2193,7 +2207,12 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         },
         { name: "flow_radial", selector: { boolean: {} } },
         { name: "list_enabled", selector: { boolean: {} } },
-        ...(sources ? [{ name: "list_solar", selector: { boolean: {} } }] : []),
+        // The PV list: for one entity or a list, not for a derived PV (PV-11).
+        ...(pvRows ? [{ name: "list_solar", selector: { boolean: {} } }] : []),
+        // Every source always: only where there are several to filter (PV-11).
+        ...(sources && sourceRows.length > 1 && flat.list_solar === true
+          ? [{ name: "list_solar_always", selector: { boolean: {} } }]
+          : []),
         { name: "list_always_below", selector: { boolean: {} } },
         { name: "list_frame", selector: { boolean: {} } },
         { name: "list_arc", selector: { boolean: {} } },
@@ -2202,7 +2221,7 @@ function schema(hass: HomeAssistant, flat: FlatRecord) {
         ...(flat.list_enabled !== false
           ? [{ name: "list_history_consumers", selector: { boolean: {} } }]
           : []),
-        ...(sources && flat.list_solar === true
+        ...(pvRows && flat.list_solar === true
           ? [{ name: "list_history_solar", selector: { boolean: {} } }]
           : []),
         ...(flat.list_history_consumers === true || flat.list_history_solar === true
@@ -2595,6 +2614,8 @@ class EnerLensCardEditor extends LitElement {
     _picker: { state: true },
     _pickerMode: { state: true },
     _openConsumers: { state: true },
+    _openPanels: { state: true },
+    _valuesOpen: { state: true },
     _builtSections: { state: true },
     _builtConsumers: { state: true },
     _held: { state: true },
@@ -2657,6 +2678,68 @@ class EnerLensCardEditor extends LitElement {
    */
   private _builtSections: ReadonlySet<string> = new Set();
   private _builtConsumers: ReadonlySet<number> = new Set();
+  /**
+   * The editor's own groups that are unfolded, by name - kept here, not only
+   * in the panel, so a group stays open whatever is drawn around it (E-3,
+   * Markus 23.11.2026: picking "Mehrere Quellen" folded every group).
+   */
+  private _openPanels: ReadonlySet<string> = new Set();
+  /**
+   * The extra values' group of an entry once someone worked in it, by entry
+   * key ("rest" for the rest): it stays as they left it, not folded because
+   * the last value went (Markus 23.11.2026, editor bug hunt).
+   */
+  private _valuesOpen: ReadonlyMap<string, boolean> = new Map();
+
+  /**
+   * Colour rows are named by their place in a list (`consumer:1`,
+   * `indicator:1:ring`, `stop:2`); when the list changes, an open field and
+   * the open wheel move with their entry, or close with it (E-3).
+   */
+  private _remapColors(kind: "consumer" | "stop", to: (index: number) => number | undefined): void {
+    const move = (id: string): string | undefined => {
+      const parts = id.split(":");
+      const own =
+        kind === "consumer"
+          ? parts[0] === "consumer" || parts[0] === "indicator"
+          : parts[0] === "stop";
+      if (!own) return id;
+      const next = to(Number(parts[1]));
+      if (next === undefined) return undefined;
+      parts[1] = String(next);
+      return parts.join(":");
+    };
+    const open = new Set<string>();
+    for (const id of this._openColors) {
+      const next = move(id);
+      if (next) open.add(next);
+    }
+    this._openColors = open;
+    if (this._picker) {
+      const next = move(this._picker.id);
+      this._picker = next ? { ...this._picker, id: next } : undefined;
+    }
+  }
+
+  /** The consumers' colour rows follow a change of the entry keys. */
+  private _followKeys(keys: number[]): void {
+    const before = this._consumerKeys;
+    if (before.length === keys.length && before.every((k, i) => k === keys[i])) return;
+    this._remapColors("consumer", (i) => {
+      const at = before[i] === undefined ? -1 : keys.indexOf(before[i]);
+      return at === -1 ? undefined : at;
+    });
+  }
+
+  /** Binds a group's panel to `_openPanels`; events of nested panels are not its own. */
+  private _panelToggled(name: string, ev: CustomEvent<{ expanded: boolean }>): void {
+    if (ev.target !== ev.currentTarget) return;
+    if (ev.detail.expanded === this._openPanels.has(name)) return;
+    const next = new Set(this._openPanels);
+    if (ev.detail.expanded) next.add(name);
+    else next.delete(name);
+    this._openPanels = next;
+  }
 
   setConfig(config: RawConfig): void {
     this._config = config;
@@ -2664,9 +2747,13 @@ class EnerLensCardEditor extends LitElement {
     // did not produce ourselves - a YAML edit, a fresh open - resets the form.
     if (this._flat === undefined || JSON.stringify(config) !== this._emitted) {
       this._flat = toFlat(config);
-      // A list from outside is a list of its own: fresh keys, all folded.
+      // A list from outside is a list of its own: fresh keys, all folded,
+      // its colour rows closed - and the stops' too, which may differ.
       this._consumerKeys = [];
       this._openConsumers = new Set();
+      this._remapColors("consumer", () => undefined);
+      this._remapColors("stop", () => undefined);
+      this._valuesOpen = new Map();
     }
     queueMicrotask(() => this._fixOnOpen(config));
   }
@@ -2747,16 +2834,16 @@ class EnerLensCardEditor extends LitElement {
   /** Consumer list and PV list both shown: "always below" moves both (L-14). */
   private _bothLists(): boolean {
     const shown = this._shownFlat() as FlatRecord;
-    // PV rows only from two sources on, as the card draws them (solar.ts).
+    // PV rows from one source on, as the card draws them (solar.ts, PV-11):
+    // one entity or a list with an entry - a derived PV has none.
     const rows = (Array.isArray(shown.solar_sources) ? shown.solar_sources : []).filter(
       (row) => isRecord(row) && nonEmpty(row.entity),
     );
-    return (
-      shown.solar_source === "sources" &&
-      rows.length > 1 &&
-      shown.list_solar === true &&
-      shown.list_enabled === true
-    );
+    const pvRows =
+      shown.solar_source === "sources"
+        ? rows.length > 0
+        : shown.solar_source === "entity" && nonEmpty(shown.solar);
+    return pvRows && shown.list_solar === true && shown.list_enabled === true;
   }
 
   /** Helper text under a field. Empty for the self-explanatory ones - localize
@@ -2814,8 +2901,40 @@ class EnerLensCardEditor extends LitElement {
     this._emit(value as FlatConfig);
   }
 
-  private _emit(flat: FlatConfig): void {
+  private _emit(changed: FlatConfig): void {
     if (!this._config) return;
+    let flat = changed;
+    // Several PV sources chosen just now: their group opens, that is where
+    // the next step is (Markus 23.11.2026).
+    if (
+      (flat as FlatRecord).solar_source === "sources" &&
+      (this._flat as FlatRecord | undefined)?.solar_source !== "sources"
+    ) {
+      this._openPanels = new Set([...this._openPanels, "solar_sources"]);
+      // The entity chosen so far is the first source, inverted as it was, so
+      // nobody picks it twice (C2, Markus 24.11.2026) - only one the user had
+      // under "one entity" in a configuration the card accepted: not one left
+      // behind when "derived" was chosen, not a hand-typed ref the form cannot
+      // show. Otherwise an empty first row to fill in. Rows the form still
+      // holds from before are kept, unless none of them has an entity.
+      const record = flat as FlatRecord;
+      const before = this._flat as FlatRecord | undefined;
+      const rows = Array.isArray(record.solar_sources) ? record.solar_sources : [];
+      if (!rows.some((row) => isRecord(row) && nonEmpty(row.entity))) {
+        const carried =
+          before?.solar_source === "entity" &&
+          nonEmpty(record.solar) &&
+          refuses(this._config, this.hass) === undefined;
+        const first: SourceFormRow = carried
+          ? {
+              entity: record.solar as string,
+              ...(record.solar_invert === true ? { invert: true } : {}),
+              excluded: false,
+            }
+          : { excluded: false };
+        flat = { ...record, solar_sources: [first] } as FlatConfig;
+      }
+    }
     this._flat = flat;
     const config = fromFlat(flat, this._config);
     // Never write what the card refuses (rule 7, E-1): a source chosen but
@@ -2890,7 +3009,11 @@ class EnerLensCardEditor extends LitElement {
   private _renderColors(): TemplateResult {
     const t = (key: string) => localize(`editor.${key}`, this.hass);
     return html`
-      <ha-expansion-panel outlined>
+      <ha-expansion-panel
+        outlined
+        .expanded=${this._openPanels.has("colors")}
+        @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => this._panelToggled("colors", ev)}
+      >
         <div slot="header" role="heading" aria-level="3">${t("colors")}</div>
         <div class="colors">
           ${
@@ -3131,8 +3254,13 @@ class EnerLensCardEditor extends LitElement {
                       step="1"
                       .value=${String(stop.at)}
                       aria-label=${localize("editor.color_at", this.hass)}
-                      @change=${(ev: Event) =>
-                        this._setStopAt(index, Number((ev.target as HTMLInputElement).value))}
+                      @change=${(ev: Event) => {
+                        // On commit, not while typing (rule 7): a value kept at
+                        // its neighbour is shown as it is written.
+                        const input = ev.target as HTMLInputElement;
+                        const kept = this._setStopAt(index, Number(input.value));
+                        if (kept !== undefined) input.value = String(kept);
+                      }}
                     />`
               }
               <span class="unit">%</span>
@@ -3562,19 +3690,22 @@ class EnerLensCardEditor extends LitElement {
   }
 
   /** Percentages stay in order: the card refuses a list that runs backwards. */
-  private _setStopAt(index: number, at: number): void {
+  /** Returns the percentage written, or undefined when nothing was. */
+  private _setStopAt(index: number, at: number): number | undefined {
     const stops = this._socStops();
-    if (!stops || !Number.isFinite(at) || index <= 0 || index >= stops.length - 1) return;
+    if (!stops || !Number.isFinite(at) || index <= 0 || index >= stops.length - 1) return undefined;
     const low = stops[index - 1].at;
     const high = stops[index + 1].at;
     const clamped = Math.min(high, Math.max(low, Math.round(at)));
     this._writeStops(stops.map((s, i) => (i === index ? { ...s, at: clamped } : s)));
+    return clamped;
   }
 
   private _removeStop(index: number): void {
     const stops = this._socStops();
     // Two stops are the fewest a gradient can be made of (REQ C-3).
     if (!stops || stops.length <= 2 || index === 0 || index === stops.length - 1) return;
+    this._remapColors("stop", (i) => (i < index ? i : i === index ? undefined : i - 1));
     this._writeStops(stops.filter((_, i) => i !== index));
   }
 
@@ -3596,6 +3727,7 @@ class EnerLensCardEditor extends LitElement {
     }
     const next = [...stops];
     next.splice(index, 0, { at, color: stops[index].color });
+    this._remapColors("stop", (i) => (i < index ? i : i + 1));
     this._writeStops(next);
   };
 
@@ -3732,24 +3864,19 @@ class EnerLensCardEditor extends LitElement {
     const solarAt = all.findIndex((item) => item.name === SOLAR_SLOT);
     const slot = all.findIndex((item) => item.name === CONSUMERS_SLOT);
     const head = slot === -1 ? all : all.slice(0, slot);
-    if (solarAt !== -1) {
-      const before = head.slice(0, solarAt);
-      const after = head.slice(solarAt + 1);
-      const fields = slot === -1 ? [] : all.slice(slot + 1);
-      const cut = fields.findIndex((item) => item.name === "icons");
-      const split = cut === -1 ? fields.length : cut;
-      return html`${this._renderPieces(before)}${this._renderSources()}${this._renderPieces(
-        after,
-      )}${this._renderConsumers()}${this._renderPieces(fields.slice(0, split))}${this._renderColors()}${this._renderPieces(
-        fields.slice(split),
-      )}`;
-    }
+    // One template whether the PV sources have their panel or not: a second
+    // one made Lit rebuild every group, and all of them folded (E-3, Markus
+    // 23.11.2026). Only the sources' panel comes and goes.
+    const before = solarAt === -1 ? head : head.slice(0, solarAt);
+    const after = solarAt === -1 ? [] : head.slice(solarAt + 1);
     const fields = slot === -1 ? [] : all.slice(slot + 1);
     const cut = fields.findIndex((item) => item.name === "icons");
     const split = cut === -1 ? fields.length : cut;
-    return html`${this._renderPieces(head)}${this._renderConsumers()}${this._renderPieces(
-      fields.slice(0, split),
-    )}${this._renderColors()}${this._renderPieces(fields.slice(split))}`;
+    return html`${this._renderPieces(before)}${solarAt === -1 ? nothing : this._renderSources()}${this._renderPieces(
+      after,
+    )}${this._renderConsumers()}${this._renderPieces(fields.slice(0, split))}${this._renderColors()}${this._renderPieces(
+      fields.slice(split),
+    )}`;
   }
 
   /** What the card uses instead of what was typed, per form field (E-1). */
@@ -3797,10 +3924,15 @@ class EnerLensCardEditor extends LitElement {
       const names = fieldNames(item);
       if (!names.some((name) => NOTABLE.has(name))) continue;
       const noted = names.filter((name) => this._notes.has(name));
-      out.push(this._haForm(run));
-      for (const name of noted) {
-        out.push(html`<p class="field-note" role="note">${this._notes.get(name)}</p>`);
-      }
+      // The form and its notes as one piece: a note that comes or goes must
+      // not shift the forms after it - Lit draws this list by position, and
+      // a shifted form was rebuilt under the field being typed in (rule 7,
+      // two bug hunts 23.11.2026: focus gone after the first digit).
+      out.push(
+        html`${this._haForm(run)}${noted.map(
+          (name) => html`<p class="field-note" role="note">${this._notes.get(name)}</p>`,
+        )}`,
+      );
       run = [];
     }
     if (run.length > 0 || out.length === 0) out.push(this._haForm(run));
@@ -3876,6 +4008,8 @@ class EnerLensCardEditor extends LitElement {
         outlined
         class="section"
         data-section=${name}
+        .expanded=${this._openPanels.has(name)}
+        @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => this._panelToggled(name, ev)}
         @expanded-will-change=${(ev: CustomEvent<{ expanded: boolean }>) => {
           // Before the panel measures its content, so it unfolds to full height.
           if (ev.target !== ev.currentTarget || !ev.detail.expanded || built) return;
@@ -3913,7 +4047,13 @@ class EnerLensCardEditor extends LitElement {
     const t = (key: string) => localize(`editor.${key}`, this.hass);
     const rows = this._sourceRows();
     return html`
-      <ha-expansion-panel outlined class="consumers-panel sources-panel">
+      <ha-expansion-panel
+        outlined
+        class="consumers-panel sources-panel"
+        .expanded=${this._openPanels.has("solar_sources")}
+        @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) =>
+          this._panelToggled("solar_sources", ev)}
+      >
         <div slot="header" role="heading" aria-level="3">${t("solar_sources")}</div>
         <div class="consumers">
           <p class="hint">${localize("editor_help.solar_sources", this.hass)}</p>
@@ -3985,6 +4125,7 @@ class EnerLensCardEditor extends LitElement {
 
   private _writeConsumers(rows: unknown[], keys: number[]): void {
     if (!this._flat) return;
+    this._followKeys(keys);
     this._consumerKeys = keys;
     this._emit({ ...(this._flat as FlatRecord), consumers: rows } as FlatConfig);
   }
@@ -4004,7 +4145,12 @@ class EnerLensCardEditor extends LitElement {
       return { row, index, key: keys[index], colour: index - rests, ignored };
     });
     return html`
-      <ha-expansion-panel outlined class="consumers-panel">
+      <ha-expansion-panel
+        outlined
+        class="consumers-panel"
+        .expanded=${this._openPanels.has("consumers")}
+        @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => this._panelToggled("consumers", ev)}
+      >
         <div slot="header" role="heading" aria-level="3">${t("consumers")}</div>
         <div class="consumers">
           <p class="hint">${localize("editor_help.consumers_list", this.hass)}</p>
@@ -4331,10 +4477,16 @@ class EnerLensCardEditor extends LitElement {
       )}
     </div>`;
     // A group like the indicators: folded, open where values are set.
+    const own = rest ? "rest" : String(_key);
     return html`<ha-expansion-panel
       outlined
       class="values-panel"
-      .expanded=${written.length > 0}
+      .expanded=${this._valuesOpen.get(own) ?? written.length > 0}
+      @expanded-changed=${(ev: CustomEvent<{ expanded: boolean }>) => {
+        if (ev.target !== ev.currentTarget) return;
+        if (this._valuesOpen.get(own) === ev.detail.expanded) return;
+        this._valuesOpen = new Map([...this._valuesOpen, [own, ev.detail.expanded]]);
+      }}
     ><div slot="header" role="heading" aria-level="5">${t("values")}</div><div class="values">
       ${
         sortable
@@ -4378,6 +4530,11 @@ class EnerLensCardEditor extends LitElement {
     rest: boolean,
     values: unknown[],
   ): void {
+    // Worked in: the group stays open, even with its last value gone.
+    const own = rest ? "rest" : String(this._consumerKeys[index]);
+    if (this._valuesOpen.get(own) !== true) {
+      this._valuesOpen = new Map([...this._valuesOpen, [own, true]]);
+    }
     const extras = isRecord(view.indicators) ? view.indicators : {};
     const next = { ...view, indicators: { ...extras, values } };
     if (rest) this._setRest(index, next);
@@ -4506,6 +4663,7 @@ class EnerLensCardEditor extends LitElement {
       ...change,
       type: "rest",
     });
+    this._followKeys(keys);
     this._consumerKeys = keys;
     this._emit({
       ...flat,

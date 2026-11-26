@@ -46,6 +46,12 @@ Under *Display* there are two switches for the sources: *Show PV ring*
 the consumers and have their own fan to the PV node. They stand above the
 consumers, with “Square · solar left” left of the drawing.
 
+They are filtered like the consumers: a source below the minimum power is
+left out until the list scope is set to “full”. With *Always show all PV
+sources* every source stays, at 0 W too; an inverter that switches off at
+night then stands at 0 W. A single source always has its row, at night too –
+it shows what the PV node shows and carries the history line.
+
 [.only-light]
 image::editor-pv-display-en-light.png["The switches for consumer list, PV list and rings",490]
 

@@ -3,6 +3,7 @@
  * and the one derived balance quantity.
  * Owner: agent 2. REQ 4.1 - 4.3, K-8, K-9, A-1 - A-6.
  */
+import { SOLAR_PALETTE } from "./config";
 import type {
   Config,
   ConsumerReading,
@@ -270,8 +271,10 @@ export function buildModelFrom(
   const batteryIsAbsent = batterySpec.kind === "absent";
 
   // Several PV sources: each read on its own, the PV their sum (REQ PV-2).
+  const quietBelow = config?.flow?.minW ?? 0;
   const solarSources: SolarSourceReading[] = (config?.solarSources ?? []).map((source) => {
     const raw = safeValueOf(source.entity);
+    const last = lastSeen?.get(source.entity);
     return {
       key: source.key,
       entity: source.entity,
@@ -282,6 +285,12 @@ export function buildModelFrom(
       kwp: source.kwp,
       excluded: source.excluded,
       reading: makeReading(raw === null ? null : source.invert ? -raw : raw, source.entity, false),
+      // Off for the night - quiet before it went, or never seen since the card
+      // loaded: counts 0 in the sum, reads 0 W in its row (PV-2, PV-11).
+      quiet:
+        raw === null && lastSeen !== undefined && (last === undefined || last < quietBelow)
+          ? true
+          : undefined,
     };
   });
   const sum = solarSpec.kind === "sum" ? sumOf(solarSources, config, lastSeen) : undefined;
@@ -398,9 +407,24 @@ export function buildModelFrom(
 
   // The rest's extra values show any entity, e.g. the outside temperature (L-21).
   const restIndicators = config?.rest?.indicators;
+  // One entity, no list: its row reads what the node reads (PV-11).
+  const solarRow: SolarSourceReading | undefined =
+    solarSpec.kind === "single"
+      ? {
+          key: solarSpec.entity,
+          entity: solarSpec.entity,
+          name:
+            (hass?.states?.[solarSpec.entity]?.attributes?.friendly_name as string | undefined) ??
+            solarSpec.entity,
+          color: SOLAR_PALETTE[0],
+          excluded: false,
+          reading: solar,
+        }
+      : undefined;
   return {
     solar,
     solarSources,
+    ...(solarRow ? { solarRow } : {}),
     grid,
     battery,
     soc: readSoc(hass, sources.batterySoc),

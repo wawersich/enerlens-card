@@ -8,8 +8,17 @@
  * source that carries something, whether the rows are shown or not, since
  * the PV list is off by default (PV-7) while the ring is on.
  */
+import { SOLAR_PALETTE } from "./config";
 import { carries } from "./consumers";
-import type { Config, ListEntry, Model, PvScale, Segment } from "./types";
+import type {
+  Config,
+  ListEntry,
+  Model,
+  NormalizedSolarSource,
+  PvScale,
+  Segment,
+  SolarSourceReading,
+} from "./types";
 
 /** The grey rest of the ring under "% kWp" - never an entity (PV-5). */
 export const FREE_KEY = "__pv_free__";
@@ -17,22 +26,79 @@ export const FREE_KEY = "__pv_free__";
 /** Colour of that rest; styles.ts defines it for both grounds. */
 const FREE_COLOR = "var(--el-pv-free)";
 
+/** The sources behind the PV rows: the list, or the one entity (PV-11). */
+export function rowReadings(model: Model): SolarSourceReading[] {
+  if (model.solarSources.length > 0) return model.solarSources;
+  return model.solarRow ? [model.solarRow] : [];
+}
+
+/** The same from the configuration alone: what a row's key stands for (PV-11). */
+export function rowSources(config: Config): NormalizedSolarSource[] {
+  if (config.solarSources.length > 0) return config.solarSources;
+  const solar = config.sources.solar;
+  if (solar.kind !== "single") return [];
+  return [
+    {
+      key: solar.entity,
+      entity: solar.entity,
+      color: SOLAR_PALETTE[0],
+      invert: solar.invert === true,
+      excluded: false,
+    },
+  ];
+}
+
+/** A reading as a row's figure: its power, or no figure at all. */
+function figureOf(reading: Model["solar"]): { w: number; powerUnknown?: true } {
+  return reading.available ? { w: reading.w } : { w: 0, powerUnknown: true };
+}
+
 /**
- * The PV rows (PV-7, PV-8): only with two sources or more - one row would
- * repeat the node. Unavailable sources are left out in both scopes (L-3,
- * L-12); with the filter on, those below `min_consumer_w` too.
+ * What a row of this source shows. One source shows what the node shows -
+ * the node's own reading, so night and gaps read alike (PV-11). Several: its
+ * power, 0 W when it counts 0 for the night (PV-2) - live only: a period has
+ * its own gap rules (EM-10) - or no figure.
+ */
+function rowFigure(
+  source: SolarSourceReading,
+  model: Model,
+  single: boolean,
+  inPeriod: boolean,
+): { w: number; powerUnknown?: true } {
+  if (single) return figureOf(model.solar);
+  if (source.reading.available) return { w: source.reading.w };
+  return source.quiet && !inPeriod ? { w: 0 } : { w: 0, powerUnknown: true };
+}
+
+/**
+ * The PV rows (PV-7, PV-8, PV-11).
+ *
+ * One source - a list of one or a plain entity - always has its row, whatever
+ * the filter: it carries what the node cannot (history line, later extra
+ * values), and it shows what the node shows - 0 W, or no figure when it is
+ * gone. Several: filtered like the consumers, unless `list.solar_always`
+ * keeps every one; a source off for the night then stands at 0 W. One gone
+ * while delivering, or never seen, is left out (L-3, L-12). A derived PV has
+ * no row: no entity stands behind it.
  */
 export function buildSolarRows(model: Model, config: Config, showAll: boolean): ListEntry[] {
-  if (model.solarSources.length < 2) return [];
+  const sources = rowReadings(model);
+  const single = sources.length === 1;
+  const always = config.list.solarAlways === true;
+  const inPeriod = config.energy !== undefined;
   const rows: ListEntry[] = [];
-  for (const source of model.solarSources) {
-    if (!source.reading.available) continue;
-    const w = source.reading.w;
-    if (!showAll && w < config.minConsumerW) continue;
+  for (const source of sources) {
+    const figure = rowFigure(source, model, single, inPeriod);
+    if (!single) {
+      if (figure.powerUnknown) continue;
+      // Filtered like the consumers - one off for the night only when every one stays.
+      if (!source.reading.available && !always) continue;
+      if (!showAll && !always && figure.w < config.minConsumerW) continue;
+    }
     rows.push({
       key: source.key,
       name: source.name,
-      w,
+      ...figure,
       color: source.color,
       entity: source.entity,
       icon: source.icon,
@@ -46,11 +112,21 @@ export function buildSolarRows(model: Model, config: Config, showAll: boolean): 
 
 /** The rows' figures from a newer model, their order and selection kept (L-7). */
 export function refreshSolarRows(rows: ListEntry[], model: Model): ListEntry[] {
-  const live = new Map<string, number>();
-  for (const source of model.solarSources) {
-    if (source.reading.available) live.set(source.key, source.reading.w);
+  const live = new Map<string, { w: number; powerUnknown?: true }>();
+  const sources = rowReadings(model);
+  const single = sources.length === 1;
+  for (const source of sources) {
+    // One source shows what the node shows, "—" included; several keep their
+    // last figure until the tick takes a gone one out (L-7).
+    const figure = rowFigure(source, model, single, false);
+    if (single || !figure.powerUnknown) live.set(source.key, figure);
   }
-  return rows.map((row) => ({ ...row, w: live.get(row.key) ?? row.w }));
+  return rows.map((row) => {
+    const figure = live.get(row.key);
+    if (!figure) return row;
+    const { powerUnknown: _, ...rest } = row;
+    return { ...rest, ...figure };
+  });
 }
 
 /**

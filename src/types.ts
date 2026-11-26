@@ -351,6 +351,8 @@ export interface RawConfig extends LovelaceCardConfig {
     };
     /** The PV rows (REQ PV-7). */
     solar?: boolean;
+    /** Every PV source on its row, at 0 W too, whatever the scope (REQ PV-11). */
+    solar_always?: boolean;
     /** The list scopes the quick button offers; one = fixed (REQ QB-2). */
     scope?: ListScope[];
     default_scope?: ListScope;
@@ -642,6 +644,8 @@ export interface Config {
     history: { consumers: boolean; solar: boolean; place: HistoryPlace; hours: HistoryHours };
     /** The PV rows (REQ PV-7). */
     solar: boolean;
+    /** Every PV source on its row, at 0 W too, whatever the scope (REQ PV-11). */
+    solarAlways: boolean;
     /** Offered scopes in their fixed order, never empty (REQ QB-2). */
     scope: ListScope[];
     /** One of `scope` (REQ QB-4). */
@@ -904,6 +908,12 @@ export interface SolarSourceReading {
   kwp?: number;
   excluded: boolean;
   reading: Reading;
+  /**
+   * Unavailable, but quiet before it went (below `flow.min_w`, a micro
+   * inverter off for the night): it counts 0 in the sum (REQ PV-2), and its
+   * row reads 0 W (PV-11).
+   */
+  quiet?: boolean;
 }
 
 export interface Model {
@@ -912,6 +922,11 @@ export interface Model {
   solar: Reading;
   /** The sources behind `solar`; empty for one entity (REQ PV-2). */
   solarSources: SolarSourceReading[];
+  /**
+   * The one entity of a PV that is no list, as its row reads it (REQ PV-11);
+   * absent for a list or a derived PV.
+   */
+  solarRow?: SolarSourceReading;
   /** positive = import from grid, negative = export */
   grid: Signed;
   /** positive = discharging, negative = charging. `null` when no battery configured. */

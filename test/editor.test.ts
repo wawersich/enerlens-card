@@ -441,6 +441,60 @@ describe("editor - colours, icons and thresholds", () => {
     expect(findField(without, "list_history_solar")).toBeUndefined();
   });
 
+  it("offers the PV list with one entity or one source, not with a derived PV (PV-11)", async () => {
+    for (const solar of ["sensor.solar", ["sensor.pv1"], ["sensor.pv1", "sensor.pv2"]]) {
+      const el = await mount({
+        type: "custom:enerlens-card",
+        entities: { solar, grid: "sensor.grid" },
+      } as RawConfig);
+      expect(findField(el, "list_solar")).toBeDefined();
+    }
+    const derived = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "derived", grid: "sensor.grid", house: "sensor.house" },
+    } as RawConfig);
+    expect(findField(derived, "list_solar")).toBeUndefined();
+  });
+
+  it("offers the history line for one entity's PV row (PV-11, LZ-18)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: "sensor.solar", grid: "sensor.grid" },
+      list: { solar: true },
+    } as RawConfig);
+    expect(findField(el, "list_history_solar")).toBeDefined();
+  });
+
+  it("offers 'always show all PV sources' only with the PV list on and two sources or more (PV-11)", async () => {
+    const offered = async (solar: unknown, list: Record<string, unknown>) =>
+      findField(
+        await mount({
+          type: "custom:enerlens-card",
+          entities: { solar, grid: "sensor.grid" },
+          list,
+        } as RawConfig),
+        "list_solar_always",
+      ) !== undefined;
+    expect(await offered(["sensor.pv1", "sensor.pv2"], { solar: true })).toBe(true);
+    expect(await offered(["sensor.pv1", "sensor.pv2"], {})).toBe(false);
+    expect(await offered(["sensor.pv1"], { solar: true })).toBe(false);
+    expect(await offered("sensor.solar", { solar: true })).toBe(false);
+  });
+
+  it("writes 'always show all PV sources' only when on, and takes it out again (PV-11)", async () => {
+    const el = await mount({
+      type: "custom:enerlens-card",
+      entities: { solar: ["sensor.pv1", "sensor.pv2"], grid: "sensor.grid" },
+      list: { solar: true },
+    } as RawConfig);
+    const on = await change(el, { list_solar_always: true });
+    expect(on.list).toEqual({ solar: true, solar_always: true });
+    const reopened = await mount(on);
+    expect(form(reopened).data?.list_solar_always).toBe(true);
+    const off = await change(reopened, { list_solar_always: false });
+    expect(off.list).toEqual({ solar: true });
+  });
+
   it("writes the radial-lines switch only when on, and reads it back (L-16)", async () => {
     const el = await mount({
       type: "custom:enerlens-card",

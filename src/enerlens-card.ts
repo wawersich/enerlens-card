@@ -92,7 +92,7 @@ import {
 import { mayStretchPaths, measurePathZoom } from "./render/path-zoom";
 import { RingAnimator } from "./render/ring";
 import { growth, sizeFactors } from "./render/sizing";
-import { buildSolarRows, refreshSolarRows, solarSegments } from "./solar";
+import { buildSolarRows, refreshSolarRows, rowSources, solarSegments } from "./solar";
 import { SolarMemory } from "./solar-memory";
 import { styles } from "./styles";
 import {
@@ -1024,8 +1024,9 @@ class EnerLensCard extends LitElement {
       if (house.kind === "single") ids.add(house.entity);
       for (const s of config.solarSources) if (s.excluded) ids.add(s.entity);
     }
-    if (solar && config.list.solar && config.solarSources.length >= 2) {
-      for (const s of config.solarSources) ids.add(s.entity);
+    // The PV rows' sources: the list, or the one entity (PV-11).
+    if (solar && config.list.solar) {
+      for (const s of rowSources(config)) ids.add(s.entity);
     }
     return [...ids];
   }
@@ -1102,7 +1103,7 @@ class EnerLensCard extends LitElement {
         if (this._lineShapes.has(key)) return this._lineShapes.get(key);
         let line: (number | null)[] | undefined;
         if (solar) {
-          const source = config.solarSources.find((s) => s.key === entry.key);
+          const source = rowSources(config).find((s) => s.key === entry.key);
           const own = source && lineOf(source.entity, source.invert);
           line = own && zeroGaps(own);
         } else if (entry.isRest) {

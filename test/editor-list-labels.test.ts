@@ -66,8 +66,11 @@ describe("the list switches (REQ L-14)", () => {
       { ...BOTH, list: { solar: false } },
       // Both switched on, the consumer list off.
       { ...BOTH, list: { solar: true, enabled: false } },
-      // One source has no PV rows (solar.ts), however the switch stands.
-      { ...BOTH, entities: { solar: [SOURCES[0]], grid: "sensor.g", house: "sensor.h" } },
+      // A derived PV has no PV row, however the switch stands (PV-11).
+      {
+        ...BOTH,
+        entities: { solar: "derived", grid: "sensor.g", house: "sensor.h", battery: "sensor.b" },
+      },
     ]) {
       const el = await mount(config);
       expect(el._label({ name: "list_always_below" })).toBe("Liste immer unten");
@@ -76,9 +79,20 @@ describe("the list switches (REQ L-14)", () => {
   });
 
   it("both lists shown: always below in the plural", async () => {
-    const el = await mount(BOTH);
-    expect(el._label({ name: "list_always_below" })).toBe("Listen immer unten");
-    expect(el._helper({ name: "list_always_below" })).toMatch(/^Die Listen bleiben/);
+    // One source has its PV row too since 20.11.2026 (PV-11), in either form.
+    for (const solar of [SOURCES, [SOURCES[0]], "sensor.s"]) {
+      const el = await mount({ ...BOTH, entities: { solar, grid: "sensor.g", house: "sensor.h" } });
+      expect(el._label({ name: "list_always_below" })).toBe("Listen immer unten");
+      expect(el._helper({ name: "list_always_below" })).toMatch(/^Die Listen bleiben/);
+    }
+  });
+
+  it("names the switch for all PV sources (PV-11)", async () => {
+    const de = await mount(BOTH);
+    expect(de._label({ name: "list_solar_always" })).toBe("Alle PV-Quellen immer anzeigen");
+    expect(de._helper({ name: "list_solar_always" })).toContain("0 W");
+    const en = await mount(BOTH, "en");
+    expect(en._label({ name: "list_solar_always" })).toBe("Always show all PV sources");
   });
 
   it("the same in English", async () => {

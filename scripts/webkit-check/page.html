@@ -57,6 +57,16 @@ const ARC = { arc: "plain", arcpv: "pvcross", arcright: "right", arcleft: "left"
   arctrianglebatt: "trianglebatt", arcscaled: "pvcross", arcvalues: "values", arcclear: "clear",
   arcbelow: "below", arcone: "plain", arctall: "plain", arcpvonly: "pvcross", arcextras: "extras" };
 const RADIAL = { radial: "plain", radialleft: "left", radialtrianglebatt: "trianglebatt" };
+// pvone...: one PV entity with its row (PV-11) - beside the cross, left of a
+// square, below the drawing, and with radial lines.
+const PVONE = { pvone: "pvcross", pvoneleft: "left", pvonebelow: "pvcross", pvoneradial: "pvcross" };
+const pvoneScene = rawScene in PVONE;
+// valuecol...: the value column below the drawing (L-22), in W so the figures
+// differ in width - valuecolpv: PV rows above, a history line beside the
+// power for the consumers only; valuecolpvmirror: for the PV rows only;
+// valuecolarc: the first with the arc; valuecolplain: no line, no values.
+const VALUECOL = { valuecolpv: "pvcross", valuecolpvmirror: "pvcross", valuecolarc: "pvcross", valuecolplain: "below" };
+const valuecolScene = rawScene in VALUECOL;
 // history...: the history line (LZ-18) with invented statistics - history:
 // automatic on a 640 px card; historyinline, historybelow: each place fixed;
 // historyframed: framed rows with values; historybar: below the row above
@@ -68,7 +78,7 @@ const HISTORY = { history: "plain", historyinline: "plain", historybelow: "plain
 const historyScene = rawScene in HISTORY;
 const arcScene = rawScene in ARC;
 const radialScene = arcScene || rawScene in RADIAL;
-let scene = arcScene ? ARC[rawScene] : HISTORY[rawScene] ?? RADIAL[rawScene] ?? rawScene;
+let scene = arcScene ? ARC[rawScene] : HISTORY[rawScene] ?? RADIAL[rawScene] ?? PVONE[rawScene] ?? VALUECOL[rawScene] ?? rawScene;
 // scaledpv: the cross with PV rows, scaled to 80 %, without the arc - the
 // same drawing as arcscaled, to tell the arc's part apart.
 if (rawScene === "scaledpv") scene = "pvcross";
@@ -181,7 +191,20 @@ const config = {
     : {}),
   ...(ringOff ? { ring: { enabled: false } } : {}),
 };
-if (radialScene) config.flow = { ...config.flow, radial: true };
+if (radialScene || rawScene === "pvoneradial") config.flow = { ...config.flow, radial: true };
+if (pvoneScene) {
+  config.entities = { ...config.entities, solar: "sensor.s" };
+  if (rawScene === "pvonebelow") config.list = { ...config.list, always_below: true };
+}
+if (valuecolScene) {
+  const history = {
+    consumers: rawScene !== "valuecolpvmirror" && rawScene !== "valuecolplain",
+    solar: rawScene === "valuecolpvmirror",
+    place: "inline",
+  };
+  config.list = { ...(config.list ?? {}), always_below: true, arc: rawScene === "valuecolarc", history };
+  config.power = { unit: "W" };
+}
 if (historyScene) {
   const place = { historyinline: "inline", historybelow: "below", historybar: "below" }[rawScene] ?? "auto";
   config.list = { ...(config.list ?? {}), history: { consumers: true, solar: true, place } };
@@ -237,7 +260,7 @@ const fakeWS = async (msg) => {
   return {};
 };
 card.hass = { states, locale: { language: "de", number_format: "language" }, language: "de",
-  callWS: historyScene ? fakeWS : async () => ({}) };
+  callWS: historyScene || valuecolScene ? fakeWS : async () => ({}) };
 document.getElementById("host").appendChild(card);
 if (clear) {
   await card.updateComplete;
@@ -366,7 +389,7 @@ function labels(root) {
   // names and values of both blocks stand one below the other.
   const pv = root.querySelector(".list:not(.pv-side) .pv-rows");
   // With the arched list every row moves for itself (LZ-17).
-  if (pv && pv.parentElement.querySelector(".rows") && !arcScene) {
+  if (pv && pv.parentElement.querySelector(".rows") && !arcScene && !config.list?.arc) {
     for (const [sel, side, what] of [[".swatch", "left", "Marken"], [".name", "left", "Namen"], [".row-value", "right", "Werte"]]) {
       const xs = [...pv.parentElement.querySelectorAll(`.pv-rows .row ${sel}, .rows .row ${sel}`)].map((e) => e.getBoundingClientRect()[side]);
       const spread = Math.max(...xs) - Math.min(...xs);
@@ -375,6 +398,53 @@ function labels(root) {
     // The longest name decides the width: at least one name fills its room.
     const slack = Math.min(...[...pv.parentElement.querySelectorAll(".row .name")].map((n) => n.clientWidth - n.scrollWidth));
     if (slack > 1) out.push(`Spalte ${slack} px breiter als der längste Name`);
+  }
+  return out;
+}
+
+/**
+ * The right edge of a row's figure - its text, not the cell, which fills the
+ * column whatever the figure does (L-22) - with the row's arc shift taken
+ * out (LZ-17), so arched rows compare like straight ones.
+ */
+function figureRight(row) {
+  const cell = row.querySelector(".row-value");
+  if (!cell) return undefined;
+  let right = -Infinity;
+  for (const node of cell.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    for (const r of range.getClientRects()) right = Math.max(right, r.right);
+  }
+  if (right === -Infinity) return undefined;
+  // The shift is in the card's own pixels; a scaled card (arcscaled) draws
+  // it smaller on screen.
+  const scale = row.offsetWidth ? row.getBoundingClientRect().width / row.offsetWidth : 1;
+  const shift = parseFloat(getComputedStyle(row).translate) || 0;
+  return right - shift * scale;
+}
+
+/**
+ * Figures flush right (L-22): in a list beside or below the drawing every
+ * row's figure ends at one edge - PV rows and consumers alike, with or
+ * without a history line before it. The mirrored PV list on the left is
+ * left out: its figures stand at its outer edge.
+ */
+function valueColumn(root) {
+  const out = [];
+  for (const list of root.querySelectorAll(".list:not(.pv-side)")) {
+    const rows = [...list.querySelectorAll(".pv-rows .row, .rows .row")].filter((r) => r.getBoundingClientRect().height > 0);
+    // A value cell without a figure of its own would be skipped unseen.
+    const blank = rows.filter((r) => r.querySelector(".row-value") && figureRight(r) === undefined);
+    if (blank.length) out.push(`${blank.length} Werte ohne Text`);
+    // With the arc on, the correction must have something to correct.
+    if (config.list?.arc && rows.length > 2 && !rows.some((r) => parseFloat(getComputedStyle(r).translate)))
+      out.push("Bogen nicht aktiv");
+    const xs = rows.map(figureRight).filter((x) => x !== undefined);
+    if (xs.length < 2) continue;
+    const spread = Math.max(...xs) - Math.min(...xs);
+    if (spread > 1) out.push(`Werte nicht rechtsbündig: ${spread.toFixed(1)} px versetzt`);
   }
   return out;
 }
@@ -775,6 +845,7 @@ window.check = () => {
     arc: arcRows(root),
     ends: lineEnds(root),
     history: historyRows(root),
+    valueCol: valueColumn(root),
   };
   result.rims = rims(root);
   // Cut out only where the circles let the lines show (K-16).
